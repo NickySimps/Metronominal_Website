@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <script src="script.js" defer></script>
+    <title>Metronominal: The Mathrock Metronome</title>
+</head>
+
+<body>
+    <div class="main-container">
+        <div class="metronome-container">
+            <div class="tempo-container">
+                <div class="bpm-display">
+                    <span class="tempo">120</span>
+                    <span class="bpm-text">BPM</span>
+                    <div class="tempo-text">
+                        <span>moderate</span>
+                    </div>
+                </div>
+                <div class="tempo-settings">
+                    <div class="adjust-tempo decrease-tempo">-</div>
+                    <div class="tempo-slider">
+                        <input type="range" min="20" max="300" step="1" class="slider">
+                    </div>
+                    <div class="adjust-tempo increase-tempo">+</div>
+                </div>
+            </div>
+            <div class="start-stop-btn">START</div>
+            <div class="measures-container">
+                <div class="adjust-measure-length decrease-measure-length">-</div>
+                <span class="beats-per-current-measure">4</span>
+                <div class="adjust-measure-length increase-measure-length">+</div>
+                <span class="measures-text">BEATS</span>
+            </div>
+            <div class="bar-settings-container">
+                <div class="adjust-bar-length decrease-bar-length">-</div>
+                <span class="bars-length">2</span>
+                <div class="adjust-bar-length increase-bar-length">+</div>
+                <span class="bars-text">BARS</span>
+            </div>
+            <div class="bar-display-container">
+                <div class="measure-bar" id="0"></div>
+            </div>
+
+</body>
+
+</html>
