@@ -7,11 +7,13 @@ body{
     align-items: center;
     height: auto;
     width: 90%;
-    margin: 0px;
-    padding: 0px;
+    margin: auto;
+    padding: auto;
 }
 .main-container{
     height: 98vh;
+    margin: auto;
+    
 }
 .metronome-container {
     width: auto;
@@ -144,6 +146,7 @@ span{
     width: 95%;
     height: 3em;
     align-items: center;
+    justify-content: center;
     display: flex;
 }
 .measure-bar {
@@ -152,7 +155,19 @@ span{
     background: springgreen;
     margin: 20px auto;
     align-items: center;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-gap: 3px;
+    padding: 0px;
+    margin: 0px;
+}
+.measure-bar:nth-of-type(2){
+    background: yellow;
+    height: .5em;
+}
+.measure-bar:nth-of-type(3){
+    background: hotpink;
+    height: .5em;
 }
 .measure-bar-segment{
     height: .9em;

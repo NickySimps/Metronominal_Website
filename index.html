@@ -17,14 +17,14 @@
                 <div class="bpm-display">
                     <span class="tempo">120</span>
                     <span class="bpm-text">BPM</span>
-                    <div class="tempo-text">
-                        <span>moderate</span>
+                    <div class="tempo-text-box">
+                        <span class="tempo-text">moderate</span>
                     </div>
                 </div>
                 <div class="tempo-settings">
                     <div class="adjust-tempo decrease-tempo">-</div>
                     <div class="tempo-slider">
-                        <input type="range" min="20" max="300" step="1" class="slider">
+                        <input type="range" min="20" max="300" value="120" step="1" class="slider">
                     </div>
                     <div class="adjust-tempo increase-tempo">+</div>
                 </div>
@@ -43,7 +43,7 @@
                 <div class="bar-settings-container">
                     <div class="bar-settings">
                         <div class="adjust-bar-length decrease-bar-length">-</div>
-                        <span class="bars-length">2</span>
+                        <span class="bars-length">3</span>
                         <div class="adjust-bar-length increase-bar-length">+</div>
                     </div>
                     <span class="bars-text">BARS</span>
@@ -53,6 +53,10 @@
             <div class="bar-display-container">
                 <div class="measure-bar" id="0">
                     <div class="measure-bar-segment"></div>
+                </div>
+                <div class="measure-bar" id="1">
+                </div>
+                <div class="measure-bar" id="2">
                 </div>
             </div>
 
