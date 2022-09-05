@@ -25,6 +25,7 @@ window.onload = init();
 function init() {
     console.log("Hello there");
     drawBars();
+    updateBars();
     drawBeats();
 }
 

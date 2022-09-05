@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Dongle:wght@300;400;700&display=swap');
+
 body {
     background-color: #FFFBE9;
     font-family: 'Dongle', sans-serif;
@@ -11,12 +13,19 @@ body {
     padding: 0;
     user-select: none;
 }
-.bar-display-container *:hover,
+.decrease-tempo:hover,
+.start-stop-btn:hover {
+    box-shadow: deeppink 3px 6px ;
+    transition-duration: 200ms;
+}
+.bar-display-container *:hover {
+    box-shadow: deeppink 0px 6px ;
+    transition-duration: 200ms;
+}
 .beat-settings *:hover,
 .bar-settings *:hover,
-.tempo-settings *:hover,
-.start-stop-btn:hover {
-    box-shadow: deeppink 5px 5px ;
+.increase-tempo:hover{
+    box-shadow: deeppink -3px 6px ;
     transition-duration: 200ms;
 }
 
@@ -155,7 +164,7 @@ span {
 .adjust-bar-length:hover,
 .adjust-measure-length:hover,
 .start-stop-btn:hover {
-    outline: 2px solid hotpink;
+    outline: 2px solid lightskyblue;
     border-radius: 50%;
     background: dodgerblue;
     color: whitesmoke;
@@ -200,16 +209,17 @@ span {
     border-radius: 10px;
 }
 
-.measure-bar:nth-of-type(even) {
+.measure-bar:nth-of-type(odd) {
     background: hotpink;
     filter: brightness(1.25);
     height: .5em;
 }
 
-.measure-bar:nth-of-type(odd) {
+.measure-bar:nth-of-type(even) {
     background: hotpink;
     height: .25em;
     filter: brightness(1.7);
+    border-radius: 0px;
 }
 
 .measure-bar:first-of-type {
@@ -218,6 +228,7 @@ span {
     display: flex;
     gap: 2px;
     filter: brightness(1);
+    border-radius: 8px;
 }
 
 .measure-bar-segment {
