@@ -1,3 +1,5 @@
+
+
 body{
     background-color: #FFFBE9;
     font-family: 'Dongle', sans-serif;
@@ -10,14 +12,17 @@ body{
     margin: auto;
     padding: auto;
 }
+*:focus{
+    box-shadow: gold 3px 3px 10px;
+}
 .main-container{
-    height: 98vh;
+    height: auto;
     margin: auto;
     
 }
 .metronome-container {
     width: auto;
-    height: 98vh;
+    height: auto;
     display: flex;
     justify-content: center;
     align-content: space-evenly;
@@ -30,7 +35,7 @@ body{
 }
 .tempo-container{
     font-size: 2em;
-    width: 90%;
+    width: 100%;
 }
 .tempo, .beats-per-current-measure,.bars-length{
     font-weight: bold;
@@ -46,7 +51,7 @@ body{
 
 }
 .tempo-slider{
-    width: 4em;
+    width: auto;
     padding:0 30px;
 }
 .slider{
@@ -143,34 +148,41 @@ span{
     background: whitesmoke;
     outline: lightskyblue 1px solid;
     border-radius: 15px;
-    width: 95%;
+    width: 100%;
     height: 3em;
     align-items: center;
     justify-content: center;
     display: flex;
+    flex-wrap: wrap;
+    margin: 10px;
+    min-height: 0;
 }
-.measure-bar {
-    height: 1em;
+.measure-bar{
     width: 3em;
-    background: springgreen;
-    margin: 20px auto;
     align-items: center;
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
-    grid-gap: 3px;
     padding: 0px;
     margin: 0px;
+    border-radius: 10px;
 }
-.measure-bar:nth-of-type(2){
-    background: yellow;
+.measure-bar:nth-of-type(even){
+    background: rgb(255, 181, 44);
     height: .5em;
 }
-.measure-bar:nth-of-type(3){
+.measure-bar:nth-of-type(odd){
     background: hotpink;
-    height: .5em;
+    height: .25em;
+}
+.measure-bar:first-of-type{
+    height: 1em;
+    background: springgreen;
+    display: flex;
+    gap: 2px;
+    
 }
 .measure-bar-segment{
     height: .9em;
     width: .9em;
+    margin: auto;
     background: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
 }
