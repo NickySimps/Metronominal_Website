@@ -50,6 +50,23 @@ tempoSlider.addEventListener("input", () => {
 function updateTempo() {
     tempo.textContent = currentTempo;
     tempoSlider.value = currentTempo;
+    if(currentTempo < 60){
+        tempoText.textContent = 'very slow'
+    }else if(currentTempo > 60 && currentTempo < 90) {
+        tempoText.textContent = 'slow'
+    }else if(currentTempo > 90 && currentTempo < 120) {
+        tempoText.textContent = 'moderate'
+    }else if(currentTempo > 120 && currentTempo < 160) {
+        tempoText.textContent = 'kinda fast'
+    }else if(currentTempo > 160 && currentTempo < 200) {
+        tempoText.textContent = 'fast'
+    }else if(currentTempo > 200 && currentTempo < 230) {
+        tempoText.textContent = 'very fast'
+    }else if(currentTempo > 230 && currentTempo < 260) {
+        tempoText.textContent = 'extremely fast'
+    }else if(currentTempo > 260) {
+        tempoText.textContent = 'woah nelly'
+    }
 }
 
 //~~~~~~~~~~START-STOP BUTTON~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -103,10 +120,6 @@ incBarsBtn.addEventListener("click", () => {
 
 function updateBars() {
     currentBars.textContent = amountOfBars;
-
-    /*for (let i = 0; i < amountOfBars; i++) {
-      barDisplay.innerHTML += newMeasureBar +i;
-    }*/
 }
 
 //~~~~~~~~~~~~~~~~~~~FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
