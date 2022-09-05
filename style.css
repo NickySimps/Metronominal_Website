@@ -147,7 +147,7 @@ span{
 .bar-display-container{
     background: whitesmoke;
     outline: lightskyblue 1px solid;
-    border-radius: 15px;
+    border-radius: 5px;
     width: 100%;
     height: 3em;
     align-items: center;
@@ -165,24 +165,26 @@ span{
     border-radius: 10px;
 }
 .measure-bar:nth-of-type(even){
-    background: rgb(255, 181, 44);
+    background: hotpink;
+    filter: brightness(1.25);
     height: .5em;
 }
 .measure-bar:nth-of-type(odd){
     background: hotpink;
     height: .25em;
+    filter: brightness(1.7);
 }
 .measure-bar:first-of-type{
     height: 1em;
-    background: springgreen;
+    background: hotpink;
     display: flex;
     gap: 2px;
-    
+    filter: brightness(1);
 }
 .measure-bar-segment{
     height: .9em;
     width: .9em;
     margin: auto;
     background: rgba(0, 0, 0, 0.5);
-    border-radius: 10px;
+    
 }

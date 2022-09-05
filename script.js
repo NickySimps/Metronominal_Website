@@ -23,99 +23,108 @@ let amountOfBars = 3;
 window.onload = init();
 
 function init() {
-  console.log("Hello there");
-  drawBars();
-  drawBeats();
+    console.log("Hello there");
+    drawBars();
+    drawBeats();
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~TEMPO CONTROLLER~~~~~~~~~~~~~~~~~~~~~~~~~
+
 decTempoBtn.addEventListener("click", () => {
-  if (currentTempo > 20) {
-    currentTempo--;
-  }
-  updateTempo();
+    if (currentTempo > 20) {
+        currentTempo--;
+    }
+    updateTempo();
 });
 incTempoBtn.addEventListener("click", () => {
-  if (currentTempo < 300) {
-    currentTempo++;
-  }
-  updateTempo();
+    if (currentTempo < 300) {
+        currentTempo++;
+    }
+    updateTempo();
 });
 tempoSlider.addEventListener("input", () => {
-  currentTempo = tempoSlider.value;
-  updateTempo();
+    currentTempo = tempoSlider.value;
+    updateTempo();
 });
 
+function updateTempo() {
+    tempo.textContent = currentTempo;
+    tempoSlider.value = currentTempo;
+}
+
+//~~~~~~~~~~START-STOP BUTTON~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 startStopBtn.addEventListener("click", () => {
-  if (startStopBtn.textContent === "START") {
-    startStopBtn.textContent = "STOP";
-  } else {
-    startStopBtn.textContent = "START";
-  }
+    if (startStopBtn.textContent === "START") {
+        startStopBtn.textContent = "STOP";
+    } else {
+        startStopBtn.textContent = "START";
+    }
 });
+
 //~~~~~~~~~~~BEATS CONTROLLER~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 decBeatsBtn.addEventListener("click", () => {
-  if (selectedBarBeats >= 1) {
-    selectedBarBeats--;
-    let lastSegment = measureBar.lastElementChild;
-    measureBar.removeChild(lastSegment);
-  }
-  updateBeats();
+    if (selectedBarBeats >= 1) {
+        selectedBarBeats--;
+        // let lastSegment = measureBar.lastElementChild;
+        // measureBar.removeChild(lastSegment);
+    }
+    updateBeats();
 });
 
 incBeatsBtn.addEventListener("click", () => {
-  if (selectedBarBeats < 19) {
-    selectedBarBeats++;
-   measureBar.innerHTML += newMeasureBarSegment;
-  }
-  updateBeats();
+    if (selectedBarBeats < 19) {
+        selectedBarBeats++;
+        //measureBar.innerHTML += newMeasureBarSegment;
+    }
+    updateBeats();
 });
+function updateBeats() {
+    currentBeats.textContent = selectedBarBeats;
+}
 
 //~~~~~~~~~~~~~~BARS CONTROLLER~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 decBarsBtn.addEventListener("click", () => {
-  if (amountOfBars >= 1) {
-    amountOfBars--;
-    let lastBlock = barDisplay.lastElementChild;
-    barDisplay.removeChild(lastBlock);
-  }
-  updateBars();
+    if (amountOfBars > 1) {
+        amountOfBars--;
+        let lastBlock = barDisplay.lastElementChild;
+        barDisplay.removeChild(lastBlock);
+    }
+    updateBars();
 });
 
 incBarsBtn.addEventListener("click", () => {
-  amountOfBars++;
-  barDisplay.innerHTML += newMeasureBar;
-  updateBars();
+    amountOfBars++;
+    barDisplay.innerHTML += newMeasureBar;
+    updateBars();
 });
 
-/*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-FUNCTIONS */
+function updateBars() {
+    currentBars.textContent = amountOfBars;
+
+    /*for (let i = 0; i < amountOfBars; i++) {
+      barDisplay.innerHTML += newMeasureBar +i;
+    }*/
+}
+
+//~~~~~~~~~~~~~~~~~~~FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 function drawBars() {
-  for (let i = 0; i < currentBars.textContent; i++) {
-    console.log("bars" + i);
-    barDisplay.innerHTML += newMeasureBar;
-  }
-  console.log("bars made");
+    for (let i = 0; i < currentBars.textContent; i++) {
+        console.log("bars" + i);
+        barDisplay.innerHTML += newMeasureBar;
+    }
+    console.log("bars made");
 }
 function drawBeats() {
-  for (let i = 0; i < currentBeats.textContent; i++) {
-    console.log("beats" + i);
-    measureBar.innerHTML += newMeasureBarSegment;
-  }
+    for (let i = 0; i < currentBeats.textContent; i++) {
+        console.log("beats" + i);
+        //measureBar.innerHTML += newMeasureBarSegment;
+    }
 }
 
-function updateTempo() {
-  tempo.textContent = currentTempo;
-  tempoSlider.value = currentTempo;
-}
 
-function updateBeats() {
-  currentBeats.textContent = selectedBarBeats;
-}
 
-function updateBars() {
-  currentBars.textContent = amountOfBars;
 
-  /*for (let i = 0; i < amountOfBars; i++) {
-    barDisplay.innerHTML += newMeasureBar +i;
-  }*/
-}
