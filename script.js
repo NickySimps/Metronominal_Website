@@ -12,20 +12,22 @@ const incBarsBtn = document.querySelector(".increase-bar-length");
 const currentBars = document.querySelector(".bars-length");
 const barDisplay = document.querySelector(".bar-display-container");
 const newMeasureBar = `<div class="measure-bar"></div>`;
-const measureBar = document.querySelector(".measure-bar");
 const newMeasureBarSegment = `<div class="measure-bar-segment"></div>`;
 const measureBarSegment = document.querySelector(".measure-bar-segment");
 
+const click1 = new Audio("Click1.mp3");
+const click2 = new Audio('Click2.mp3');
+
+click1.play();
+
 let currentTempo = 120;
-let selectedBarBeats = 4;
-let amountOfBars = 3;
+let selectedBarBeats = 5;
+let amountOfBars = 4;
 
 window.onload = init();
 
 function init() {
-    console.log("Hello there");
     drawBars();
-    updateBars();
     drawBeats();
 }
 
@@ -51,21 +53,21 @@ tempoSlider.addEventListener("input", () => {
 function updateTempo() {
     tempo.textContent = currentTempo;
     tempoSlider.value = currentTempo;
-    if(currentTempo < 60){
+    if (currentTempo < 60) {
         tempoText.textContent = 'very slow'
-    }else if(currentTempo > 60 && currentTempo < 90) {
+    } else if (currentTempo > 60 && currentTempo < 90) {
         tempoText.textContent = 'slow'
-    }else if(currentTempo > 90 && currentTempo < 120) {
+    } else if (currentTempo > 90 && currentTempo < 120) {
         tempoText.textContent = 'moderate'
-    }else if(currentTempo > 120 && currentTempo < 160) {
+    } else if (currentTempo > 120 && currentTempo < 160) {
         tempoText.textContent = 'kinda fast'
-    }else if(currentTempo > 160 && currentTempo < 200) {
+    } else if (currentTempo > 160 && currentTempo < 200) {
         tempoText.textContent = 'fast'
-    }else if(currentTempo > 200 && currentTempo < 230) {
+    } else if (currentTempo > 200 && currentTempo < 230) {
         tempoText.textContent = 'very fast'
-    }else if(currentTempo > 230 && currentTempo < 260) {
+    } else if (currentTempo > 230 && currentTempo < 260) {
         tempoText.textContent = 'extremely fast'
-    }else if(currentTempo > 260) {
+    } else if (currentTempo > 260) {
         tempoText.textContent = 'woah nelly'
     }
 }
@@ -83,10 +85,11 @@ startStopBtn.addEventListener("click", () => {
 //~~~~~~~~~~~BEATS CONTROLLER~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 decBeatsBtn.addEventListener("click", () => {
-    if (selectedBarBeats >= 1) {
+    if (selectedBarBeats > 1) {
         selectedBarBeats--;
-        // let lastSegment = measureBar.lastElementChild;
-        // measureBar.removeChild(lastSegment);
+        let measureBar = document.querySelector(".measure-bar");
+        let lastSegment = measureBar.lastElementChild;
+        measureBar.removeChild(lastSegment);
     }
     updateBeats();
 });
@@ -94,7 +97,8 @@ decBeatsBtn.addEventListener("click", () => {
 incBeatsBtn.addEventListener("click", () => {
     if (selectedBarBeats < 19) {
         selectedBarBeats++;
-        //measureBar.innerHTML += newMeasureBarSegment;
+        let measureBar = document.querySelector(".measure-bar");
+        measureBar.innerHTML += newMeasureBarSegment;
     }
     updateBeats();
 });
@@ -126,17 +130,19 @@ function updateBars() {
 //~~~~~~~~~~~~~~~~~~~FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 function drawBars() {
+    updateBars();
     for (let i = 0; i < currentBars.textContent; i++) {
-        console.log("bars" + i);
         barDisplay.innerHTML += newMeasureBar;
     }
-    console.log("bars made");
+
 }
 function drawBeats() {
+    let measureBar = document.querySelector('.measure-bar');
+    updateBeats();
     for (let i = 0; i < currentBeats.textContent; i++) {
-        console.log("beats" + i);
-        //measureBar.innerHTML += newMeasureBarSegment;
+        measureBar.innerHTML += newMeasureBarSegment;
     }
+
 }
 
 

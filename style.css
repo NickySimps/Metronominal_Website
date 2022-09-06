@@ -13,19 +13,27 @@ body {
     padding: 0;
     user-select: none;
 }
+
+body *:focus {
+    outline: gold 4px solid;
+}
+
 .decrease-tempo:hover,
 .start-stop-btn:hover {
-    box-shadow: deeppink 3px 6px ;
+    box-shadow: deeppink 3px 6px 8px;
     transition-duration: 200ms;
 }
+
+.tempo-slider *:hover,
 .bar-display-container *:hover {
-    box-shadow: deeppink 0px 6px ;
+    box-shadow: deeppink 0px 6px 8px;
     transition-duration: 200ms;
 }
+
 .beat-settings *:hover,
 .bar-settings *:hover,
-.increase-tempo:hover{
-    box-shadow: deeppink -3px 6px ;
+.increase-tempo:hover {
+    box-shadow: deeppink -3px 6px 8px;
     transition-duration: 200ms;
 }
 
@@ -45,7 +53,9 @@ body {
     flex-direction: row;
 }
 
-.tempo-container, .measures-container, .bar-settings-container {
+.tempo-container,
+.measures-container,
+.bar-settings-container {
     background: whitesmoke;
     text-align: center;
 }
@@ -55,7 +65,9 @@ body {
     width: 100%;
 }
 
-.tempo, .beats-per-current-measure, .bars-length {
+.tempo,
+.beats-per-current-measure,
+.bars-length {
     font-weight: bold;
     color: hotpink;
     font-size: larger
@@ -114,12 +126,15 @@ input[type=range]::-webkit-slider-runnable-track {
     height: 2px;
 }
 
-.tempo-settings, .beat-settings, .bar-settings {
+.tempo-settings,
+.beat-settings,
+.bar-settings {
     display: flex;
     justify-content: space-evenly;
 }
 
-.beat-settings, .bar-settings {
+.beat-settings,
+.bar-settings {
     outline: 1px solid lightskyblue;
     background: white;
     width: 100%;
@@ -140,11 +155,13 @@ span {
 
 }
 
-.measures-container, .bar-settings-container {
+.measures-container,
+.bar-settings-container {
     width: 57%;
 }
 
-.measure-settings-container, .bar-settings-container {
+.measure-settings-container,
+.bar-settings-container {
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -152,7 +169,10 @@ span {
     align-items: center;
 }
 
-.adjust-tempo, .adjust-bar-length, .adjust-measure-length, .start-stop-btn {
+.adjust-tempo,
+.adjust-bar-length,
+.adjust-measure-length,
+.start-stop-btn {
     outline: 1px solid whitesmoke;
     border-radius: 50%;
     background: lightskyblue;
@@ -176,14 +196,16 @@ span {
     margin: auto;
 }
 
-.adjust-measure-length, .adjust-bar-length {
+.adjust-measure-length,
+.adjust-bar-length {
     height: 70px;
     width: 70px;
     margin: auto;
     padding: 0px;
 }
 
-.increase-bar-length, .increase-measure-length {
+.increase-bar-length,
+.increase-measure-length {
     line-height: 77px;
 }
 
@@ -207,6 +229,7 @@ span {
     padding: 0px;
     margin: 0px;
     border-radius: 10px;
+    justify-content: center;
 }
 
 .measure-bar:nth-of-type(odd) {
@@ -232,9 +255,9 @@ span {
 }
 
 .measure-bar-segment {
-    height: .9em;
-    width: .9em;
-    margin: auto;
-    background: rgba(0, 0, 0, 0.5);
-
+    height: 90%;
+    width: 90%;
+    margin: 1px 3px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, .25);
 }
