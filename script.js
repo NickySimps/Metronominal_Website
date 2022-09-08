@@ -17,8 +17,10 @@ const measureBarSegment = document.querySelector(".measure-bar-segment");
 
 const click1 = new Audio("Click1.mp3");
 const click2 = new Audio('Click2.mp3');
+const crank1 = new Audio('Crank1.mp3');
+const crank2 = new Audio('Crank2.mp3');
 
-click1.play();
+
 
 let currentTempo = 120;
 let selectedBarBeats = 5;
@@ -29,11 +31,13 @@ window.onload = init();
 function init() {
     drawBars();
     drawBeats();
+
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~TEMPO CONTROLLER~~~~~~~~~~~~~~~~~~~~~~~~~
 
 decTempoBtn.addEventListener("click", () => {
+
     if (currentTempo > 20) {
         currentTempo--;
     }
@@ -75,11 +79,16 @@ function updateTempo() {
 //~~~~~~~~~~START-STOP BUTTON~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 startStopBtn.addEventListener("click", () => {
+
     if (startStopBtn.textContent === "START") {
         startStopBtn.textContent = "STOP";
     } else {
         startStopBtn.textContent = "START";
+
     }
+    playClick();
+
+
 });
 
 //~~~~~~~~~~~BEATS CONTROLLER~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -142,6 +151,18 @@ function drawBeats() {
     for (let i = 0; i < currentBeats.textContent; i++) {
         measureBar.innerHTML += newMeasureBarSegment;
     }
+
+}
+
+function playClick() {
+    setTimeout(() => {
+        click1.play();
+    }, (60 / tempoSlider.value) * 500);
+    setTimeout(() => {
+        click2.play();
+        playClick();
+
+    }, (60 / tempoSlider.value) * 1000);
 
 }
 
