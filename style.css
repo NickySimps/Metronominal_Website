@@ -208,7 +208,8 @@ span {
   outline: lightskyblue 1px solid;
   border-radius: 5px;
   width: 100%;
-  height: 3em;
+  height: auto;
+  padding: 10px;
   align-items: center;
   justify-content: center;
   display: flex;
@@ -217,15 +218,29 @@ span {
   min-height: 0;
 }
 
+.total-beats-display {
+  outline: 1px solid hotpink;
+  padding: 4px;
+  background: lightskyblue;
+  border-radius: 50%;
+  font-size: initial;
+  width: 50px;
+  text-align: center;
+  height: 50px;
+  margin-right: 10%;
+  position: fixed;
+  top: 77%;
+  left: 2%;
+}
 .measure-bar {
   background: hotpink;
   display: flex;
   gap: 2px;
   width: 3em;
   align-items: center;
-  padding: 0px;
+  padding: 3px;
   margin: 0px;
-  border-radius: 10px;
+  border-radius: 8px;
   justify-content: center;
 }
 

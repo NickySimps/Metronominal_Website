@@ -16,8 +16,6 @@ const newMeasureBar = `<div class="measure-bar"></div>`;
 const newMeasureBarSegment = `<div class="measure-bar-segment"></div>`;
 const measureBarSegment = document.querySelector(".measure-bar-segment");
 
-totalBeatsDisplay.textContent = test();
-
 const measure = {
   beats: 4,
   selected: false,
@@ -41,7 +39,7 @@ const crank1 = new Audio("Crank1.mp3");
 const crank2 = new Audio("Crank2.mp3");
 
 let currentTempo = 120;
-let selectedBarBeats = 0;
+let selectedBarBeats = 1;
 let amountOfBars = 1;
 
 window.onload = init();
@@ -126,7 +124,7 @@ incBeatsBtn.addEventListener("click", () => {
 function updateBeats() {
   let lastBlock = barDisplay.lastElementChild;
   currentBeats.textContent = lastBlock.getElementsByTagName("*").length;
-  totalBeatsDisplay.innerHTML += 99;
+  totalUpBeats();
 }
 
 //~~~~~~~~~~~~~~BARS CONTROLLER~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -144,6 +142,7 @@ incBarsBtn.addEventListener("click", () => {
   amountOfBars++;
   measure.makeMeasure();
   updateBars();
+  updateBeats();
 });
 
 function updateBars() {
@@ -160,14 +159,19 @@ function drawBars() {
 }
 function drawBeats() {
   let measureBar = document.querySelector(".measure-bar");
+  
+
   updateBeats();
-  for (let i = 0; i < currentBeats.textContent; i++) {
+  for (let i = 0; i < selectedBarBeats; i++) {
     measureBar.innerHTML += newMeasureBarSegment;
+    updateBeats();
+
   }
 }
-function test() {
-  let allMeasures = document.querySelectorAll(".measure-bar");
-  return "Total Beats:" + 99;
+function totalUpBeats() {
+  let tb = barDisplay.getElementsByClassName("measure-bar-segment").length;
+  let totalBeatsDisplay = document.querySelector(".total-beats-display");
+  totalBeatsDisplay.textContent = "Total Beats: " + tb;
 }
 
 function playClick() {
