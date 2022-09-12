@@ -126,6 +126,19 @@ function updateBeats() {
   currentBeats.textContent = lastBlock.getElementsByTagName("*").length;
   totalUpBeats();
 }
+function drawBeats() {
+  let measureBar = document.querySelector(".measure-bar");
+  updateBeats();
+  for (let i = 0; i < selectedBarBeats; i++) {
+    measureBar.innerHTML += newMeasureBarSegment;
+    updateBeats();
+  }
+}
+function totalUpBeats() {
+  let tb = barDisplay.getElementsByClassName("measure-bar-segment").length;
+  let totalBeatsDisplay = document.querySelector(".total-beats-display");
+  totalBeatsDisplay.textContent = "Total Beats: " + tb;
+}
 
 //~~~~~~~~~~~~~~BARS CONTROLLER~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -148,31 +161,13 @@ incBarsBtn.addEventListener("click", () => {
 function updateBars() {
   currentBars.textContent = amountOfBars;
 }
-
-//~~~~~~~~~~~~~~~~~~~FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 function drawBars() {
   updateBars();
   for (let i = 0; i < currentBars.textContent; i++) {
     barDisplay.innerHTML += newMeasureBar;
   }
 }
-function drawBeats() {
-  let measureBar = document.querySelector(".measure-bar");
-  
-
-  updateBeats();
-  for (let i = 0; i < selectedBarBeats; i++) {
-    measureBar.innerHTML += newMeasureBarSegment;
-    updateBeats();
-
-  }
-}
-function totalUpBeats() {
-  let tb = barDisplay.getElementsByClassName("measure-bar-segment").length;
-  let totalBeatsDisplay = document.querySelector(".total-beats-display");
-  totalBeatsDisplay.textContent = "Total Beats: " + tb;
-}
+//~~~~~~~~~~~~~~~~~~~FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 function playClick() {
   setTimeout(() => {
