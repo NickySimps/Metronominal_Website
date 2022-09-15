@@ -166,7 +166,7 @@ span {
 .adjust-tempo,
 .adjust-bar-length,
 .adjust-measure-length,
-.start-stop-btn {
+.start-stop-btn, select {
   outline: 1px solid whitesmoke;
   border-radius: 50%;
   background: lightskyblue;
@@ -202,6 +202,27 @@ span {
 .increase-measure-length {
   line-height: 77px;
 }
+.bar-display {
+    width: 100%;
+    display: flex;
+    align-items: center;
+}
+select {
+    height: 50px;
+    width: 50px;
+    outline-color: hotpink;
+    border-color: transparent;
+}
+select::after, option {
+   background-color: hotpink;
+    outline-color: hotpink;
+    border-color: transparent;
+}
+select:active {
+   background-color: dodgerblue;
+    outline-color: hotpink;
+    border-color: transparent;
+}
 
 .bar-display-container {
   background: whitesmoke;
@@ -227,10 +248,8 @@ span {
   width: 50px;
   text-align: center;
   height: 50px;
-  margin-right: 10%;
-  position: fixed;
-  top: 77%;
-  left: 2%;
+  margin-right: auto;
+  
 }
 .measure-bar {
   background: hotpink;
