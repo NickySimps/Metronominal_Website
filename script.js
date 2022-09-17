@@ -193,13 +193,34 @@ function drawBars() {
   }
 }
 //~~~~~~~~~~~~~~~~~~~FUNCTIONS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+let index = 0;
 
 function playClick() {
   setTimeout(() => {
-    click1.play();
-  }, (60 / tempoSlider.value) * 500);
-  setTimeout(() => {
-    click2.play();
+    let allBeats = document.querySelectorAll(".measure-bar-segment");
+    if (allBeats.length == 1) {
+      allBeats[index].classList.toggle("highlighted");
+      click1.currentTime = 0;
+      click1.play();
+    } else {
+      allBeats[index].classList.toggle("highlighted");
+      if (index >= 1) {
+        click2.currentTime = 0;
+        click2.play();
+      }
+      console.log(index);
+      ++index;
+      //allBeats[index - 1].classList.toggle("highlighted");
+      if (index == allBeats.length) {
+        index = 0;
+      }
+    }
+
     playClick();
   }, (60 / tempoSlider.value) * 1000);
+  /*setTimeout(() => {
+    click2.currentTime = 0;
+    click2.play();
+    playClick();
+  }, (60 / tempoSlider.value) * 1000);*/
 }

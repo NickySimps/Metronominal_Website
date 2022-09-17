@@ -291,3 +291,6 @@ select:active {
 .measure-bar-segment:nth-of-type(odd) {
   background: rgba(0, 0, 0, 0.5);
 }
+.highlighted{
+  filter: invert(1);
+}
