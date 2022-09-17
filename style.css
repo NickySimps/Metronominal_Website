@@ -167,7 +167,7 @@ span {
 .adjust-tempo,
 .adjust-bar-length,
 .adjust-measure-length,
-.start-stop-btn, select {
+.start-stop-btn {
   outline: 1px solid whitesmoke;
   border-radius: 50%;
   background: lightskyblue;
@@ -240,15 +240,15 @@ select:active {
   min-height: 0;
 }
 
-.total-beats-display {
+.total-beats-display, select {
   outline: 1px solid hotpink;
   padding: 4px;
   background: lightskyblue;
-  border-radius: 50%;
+  border-radius: 8px;
   font-size: initial;
-  width: 50px;
+  width: auto;
   text-align: center;
-  height: 50px;
+  height: 70%;
   margin-right: auto;
   
 }
@@ -293,4 +293,5 @@ select:active {
 }
 .highlighted{
   filter: invert(1);
+  scale: 1.15;
 }
