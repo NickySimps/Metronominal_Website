@@ -25,9 +25,10 @@ body *:focus {
 }
 
 .tempo-slider *:hover,
-.bar-display-container *:hover {
+.bar-display-container .measure-bar-segment:hover {
   box-shadow: deeppink 0px 6px 8px;
   transition-duration: 200ms;
+  scale: 1.1;
 }
 
 .beat-settings *:hover,

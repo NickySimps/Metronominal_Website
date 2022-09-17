@@ -16,10 +16,28 @@ const newMeasureBar = `<div class="measure-bar"></div>`;
 const newMeasureBarSegment = `<div class="measure-bar-segment"></div>`;
 const measureBarSegment = document.querySelector(".measure-bar-segment");
 
-const measure = {
-  beats: 4,
-  selected: false,
-  makeMeasure: function () {
+const song = {
+  Title: "",
+  Tempo: 120,
+  incrementTempo: function () {
+    if (currentTempo < 300) {
+      currentTempo++;
+    }
+    updateTempo();
+  },
+  decrementTempo: function () {
+    if (currentTempo > 20) {
+      currentTempo--;
+    }
+    updateTempo();
+  },
+  saveSong: function () {},
+  loadSong: function () {},
+};
+
+const phrase = {
+  multiplier: 0,
+  addMeasure: function () {
     barDisplay.innerHTML += newMeasureBar;
     this.beats = selectedBarBeats;
     for (i = 0; i < this.beats; i++) {
@@ -31,6 +49,30 @@ const measure = {
     let lastBlock = barDisplay.lastElementChild;
     barDisplay.removeChild(lastBlock);
   },
+};
+const measure = {
+  beats: 4,
+  selected: false,
+  addBeat: function () {
+    if (selectedBarBeats < 19) {
+      selectedBarBeats++;
+      let lastBlock = barDisplay.lastElementChild;
+      lastBlock.innerHTML += newMeasureBarSegment;
+    }
+    updateBeats();
+  },
+  removeBeat: function () {
+    if (selectedBarBeats > 1) {
+      selectedBarBeats--;
+      let lastBlock = barDisplay.lastElementChild;
+      let lastSegment = lastBlock.lastElementChild;
+      lastBlock.removeChild(lastSegment);
+    }
+    updateBeats();
+  },
+};
+const beat = {
+  highlighted: false,
 };
 
 const click1 = new Audio("Click1.mp3");
@@ -52,16 +94,10 @@ function init() {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~TEMPO CONTROLLER~~~~~~~~~~~~~~~~~~~~~~~~~
 
 decTempoBtn.addEventListener("click", () => {
-  if (currentTempo > 20) {
-    currentTempo--;
-  }
-  updateTempo();
+  song.decrementTempo();
 });
 incTempoBtn.addEventListener("click", () => {
-  if (currentTempo < 300) {
-    currentTempo++;
-  }
-  updateTempo();
+  song.incrementTempo();
 });
 tempoSlider.addEventListener("input", () => {
   currentTempo = tempoSlider.value;
@@ -95,31 +131,20 @@ function updateTempo() {
 startStopBtn.addEventListener("click", () => {
   if (startStopBtn.textContent === "START") {
     startStopBtn.textContent = "STOP";
+    playClick();
   } else {
     startStopBtn.textContent = "START";
   }
-  playClick();
 });
 
 //~~~~~~~~~~~BEATS CONTROLLER~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 decBeatsBtn.addEventListener("click", () => {
-  if (selectedBarBeats > 1) {
-    selectedBarBeats--;
-    let lastBlock = barDisplay.lastElementChild;
-    let lastSegment = lastBlock.lastElementChild;
-    lastBlock.removeChild(lastSegment);
-  }
-  updateBeats();
+  measure.removeBeat();
 });
 
 incBeatsBtn.addEventListener("click", () => {
-  if (selectedBarBeats < 19) {
-    selectedBarBeats++;
-    let lastBlock = barDisplay.lastElementChild;
-    lastBlock.innerHTML += newMeasureBarSegment;
-  }
-  updateBeats();
+  measure.addBeat();
 });
 function updateBeats() {
   let lastBlock = barDisplay.lastElementChild;
@@ -145,7 +170,7 @@ function totalUpBeats() {
 decBarsBtn.addEventListener("click", () => {
   if (amountOfBars > 1) {
     amountOfBars--;
-    measure.removeMeasure();
+    phrase.removeMeasure();
   }
   updateBars();
   updateBeats();
@@ -153,7 +178,7 @@ decBarsBtn.addEventListener("click", () => {
 
 incBarsBtn.addEventListener("click", () => {
   amountOfBars++;
-  measure.makeMeasure();
+  phrase.addMeasure();
   updateBars();
   updateBeats();
 });
