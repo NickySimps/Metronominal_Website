@@ -22,8 +22,9 @@ const phrase = {
   addMeasure: function () {
     barDisplay.innerHTML += newMeasureBar;
     this.beats = selectedBarBeats;
-    for (i = 0; i < this.beats; i++) {
+    for (let i = 0; i < this.beats; i++) {
       let lastBlock = barDisplay.lastElementChild;
+
       lastBlock.innerHTML += newMeasureBarSegment;
     }
   },
@@ -33,12 +34,13 @@ const phrase = {
   },
 };
 const measure = {
-  beats: 4,
+  beats: 0,
   selected: false,
   addBeat: function () {
     if (selectedBarBeats < 19) {
       selectedBarBeats++;
-      let lastBlock = barDisplay.lastElementChild;
+      let lastBlock = document.querySelector('.bar-display-container').lastElementChild;
+      beat.makeBeat();
       lastBlock.innerHTML += newMeasureBarSegment;
     }
     updateBeats();
@@ -46,13 +48,27 @@ const measure = {
   removeBeat: function () {
     if (selectedBarBeats > 1) {
       selectedBarBeats--;
-      let lastBlock = barDisplay.lastElementChild;
+      let lastBlock = document.querySelector('.bar-display-container').lastElementChild;
       let lastSegment = lastBlock.lastElementChild;
       lastBlock.removeChild(lastSegment);
     }
     updateBeats();
   },
 };
+const beat = {
+    //sound: click2,
+    place: document.querySelector('.bar-display-container'),
+    makeBeat: function (){
+        let beatBlock = document.createElement('div');
+       beatBlock.classList.add('test-beat', 'highlighted', 'measure-bar-segment');
+       this.place.lastElementChild.appendChild(beatBlock);
+       console.log('beat made!')
+    },
+    clickSound: function (){
+      click1.currentTime = 0;
+      click1.play();
+    }
+}
 
 const tempo = document.querySelector(".tempo");
 const tempoText = document.querySelector(".tempo-text");
@@ -70,9 +86,7 @@ const barDisplay = document.querySelector(".bar-display-container");
 const newMeasureBar = `<div class="measure-bar"></div>`;
 const newMeasureBarSegment = `<div class="measure-bar-segment"></div>`;
 
-const beat = {
-  highlighted: false,
-};
+
 
 const click1 = new Audio("Click1.mp3");
 const click2 = new Audio("Click2.mp3");
@@ -152,6 +166,7 @@ decBeatsBtn.addEventListener("click", () => {
 
 incBeatsBtn.addEventListener("click", () => {
   measure.addBeat();
+ // beat.makeBeat();
 });
 
 function updateBeats() {
