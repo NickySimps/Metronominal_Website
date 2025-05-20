@@ -5,8 +5,10 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Metronominal: An interactive mathrock metronome to practice complex rhythms and time signatures. Adjust BPM, beats per measure, and bars.">
+    <meta name="description"
+        content="Metronominal: An interactive mathrock metronome to practice complex rhythms and time signatures. Adjust BPM, beats per measure, and bars.">
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" href="logo.jpg" type="image/jpeg">
     <title>Metronominal: The Mathrock Metronome</title>
 </head>
 
@@ -34,9 +36,11 @@
             <div class="measures-container">
                 <div class="measure-settings-container">
                     <div class="beat-settings">
-                        <button class="adjust-measure-length decrease-measure-length" aria-label="Decrease beats per measure">-</button>
+                        <button class="adjust-measure-length decrease-measure-length"
+                            aria-label="Decrease beats per measure">-</button>
                         <span class="beats-per-current-measure">4</span>
-                        <button class="adjust-measure-length increase-measure-length" aria-label="Increase beats per measure">+</button>
+                        <button class="adjust-measure-length increase-measure-length"
+                            aria-label="Increase beats per measure">+</button>
                     </div>
                     <span class="measures-text">BEATS</span>
                 </div>
@@ -50,16 +54,21 @@
                 </div>
             </div>
             <div class="bar-display">
-                <span class="total-beats-display"></span>
+                <!-- In your HTML, where you want the total beats to appear -->
+                <div class="some-info-panel">
+                    <span>Total Beats: </span><span class="total-beats-display">0</span>
+                </div>
                 <div class="bar-display-container"></div>
-                <label for="beat-multiplier-select">Beat Multiplier:</label>
+                <label for="beat-multiplier-select">Note Subdivision:</label>
                 <select name="beat-multiplier" id="beat-multiplier-select">
-                    <option value="1">1x</option>
-                    <option value="2">2x</option>
-                    <option value="3">3x</option>
-                    <option value="4">4x</option>
-                    <option value="5">5x</option>
-                    <option value="6">6x</option>
+                    <option value="1">1/4</option> <!-- Assuming main beat is a quarter note -->
+                    <option value="2">1/8</option>
+                    <option value="3">1/8T</option> <!-- Eighth Note Triplet -->
+                    <option value="4">1/16</option>
+                    <option value="5">1/16 Quin</option> <!-- Sixteenth Note Quintuplet -->
+                    <option value="6">1/16 Sex</option> <!-- Sixteenth Note Sextuplet / or 1/8T x2 -->
+                    <option value="8">1/32 </option> <!-- Thirtysecondth Note -->
+ 
                 </select>
             </div>
 
