@@ -7,6 +7,7 @@
   --Highlight: #75d8ff; /* Light Blue */
   --Alt1: #ee2bb3; /* Deep Pink/Magenta */
   --Alt2: #ff0040; /* Bright Red-Pink */
+  --TextOnMain: #ffffff; /* White text for contrast on Main/Alt1 colors */
   --SubdivisionBeatColor: #52ffc5; /* Thistle (Light Purple) - for subdivision beats */
 }
 
@@ -24,32 +25,9 @@ body {
   padding: 0;
   user-select: none;
 }
-body *{
-    transition: all 250ms;
-}
 
 body *:focus {
   outline: var(--Accent) 4px solid;
-}
-
-.decrease-tempo:hover,
-.start-stop-btn:hover {
-  box-shadow: var(--Main) 3px 6px 8px;
-  transition-duration: 200ms;
-}
-
-.tempo-slider *:hover,
-.bar-display-container .measure-bar-segment:hover {
-  box-shadow: var(--Main) 0px 6px 8px;
-  transition-duration: 200ms;
-  scale: 1.1;
-}
-
-.beat-settings *:hover,
-.bar-settings *:hover,
-.increase-tempo:hover {
-  box-shadow: var(--Main) -3px 6px 8px;
-  transition-duration: 200ms;
 }
 
 .main-container {
@@ -65,6 +43,8 @@ body *:focus {
   align-content: space-evenly;
   flex-wrap: wrap;
   flex-direction: row;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
 }
 
 .tempo-container,
@@ -90,6 +70,18 @@ body *:focus {
 .tempo-text {
   font-weight: lighter;
   font-size: smaller;
+}
+
+.tempo-text-box.updating .tempo-text {
+  animation: fadeOutIn 0.5s ease-in-out;
+}
+
+@keyframes fadeOutIn {
+  0% { opacity: 1; transform: translateY(0); }
+  49% { opacity: 0; transform: translateY(-5px); }
+  50% { opacity: 0; transform: translateY(5px); } /* New text starts from slightly below */
+  51% { opacity: 0; transform: translateY(5px); } /* Hold invisible briefly */
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 .tempo-settings {
@@ -163,6 +155,13 @@ span {
   text-align: center;
   line-height: 5;
 }
+.start-stop-btn.active {
+  background-color: var(--Alt2); /* A more active/warning color */
+  color: var(--TextOnMain);
+  box-shadow: var(--Main) 0px 0px 15px, inset var(--Alt1) 0px 0px 10px;
+}
+
+
 
 .measures-container,
 .bar-settings-container {
@@ -190,16 +189,29 @@ span {
   align-items: center; /* For centering content */
   justify-content: center; /* For centering content */
   cursor: pointer;
+  transition: background-color 0.25s ease, color 0.25s ease, transform 0.15s ease, box-shadow 0.25s ease, outline 0.25s ease;
 }
 
 .adjust-tempo:hover,
 .adjust-bar-length:hover,
 .adjust-measure-length:hover,
 .start-stop-btn:hover {
-  outline: 2px solid var(--Highlight);
+  outline: 2px solid var(--Alt2); /* Make hover outline more prominent */
   border-radius: 50%;
   background: var(--Alt1); /* Was dodgerblue, now purple */
-  color: var(--Accent); /* Was whitesmoke, now yellow-green for text on purple */
+  color: var(--TextOnMain); 
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.adjust-tempo:active,
+.adjust-bar-length:active,
+.adjust-measure-length:active,
+.start-stop-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  background-color: var(--Main); /* Slightly different active color */
+  color: var(--TextOnMain);
 }
 
 .adjust-tempo {
@@ -225,16 +237,21 @@ select {
     height: 50px;
     width: 50px;
     outline-color: var(--Main);
-    border-color: transparent;
+    border: 1px solid var(--Main);
+    background-color: var(--Highlight);
+    color: var(--Alt1);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
-select::after, option {
-   background-color: var(--Main);
-    outline-color: var(--Main);
-    border-color: transparent;
+select:hover {
+    background-color: var(--Accent);
+    border-color: var(--Alt1);
 }
-select:active {
-   background-color: var(--Alt1); /* Was dodgerblue */
-    outline-color: var(--Main);
+
+/* Note: Styling option elements is very limited and browser-dependent */
+option {
+   background-color: var(--Highlight); /* May not apply in all browsers */
     border-color: transparent;
 }
 
@@ -260,6 +277,7 @@ select:active {
     background-color: var(--Highlight); /* Was #f9f9f9 */
     cursor: pointer;
     /* text-align: center; Flex properties will handle alignment */
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     min-width: 40px; /* Ensure clickable area */
     min-height: 30px; /* Give some base height */
     display: flex; /* Arrange beat squares horizontally */
@@ -267,6 +285,11 @@ select:active {
     gap: 4px; /* Spacing between beat squares */
     align-items: center; /* Vertically align squares */
 }
+.bar-visual:hover {
+  border-color: var(--Main);
+  box-shadow: 0 0 8px var(--Accent);
+}
+
 
 .bar-visual.selected {
     border-color: var(--Alt1); /* Was dodgerblue */
@@ -279,7 +302,7 @@ select:active {
     height: 12px;
     background-color: var(--Background); /* Was lightgrey */
     border: 1px solid var(--Highlight); /* Was #adadad */
-    border-radius: 2px;
+    border-radius: 3px; /* Slightly more rounded */
     transition: all 100ms ease-in-out; /* For smooth highlight transition */
 }
 
@@ -346,7 +369,7 @@ select:active {
 .highlighted{ /* Kept from upstream */
   scale: 1.55;
   margin: 0 0.1em;
-  border-radius: 50%;
+  border-radius: 50%; /* Keep highlighted as circle */
   background: var(--Accent);
 }
 /* Base styles (mobile-first approach) */

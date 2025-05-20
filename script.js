@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tempoDisplay = document.querySelector('.tempo');
     const tempoSlider = document.querySelector('.slider');
     const increaseTempoBtn = document.querySelector('.increase-tempo');
+    const tempoTextBox = document.querySelector('.tempo-text-box'); // For animation
     const decreaseTempoBtn = document.querySelector('.decrease-tempo');
     const startStopBtn = document.querySelector('.start-stop-btn');
     let tempo = 120; // Initial tempo
@@ -17,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const increaseBarLengthBtn = document.querySelector('.increase-bar-length');
     const decreaseBarLengthBtn = document.querySelector('.decrease-bar-length');
     const totalBeatsDisplayElement = document.querySelector('.total-beats-display'); // Added for total beats
+    const tempoTextElement = document.querySelector('.tempo-text'); // To update descriptive tempo text
     const beatMultiplierSelect = document.getElementById('beat-multiplier-select');
     let beatMultiplier = 1; // Default multiplier (e.g., 1/4 notes as main beat)
 
@@ -243,9 +245,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Tempo control functions
+    let lastTempoDescription = "";
     function updateTempoDisplay() {
         tempoDisplay.textContent = tempo;
         tempoSlider.value = tempo;
+
+        let currentTempoDescription = "Moderate";
+        if (tempo < 40) currentTempoDescription = "Grave";
+        else if (tempo < 60) currentTempoDescription = "Largo";
+        else if (tempo < 66) currentTempoDescription = "Lento";
+        else if (tempo < 76) currentTempoDescription = "Adagio";
+        else if (tempo < 108) currentTempoDescription = "Andante";
+        else if (tempo < 120) currentTempoDescription = "Moderato";
+        else if (tempo < 156) currentTempoDescription = "Allegro";
+        else if (tempo < 176) currentTempoDescription = "Vivace";
+        else if (tempo < 200) currentTempoDescription = "Presto";
+        else currentTempoDescription = "Prestissimo";
+
+        if (tempoTextElement) {
+            if (currentTempoDescription !== lastTempoDescription) {
+                if (tempoTextBox) {
+                    tempoTextBox.classList.add('updating');
+                    // Update text after a short delay to allow fade-out part of animation
+                    setTimeout(() => {
+                        tempoTextElement.textContent = currentTempoDescription;
+                        lastTempoDescription = currentTempoDescription;
+                        tempoTextBox.classList.remove('updating');
+                    }, 250); // Half of the animation duration in CSS
+                } else { // Fallback if tempoTextBox is not found
+                    tempoTextElement.textContent = currentTempoDescription;
+                    lastTempoDescription = currentTempoDescription;
+                }
+            } else if (!tempoTextElement.textContent) { // Initial set if empty
+                tempoTextElement.textContent = currentTempoDescription;
+                lastTempoDescription = currentTempoDescription;
+            }
+        }
     }
 
     function increaseTempo() {
@@ -273,12 +308,14 @@ document.addEventListener('DOMContentLoaded', () => {
             clearInterval(timer);
             isPlaying = false;
             startStopBtn.textContent = "START";
+            startStopBtn.classList.remove('active');
             clearAllHighlights(); // Clear highlights when stopping
         } else {
             if (barSettings.length === 0) return; // Nothing to play
             isPlaying = true;
             startStopBtn.textContent = "STOP";
             currentBar = 0;
+            startStopBtn.classList.add('active');
             currentBeat = 0;
             clearAllHighlights(); // Clear any previous highlights before starting
 
