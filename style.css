@@ -673,3 +673,57 @@ option {
 .top-controls-area button:hover {
     background-color: var(--Highlight, #e0e0e0);
 }
+
+/* Adjust top controls for mobile */
+@media (max-width: 767px) {
+    .top-controls-area {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 50%; /* Take up left half of the screen */
+        display: flex;
+        justify-content: center; /* Center buttons horizontally */
+        align-items: center;
+        padding: 8px; /* Consistent padding, similar to theme-controls */
+        box-sizing: border-box;
+        background-color: color-mix(in srgb, var(--Background) 80%, transparent);
+        border: 1px solid var(--BorderColor); /* Full border for consistency */
+        border-radius: 8px; /* Consistent radius */
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Consistent shadow */
+        z-index: 999; /* Position it just below theme-controls (which are z-index: 1000) */
+    }
+
+    .theme-controls {
+        top: 0; /* Align with top-controls-area */
+        flex-wrap: wrap;
+        right: 0; /* Align to the far right */
+        left: auto; /* Override any inherited left positioning */
+        width: 50%; /* Take up right half of the screen */
+        box-sizing: border-box; /* Ensure padding/border are within the 50% width */
+        justify-content: flex-end; /* Push theme buttons to the right of their container */
+        align-items: center; /* Vertically center content */
+    }
+
+    /* Make the button inside .top-controls-area smaller on mobile to fit */
+    .top-controls-area button {
+        /* Original font-size: 0.9em (relative to parent 1.4em body font) */
+        /* Original padding: 8px 12px */
+        font-size: 0.6em; /* Significantly reduce font size for mobile */
+                          /* (0.6em * 1.4em body font = ~0.84em root font size) */
+        padding: 4px 6px;   /* Reduce padding */
+        white-space: nowrap; /* Prevent text from wrapping, ensuring it stays one line */
+    }
+
+    /* Adjust theme controls for mobile */
+    .theme-controls {
+        justify-content: flex-end; /* Align theme buttons to the right */
+        align-items: center; /* Vertically center content */
+    }
+
+    /* Make theme buttons fill their container equally on mobile */
+    .theme-controls button {
+        flex-grow: 1; /* Allow buttons to grow and take up equal space */
+        text-align: center; /* Ensure text remains centered within the grown button */
+        /* Existing padding, font-size, etc. from the general rule will still apply */
+    }
+}
