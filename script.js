@@ -316,9 +316,43 @@ let accentClickSoundBuffer = null; // Buffer for AudioContext
         barSettings.forEach((mainBeatsInBar, index) => {
             let barDiv = existingBarVisualsMap.get(String(index));
             const totalSubBeatsNeeded = mainBeatsInBar * beatMultiplier;
+            let isNewBarInstance = false; // Flag to know if we are creating a new DOM element for the bar
     
-            if (barDiv) { // Bar already exists, update its beats
+            if (barDiv) { // Bar already exists in DOM
                 existingBarVisualsMap.delete(String(index)); // Mark as processed
+            } else { // Bar does not exist in DOM, create it
+                isNewBarInstance = true;
+                barDiv = document.createElement('div');
+                barDiv.classList.add('bar-visual');
+                barDiv.dataset.index = index;
+    
+                // Animate new bar appearing (if previousBarCountForAnimation indicates it's new)
+                if (previousBarCountForAnimation !== -1 && index >= previousBarCountForAnimation) {
+                    barDiv.classList.add('newly-added-bar-animation');
+                }
+                barDiv.addEventListener('click', handleBarClick);
+            }
+    
+            // ---- START: Add density class logic ----
+            // This applies to both existing and newly created barDivs
+            barDiv.classList.remove('medium-dense-beats', 'high-dense-beats'); // Clear existing density classes
+            const HIGH_DENSITY_THRESHOLD = 20; // e.g., > 5 beats of 16ths, or > 2.5 beats of 32nds
+            const MEDIUM_DENSITY_THRESHOLD = 10; // e.g., > 2.5 beats of 16ths, or > 1.25 beats of 32nds
+    
+            if (totalSubBeatsNeeded > HIGH_DENSITY_THRESHOLD) {
+                barDiv.classList.add('high-dense-beats');
+            } else if (totalSubBeatsNeeded > MEDIUM_DENSITY_THRESHOLD) {
+                barDiv.classList.add('medium-dense-beats');
+            }
+            // ---- END: Add density class logic ----
+    
+            // Now, handle beat squares (add/remove/update)
+            if (isNewBarInstance) { // If it's a brand new bar DOM element, just add all beats
+                for (let i = 0; i < totalSubBeatsNeeded; i++) {
+                    const beatSquare = createBeatSquareElement(i, beatMultiplier);
+                    barDiv.appendChild(beatSquare);
+                }
+            } else { // Bar DOM element existed, update its beats intelligently
                 const existingBeatSquares = Array.from(barDiv.querySelectorAll('.beat-square:not(.removing-beat-animation)'));
                 const currentSubBeatCountInDom = existingBeatSquares.length;
     
@@ -347,22 +381,6 @@ let accentClickSoundBuffer = null; // Buffer for AudioContext
                         updateBeatSquareClasses(sq, beatIdx, beatMultiplier);
                     });
                 }
-            } else { // Bar does not exist, create it
-                barDiv = document.createElement('div');
-                barDiv.classList.add('bar-visual');
-                barDiv.dataset.index = index;
-    
-                // Animate new bar appearing (if previousBarCountForAnimation indicates it's new)
-                if (previousBarCountForAnimation !== -1 && index >= previousBarCountForAnimation) {
-                    barDiv.classList.add('newly-added-bar-animation');
-                }
-    
-                for (let i = 0; i < totalSubBeatsNeeded; i++) {
-                    const beatSquare = createBeatSquareElement(i, beatMultiplier);
-                    barDiv.appendChild(beatSquare);
-                }
-                barDiv.addEventListener('click', handleBarClick);
-                newBarsFragment.appendChild(barDiv);
             }
     
             // Update selection class for the bar (whether existing or new)
@@ -370,6 +388,10 @@ let accentClickSoundBuffer = null; // Buffer for AudioContext
                 barDiv.classList.add('selected');
             } else {
                 barDiv.classList.remove('selected');
+            }
+            
+            if (isNewBarInstance) { // Only append to fragment if it was truly a new bar element
+                newBarsFragment.appendChild(barDiv);
             }
         });
     

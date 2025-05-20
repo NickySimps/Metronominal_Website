@@ -31,9 +31,7 @@ body {
   color: var(--TextPrimary);
 }
 
-body *:focus {
-  outline: var(--Accent) 4px solid;
-}
+
 
 .main-container {
   height: auto;
@@ -41,7 +39,7 @@ body *:focus {
 }
 
 .metronome-container {
-  background-color: #ffffff; /* Changed to white to stand out from var(--Background) */
+  background-color: var(--Background); /* Changed to white to stand out from var(--Background) */
   width: auto;
   height: auto;
   display: flex;
@@ -51,6 +49,7 @@ body *:focus {
   flex-direction: row;
   /* Corrected and softened shadow */
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  padding: 10px;
   border-radius: 12px;
 
 }
@@ -58,23 +57,15 @@ body *:focus {
 .tempo-container,
 .measures-container,
 .bar-settings-container {
-  /* Slightly different background for containers if needed, or keep as body background */
-  background: #ffffff; /* White card background */
+  padding: 10px;
+  background: var(--Background); /* White card background */
   text-align: center;
-  
+  width: 100%; /* Common width */
 }
 
 .tempo-container {
   font-size: 1.5em; /* Relative to body font size */
   width: 100%;
-}
-
-.tempo,
-.beats-per-current-measure,
-.bars-length {
-  font-weight: bold;
-  color: var(--TextPrimary); /* Changed for better readability on Accent background */
-  font-size: larger;
 }
 
 .tempo-text {
@@ -149,13 +140,10 @@ input[type="range"]::-webkit-slider-runnable-track {
 
 .beat-settings,
 .bar-settings {
-  outline: 1px solid var(--BorderColor);
   background: var(--Accent); /* Was white, now yellow-green for contrast with blue outline */
   width: 100%;
-}
-
-span {
-  text-transform: uppercase;
+  padding: 10px;
+  margin: 0.5rem 0; /* Added for spacing, consistent with former override */
 }
 
 .start-stop-btn {
@@ -175,13 +163,6 @@ span {
   box-shadow: var(--Main) 0px 0px 15px, inset var(--Alt1) 0px 0px 10px;
 }
 
-
-
-.measures-container,
-.bar-settings-container {
-  width: 100%; /* Full width on mobile when stacked */
-}
-
 .measure-settings-container,
 .bar-settings-container {
   width: 100%;
@@ -189,13 +170,13 @@ span {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  padding: 10px;
 }
 
 .adjust-tempo,
 .adjust-bar-length,
 .adjust-measure-length,
 .start-stop-btn {
-  outline: 1px solid var(--Background);
   border-radius: 12px; /* Slightly less round for a more modern feel, or keep 50% for circles */
   background: var(--Highlight);
   margin: auto;
@@ -210,7 +191,6 @@ span {
 .adjust-bar-length:hover,
 .adjust-measure-length:hover,
 .start-stop-btn:hover {
-  outline: 2px solid var(--Main); /* Make hover outline more prominent with Main color */
   border-radius: 50%;
   background: var(--Alt1); /* Was dodgerblue, now purple */
   color: var(--TextOnMain); 
@@ -238,6 +218,7 @@ span {
   height: 90px; /* Adjusted for mobile */
   width: 90px;  /* Adjusted for mobile */
   margin: auto;
+  padding: 10px;
 }
 
 .adjust-measure-length,
@@ -245,7 +226,7 @@ span {
   height: 60px; /* Adjusted for mobile */
   width: 60px;  /* Adjusted for mobile */
   margin: auto;
-  padding: 0px;
+  padding: 0px; /* Corrected: only one padding value needed */
 }
 
 .bar-display {
@@ -330,6 +311,32 @@ option {
     border: 1px solid var(--Highlight); /* Was #adadad */
     border-radius: 3px; /* Slightly more rounded */
     transition: all 0.2s ease-out; /* Smoother and slightly longer "pop" for liquid feel */
+}
+.bar-visual.medium-dense-beats {
+  gap: 3px; /* Slightly reduced gap */
+}
+.bar-visual.medium-dense-beats .beat-square {
+  width: 8px;   /* Smaller squares for medium density */
+  height: 8px;
+  border-radius: 2px;
+}
+/* Adjust highlighted style for medium density if needed */
+.bar-visual.medium-dense-beats .beat-square.highlighted {
+  scale: 1.6; /* May need slightly different scaling */
+}
+
+.bar-visual.high-dense-beats {
+  gap: 2px; /* Even tighter gap */
+}
+.bar-visual.high-dense-beats .beat-square {
+  width: 6px;   /* Even smaller squares for high density */
+  height: 6px;
+  border-radius: 1px; /* Sharper, more dot-like */
+}
+/* Adjust highlighted style for high density */
+.bar-visual.high-dense-beats .beat-square.highlighted {
+  scale: 1.7; /* Adjust scaling */
+  /* Consider alternative highlight like brighter background or border if scaling is too much */
 }
 
 /* Style for beat squares that are subdivisions */
@@ -674,56 +681,96 @@ option {
     background-color: var(--Highlight, #e0e0e0);
 }
 
-/* Adjust top controls for mobile */
-@media (max-width: 767px) {
+/* Mobile-specific adjustments */
+  @media (max-width: 767px) {
+    .top-controls-area,
+    .theme-controls {
+      position: fixed;
+      left: 0;
+      width: 100%;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 8px;
+      box-sizing: border-box;
+      background-color: color-mix(in srgb, var(--Background) 80%, transparent);
+      border-radius: 0;
+      box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+    }
+  
+    /* Specific styling for .top-controls-area */
     .top-controls-area {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 50%; /* Take up left half of the screen */
-        display: flex;
-        justify-content: center; /* Center buttons horizontally */
-        align-items: center;
-        padding: 8px; /* Consistent padding, similar to theme-controls */
-        box-sizing: border-box;
-        background-color: color-mix(in srgb, var(--Background) 80%, transparent);
-        border: 1px solid var(--BorderColor); /* Full border for consistency */
-        border-radius: 8px; /* Consistent radius */
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Consistent shadow */
-        z-index: 999; /* Position it just below theme-controls (which are z-index: 1000) */
+      top: 0;
+      bottom: auto;
+      left: 0;
+      width: 100%;
+      justify-content: center;
+      border-bottom: 1px solid var(--BorderColor);
     }
-
+  
+    /* Specific styling for .theme-controls */
     .theme-controls {
-        top: 0; /* Align with top-controls-area */
-        flex-wrap: wrap;
-        right: 0; /* Align to the far right */
-        left: auto; /* Override any inherited left positioning */
-        width: 50%; /* Take up right half of the screen */
-        box-sizing: border-box; /* Ensure padding/border are within the 50% width */
-        justify-content: flex-end; /* Push theme buttons to the right of their container */
-        align-items: center; /* Vertically center content */
+      top: auto;
+      bottom: 0;
+      right: 0;
+      left: auto;
+      width: 100%;
+      justify-content: flex-end;
+      border-top: 1px solid var(--BorderColor);
     }
-
-    /* Make the button inside .top-controls-area smaller on mobile to fit */
-    .top-controls-area button {
-        /* Original font-size: 0.9em (relative to parent 1.4em body font) */
-        /* Original padding: 8px 12px */
-        font-size: 0.6em; /* Significantly reduce font size for mobile */
-                          /* (0.6em * 1.4em body font = ~0.84em root font size) */
-        padding: 4px 6px;   /* Reduce padding */
-        white-space: nowrap; /* Prevent text from wrapping, ensuring it stays one line */
-    }
-
-    /* Adjust theme controls for mobile */
-    .theme-controls {
-        justify-content: flex-end; /* Align theme buttons to the right */
-        align-items: center; /* Vertically center content */
-    }
-
-    /* Make theme buttons fill their container equally on mobile */
+  
+    .top-controls-area button,
     .theme-controls button {
-        flex-grow: 1; /* Allow buttons to grow and take up equal space */
-        text-align: center; /* Ensure text remains centered within the grown button */
-        /* Existing padding, font-size, etc. from the general rule will still apply */
+      font-size: 0.6em;
+      padding: 4px 6px;
+      white-space: nowrap;
+      flex-grow: 1;
+      text-align: center;
+    }
+  }
+
+
+  @media (max-width: 768px) { /* Styles for mobile devices */
+
+    /* Combined styles for hiding text and displaying emojis */
+    /* Hide original text */
+    .bpm-text,
+    .volume-label,
+    .measures-text,
+    .bars-text,
+    .some-info-panel > span:first-child,
+    .subdivision-label,
+    .preset-slot-label {
+        text-indent: -9999px;
+        display: inline-block;
+        font-size: 0;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+
+    /* Specific emoji content and margins */
+    .bpm-text::before { content: "⏱️"; }
+    .volume-label::before { content: "🔊"; } /* Assuming you want a volume emoji */
+    .measures-text::before { content: "📏"; } /* Assuming you want a measures emoji */
+    .bars-text::before { content: "🧱"; } /* Assuming you want a bars emoji */
+    .some-info-panel > span:first-child::before { content: "ℹ️"; } /* Assuming you want an info emoji */
+    .subdivision-label::before { content: "🎶"; }
+    .preset-slot-label::before { content: "💾"; }
+
+    /* Common styles for emoji pseudo-elements */
+    .bpm-text::before,
+    .volume-label::before,
+    .measures-text::before,
+    .bars-text::before,
+    .some-info-panel > span:first-child::before,
+    .subdivision-label::before,
+    .preset-slot-label::before {
+        font-size: 1.2rem;
+        text-indent: 0; /* Reset text-indent */
+        display: inline-block; /* Ensure it's displayed */
+        vertical-align: middle;
+        /* Add margin if needed for spacing */
+        margin: 0 0.2em; /* Example margin */
     }
 }

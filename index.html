@@ -13,12 +13,7 @@
 </head>
 
 <body>
-    <div class="theme-controls">
-        <button data-theme="default" aria-label="Switch to Default Theme">Default</button>
-        <button data-theme="dark" aria-label="Switch to Dark Theme">Dark</button>
-        <button data-theme="synthwave" aria-label="Switch to Synthwave Theme">Synthwave</button>
-        <button data-theme="gundam" aria-label="Switch to Gundam Theme">Gundam</button>
-    </div>
+    
 
     <div class="main-container">
         <div class="metronome-container">
@@ -42,9 +37,9 @@
                     <button class="adjust-tempo increase-tempo" aria-label="Increase tempo">+</button>
                 </div>
             </div>
-            <button class="start-stop-btn">START</button>
+            <button class="start-stop-btn" id="start-stop-btn">START</button>
             <div class="volume-controls-container">
-                <label for="volume-slider-input">Volume:</label>
+                <span class="volume-label">Volume:</span>
                 <input type="range" id="volume-slider-input" class="volume-slider" min="0" max="1" step="0.01" value="0.8" aria-label="Volume">
                 <span class="volume-value">80%</span>
             </div>
@@ -75,7 +70,7 @@
                     <span>Total Beats: </span><span class="total-beats-display">0</span>
                 </div>
                 <div class="bar-display-container"></div>
-                <label for="beat-multiplier-select">Note Subdivision:</label>
+                <span class="subdivision-label">Note Subdivision:</span>
                 <select name="beat-multiplier" id="beat-multiplier-select">
                     <option value="1">1/4</option> <!-- Assuming main beat is a quarter note -->
                     <option value="2">1/8</option>
@@ -90,7 +85,7 @@
             <div class="preset-controls">
                 <h3>PRESETS</h3>
                 <div class="preset-slot-selection">
-                    <label for="preset-slot-select">Slot:</label>
+                    <span class="preset-slot-label">Slot:</span>
                     <select id="preset-slot-select" aria-label="Select preset slot">
                         <option value="0">1</option>
                         <option value="1">2</option>
@@ -115,7 +110,12 @@
                     <button class="preset-btn load-preset-btn" aria-label="Load settings from selected preset slot">Load</button>
                 </div>
             </div>
-
+<div class="theme-controls">
+        <button data-theme="default" aria-label="Switch to Default Theme">Default</button>
+        <button data-theme="dark" aria-label="Switch to Dark Theme">Dark</button>
+        <button data-theme="synthwave" aria-label="Switch to Synthwave Theme">Synthwave</button>
+        <button data-theme="gundam" aria-label="Switch to Gundam Theme">Gundam</button>
+    </div>
         </div> <!-- End of metronome-container -->
     </div> <!-- End of main-container -->
 </body>
