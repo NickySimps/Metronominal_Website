@@ -94,8 +94,13 @@ const crank1 = new Audio("Crank1.mp3");
 const crank2 = new Audio("Crank2.mp3");
 
 let currentTempo = 120;
+<<<<<<< Updated upstream
 let selectedBarBeats = 5;
 let amountOfBars = 3;
+=======
+let selectedBarBeats = 4;
+let amountOfBars = 7;
+>>>>>>> Stashed changes
 
 window.onload = init();
 
@@ -226,6 +231,7 @@ let index = 0;
 let timeout;
 let clicker;
 
+<<<<<<< Updated upstream
 function calculateDrift() {
   const startTime = Date.now();
   timeout = setTimeout(() => {
@@ -233,6 +239,26 @@ function calculateDrift() {
     console.log(`Drift: ${elapsedTime - 1000}`);
     calculateDrift();
   }, 1000);
+=======
+function drawBars() {
+    updateBars();
+    for (let i = 0; i < currentBars.textContent; i++) {
+        barDisplay.innerHTML += newMeasureBar;
+    }
+
+}
+function drawBeats() {
+    updateBeats();
+    let allBars = document.querySelectorAll('div.measure-bar');
+    allBars.forEach(() => {
+        for (let i = 0; i < currentBeats.textContent; i++) {
+        allBars[i].innerHTML += newMeasureBarSegment;
+    }
+    });
+    updateBeats();
+    
+
+>>>>>>> Stashed changes
 }
 
 function playClick() {
@@ -274,6 +300,18 @@ function playClick() {
       }, (60 / tempoSlider.value) * 1000);*/
 }
 
+<<<<<<< Updated upstream
 function stopClick() {
   clearTimeout(clicker);
 }
+=======
+function startTest() {
+    console.log('started');
+    const startTime = Date.now();
+
+}
+
+
+
+
+>>>>>>> Stashed changes

@@ -13,6 +13,9 @@ body {
   padding: 0;
   user-select: none;
 }
+body *{
+    transition: all 250ms;
+}
 
 body *:focus {
   outline: gold 4px solid;
@@ -253,6 +256,7 @@ select:active {
   
 }
 .measure-bar {
+<<<<<<< Updated upstream
   background: hotpink;
   display: flex;
   gap: 2px;
@@ -262,6 +266,17 @@ select:active {
   margin: 0px;
   border-radius: 8px;
   justify-content: center;
+=======
+    width: 3em;
+    align-items: center;
+    padding: 0px;
+    margin: 0px;
+    border-radius: 10px;
+    justify-content: center;
+    display: flex;
+    flex-flow: row nowrap;
+    gap: 2px;
+>>>>>>> Stashed changes
 }
 
 .measure-bar:nth-of-type(odd) {
@@ -276,6 +291,7 @@ select:active {
 }
 
 .measure-bar:first-of-type {
+<<<<<<< Updated upstream
   height: 1em;
   filter: brightness(1);
   border-radius: 8px;
@@ -295,3 +311,21 @@ select:active {
   filter: invert(1);
   scale: 1.15;
 }
+=======
+    height: 1em;
+    background: hotpink;
+    
+    filter: brightness(1);
+}
+
+.measure-bar-segment {
+    height: 90%;
+    width: 90%;
+    margin: 1px 3px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, .25);
+}
+.measure-bar-segment:nth-of-type(odd){
+    filter:invert();
+}
+>>>>>>> Stashed changes
