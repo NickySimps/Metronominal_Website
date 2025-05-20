@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Metronominal: An interactive mathrock metronome to practice complex rhythms and time signatures. Adjust BPM, beats per measure, and bars.">
     <link rel="stylesheet" href="style.css">
     <title>Metronominal: The Mathrock Metronome</title>
 </head>
@@ -21,29 +22,29 @@
                     </div>
                 </div>
                 <div class="tempo-settings">
-                    <div class="adjust-tempo decrease-tempo">-</div>
+                    <button class="adjust-tempo decrease-tempo" aria-label="Decrease tempo">-</button>
                     <div class="tempo-slider">
-                        <input type="range" min="20" max="300" value="120" step="1" class="slider">
+                        <input type="range" min="20" max="300" value="120" step="1" class="slider" aria-label="Tempo">
                     </div>
-                    <div class="adjust-tempo increase-tempo">+</div>
+                    <button class="adjust-tempo increase-tempo" aria-label="Increase tempo">+</button>
                 </div>
             </div>
-            <div class="start-stop-btn">START</div>
+            <button class="start-stop-btn">START</button>
 
             <div class="measures-container">
                 <div class="measure-settings-container">
                     <div class="beat-settings">
-                        <div class="adjust-measure-length decrease-measure-length">-</div>
+                        <button class="adjust-measure-length decrease-measure-length" aria-label="Decrease beats per measure">-</button>
                         <span class="beats-per-current-measure">4</span>
-                        <div class="adjust-measure-length increase-measure-length">+</div>
+                        <button class="adjust-measure-length increase-measure-length" aria-label="Increase beats per measure">+</button>
                     </div>
                     <span class="measures-text">BEATS</span>
                 </div>
                 <div class="bar-settings-container">
                     <div class="bar-settings">
-                        <div class="adjust-bar-length decrease-bar-length">-</div>
+                        <button class="adjust-bar-length decrease-bar-length" aria-label="Decrease bars">-</button>
                         <span class="bars-length">3</span>
-                        <div class="adjust-bar-length increase-bar-length">+</div>
+                        <button class="adjust-bar-length increase-bar-length" aria-label="Increase bars">+</button>
                     </div>
                     <span class="bars-text">BARS</span>
                 </div>
@@ -51,7 +52,8 @@
             <div class="bar-display">
                 <span class="total-beats-display"></span>
                 <div class="bar-display-container"></div>
-                <select name="beat-multiplyer" >
+                <label for="beat-multiplier-select">Beat Multiplier:</label>
+                <select name="beat-multiplier" id="beat-multiplier-select">
                     <option value="1">1x</option>
                     <option value="2">2x</option>
                     <option value="3">3x</option>
@@ -59,7 +61,6 @@
                     <option value="5">5x</option>
                     <option value="6">6x</option>
                 </select>
-
             </div>
 
 

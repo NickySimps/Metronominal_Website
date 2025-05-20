@@ -40,8 +40,8 @@ const measure = {
     if (selectedBarBeats < 19) {
       selectedBarBeats++;
       let lastBlock = document.querySelector('.bar-display-container').lastElementChild;
-      beat.makeBeat();
-      lastBlock.innerHTML += newMeasureBarSegment;
+      beat.makeBeat(); // beat.makeBeat() already appends the new beat segment
+      // lastBlock.innerHTML += newMeasureBarSegment; // This line was redundant
     }
     updateBeats();
   },
@@ -94,13 +94,8 @@ const crank1 = new Audio("Crank1.mp3");
 const crank2 = new Audio("Crank2.mp3");
 
 let currentTempo = 120;
-<<<<<<< Updated upstream
 let selectedBarBeats = 5;
 let amountOfBars = 3;
-=======
-let selectedBarBeats = 4;
-let amountOfBars = 7;
->>>>>>> Stashed changes
 
 window.onload = init();
 
@@ -231,87 +226,60 @@ let index = 0;
 let timeout;
 let clicker;
 
-<<<<<<< Updated upstream
-function calculateDrift() {
-  const startTime = Date.now();
-  timeout = setTimeout(() => {
-    let elapsedTime = Date.now() - startTime;
-    console.log(`Drift: ${elapsedTime - 1000}`);
-    calculateDrift();
-  }, 1000);
-=======
-function drawBars() {
-    updateBars();
-    for (let i = 0; i < currentBars.textContent; i++) {
-        barDisplay.innerHTML += newMeasureBar;
-    }
-
-}
-function drawBeats() {
-    updateBeats();
-    let allBars = document.querySelectorAll('div.measure-bar');
-    allBars.forEach(() => {
-        for (let i = 0; i < currentBeats.textContent; i++) {
-        allBars[i].innerHTML += newMeasureBarSegment;
-    }
-    });
-    updateBeats();
-    
-
->>>>>>> Stashed changes
-}
-
 function playClick() {
   clicker = setTimeout(() => {
-    let allBeats = document.querySelectorAll(".measure-bar-segment");
-    if (allBeats.length == 1) {
-      allBeats[index].classList.toggle("highlighted");
-      click1.currentTime = 0;
-      click1.play();
-    } else {
-      for (const beat of allBeats) {
-        if (index >= 1) {
-          allBeats[index].classList.toggle("highlighted");
-          click2.currentTime = 0;
-          click2.play();
-        } else {
-          allBeats[index].classList.toggle("highlighted");
-          click1.currentTime = 0;
-          click1.play();
-          /*allBeats[index].previousElementSibling.classList.toggle(
-              "highlighted"
-            );*/
+      let allBeats = document.querySelectorAll(".measure-bar-segment");
+
+      if (allBeats.length === 0) {
+        // If there are no beats, we can't play anything.
+        // If metronome is supposed to be running, schedule the next attempt.
+        if (startStopBtn.textContent === "STOP") {
+          playClick();
         }
+        return; // Exit this iteration's logic as there are no beats
       }
 
-      console.log(index);
-      ++index;
-      if (index == allBeats.length) {
-        index = 0;
+      // Ensure index is valid (not NaN and within current bounds).
+      // This handles cases where beats were removed/added causing index to be
+      // out of sync, or if index became NaN.
+      if (isNaN(index) || index < 0 || index >= allBeats.length) {
+        index = 0; // Reset index to a safe value
       }
-    }
 
-    playClick();
-  }, (60 / tempoSlider.value) * 1000);
-  /*setTimeout(() => {
-        click2.currentTime = 0;
-        click2.play();
+      // Remove highlight from the previous beat
+      // A simpler and more robust way is to clear all highlights first
+      allBeats.forEach(beat => beat.classList.remove("highlighted"));
+
+      // Highlight the current beat
+      // At this point, allBeats.length > 0 and index is valid.
+      // Add an extra check for allBeats[index] to be absolutely sure.
+      if (allBeats[index]) {
+          allBeats[index].classList.add("highlighted");
+      }
+
+      // Play the click sound
+      // Defensive check for selectedBarBeats to prevent modulo by zero and play click1 on the first beat of each measure
+      if (selectedBarBeats > 0 && index === 0 ) {
+        click1.play();
+      } 
+      else beat.clickSound();
+
+      // Increment the index, loop back to 0 at the end
+      // This is safe now because allBeats.length > 0 is guaranteed here
+      index = (index + 1) % allBeats.length;
+
+      // Schedule the next click only if the metronome is still supposed to be running
+      if (startStopBtn.textContent === "STOP") {
         playClick();
-      }, (60 / tempoSlider.value) * 1000);*/
+      }
+  }, (60 / tempoSlider.value) * 1000);
 }
 
-<<<<<<< Updated upstream
 function stopClick() {
   clearTimeout(clicker);
 }
-=======
-function startTest() {
-    console.log('started');
-    const startTime = Date.now();
 
-}
-
-
-
-
->>>>>>> Stashed changes
+function calculateDrift() {  let drift = Date.now() % 1000;
+  console.log(drift);
+  return drift;
+  }
