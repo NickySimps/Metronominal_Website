@@ -13,8 +13,19 @@
 </head>
 
 <body>
+    <div class="theme-controls">
+        <button data-theme="default" aria-label="Switch to Default Theme">Default</button>
+        <button data-theme="dark" aria-label="Switch to Dark Theme">Dark</button>
+        <button data-theme="synthwave" aria-label="Switch to Synthwave Theme">Synthwave</button>
+        <button data-theme="gundam" aria-label="Switch to Gundam Theme">Gundam</button>
+    </div>
+
     <div class="main-container">
         <div class="metronome-container">
+            <div class="top-controls-area">
+            <button class="tap-tempo-btn">TAP TEMPO</button>
+            <button class="reset-btn">RESET</button> 
+        </div>
             <div class="tempo-container">
                 <div class="bpm-display">
                     <span class="tempo">120</span>
@@ -32,6 +43,11 @@
                 </div>
             </div>
             <button class="start-stop-btn">START</button>
+            <div class="volume-controls-container">
+                <label for="volume-slider-input">Volume:</label>
+                <input type="range" id="volume-slider-input" class="volume-slider" min="0" max="1" step="0.01" value="0.8" aria-label="Volume">
+                <span class="volume-value">80%</span>
+            </div>
 
             <div class="measures-container">
                 <div class="measure-settings-container">
@@ -71,8 +87,37 @@
  
                 </select>
             </div>
+            <div class="preset-controls">
+                <h3>PRESETS</h3>
+                <div class="preset-slot-selection">
+                    <label for="preset-slot-select">Slot:</label>
+                    <select id="preset-slot-select" aria-label="Select preset slot">
+                        <option value="0">1</option>
+                        <option value="1">2</option>
+                        <option value="2">3</option>
+                        <option value="3">4</option>
+                        <option value="4">5</option>
+                        <option value="5">6</option>
+                        <option value="6">7</option>
+                        <option value="7">8</option>
+                        <option value="8">9</option>
+                        <option value="9">10</option>
+                        <option value="10">11</option>
+                        <option value="11">12</option>
+                        <option value="12">13</option>
+                        <option value="13">14</option>
+                        <option value="14">15</option>
+                        <option value="15">16</option>
+                    </select>
+                </div>
+                <div class="preset-actions">
+                    <button class="preset-btn save-preset-btn" aria-label="Save current settings to selected preset slot">Save</button>
+                    <button class="preset-btn load-preset-btn" aria-label="Load settings from selected preset slot">Load</button>
+                </div>
+            </div>
 
-
+        </div> <!-- End of metronome-container -->
+    </div> <!-- End of main-container -->
 </body>
 <script src="script.js" defer></script>
 

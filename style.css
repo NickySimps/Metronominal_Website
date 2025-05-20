@@ -22,11 +22,11 @@ body {
   font-size: 1.4em; /* Adjusted base font size for 'Inter' on mobile */
   display: flex;
   justify-content: center;
-  align-items: center;
-  height: auto;
+  align-items: flex-start; /* Align to start to respect padding-top */
+  min-height: 100vh; /* Ensure body takes at least full viewport height */
   width: 90%;
   margin: auto;
-  padding: 0;
+  padding: 70px 0 20px 0; /* Added 70px top padding, 20px bottom */
   user-select: none;
   color: var(--TextPrimary);
 }
@@ -41,6 +41,7 @@ body *:focus {
 }
 
 .metronome-container {
+  background-color: #ffffff; /* Changed to white to stand out from var(--Background) */
   width: auto;
   height: auto;
   display: flex;
@@ -51,6 +52,7 @@ body *:focus {
   /* Corrected and softened shadow */
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
   border-radius: 12px;
+
 }
 
 .tempo-container,
@@ -59,6 +61,7 @@ body *:focus {
   /* Slightly different background for containers if needed, or keep as body background */
   background: #ffffff; /* White card background */
   text-align: center;
+  
 }
 
 .tempo-container {
@@ -70,7 +73,7 @@ body *:focus {
 .beats-per-current-measure,
 .bars-length {
   font-weight: bold;
-  color: var(--Main);
+  color: var(--TextPrimary); /* Changed for better readability on Accent background */
   font-size: larger;
 }
 
@@ -224,6 +227,12 @@ span {
   background-color: var(--Main); /* Slightly different active color */
   color: var(--TextOnMain);
 }
+.tap-tempo-btn.tapped {
+  background-color: var(--Accent); /* Feedback color */
+  /* Use a transform that doesn't conflict too much with :active */
+  transform: scale(0.96) translateY(0px); 
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
 
 .adjust-tempo {
   height: 90px; /* Adjusted for mobile */
@@ -250,7 +259,7 @@ select {
     outline-color: var(--Accent);
     border: 1px solid var(--Main);
     background-color: var(--Highlight);
-    color: var(--Alt1);
+    color: var(--TextPrimary);
     border-radius: 4px;
     cursor: pointer;
     transition: background-color 0.2s ease, border-color 0.2s ease;
@@ -277,6 +286,7 @@ option {
   justify-content: center;
     display: flex; /* Allows bars to sit side-by-side */
     flex-wrap: wrap; /* Allows bars to wrap to next line if not enough space */
+    overflow-x: auto; /* Enable horizontal scrolling if content overflows */
   margin: 5px 0; /* Reduced margin for mobile, 0 for left/right as width is 100% */
   min-height: 0; /* If needed, ensure it has a purpose */
 }
@@ -326,6 +336,25 @@ option {
 .beat-square.subdivision {
     background-color: var(--SubdivisionBeatColor);
 }
+/* Animation for newly removed beat squares */
+.beat-square.removing-beat-animation {
+  animation: beat-disappear-animation 0.3s ease-in forwards;
+}
+
+@keyframes beat-disappear-animation {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0); }
+}
+/* Animation for newly added beat squares */
+.beat-square.newly-added-beat-animation {
+  animation: beat-appear-animation 0.3s ease-out forwards;
+}
+
+@keyframes beat-appear-animation {
+  from { opacity: 0; transform: scale(0.5); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 
 /* .highlighted class (already existing) will be used for beat squares */
 
@@ -342,7 +371,7 @@ option {
   
 }
 .measure-bar {
-  background: var(--Main);
+  background: var(--Highlight);
   display: flex;
   gap: 2px;
   width: 3em;
@@ -353,31 +382,27 @@ option {
   justify-content: center;
   /* flex-flow: row nowrap; from stashed changes is default for flex-direction: row */
 }
-
-.measure-bar:nth-of-type(odd) {
-  filter: brightness(1.25);
-  height: 0.5em;
-}
-
-.measure-bar:nth-of-type(even) {
-  height: 0.25em;
-  filter: brightness(1.7);
-  border-radius: 0px;
-}
-
-.measure-bar:first-of-type {
-  height: 1em;
-  filter: brightness(1);
-  border-radius: 8px; /* Kept from upstream */
-  /* background: hotpink; from stashed changes - already on .measure-bar */
-}
-
 .measure-bar-segment {
     height: 90%;
     width: 90%;
     margin: 1px 3px;
     border-radius: 8px;
-    background: var(--Alt1); /* Was rgba(0,0,0,0.25), now solid purple */
+    background: var(--Main); /* Was rgba(0,0,0,0.25), now solid purple */
+}
+.measure-bar:nth-of-type(odd) {
+  filter: brightness(1.25);
+  height: 0.5em;
+}
+.measure-bar:nth-of-type(even) {
+  height: 0.25em;
+  filter: brightness(1.7);
+  border-radius: 0px;
+}
+.measure-bar:first-of-type {
+  height: 1em;
+  filter: brightness(1);
+  border-radius: 8px; /* Kept from upstream */
+  /* background: hotpink; from stashed changes - already on .measure-bar */
 }
 .measure-bar-segment:nth-of-type(odd){
     background: var(--Alt2); /* Was rgba(0,0,0,0.5), now solid red/pink for distinction */
@@ -402,10 +427,7 @@ option {
   .metronome-container {
     flex-direction: row; /* Side-by-side on larger screens */
   }
-  .measures-container,
-  .bar-settings-container {
-    width: 40%;
-  }
+ 
   .tempo-slider {
     padding: 0 30px; /* Restore padding for larger screens */
   }
@@ -441,4 +463,213 @@ option {
     height: 130px;
     width: 130px;
   }
+  .adjust-measure-length,
+  .adjust-bar-length {
+    height: 80px; /* Added for desktop consistency */
+    width: 80px;  /* Added for desktop consistency */
+  }
+}
+
+/* Theme Switcher Styles */
+.theme-controls {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px; /* Increased gap slightly */
+  padding: 8px; /* Increased padding slightly */
+  background-color: color-mix(in srgb, var(--Background) 80%, transparent); /* Use Background with transparency */
+  border: 1px solid var(--BorderColor);
+  border-radius: 8px; /* Rounded corners */
+  z-index: 1000; /* Ensure it's on top of other elements */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.theme-controls button {
+  padding: 6px 10px; /* Adjusted padding */
+  border: 1px solid var(--BorderColor);
+  background-color: var(--Highlight);
+  color: var(--TextPrimary);
+  cursor: pointer;
+  border-radius: 5px; /* Rounded corners for buttons */
+  font-size: 0.45em; /* Smaller font size relative to body */
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.theme-controls button:hover {
+  background-color: var(--Accent);
+  border-color: var(--Main);
+  color: var(--TextPrimary); /* Ensure good contrast on Accent */
+}
+/* Animation for text updates on tempo, beats per measure, and bar length displays */
+.tempo-text-box.updating,
+.beats-per-current-measure.updating,
+.bars-length.updating {
+  animation: control-value-fade-out-in 0.5s ease-in-out;
+}
+
+@keyframes control-value-fade-out-in {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  49% { /* Point just before text content changes */
+    opacity: 0;
+    transform: translateY(-3px); /* Slight upward movement */
+  }
+  50% { /* Text content changes here via JS */
+    opacity: 0;
+    transform: translateY(3px); /* Start from slightly below */
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Animation for newly added bars */
+.bar-visual.newly-added-bar-animation {
+  animation: bar-appear 0.4s ease-out forwards;
+  transform-origin: left center; /* Makes scaling appear from the left */
+}
+
+@keyframes bar-appear {
+  from {
+    opacity: 0;
+    transform: scaleX(0.5) translateX(-15px);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1) translateX(0);
+  }
+}
+
+/* Animation for newly removed bars */
+.bar-visual.removing-bar-animation {
+  animation: bar-disappear-animation 0.4s ease-in forwards;
+  transform-origin: left center; /* Consistent with adding animation */
+}
+
+@keyframes bar-disappear-animation {
+  from {
+    opacity: 1;
+    transform: scaleX(1) translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: scaleX(0.5) translateX(-15px); /* Mirrors the 'from' state of bar-appear */
+  }
+}
+
+/* Volume Controls Styling */
+.volume-controls-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 15px auto; 
+    padding: 5px 15px; 
+    width: 90%; 
+    max-width: 350px; 
+}
+.volume-controls-container label {
+    font-size: 0.7em; /* Smaller label */
+    color: var(--TextSecondary);
+    white-space: nowrap; 
+}
+
+.volume-slider { /* This class is on the input[type="range"] */
+    flex-grow: 1;
+    min-width: 100px; 
+    /* General input[type="range"] styles will apply for thumb and track */
+}
+
+.volume-value {
+    font-size: 0.7em; /* Smaller value display */
+    color: var(--TextPrimary);
+    min-width: 40px; 
+    text-align: right;
+    background-color: var(--Highlight); /* Consistent with other displays */
+    padding: 3px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--BorderColor);
+}
+
+/* Preset Controls Styling */
+.preset-controls {
+    width: 100%;
+    padding: 15px;
+    margin-top: 20px;
+    border-top: 1px solid var(--BorderColor); 
+    text-align: center;
+}
+.preset-controls h3 {
+    font-size: 0.9em; /* Adjusted size */
+    font-weight: 500; 
+    color: var(--TextPrimary);
+    margin-bottom: 15px; 
+    text-transform: uppercase;
+    letter-spacing: 0.05em; 
+}
+.preset-slot-selection, .preset-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.preset-slot-selection label {
+    font-size: 0.7em;
+    color: var(--TextSecondary);
+}
+/* #preset-slot-select inherits from general 'select' but we can refine */
+#preset-slot-select {
+    font-size: 0.65em; /* Slightly smaller than buttons */
+    padding: 6px 10px; /* Adjust padding */
+    /* width: auto; height: auto; already in general select via .total-beats-display, select */
+    min-width: 50px; 
+}
+
+.preset-btn {
+    padding: 7px 14px; /* Slightly adjusted padding */
+    border-radius: 5px;
+    border: 1px solid var(--Main);
+    background-color: var(--Highlight);
+    color: var(--TextPrimary);
+    cursor: pointer;
+    font-size: 0.65em; /* Consistent small button size */
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+}
+.preset-btn:hover {
+    background-color: var(--Accent);
+    border-color: var(--Alt1);
+}
+.preset-btn:active {
+    background-color: color-mix(in srgb, var(--Accent) 80%, black);
+    transform: translateY(1px);
+}
+
+/* Suggestion for your CSS file */
+.top-controls-area {
+    position: absolute; /* Or use flex/grid within its parent */
+    top: 15px;          /* Adjust as needed */
+    left: 15px;         /* Adjust as needed */
+    display: flex;
+    gap: 10px;          /* Space between buttons */
+    z-index: 1000;      /* Ensure it's on top if other elements overlap */
+}
+
+.top-controls-area button {
+    /* Basic styling, adjust to match your theme */
+    padding: 8px 12px;
+    font-size: 0.9em;
+    cursor: pointer;
+    border: 1px solid var(--BorderColor, #ccc);
+    background-color: var(--Accent, #f0f0f0);
+    color: var(--TextPrimary, #333);
+    border-radius: 4px;
+}
+
+.top-controls-area button:hover {
+    background-color: var(--Highlight, #e0e0e0);
 }
