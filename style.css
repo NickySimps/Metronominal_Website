@@ -1,5 +1,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap");
 
+html {
+  overflow-x: hidden; /* Prevent horizontal scrolling for the entire page */
+}
+
 :root {
   --Main: #ff00dd; /* Bright Pink/Magenta */
   --Background: #f0f0f0; /* Off-white/Very Light Grey */
@@ -12,11 +16,13 @@
   --TextSecondary: #555555; /* Medium Grey for secondary text */
   --SubdivisionBeatColor: #ffa07a; /* Light Salmon - for subdivision beats */
   --ActiveBarBackground: var(--Alt1); /* Deep Blue for active bar background */
-  --BorderColor: #dddddd; /* Light grey for borders */
+  --BorderColor: transparent; /* Light grey for borders -> Now transparent by default for flat look */
+  --BorderRadius: 20px; /* Default border radius, will be overridden by themes */
 }
 
 
 body {
+  overflow-x: hidden; /* Further ensure body content doesn't cause horizontal scroll */
   background-color: var(--Background);
   font-family: "Inter", sans-serif; /* Changed font */
   font-size: 1.4em; /* Adjusted base font size for 'Inter' on mobile */
@@ -24,7 +30,7 @@ body {
   justify-content: center;
   align-items: flex-start; /* Align to start to respect padding-top */
   min-height: 100vh; /* Ensure body takes at least full viewport height */
-  width: 90%;
+  max-width: 90%;
   margin: auto;
   padding: 70px 0 20px 0; /* Added 70px top padding, 20px bottom */
   user-select: none;
@@ -50,7 +56,7 @@ body {
   /* Corrected and softened shadow */
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
   padding: 10px;
-  border-radius: 12px;
+  border-radius: var(--BorderRadius);
 
 }
 
@@ -177,7 +183,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 .adjust-bar-length,
 .adjust-measure-length,
 .start-stop-btn {
-  border-radius: 12px; /* Slightly less round for a more modern feel, or keep 50% for circles */
+  border-radius: var(--BorderRadius); 
   background: var(--Highlight);
   margin: auto;
   display: flex; /* For centering content */
@@ -191,7 +197,6 @@ input[type="range"]::-webkit-slider-runnable-track {
 .adjust-bar-length:hover,
 .adjust-measure-length:hover,
 .start-stop-btn:hover {
-  border-radius: 50%;
   background: var(--Alt1); /* Was dodgerblue, now purple */
   color: var(--TextOnMain); 
   transform: translateY(-2px);
@@ -237,17 +242,17 @@ input[type="range"]::-webkit-slider-runnable-track {
 select {
     height: 50px;
     width: 50px;
-    outline-color: var(--Accent);
-    border: 1px solid var(--Main);
+    outline-color: transparent; /* Changed from var(--Accent) */
+    border: 1px solid transparent; /* Changed from var(--Main) */
     background-color: var(--Highlight);
     color: var(--TextPrimary);
-    border-radius: 4px;
+    border-radius: var(--BorderRadius);
     cursor: pointer;
     transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 select:hover {
     background-color: var(--Accent);
-    border-color: var(--Alt1);
+    border-color: transparent; /* Changed from var(--Alt1) */
 }
 
 /* Note: Styling option elements is very limited and browser-dependent */
@@ -258,8 +263,8 @@ option {
 
 .bar-display-container {
   background: var(--Background);
-  outline: var(--BorderColor) 1px solid;
-  border-radius: 5px;
+  outline: var(--BorderColor) 1px solid; /* Will be transparent due to --BorderColor change */
+  border-radius: var(--BorderRadius);
   width: 100%;
   height: auto; 
   padding: 5px; /* Reduced padding for mobile */
@@ -285,10 +290,11 @@ option {
     display: flex; /* Arrange beat squares horizontally */
     flex-wrap: wrap; /* Allow squares to wrap if too many */
     gap: 4px; /* Spacing between beat squares */
+    border-radius: var(--BorderRadius);
     align-items: center; /* Vertically align squares */
 }
 .bar-visual:hover {
-  border-color: var(--Main);
+  border-color: transparent; /* Changed from var(--Main) for flat look */
   box-shadow: 0 0 8px var(--Accent);
 }
 
@@ -300,7 +306,7 @@ option {
 
 .bar-visual.selected {
     border-color: var(--Alt1); /* Was dodgerblue */
-    background-color: var(--Main); /* Was #e0efff */
+    /* background-color: var(--Main); */ /* Optional: change background on selection */
     outline: 2px solid var(--Alt2); /* Was dodgerblue */
     box-shadow: 0 0 8px var(--Alt1); /* Was rgba(30, 144, 255, 0.5), alpha lost */
 }
@@ -308,30 +314,31 @@ option {
     width: 12px;
     height: 12px;
     background-color: color-mix(in srgb, var(--Highlight) 60%, white); /* Lighter version of highlight */
-    border: 1px solid var(--Highlight); /* Was #adadad */
-    border-radius: 3px; /* Slightly more rounded */
+    border: 1px solid transparent; /* Changed from var(--Highlight) */
+    border-radius: var(--BorderRadius);
     transition: all 0.2s ease-out; /* Smoother and slightly longer "pop" for liquid feel */
 }
 .bar-visual.medium-dense-beats {
   gap: 3px; /* Slightly reduced gap */
 }
 .bar-visual.medium-dense-beats .beat-square {
-  width: 8px;   /* Smaller squares for medium density */
+  width: 8px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--BorderRadius);
 }
 /* Adjust highlighted style for medium density if needed */
 .bar-visual.medium-dense-beats .beat-square.highlighted {
   scale: 1.6; /* May need slightly different scaling */
+  /* Highlighted class already sets border-radius: 50% which will override var(--BorderRadius) */
 }
 
 .bar-visual.high-dense-beats {
   gap: 2px; /* Even tighter gap */
 }
 .bar-visual.high-dense-beats .beat-square {
-  width: 6px;   /* Even smaller squares for high density */
+  width: 6px;
   height: 6px;
-  border-radius: 1px; /* Sharper, more dot-like */
+  border-radius: var(--BorderRadius);
 }
 /* Adjust highlighted style for high density */
 .bar-visual.high-dense-beats .beat-square.highlighted {
@@ -366,10 +373,10 @@ option {
 /* .highlighted class (already existing) will be used for beat squares */
 
 .total-beats-display, select {
-  outline: 1px solid var(--Main);
+  outline: 1px solid transparent; /* Changed from var(--Main) */
   padding: 4px;
   background: var(--Highlight);
-  border-radius: 8px;
+  border-radius: var(--BorderRadius);
   font-size: 0.6em; /* Relative to body, smaller for UI elements */
   width: auto;
   text-align: center; 
@@ -385,7 +392,7 @@ option {
   align-items: center;
   padding: 3px; /* Kept from upstream */
   margin: 0px;
-  border-radius: 8px; /* Kept from upstream */
+  border-radius: var(--BorderRadius);
   justify-content: center;
   /* flex-flow: row nowrap; from stashed changes is default for flex-direction: row */
 }
@@ -393,7 +400,7 @@ option {
     height: 90%;
     width: 90%;
     margin: 1px 3px;
-    border-radius: 8px;
+    border-radius: var(--BorderRadius);
     background: var(--Main); /* Was rgba(0,0,0,0.25), now solid purple */
 }
 .measure-bar:nth-of-type(odd) {
@@ -408,7 +415,7 @@ option {
 .measure-bar:first-of-type {
   height: 1em;
   filter: brightness(1);
-  border-radius: 8px; /* Kept from upstream */
+  border-radius: var(--BorderRadius);
   /* background: hotpink; from stashed changes - already on .measure-bar */
 }
 .measure-bar-segment:nth-of-type(odd){
@@ -418,7 +425,7 @@ option {
   scale: 1.55;
   margin: 0 0.1em;
   border-radius: 50%; /* Keep highlighted as circle */
-  background: var(--Accent);
+  background: var(--SubdivisionBeatColor); /* Changed to use SubdivisionBeatColor */
 }
 /* Base styles (mobile-first approach) */
 .metronome-container {
@@ -485,27 +492,27 @@ option {
   display: flex;
   gap: 8px; /* Increased gap slightly */
   padding: 8px; /* Increased padding slightly */
-  background-color: color-mix(in srgb, var(--Background) 80%, transparent); /* Use Background with transparency */
-  border: 1px solid var(--BorderColor);
-  border-radius: 8px; /* Rounded corners */
+  background-color: color-mix(in srgb, var(--Background) 80%, transparent); 
+  border: 1px solid var(--BorderColor); /* Will be transparent */
+  border-radius: var(--BorderRadius);
   z-index: 1000; /* Ensure it's on top of other elements */
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .theme-controls button {
   padding: 6px 10px; /* Adjusted padding */
-  border: 1px solid var(--BorderColor);
+  border: 1px solid var(--BorderColor); /* Will be transparent */
   background-color: var(--Highlight);
   color: var(--TextPrimary);
   cursor: pointer;
-  border-radius: 5px; /* Rounded corners for buttons */
+  border-radius: var(--BorderRadius);
   font-size: 0.45em; /* Smaller font size relative to body */
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 .theme-controls button:hover {
   background-color: var(--Accent);
-  border-color: var(--Main);
+  border-color: transparent; /* Changed from var(--Main) for flat look */
   color: var(--TextPrimary); /* Ensure good contrast on Accent */
 }
 /* Animation for text updates on tempo, beats per measure, and bar length displays */
@@ -577,12 +584,17 @@ option {
     margin: 15px auto; 
     padding: 5px 15px; 
     width: 90%; 
-    max-width: 350px; 
+    max-width: 350px;
 }
 .volume-controls-container label {
     font-size: 0.7em; /* Smaller label */
     color: var(--TextSecondary);
     white-space: nowrap; 
+}
+
+/* Corrected selector for volume label span */
+.volume-label {
+    color: var(--TextSecondary);
 }
 
 .volume-slider { /* This class is on the input[type="range"] */
@@ -597,9 +609,9 @@ option {
     min-width: 40px; 
     text-align: right;
     background-color: var(--Highlight); /* Consistent with other displays */
-    padding: 3px 6px;
-    border-radius: 4px;
-    border: 1px solid var(--BorderColor);
+    padding: 3px 6px; 
+    border-radius: var(--BorderRadius);
+    border: 1px solid var(--BorderColor); /* Will be transparent */
 }
 
 /* Preset Controls Styling */
@@ -607,7 +619,7 @@ option {
     width: 100%;
     padding: 15px;
     margin-top: 20px;
-    border-top: 1px solid var(--BorderColor); 
+    border-top: 1px solid var(--BorderColor); /* Will be transparent */
     text-align: center;
 }
 .preset-controls h3 {
@@ -625,10 +637,16 @@ option {
     gap: 10px;
     margin-bottom: 10px;
 }
-.preset-slot-selection label {
+/* Corrected selector for preset slot label span */
+.preset-slot-label {
     font-size: 0.7em;
     color: var(--TextSecondary);
 }
+/* Original rule for label, can be removed or kept if actual label elements are used elsewhere */
+/*.preset-slot-selection label {
+    font-size: 0.7em;
+    color: var(--TextSecondary);
+}*/
 /* #preset-slot-select inherits from general 'select' but we can refine */
 #preset-slot-select {
     font-size: 0.65em; /* Slightly smaller than buttons */
@@ -639,8 +657,8 @@ option {
 
 .preset-btn {
     padding: 7px 14px; /* Slightly adjusted padding */
-    border-radius: 5px;
-    border: 1px solid var(--Main);
+    border-radius: var(--BorderRadius);
+    border: 1px solid transparent; /* Changed from var(--Main) */
     background-color: var(--Highlight);
     color: var(--TextPrimary);
     cursor: pointer;
@@ -649,10 +667,10 @@ option {
 }
 .preset-btn:hover {
     background-color: var(--Accent);
-    border-color: var(--Alt1);
+    border-color: transparent; /* Changed from var(--Alt1) */
 }
 .preset-btn:active {
-    background-color: color-mix(in srgb, var(--Accent) 80%, black);
+    background-color: color-mix(in srgb, var(--Accent) 80%, white);
     transform: translateY(1px);
 }
 
@@ -671,10 +689,10 @@ option {
     padding: 8px 12px;
     font-size: 0.9em;
     cursor: pointer;
-    border: 1px solid var(--BorderColor, #ccc);
+    border: 1px solid var(--BorderColor, transparent); /* Fallback also transparent */
     background-color: var(--Accent, #f0f0f0);
     color: var(--TextPrimary, #333);
-    border-radius: 4px;
+    border-radius: var(--BorderRadius);
 }
 
 .top-controls-area button:hover {
@@ -694,42 +712,73 @@ option {
       padding: 8px;
       box-sizing: border-box;
       background-color: color-mix(in srgb, var(--Background) 80%, transparent);
-      border-radius: 0;
+      border-radius: 0; /* Removed border-radius for full-width bars */
       box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
       z-index: 1000;
+    }
+
+    body { /* Override global body styles for mobile */
+      /* Adjust body padding to make space for the fixed top and bottom bars */
+      /* These values are estimates; you might need to fine-tune them based on the actual height of your bars */
+      padding-top: 45px; 
+      padding-left: 0;
+      padding-bottom: 45px;
+      padding-right: 0;
+      max-width: 100%;
+      margin: 0; /* Remove auto margins */
     }
   
     /* Specific styling for .top-controls-area */
     .top-controls-area {
       top: 0;
       bottom: auto;
-      left: 0;
+      left: 0; /* Ensure it starts from the left edge */
       width: 100%;
       justify-content: center;
-      border-bottom: 1px solid var(--BorderColor);
+      border-bottom: 1px solid var(--BorderColor); /* Will be transparent */
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Correct shadow for a top-fixed bar */
     }
   
     /* Specific styling for .theme-controls */
     .theme-controls {
       top: auto;
       bottom: 0;
-      right: 0;
-      left: auto;
+      right: 0; /* Ensure it starts from the right edge */
+      left: 0; /* Stretch across the bottom */
       width: 100%;
-      justify-content: flex-end;
-      border-top: 1px solid var(--BorderColor);
+      justify-content: space-around;
+      border-top: 1px solid var(--BorderColor); /* Will be transparent */
     }
   
     .top-controls-area button,
     .theme-controls button {
       font-size: 0.6em;
       padding: 4px 6px;
-      white-space: nowrap;
-      flex-grow: 1;
+      white-space: nowrap; /* Keep text on one line for ellipsis */
       text-align: center;
+      
+      /* Make buttons share space equally and handle overflow */
+      flex-grow: 1;       /* Allow buttons to grow to fill space */
+      flex-shrink: 1;     /* Allow buttons to shrink if space is limited */
+      flex-basis: 0;      /* Distribute space from a zero basis for equal sharing */
+      min-width: 0;       /* Crucial: allows shrinking below intrinsic content width */
+      overflow: hidden;     /* Hide text that doesn't fit */
+      text-overflow: ellipsis; /* Show '...' for hidden text */
+    }
+
+    /* Example: Reduce size of large elements to help content fit vertically */
+    .start-stop-btn {
+      height: 120px; /* Was 160px */
+      width: 120px;  /* Was 160px */
+      font-size: 0.9em; /* Slightly smaller text if needed */
+    }
+
+    .main-container {
+      width: 100%; /* Ensure main container takes full width */
+      max-width: 100%; /* Override any max-width constraints */
+      padding: 0 10px; /* Add some padding on the sides */
     }
   }
-
 
   @media (max-width: 768px) { /* Styles for mobile devices */
 
