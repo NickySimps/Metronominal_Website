@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentBar = 0;
     let currentBeat = 0;
     let previousHighlightedBeatElement = null; // To keep track of the previously highlighted beat
+    let currentActiveBarElement = null; // To keep track of the bar visual that is currently active
 
     // Audio elements for metronome clicks - create once
     const clickSound = new Audio('Click1.mp3');
@@ -110,6 +111,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fallback to ensure all are cleared if previousHighlightedBeatElement was missed
         const allBeatSquares = barDisplayContainer.querySelectorAll('.beat-square.highlighted');
         allBeatSquares.forEach(sq => sq.classList.remove('highlighted'));
+
+        // Also clear the active bar styling
+        if (currentActiveBarElement) {
+            currentActiveBarElement.classList.remove('active-bar');
+            currentActiveBarElement = null;
+        }
+        const allActiveBars = barDisplayContainer.querySelectorAll('.bar-visual.active-bar');
+        allActiveBars.forEach(bar => bar.classList.remove('active-bar'));
     }
     // Function to render the bars and update control displays
     function renderBarsAndControls() {
@@ -406,21 +415,48 @@ document.addEventListener('DOMContentLoaded', () => {
         timer = setTimeout(metronomeTick, Math.max(0, delayForSetTimeout)); // Ensure non-negative delay
     }
     function updateBeatHighlight(barIndex, beatIndex, shouldHighlight) {
-      const bars = barDisplayContainer.querySelectorAll('.bar-visual');
+        const bars = barDisplayContainer.querySelectorAll('.bar-visual');
         if (barIndex < 0 || barIndex >= bars.length) return;
 
-        const currentBarElement = bars[barIndex];
-        const beatSquares = currentBarElement.querySelectorAll('.beat-square');
+        const targetBarElement = bars[barIndex]; // The bar that should be active
 
+        // 1. Clear previous beat's highlight style
         if (previousHighlightedBeatElement) {
             previousHighlightedBeatElement.classList.remove('highlighted');
-            previousHighlightedBeatElement = null;
         }
 
-        if (shouldHighlight && beatIndex >= 0 && beatIndex < beatSquares.length) {
-            const beatToHighlight = beatSquares[beatIndex];
-            beatToHighlight.classList.add('highlighted');
-            previousHighlightedBeatElement = beatToHighlight;
+        // 2. Clear 'active-bar' from the previously active bar IF it's different from the new target
+        if (currentActiveBarElement && currentActiveBarElement !== targetBarElement) {
+            currentActiveBarElement.classList.remove('active-bar');
+        }
+
+        // 3. Apply new highlights and active bar state
+        if (shouldHighlight) { // This is always true when called from metronomeTick
+            const beatSquares = targetBarElement.querySelectorAll('.beat-square');
+            if (beatIndex >= 0 && beatIndex < beatSquares.length) {
+                const beatToHighlight = beatSquares[beatIndex];
+                beatToHighlight.classList.add('highlighted');
+                previousHighlightedBeatElement = beatToHighlight;
+
+                targetBarElement.classList.add('active-bar');
+                currentActiveBarElement = targetBarElement;
+            } else {
+                // Beat index is out of bounds, ensure no beat is marked as highlighted
+                // and no bar is marked as active from this path.
+                previousHighlightedBeatElement = null;
+                if (currentActiveBarElement) { // If for some reason a bar was active, clear it.
+                    currentActiveBarElement.classList.remove('active-bar');
+                    currentActiveBarElement = null;
+                }
+            }
+        } else {
+            // This 'else' (shouldHighlight = false) is not typically hit by metronomeTick.
+            // clearAllHighlights handles full cleanup when stopping.
+            previousHighlightedBeatElement = null;
+            if (currentActiveBarElement) {
+                currentActiveBarElement.classList.remove('active-bar');
+                currentActiveBarElement = null;
+            }
         }
     }
 

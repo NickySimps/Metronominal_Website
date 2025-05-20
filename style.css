@@ -1,21 +1,25 @@
-@import url("https://fonts.googleapis.com/css2?family=Dongle:wght@300;400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap");
 
 :root {
   --Main: #ff00dd; /* Bright Pink/Magenta */
-  --Background: #c4e0f7; /* Light Sky Blue */
-  --Accent: #ff7cc4; /* Light Pink */
-  --Highlight: #75d8ff; /* Light Blue */
-  --Alt1: #ee2bb3; /* Deep Pink/Magenta */
-  --Alt2: #ff0040; /* Bright Red-Pink */
+  --Background: #f0f0f0; /* Off-white/Very Light Grey */
+  --Accent: #ffb347; /* Yellow-Orange - Secondary Accent */
+  --Highlight: #90ee90; /* Light Green */
+  --Alt1: #4682b4; /* Steel Blue - Potentially for stronger call to actions or specific states */
+  --Alt2: #dc143c; /* Crimson - Good for active/warning states */
   --TextOnMain: #ffffff; /* White text for contrast on Main/Alt1 colors */
-  --SubdivisionBeatColor: #52ffc5; /* Thistle (Light Purple) - for subdivision beats */
+  --TextPrimary: #333333; /* Dark Grey for primary text */
+  --TextSecondary: #555555; /* Medium Grey for secondary text */
+  --SubdivisionBeatColor: #ffa07a; /* Light Salmon - for subdivision beats */
+  --ActiveBarBackground: var(--Alt1); /* Deep Blue for active bar background */
+  --BorderColor: #dddddd; /* Light grey for borders */
 }
 
 
 body {
   background-color: var(--Background);
-  font-family: "Dongle", sans-serif;
-  font-size: 2em; /* Base font size for mobile (e.g., 32px if root is 16px) */
+  font-family: "Inter", sans-serif; /* Changed font */
+  font-size: 1.4em; /* Adjusted base font size for 'Inter' on mobile */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -24,6 +28,7 @@ body {
   margin: auto;
   padding: 0;
   user-select: none;
+  color: var(--TextPrimary);
 }
 
 body *:focus {
@@ -43,14 +48,16 @@ body *:focus {
   align-content: space-evenly;
   flex-wrap: wrap;
   flex-direction: row;
-  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.15);
+  /* Corrected and softened shadow */
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
   border-radius: 12px;
 }
 
 .tempo-container,
 .measures-container,
 .bar-settings-container {
-  background: var(--Background);
+  /* Slightly different background for containers if needed, or keep as body background */
+  background: #ffffff; /* White card background */
   text-align: center;
 }
 
@@ -69,6 +76,7 @@ body *:focus {
 
 .tempo-text {
   font-weight: lighter;
+  color: var(--TextSecondary);
   font-size: smaller;
 }
 
@@ -138,7 +146,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 
 .beat-settings,
 .bar-settings {
-  outline: 1px solid var(--Highlight);
+  outline: 1px solid var(--BorderColor);
   background: var(--Accent); /* Was white, now yellow-green for contrast with blue outline */
   width: 100%;
 }
@@ -152,6 +160,9 @@ span {
   width: 160px;  /* Adjusted for mobile */
   padding: 5px;
   margin: 5px;
+  display: flex; /* Added for consistent centering with other buttons */
+  align-items: center; /* Added for consistent centering */
+  justify-content: center; /* Added for consistent centering */
   text-align: center;
   line-height: 5;
 }
@@ -182,21 +193,21 @@ span {
 .adjust-measure-length,
 .start-stop-btn {
   outline: 1px solid var(--Background);
-  border-radius: 50%;
+  border-radius: 12px; /* Slightly less round for a more modern feel, or keep 50% for circles */
   background: var(--Highlight);
   margin: auto;
   display: flex; /* For centering content */
   align-items: center; /* For centering content */
   justify-content: center; /* For centering content */
   cursor: pointer;
-  transition: background-color 0.25s ease, color 0.25s ease, transform 0.15s ease, box-shadow 0.25s ease, outline 0.25s ease;
+  transition: all 0.2s ease-out; /* Quicker, smoother, and includes border-radius */
 }
 
 .adjust-tempo:hover,
 .adjust-bar-length:hover,
 .adjust-measure-length:hover,
 .start-stop-btn:hover {
-  outline: 2px solid var(--Alt2); /* Make hover outline more prominent */
+  outline: 2px solid var(--Main); /* Make hover outline more prominent with Main color */
   border-radius: 50%;
   background: var(--Alt1); /* Was dodgerblue, now purple */
   color: var(--TextOnMain); 
@@ -236,7 +247,7 @@ span {
 select {
     height: 50px;
     width: 50px;
-    outline-color: var(--Main);
+    outline-color: var(--Accent);
     border: 1px solid var(--Main);
     background-color: var(--Highlight);
     color: var(--Alt1);
@@ -257,7 +268,7 @@ option {
 
 .bar-display-container {
   background: var(--Background);
-  outline: var(--Highlight) 1px solid;
+  outline: var(--BorderColor) 1px solid;
   border-radius: 5px;
   width: 100%;
   height: auto; 
@@ -273,7 +284,7 @@ option {
 .bar-visual {
     padding: 8px; /* Adjusted padding */
     margin: 5px;
-    border: 1px solid var(--Background); /* Was #ccc */
+    border: 1px solid var(--BorderColor); /* Was #ccc */
     background-color: var(--Highlight); /* Was #f9f9f9 */
     cursor: pointer;
     /* text-align: center; Flex properties will handle alignment */
@@ -290,6 +301,11 @@ option {
   box-shadow: 0 0 8px var(--Accent);
 }
 
+.bar-visual.active-bar {
+  background-color: var(--ActiveBarBackground);
+  /* The existing transition on .bar-visual for background-color will apply */
+}
+
 
 .bar-visual.selected {
     border-color: var(--Alt1); /* Was dodgerblue */
@@ -300,10 +316,10 @@ option {
 .beat-square {
     width: 12px;
     height: 12px;
-    background-color: var(--Background); /* Was lightgrey */
+    background-color: color-mix(in srgb, var(--Highlight) 60%, white); /* Lighter version of highlight */
     border: 1px solid var(--Highlight); /* Was #adadad */
     border-radius: 3px; /* Slightly more rounded */
-    transition: all 100ms ease-in-out; /* For smooth highlight transition */
+    transition: all 0.2s ease-out; /* Smoother and slightly longer "pop" for liquid feel */
 }
 
 /* Style for beat squares that are subdivisions */
@@ -381,7 +397,7 @@ option {
 /* Tablet and larger */
 @media (min-width: 768px) {
   body {
-    font-size: 2.5em; /* e.g., 40px if root is 16px */
+    font-size: 1.6em; /* Adjusted for 'Inter' */
   }
   .metronome-container {
     flex-direction: row; /* Side-by-side on larger screens */
@@ -415,7 +431,7 @@ option {
 /* Desktop and larger */
 @media (min-width: 1024px) {
   body {
-    font-size: 3em; /* e.g., 48px if root is 16px - original large size */
+    font-size: 1.8em; /* Adjusted for 'Inter' */
   }
   .start-stop-btn {
     height: 250px;
