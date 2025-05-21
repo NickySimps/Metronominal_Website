@@ -118,20 +118,13 @@ function metronomeTick() {
 }
 
 const MetronomeEngine = {
-    togglePlay: () => {
+    togglePlay: async () => { // Make togglePlay async
         const wasPlaying = AppState.isPlaying();
-
-        // If trying to start but no bars, AppState.togglePlay will handle it and return false.
-        // MetronomeEngine respects this decision.
-        if (!wasPlaying && AppState.getBarSettings().length === 0) {
-            console.log("No bars to play.");
-            // Optionally, provide UI feedback here (e.g., shake button)
-            return; // Don't proceed with toggling
-        }
-
+        // AppState.togglePlay() will return false if trying to start with no bars,
+        // or if playback is stopped. This is used below to set button text correctly.
         // AppState.togglePlay() flips the isPlaying state and handles
         // core state resets (currentBar, currentBeat, audioContext resume, nextBeatAudioContextTime).
-        const isNowPlaying = AppState.togglePlay();
+        const isNowPlaying = await AppState.togglePlay(); // Await the result
 
         if (isNowPlaying) {
             // Engine-specific actions when playback STARTS

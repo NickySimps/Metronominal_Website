@@ -2,12 +2,14 @@
  * barControlsController.js
  * This module manages the controls for modifying the number of bars and beats per bar.
  * It updates the AppState and triggers updates in the BarDisplayController.
+ * It interacts with MetronomeEngine for playback control that affects UI.
  * It interacts with domSelectors to access control elements.
  */
 
 import AppState from './appState.js'; // Assuming AppState is a module
 import DOM from './domSelectors.js'; // Assuming domSelectors is a module
 import BarDisplayController from './barDisplayController.js'; // Assuming BarDisplayController is a module
+import MetronomeEngine from './metronomeEngine.js'; // For toggling play with UI updates
 
 // Helper for animated text updates (similar to tempo description)
 function animateControlUpdate(controlElement, updateFunction, animationDuration = 500) {
@@ -41,13 +43,11 @@ function updateTotalBeatsDisplay() {
 
 // Function to synchronize AppState barSettings with the number displayed in barsLengthDisplay
 // and trigger necessary UI updates.
-function syncBarSettings() {
+async function syncBarSettings() { // Make syncBarSettings async
     // Before changing barSettings, if playing, briefly stop to avoid errors with highlight
     let wasPlaying = AppState.isPlaying();
     if (wasPlaying) {
-        AppState.togglePlay(); // Stop playback via AppState
-        // Note: The main script's metronomeTick loop needs to respect AppState.isPlaying()
-        // and stop itself. The startStop function in the main script will handle UI updates.
+        await MetronomeEngine.togglePlay(); // Stop playback; this updates button UI
     }
 
     const currentNumberOfBars = parseInt(DOM.barsLengthDisplay.textContent, 10);
@@ -66,7 +66,7 @@ function syncBarSettings() {
         // Pass previousNumberOfBars (which was the DOM count before adding if DOM was in sync)
         // to animate only the newly added bars.
         BarDisplayController.renderBarsAndControls(previousNumberOfBars);
-        if (wasPlaying && AppState.getBarSettings().length > 0) AppState.togglePlay(); // Restart if needed
+        if (wasPlaying && AppState.getBarSettings().length > 0) await MetronomeEngine.togglePlay(); // Restart if needed; this updates button UI
 
     } else if (currentNumberOfBars < previousNumberOfBars) { // Removing bars
         const barsToAnimateOutCount = previousNumberOfBars - currentNumberOfBars;
@@ -101,10 +101,9 @@ function syncBarSettings() {
                         updateTotalBeatsDisplay(); // Update total beats
 
                         if (wasPlaying) {
-                            if (AppState.getBarSettings().length > 0) AppState.togglePlay(); // Restart if needed
-                            else { // All bars removed
-                                // The main script's startStop will handle UI button text
-                                BarDisplayController.clearAllHighlights();
+                            if (AppState.getBarSettings().length > 0) MetronomeEngine.togglePlay(); // Restart if needed
+                            else { // All bars removed - MetronomeEngine.togglePlay would have been called to stop
+                                // MetronomeEngine.togglePlay would have set button to START
                             }
                         }
                     }
@@ -114,20 +113,19 @@ function syncBarSettings() {
             }
         }
          // Handle case where no bars needed animation (e.g., 1 bar to 0)
-         if (domBarsAnimatedOut === barsToAnimateOutCount && wasPlaying && AppState.getBarSettings().length === 0) {
-            // The main script's startStop will handle UI button text
-            BarDisplayController.clearAllHighlights();
+        if (domBarsAnimatedOut === barsToAnimateOutCount && wasPlaying && AppState.getBarSettings().length === 0) {
+            // If wasPlaying and now 0 bars, MetronomeEngine.togglePlay (called at the start of this 'if wasPlaying' block)
+            // would have stopped it and set the button to START.
         }
 
     } else { // Number of bars is the same
         // Ensure selection is visually correct if selectedBarIndex changed (e.g. from -1 to 0)
         BarDisplayController.renderBarsAndControls(); // Re-render to apply selection, no "new bar" animation
-        if (wasPlaying && AppState.getBarSettings().length > 0) AppState.togglePlay(); // Restart if needed
+        if (wasPlaying && AppState.getBarSettings().length > 0) await MetronomeEngine.togglePlay(); // Restart if needed
     }
 
-     if (AppState.getBarSettings().length === 0) { // General cleanup if no bars
-        // The main script's startStop will handle UI button text
-        BarDisplayController.clearAllHighlights();
+    if (AppState.getBarSettings().length === 0 && wasPlaying) { // General cleanup if no bars and it was playing
+        // MetronomeEngine.togglePlay (called at the start of 'if wasPlaying' block) handles UI update.
     }
 
     updateTotalBeatsDisplay(); // Ensure total beats is updated after any change
@@ -198,21 +196,18 @@ const BarControlsController = {
         });
 
         // Event listener for beat multiplier change
-        DOM.beatMultiplierSelect.addEventListener('change', () => {
+        DOM.beatMultiplierSelect.addEventListener('change', async () => { // Make event handler async
             const wasPlaying = AppState.isPlaying();
             if (wasPlaying) {
-                AppState.togglePlay(); // Stop playback via AppState
-                // The main script's startStop will handle UI updates and clearing highlights
+                await MetronomeEngine.togglePlay(); // Stop playback; this updates button UI
             }
 
             AppState.setBeatMultiplier(DOM.beatMultiplierSelect.value); // Update state
 
             // Re-render visuals based on new multiplier
             BarDisplayController.renderBarsAndControls(-1);
-
             if (wasPlaying && AppState.getBarSettings().length > 0) {
-                AppState.togglePlay(); // Restart playback via AppState
-                // The main script's startStop will handle UI updates and starting the tick
+                await MetronomeEngine.togglePlay(); // Restart playback; this updates button UI
             }
         });
 

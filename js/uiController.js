@@ -32,10 +32,10 @@ const UIController = {
     },
 
 
-    resetToDefaults: () => {
+    resetToDefaults: async () => { // Make resetToDefaults async
         // 1. Stop Metronome if playing
         if (AppState.isPlaying()) {
-            MetronomeEngine.togglePlay(); // This will stop the metronome and update its UI
+            await MetronomeEngine.togglePlay(); // This will stop the metronome and update its UI
         }
 
         // 2. Reset core application state
