@@ -27,9 +27,9 @@ const themes = {
         '--Highlight': '#303038', // Dark Gray
         '--Alt1': '#00529b', // Dark Blue
         '--Alt2': '#4a4a5a', // Medium Dark Gray
-        '--TextOnMain': '#f5f5f5', // Off-White
-        '--TextPrimary': '#e0e0e0', // Light Gray
-        '--TextSecondary': '#a0a0a8', // Medium Light Gray
+        '--TextOnMain': '#ffffff', // Off-White
+        '--TextPrimary': '#000000', // Light Gray
+        '--TextSecondary': 'var(--Alt1)', // Medium Light Gray
         '--SubdivisionBeatColor': 'var(--Highlight)', // Bright Yellow (Corrected to use Accent for yellow)
         '--ActiveBarBackground': 'var(--Accent)', // Bright Yellow
         '--BorderColor': 'transparent', // Set to transparent for flat look
@@ -44,7 +44,7 @@ const themes = {
         '--Alt2': '#7b00ff', // Electric Purple (same as Accent)
         '--TextOnMain': '#ffffff', // White
         '--TextPrimary': '#000000', // Black (often on lighter elements if any)
-        '--TextSecondary': '#222222', // Very Dark Gray
+        '--TextSecondary': 'var(--Alt1)', // Very Dark Gray
         '--SubdivisionBeatColor': '#00f0ff', // Cyan
         '--ActiveBarBackground': 'var(--Alt1)', // Example: 'rgba(255, 105, 180, 0.2)'
         '--BorderColor': 'transparent', // Set to transparent for flat look
@@ -99,9 +99,9 @@ const themes = {
         '--Main': '#ffc0cb', // Strawberry Pink
         '--Background': '#fff8dc', // Vanilla Cream
         '--Accent': '#add8e6', // Pastel Blue (Blueberry/Mint)
-        '--Highlight': '#fffacd', // Lemon Chiffon Yellow
+        '--Highlight': '#ff69b4', // Lemon Chiffon Yellow
         '--Alt1': '#d2691e', // Chocolate Brown
-        '--Alt2': '#ff69b4', // Hot Pink (Cherry/Raspberry swirl)
+        '--Alt2': '#fffacd', // Hot Pink (Cherry/Raspberry swirl)
         '--TextOnMain': '#5d3a1a', // Dark Brown text on light pink
         '--TextPrimary': '#5d3a1a', // Chocolate Brown
         '--TextSecondary': '#8b5a2b', // Lighter Brown
