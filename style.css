@@ -25,28 +25,30 @@ body {
   overflow-x: hidden; /* Further ensure body content doesn't cause horizontal scroll */
   background-color: var(--Background);
   font-family: "Inter", sans-serif; /* Changed font */
-  font-size: 1.4em; /* Adjusted base font size for 'Inter' on mobile */
+  font-size: 1.3em; /* Reduced base font size for more compactness */
   display: flex;
   justify-content: center;
   align-items: flex-start; /* Align to start to respect padding-top */
   min-height: 100vh; /* Ensure body takes at least full viewport height */
-  max-width: 90%;
-  margin: auto;
-  padding: 70px 0 20px 0; /* Added 70px top padding, 20px bottom */
-  user-select: none;
+  width: 100%; /* Make body take full width */
+  margin: 0; /* Remove auto margins for centering */
+  /* Adjusted padding: top, horizontal, bottom, horizontal */
+  padding: 70px 15px 20px 15px; 
+  box-sizing: border-box; /* Include padding in the 100% width */
+  user-select: none; /* Keep user-select none */
   color: var(--TextPrimary);
 }
 
 
 
 .main-container {
-  height: auto;
+  width: 100%;
   margin: auto;
 }
 
 .metronome-container {
   background-color: var(--Background); /* Changed to white to stand out from var(--Background) */
-  width: auto;
+  width: 100%; /* Make metronome container take full width of its parent */
   height: auto;
   display: flex;
   justify-content: center;
@@ -55,7 +57,7 @@ body {
   flex-direction: row;
   /* Corrected and softened shadow */
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-  padding: 10px;
+  padding: 5% 0px; /* Corrected padding and adjusted value */
   border-radius: var(--BorderRadius);
 
 }
@@ -63,14 +65,14 @@ body {
 .tempo-container,
 .measures-container,
 .bar-settings-container {
-  padding: 10px;
+  padding: 8px; /* Reduced padding */
   background: var(--Background); /* White card background */
   text-align: center;
   width: 100%; /* Common width */
 }
 
 .tempo-container {
-  font-size: 1.5em; /* Relative to body font size */
+  font-size: 1.3em; /* Reduced font size */
   width: 100%;
 }
 
@@ -93,7 +95,7 @@ body {
 }
 
 .tempo-settings {
-  margin: 10px;
+  margin: 8px; /* Reduced margin */
 }
 
 .tempo-slider {
@@ -148,15 +150,15 @@ input[type="range"]::-webkit-slider-runnable-track {
 .bar-settings {
   background: var(--Accent); /* Was white, now yellow-green for contrast with blue outline */
   width: 100%;
-  padding: 10px;
-  margin: 0.5rem 0; /* Added for spacing, consistent with former override */
+  padding: 8px; /* Reduced padding */
+  margin: 0.4rem 0; /* Reduced margin */
 }
 
 .start-stop-btn {
-  height: 160px; /* Adjusted for mobile */
-  width: 160px;  /* Adjusted for mobile */
-  padding: 5px;
-  margin: 5px;
+  height: 140px; /* Further reduced for mobile */
+  width: 140px;  /* Further reduced for mobile */
+  padding: 4px; /* Reduced padding */
+  margin: 4px;  /* Reduced margin */
   display: flex; /* Added for consistent centering with other buttons */
   align-items: center; /* Added for consistent centering */
   justify-content: center; /* Added for consistent centering */
@@ -176,7 +178,7 @@ input[type="range"]::-webkit-slider-runnable-track {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 10px;
+  padding: 8px; /* Reduced padding */
 }
 
 .adjust-tempo,
@@ -220,24 +222,24 @@ input[type="range"]::-webkit-slider-runnable-track {
 }
 
 .adjust-tempo {
-  height: 90px; /* Adjusted for mobile */
-  width: 90px;  /* Adjusted for mobile */
+  height: 80px; /* Further reduced for mobile */
+  width: 80px;  /* Further reduced for mobile */
   margin: auto;
-  padding: 10px;
+  padding: 8px; /* Reduced padding */
 }
 
 .adjust-measure-length,
 .adjust-bar-length {
-  height: 60px; /* Adjusted for mobile */
-  width: 60px;  /* Adjusted for mobile */
+  height: 50px; /* Further reduced for mobile */
+  width: 50px;  /* Further reduced for mobile */
   margin: auto;
   padding: 0px; /* Corrected: only one padding value needed */
 }
 
 .bar-display {
-    width: 100%;
-    display: flex;
-    align-items: center;
+  width: 100%;
+  display: flex;
+  align-items: center;
 }
 select {
     height: 50px;
@@ -266,20 +268,20 @@ option {
   outline: var(--BorderColor) 1px solid; /* Will be transparent due to --BorderColor change */
   border-radius: var(--BorderRadius);
   width: 100%;
-  height: auto; 
-  padding: 5px; /* Reduced padding for mobile */
+  height: auto;
+  padding: 4px; /* Further reduced padding */
   align-items: center;
   justify-content: center;
     display: flex; /* Allows bars to sit side-by-side */
     flex-wrap: wrap; /* Allows bars to wrap to next line if not enough space */
     overflow-x: auto; /* Enable horizontal scrolling if content overflows */
-  margin: 5px 0; /* Reduced margin for mobile, 0 for left/right as width is 100% */
+  margin: 4px 0; /* Further reduced margin */
   min-height: 0; /* If needed, ensure it has a purpose */
 }
 
 .bar-visual {
-    padding: 8px; /* Adjusted padding */
-    margin: 5px;
+    padding: 6px; /* Reduced padding */
+    margin: 4px;  /* Reduced margin */
     border: 1px solid var(--BorderColor); /* Was #ccc */
     background-color: var(--Highlight); /* Was #f9f9f9 */
     cursor: pointer;
@@ -287,10 +289,10 @@ option {
     transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
     min-width: 40px; /* Ensure clickable area */
     min-height: 30px; /* Give some base height */
-    display: flex; /* Arrange beat squares horizontally */
+    display: flex;   /* Arrange beat squares horizontally */
     flex-wrap: wrap; /* Allow squares to wrap if too many */
-    gap: 4px; /* Spacing between beat squares */
-    border-radius: var(--BorderRadius);
+    gap: 3px;        /* Reduced spacing between beat squares */
+    border-radius: var(--BorderRadius); /* Keep border radius */
     align-items: center; /* Vertically align squares */
 }
 .bar-visual:hover {
@@ -311,8 +313,8 @@ option {
     box-shadow: 0 0 8px var(--Alt1); /* Was rgba(30, 144, 255, 0.5), alpha lost */
 }
 .beat-square {
-    width: 12px;
-    height: 12px;
+    width: 10px;  /* Reduced size */
+    height: 10px; /* Reduced size */
     background-color: color-mix(in srgb, var(--Highlight) 60%, white); /* Lighter version of highlight */
     border: 1px solid transparent; /* Changed from var(--Highlight) */
     border-radius: var(--BorderRadius);
@@ -322,8 +324,8 @@ option {
   gap: 3px; /* Slightly reduced gap */
 }
 .bar-visual.medium-dense-beats .beat-square {
-  width: 8px;
-  height: 8px;
+  width: 7px; /* Reduced size */
+  height: 7px;/* Reduced size */
   border-radius: var(--BorderRadius);
 }
 /* Adjust highlighted style for medium density if needed */
@@ -336,8 +338,8 @@ option {
   gap: 2px; /* Even tighter gap */
 }
 .bar-visual.high-dense-beats .beat-square {
-  width: 6px;
-  height: 6px;
+  width: 5px; /* Reduced size */
+  height: 5px;/* Reduced size */
   border-radius: var(--BorderRadius);
 }
 /* Adjust highlighted style for high density */
@@ -374,11 +376,11 @@ option {
 
 .total-beats-display, select {
   outline: 1px solid transparent; /* Changed from var(--Main) */
-  padding: 4px;
+  padding: 3px 5px; /* Adjusted padding for compactness */
   background: var(--Highlight);
   border-radius: var(--BorderRadius);
-  font-size: 0.6em; /* Relative to body, smaller for UI elements */
-  width: auto;
+  font-size: 0.55em; /* Further reduced font size */
+  width: auto; /* Keep auto width */
   text-align: center; 
   height: auto; /* Let padding and content define height, or set explicitly if needed */
   margin-right: auto;
@@ -387,7 +389,7 @@ option {
 .measure-bar {
   background: var(--Highlight);
   display: flex;
-  gap: 2px;
+  gap: 1px; /* Reduced gap */
   width: 3em;
   align-items: center;
   padding: 3px; /* Kept from upstream */
@@ -436,61 +438,129 @@ option {
 /* Tablet and larger */
 @media (min-width: 768px) {
   body {
-    font-size: 1.6em; /* Adjusted for 'Inter' */
+    font-size: 1.45em; /* Slightly reduced for tablet */
   }
   .metronome-container {
     flex-direction: row; /* Side-by-side on larger screens */
   }
+
  
   .tempo-slider {
     padding: 0 30px; /* Restore padding for larger screens */
   }
   .bar-display-container {
-    padding: 10px;
-    margin: 10px 0;
+    padding: 8px; /* Reduced padding */
+    margin: 8px 0; /* Reduced margin */
   }
   .start-stop-btn {
-    height: 200px;
-    width: 200px;
+    height: 180px; /* Reduced size */
+    width: 180px;  /* Reduced size */
   }
   .adjust-tempo {
-    height: 110px;
-    width: 110px;
+    height: 100px; /* Reduced size */
+    width: 100px;  /* Reduced size */
   }
   .adjust-measure-length,
   .adjust-bar-length {
-    height: 70px;
-    width: 70px;
+    height: 60px; /* Reduced size */
+    width: 60px;  /* Reduced size */
   }
 }
 
+/* Styles for the new global application controls panel */
+.global-app-controls {
+  display: flex;
+  flex-wrap: wrap; /* Allow wrapping on smaller screens if needed */
+  justify-content: space-around; /* Distribute space */
+  align-items: center;
+  padding: 5px 10px; /* Compact padding */
+  margin-bottom: 10px; /* Space before main-container */
+  background-color: color-mix(in srgb, var(--Background) 90%, black 5%); /* Slightly different from body */
+  border-radius: var(--BorderRadius);
+  gap: 10px; /* Space between control groups */
+}
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* Space between label and control */
+}
+.control-label {
+  font-size: 0.6em; /* Small label text */
+  color: var(--TextSecondary);
+}
 /* Desktop and larger */
 @media (min-width: 1024px) {
-  body {
-    font-size: 1.8em; /* Adjusted for 'Inter' */
+  html {
+    height: 100vh; /* Ensure html element takes full viewport height */
+    overflow: hidden; /* Prevent all scrolling on the html element */
   }
+
+  body {
+    font-size: 1.35em; /* Keep font size adjustment */
+    /* max-width removed to allow full width */
+    height: 100%;     /* Make body fill the html element's height (effectively 100vh) */
+    overflow: hidden;   /* Prevent body from scrolling if its content overflows */
+    box-sizing: border-box; /* Ensure padding is included in the body's height calculation */
+    padding-top: 20px; /* Override global top padding for desktop */
+    /* Horizontal and bottom padding will be inherited from global body style (15px horizontal, 20px bottom) */
+    /* margin: 0; is inherited from global body style */
+  }
+
+  .main-container {
+    width: 100%;        /* Make .main-container fill the width of the body's content area. */
+    max-height: 100%;   /* Its max height will be 100% of the body's available content height (after body's padding). */
+    overflow-y: auto;   /* If content inside .main-container is taller than this max-height, a vertical scrollbar will appear for .main-container only. */
+    overflow-x: hidden; /* Prevent horizontal scrolling within .main-container. */
+    margin: 0;          /* Override the global 'margin: auto;' for .main-container. Its position is now dictated by the body (which is a flex container) and its own dimensions. */
+    /* The global 'height: auto;' for .main-container is fine; max-height will do the constraining. */
+  }
+
+  .global-app-controls {
+    padding: 5px 8px;
+    margin-bottom: 8px;
+    gap: 8px;
+  }
+  .control-label {
+    font-size: 0.55em; /* Even smaller for desktop */
+  }
+  /* Style for a compact select if used in global-app-controls */
+  .compact-select {
+    font-size: 0.55em;
+    padding: 2px 4px;
+  }
+
   .start-stop-btn {
-    height: 250px;
-    width: 250px;
+    height: 160px; /* Significantly reduced */
+    width: 160px;  /* Significantly reduced */
   }
   .adjust-tempo {
-    height: 130px;
-    width: 130px;
+    height: 90px; /* Significantly reduced */
+    width: 90px;  /* Significantly reduced */
   }
   .adjust-measure-length,
   .adjust-bar-length {
-    height: 80px; /* Added for desktop consistency */
-    width: 80px;  /* Added for desktop consistency */
+    height: 55px; /* Significantly reduced */
+    width: 55px;  /* Significantly reduced */
   }
 }
+.compact-input {
+    font-size: 0.6em; /* Or match your .compact-select */
+    padding: 4px 8px; /* Or match your .compact-select */
+    border: 1px solid var(--BorderColor); /* Or your standard input border */
+    background-color: var(--Highlight);
+    border-radius: var(--BorderRadius);
+    color: var(--TextPrimary);
+    /* Add other styling as needed, e.g., width */
+}
+
 
 /* Theme Switcher Styles */
 .theme-controls {
   position: fixed;
   top: 10px;
   right: 10px;
-  display: flex;
-  gap: 8px; /* Increased gap slightly */
+  display: flex; /* Keep as flex */
+  gap: 6px; /* Reduced gap */
   padding: 8px; /* Increased padding slightly */
   background-color: color-mix(in srgb, var(--Background) 80%, transparent); 
   border: 1px solid var(--BorderColor); /* Will be transparent */
@@ -500,12 +570,12 @@ option {
 }
 
 .theme-controls button {
-  padding: 6px 10px; /* Adjusted padding */
+  padding: 5px 8px; /* Reduced padding */
   border: 1px solid var(--BorderColor); /* Will be transparent */
   background-color: var(--Highlight);
   color: var(--TextPrimary);
   cursor: pointer;
-  border-radius: var(--BorderRadius);
+  border-radius: var(--BorderRadius); /* Keep consistent */
   font-size: 0.45em; /* Smaller font size relative to body */
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
@@ -579,10 +649,10 @@ option {
 .volume-controls-container {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 10px;
-    margin: 15px auto; 
-    padding: 5px 15px; 
+    justify-content: center; /* Keep centered */
+    gap: 8px; /* Reduced gap */
+    margin: 10px auto; /* Reduced margin */
+    padding: 4px 10px; /* Reduced padding */
     width: 90%; 
     max-width: 350px;
 }
@@ -605,37 +675,45 @@ option {
 
 .volume-value {
     font-size: 0.7em; /* Smaller value display */
-    color: var(--TextPrimary);
+    color: var(--TextPrimary); /* Keep color */
     min-width: 40px; 
     text-align: right;
     background-color: var(--Highlight); /* Consistent with other displays */
-    padding: 3px 6px; 
-    border-radius: var(--BorderRadius);
+    padding: 2px 5px; /* Reduced padding */
+    border-radius: var(--BorderRadius); /* Keep border radius */
     border: 1px solid var(--BorderColor); /* Will be transparent */
 }
 
 /* Preset Controls Styling */
 .preset-controls {
     width: 100%;
-    padding: 15px;
-    margin-top: 20px;
+    padding: 10px; /* Reduced padding */
+    margin-top: 15px; /* Reduced margin */
     border-top: 1px solid var(--BorderColor); /* Will be transparent */
     text-align: center;
 }
-.preset-controls h3 {
+/* Styles for the preset display heading (formerly just <h3>PRESETS</h3>) */
+#current-preset-display-heading {
     font-size: 0.9em; /* Adjusted size */
     font-weight: 500; 
     color: var(--TextPrimary);
-    margin-bottom: 15px; 
+    margin-bottom: 10px; /* Reduced margin */
     text-transform: uppercase;
     letter-spacing: 0.05em; 
+    /* Ensure long song names don't break layout */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90%; /* Adjust as needed, prevents full stretch with long names */
+    margin-left: auto; /* Helps center if max-width is applied */
+    margin-right: auto; /* Helps center if max-width is applied */
 }
 .preset-slot-selection, .preset-actions {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: 8px; /* Reduced gap */
+    margin-bottom: 8px; /* Reduced margin */
 }
 /* Corrected selector for preset slot label span */
 .preset-slot-label {
@@ -649,20 +727,20 @@ option {
 }*/
 /* #preset-slot-select inherits from general 'select' but we can refine */
 #preset-slot-select {
-    font-size: 0.65em; /* Slightly smaller than buttons */
-    padding: 6px 10px; /* Adjust padding */
+    font-size: 0.6em; /* Reduced font size */
+    padding: 4px 8px; /* Reduced padding */
     /* width: auto; height: auto; already in general select via .total-beats-display, select */
     min-width: 50px; 
 }
 
 .preset-btn {
-    padding: 7px 14px; /* Slightly adjusted padding */
-    border-radius: var(--BorderRadius);
+    padding: 6px 12px; /* Reduced padding */
+    border-radius: var(--BorderRadius); /* Keep border radius */
     border: 1px solid transparent; /* Changed from var(--Main) */
     background-color: var(--Highlight);
     color: var(--TextPrimary);
     cursor: pointer;
-    font-size: 0.65em; /* Consistent small button size */
+    font-size: 0.6em; /* Reduced font size */
     transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
 }
 .preset-btn:hover {
@@ -676,17 +754,17 @@ option {
 
 /* Suggestion for your CSS file */
 .top-controls-area {
-    position: absolute; /* Or use flex/grid within its parent */
-    top: 15px;          /* Adjust as needed */
-    left: 15px;         /* Adjust as needed */
+    position: fixed;    /* Changed from absolute to fixed */
+    top: 10px;          /* Aligned with .theme-controls top */
+    left: 10px;         /* Positioned from left viewport edge */
     display: flex;
-    gap: 10px;          /* Space between buttons */
+    gap: 8px;          /* Reduced space between buttons */
     z-index: 1000;      /* Ensure it's on top if other elements overlap */
 }
 
 .top-controls-area button {
     /* Basic styling, adjust to match your theme */
-    padding: 8px 12px;
+    padding: 6px 10px; /* Reduced padding */
     font-size: 0.9em;
     cursor: pointer;
     border: 1px solid var(--BorderColor, transparent); /* Fallback also transparent */
@@ -720,9 +798,9 @@ option {
     body { /* Override global body styles for mobile */
       /* Adjust body padding to make space for the fixed top and bottom bars */
       /* These values are estimates; you might need to fine-tune them based on the actual height of your bars */
-      padding-top: 45px; 
+      padding-top: 50px; /* Adjusted for potentially taller top bar with global controls */
       padding-left: 0;
-      padding-bottom: 45px;
+      padding-bottom: 50px; /* Adjusted for theme controls bar */
       padding-right: 0;
       max-width: 100%;
       margin: 0; /* Remove auto margins */
@@ -768,9 +846,9 @@ option {
 
     /* Example: Reduce size of large elements to help content fit vertically */
     .start-stop-btn {
-      height: 120px; /* Was 160px */
-      width: 120px;  /* Was 160px */
-      font-size: 0.9em; /* Slightly smaller text if needed */
+      height: 110px; /* Further reduced from 120px */
+      width: 110px;  /* Further reduced from 120px */
+      font-size: 0.85em; /* Slightly smaller text */
     }
 
     .main-container {

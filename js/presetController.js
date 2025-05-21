@@ -15,32 +15,39 @@ const PresetController = {
     /**
      * Saves the current application state to a specific preset slot.
      * @param {number} slotIndex - The index of the preset slot (0 to NUM_PRESET_SLOTS-1).
+     * @param {string} songName - The name of the song/preset.
+     * @returns {{success: boolean, slotIndex?: number, savedSongName?: string, error?: Error}} Operation result.
      */
-    saveCurrentPreset: (slotIndex) => {
+    saveCurrentPreset: (slotIndex, songName) => {
         if (slotIndex < 0 || slotIndex >= NUM_PRESET_SLOTS) {
             console.error("Invalid preset slot index for saving:", slotIndex);
             return;
         }
         const presetData = AppState.getCurrentStateForPreset();
+        presetData.songName = (typeof songName === 'string' && songName.trim() !== '') ? songName.trim() : ''; // Store trimmed song name or empty
         // Add theme to the preset data - theme state is currently managed outside AppState
         // We need a way to get the current theme name. For now, let's read from localStorage directly.
         // A better approach might be a ThemeController or adding theme state to AppState.
-        presetData.selectedTheme = localStorage.getItem('selectedTheme') || 'default';
+        presetData.selectedTheme = localStorage.getItem('selectedTheme') || 'default'; // Ensure theme is part of the preset
 
         try {
             localStorage.setItem(PRESET_STORAGE_KEY_PREFIX + slotIndex, JSON.stringify(presetData));
             console.log(`Preset saved to slot ${slotIndex + 1}`);
-            // TODO: Add visual feedback for successful save via UI module
+            return { 
+                success: true, 
+                slotIndex: slotIndex, 
+                savedSongName: presetData.songName 
+            };
         } catch (e) {
             console.error("Error saving preset:", e);
-            // TODO: Handle storage full or other errors via UI module
+            return { success: false, error: e };
         }
     },
 
     /**
      * Loads a preset from a specific slot and applies it to the application state.
      * @param {number} slotIndex - The index of the preset slot (0 to NUM_PRESET_SLOTS-1).
-     * @returns {string|null} The theme name loaded from the preset, or null if no preset/error.
+     * @returns {{theme: string, songName: string}|null} An object containing the theme and song name, or null.
      */
     loadPreset: (slotIndex) => {
         if (slotIndex < 0 || slotIndex >= NUM_PRESET_SLOTS) {
@@ -50,21 +57,24 @@ const PresetController = {
         const presetString = localStorage.getItem(PRESET_STORAGE_KEY_PREFIX + slotIndex);
         if (!presetString) {
             console.log(`No preset found in slot ${slotIndex + 1}`);
+            // Optionally, clear the song name input field in the UI here via a callback or event
             return null;
         }
 
         try {
             const presetData = JSON.parse(presetString);
 
-            // Apply state from presetData using AppState setters
-            // AppState.loadPresetData handles setting most state values internally
-            const loadedTheme = AppState.loadPresetData(slotIndex); // AppState updates its internal state
+            // AppState.loadPresetData should now accept the full presetData object
+            // and handle applying all its properties (including theme if it manages it).
+            AppState.loadPresetData(presetData); // AppState updates its internal state based on the loaded data
 
             console.log(`Preset loaded from slot ${slotIndex + 1}`);
 
-            // Return the loaded theme name so the main script can apply it via ThemeController (or similar)
-            return loadedTheme;
-
+            // Return the loaded theme and song name so the main script can update the UI
+            return {
+                theme: presetData.selectedTheme || 'default',
+                songName: presetData.songName || ''
+            };
         } catch (e) {
             console.error("Error parsing or applying preset:", e);
             // TODO: Handle errors via UI module
@@ -72,7 +82,31 @@ const PresetController = {
         }
     },
 
-    // You might add functions here to check if a slot has data, list presets, etc.
+    /**
+     * Retrieves display data (song name or default slot name) for all preset slots.
+     * @returns {Array<{slotIndex: number, displaySongName: string}>} An array of objects.
+     */
+    getAllPresetDisplayData: () => {
+        const allDisplayData = [];
+        for (let i = 0; i < NUM_PRESET_SLOTS; i++) {
+            let displaySongName = `Slot ${i + 1}`; // Default display name
+            const presetString = localStorage.getItem(PRESET_STORAGE_KEY_PREFIX + i);
+            if (presetString) {
+                try {
+                    const presetData = JSON.parse(presetString);
+                    if (presetData.songName && typeof presetData.songName === 'string' && presetData.songName.trim() !== '') {
+                        displaySongName = presetData.songName.trim();
+                    }
+                } catch (e) {
+                    console.warn(`Could not parse preset in slot ${i + 1} for display name:`, e);
+                }
+            }
+            allDisplayData.push({ slotIndex: i, displaySongName });
+        }
+        return allDisplayData;
+    }
+
+    // You might add other functions here like clearPreset(slotIndex), etc.
 };
 
 export default PresetController;

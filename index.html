@@ -21,6 +21,54 @@
             <button class="tap-tempo-btn">TAP TEMPO</button>
             <button class="reset-btn">RESET</button> 
         </div>
+            <div class="global-app-controls">
+                <div class="control-group">
+                    <span class="control-label">Total Beats:</span>
+                    <span class="total-beats-display">0</span>
+                </div>
+                <div class="control-group">
+                    <label for="beat-multiplier-select" class="control-label">Note Subdivision:</label>
+                    <select name="beat-multiplier" id="beat-multiplier-select" class="compact-select">
+                        <option value="1">1/4</option> <!-- Assuming main beat is a quarter note -->
+                        <option value="2">1/8</option>
+                        <option value="3">1/8T</option> <!-- Eighth Note Triplet -->
+                        <option value="4">1/16</option>
+                        <option value="5">1/16 Quin</option> <!-- Sixteenth Note Quintuplet -->
+                        <option value="6">1/16 Sex</option> <!-- Sixteenth Note Sextuplet / or 1/8T x2 -->
+                        <option value="8">1/32 </option> <!-- Thirtysecondth Note -->
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="preset-slot-select" class="control-label">Preset Slot:</label>
+                    <select id="preset-slot-select" class="compact-select" aria-label="Select preset slot">
+                        <option value="0">1</option>
+                        <option value="1">2</option>
+                        <option value="2">3</option>
+                        <option value="3">4</option>
+                        <option value="4">5</option>
+                        <option value="5">6</option>
+                        <option value="6">7</option>
+                        <option value="7">8</option>
+                        <option value="8">9</option>
+                        <option value="9">10</option>
+                        <option value="10">11</option>
+                        <option value="11">12</option>
+                        <option value="12">13</option>
+                        <option value="13">14</option>
+                        <option value="14">15</option>
+                        <option value="15">16</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <button class="preset-btn save-preset-btn" aria-label="Save current settings to selected preset slot">Save</button>
+                    <button class="preset-btn load-preset-btn" aria-label="Load settings from selected preset slot">Load</button>
+                </div>
+                <div class="control-group">
+                    <label for="preset-name-input" class="control-label">Song Name:</label>
+                    <input type="text" id="preset-name-input" class="compact-input" placeholder="Enter name..." aria-label="Song or Preset Name">
+                </div>
+            </div>
+
             <div class="tempo-container">
                 <div class="bpm-display">
                     <span class="tempo">120</span>
@@ -65,49 +113,15 @@
                 </div>
             </div>
             <div class="bar-display">
-                <!-- In your HTML, where you want the total beats to appear -->
-                <div class="some-info-panel">
-                    <span>Total Beats: </span><span class="total-beats-display">0</span>
-                </div>
                 <div class="bar-display-container"></div>
-                <span class="subdivision-label">Note Subdivision:</span>
-                <select name="beat-multiplier" id="beat-multiplier-select">
-                    <option value="1">1/4</option> <!-- Assuming main beat is a quarter note -->
-                    <option value="2">1/8</option>
-                    <option value="3">1/8T</option> <!-- Eighth Note Triplet -->
-                    <option value="4">1/16</option>
-                    <option value="5">1/16 Quin</option> <!-- Sixteenth Note Quintuplet -->
-                    <option value="6">1/16 Sex</option> <!-- Sixteenth Note Sextuplet / or 1/8T x2 -->
-                    <option value="8">1/32 </option> <!-- Thirtysecondth Note -->
- 
-                </select>
+                <!-- Total Beats and Beat Multiply select have been moved to global-app-controls -->
             </div>
             <div class="preset-controls">
-                <h3>PRESETS</h3>
-                <div class="preset-slot-selection">
-                    <span class="preset-slot-label">Slot:</span>
-                    <select id="preset-slot-select" aria-label="Select preset slot">
-                        <option value="0">1</option>
-                        <option value="1">2</option>
-                        <option value="2">3</option>
-                        <option value="3">4</option>
-                        <option value="4">5</option>
-                        <option value="5">6</option>
-                        <option value="6">7</option>
-                        <option value="7">8</option>
-                        <option value="8">9</option>
-                        <option value="9">10</option>
-                        <option value="10">11</option>
-                        <option value="11">12</option>
-                        <option value="12">13</option>
-                        <option value="13">14</option>
-                        <option value="14">15</option>
-                        <option value="15">16</option>
-                    </select>
-                </div>
+                <h3 id="current-preset-display-heading">SONG</h3>
+                <!-- Preset slot selection has been moved to global-app-controls -->
                 <div class="preset-actions">
-                    <button class="preset-btn save-preset-btn" aria-label="Save current settings to selected preset slot">Save</button>
-                    <button class="preset-btn load-preset-btn" aria-label="Load settings from selected preset slot">Load</button>
+                    <!-- Save and Load buttons have been moved to global-app-controls -->
+                    <!-- This section can be removed or repurposed if no other actions remain -->
                 </div>
             </div>
 <div class="theme-controls">

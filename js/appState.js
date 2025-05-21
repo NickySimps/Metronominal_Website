@@ -219,18 +219,28 @@ const AppState = (function() {
             beatMultiplier: beatMultiplier,
             volume: currentVolume,
         }),
-        loadPresetData: (slotIndex) => {
-            if (slotIndex < 0 || slotIndex >= NUM_PRESET_SLOTS) { console.error("Invalid preset slot index:", slotIndex); return null; }
-            const presetString = localStorage.getItem(PRESET_STORAGE_KEY_PREFIX + slotIndex);
-            if (!presetString) return null;
+        /**
+         * Loads preset data into the application state.
+         * @param {object} presetData - The preset data object.
+         * @returns {string|null} The theme name from the preset, or 'default' if not found.
+         */
+        loadPresetData: (presetData) => {
+            if (!presetData) {
+                console.error("No preset data provided to loadPresetData.");
+                return null;
+            }
+
             try {
-                const d = JSON.parse(presetString);
-                tempo = d.tempo || 120; barSettings = Array.isArray(d.barSettings) ? d.barSettings : [4];
-                beatMultiplier = d.beatMultiplier || 1; currentVolume = (typeof d.volume === 'number') ? d.volume : 0.8;
+                // Directly use properties from the passed presetData object
+                tempo = presetData.tempo || 120;
+                barSettings = Array.isArray(presetData.barSettings) ? presetData.barSettings : [4];
+                beatMultiplier = presetData.beatMultiplier || 1;
+                currentVolume = (typeof presetData.volume === 'number') ? presetData.volume : 0.8;
+
                 publicAPI.setSelectedBarIndex(0); // Reset selection
                 if (barSettings.length === 0) { currentBar = 0; currentBeat = 0; isPlaying = false; }
                 else if (currentBar >= barSettings.length) { currentBar = 0; currentBeat = 0; }
-                return d.selectedTheme || 'default';
+                return presetData.selectedTheme || 'default'; // Return theme for UI update
             } catch (e) { console.error("Error parsing preset:", e); return null; }
         },
 

@@ -18,6 +18,20 @@ const UIController = {
     // updateVolumeDisplay method removed (handled by VolumeController)
     // updateTempoDisplay method removed (handled by TempoController)
 
+    updateCurrentPresetDisplay: (songName = '') => {
+        if (DOM.currentPresetDisplayHeading) {
+            if (songName && songName.trim() !== '') {
+                // Display the song name. CSS will handle ellipsis if too long.
+                DOM.currentPresetDisplayHeading.textContent = songName;
+            } else {
+                DOM.currentPresetDisplayHeading.textContent = "PRESETS";
+            }
+        } else {
+            // console.warn("currentPresetDisplayHeading element not found in DOM.");
+        }
+    },
+
+
     resetToDefaults: () => {
         // 1. Stop Metronome if playing
         if (AppState.isPlaying()) {
@@ -44,6 +58,7 @@ const UIController = {
         BarDisplayController.clearAllHighlights();
         // BarControlsController.updateTotalBeatsDisplay(); // syncBarSettings handles this
 
+        UIController.updateCurrentPresetDisplay(); // Reset heading to "PRESETS"
         console.log("Metronome reset to defaults.");
     },
 
@@ -57,6 +72,14 @@ const UIController = {
         }
 
         // Volume slider - REMOVED (handled by VolumeController)
+    },
+
+    // Placeholder for user feedback messages
+    showTemporaryMessage: (message, type = 'info') => {
+        // A more robust implementation would create a styled element on the page
+        // and remove it after a timeout. For now, we'll just log.
+        console.log(`UI Message (${type}): ${message}`);
+        // Example: alert(`(${type.toUpperCase()}) ${message}`);
 
         // Initial UI updates for tempo/volume are now handled in script.js after controller initializations
     }

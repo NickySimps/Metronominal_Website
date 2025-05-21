@@ -33,6 +33,15 @@ const DOM = {
     // Theme buttons (using querySelectorAll as there are multiple)
     themeButtons: document.querySelectorAll('.theme-controls button'),
 
+    // Preset Controls
+    savePresetButton: document.querySelector('.save-preset-btn'),
+    loadPresetButton: document.querySelector('.load-preset-btn'),
+    presetSlotSelect: document.getElementById('preset-slot-select'),
+    presetNameInput: document.getElementById('preset-name-input'),
+
+    // Preset Display Heading
+    currentPresetDisplayHeading: document.getElementById('current-preset-display-heading'),
+
     // Add other elements as needed
 };
 
