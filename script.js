@@ -36,8 +36,8 @@ function updatePresetDropdownDisplayNames() {
  * Call this after loading a preset or any other state change that needs a full UI update.
  */
 function refreshUIFromState() {
-    TempoController.updateTempoDisplay();
-    VolumeController.updateVolumeDisplay();
+    TempoController.updateTempoDisplay({ animate: true }); // Pass animate option
+    VolumeController.updateVolumeDisplay({ animate: true }); // Pass animate option
     // Ensure beatsPerCurrentMeasureDisplay is updated based on the (potentially) new selectedBarIndex or first bar
     const currentBarSettings = AppState.getBarSettings();
     const selectedBarIndex = AppState.getSelectedBarIndex();
@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         VolumeController.initializeVolumeControls(); // Added
         PlaybackController.initializePlaybackControls(); // Added
         BarControlsController.initializeBarControls();
-        UIController.initializeUIControls(); // Will be slimmed down to handle reset button, etc.
+        UIController.initializeUIControls(refreshUIFromState); // Pass refreshUIFromState
         initializePresetControls(); // Initialize preset controls
 
         // Initial render of dynamic content not handled by controller initializers

@@ -42,10 +42,10 @@ const UIController = {
         AppState.resetState();
 
         // 3. Update UI elements based on reset state
-        TempoController.updateTempoDisplay(); // Use TempoController
+        TempoController.updateTempoDisplay({ animate: true }); // Use TempoController with animation
         DOM.beatMultiplierSelect.value = AppState.getBeatMultiplier().toString(); // Ensure string for select value
-        DOM.volumeSlider.value = AppState.getVolume();
-        VolumeController.updateVolumeDisplay(); // Use VolumeController
+        // DOM.volumeSlider.value = AppState.getVolume(); // This is handled by updateVolumeDisplay
+        VolumeController.updateVolumeDisplay({ animate: true }); // Corrected: Use VolumeController with animation
         ThemeController.applyTheme('default'); // Assuming ThemeController is imported and initialized
 
         // Reset Bar Structure UI (AppState handles data, BarControlsController handles UI sync)
