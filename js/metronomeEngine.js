@@ -14,9 +14,6 @@ const accentClickSound = new Audio('Click2.mp3');
 let timerId = null; // Holds the setTimeout ID for the metronome loop
 let lastTickTime = 0; // For fallback timing adjustment (if needed, currently simple delay)
 
-// How far ahead to schedule audio (in seconds) for Web Audio API
-const scheduleAheadTime = 0.1;
-
 function playClick(isAccent) {
     const audioContext = AppState.getAudioContext();
     const volume = AppState.getVolume();
@@ -50,12 +47,6 @@ function performCurrentBeatActions() {
     const currentBeat = AppState.getCurrentBeat(); // This is the sub-beat index
     const beatMultiplier = AppState.getBeatMultiplier();
 
-    // Check for invalid state; if so, request a stop via the main togglePlay.
-    if (barSettings.length === 0 || currentBar >= barSettings.length || barSettings[currentBar] === undefined) {
-        console.warn("Attempting to play beat in invalid bar/beat state.");
-        if (AppState.isPlaying()) MetronomeEngine.togglePlay(); // This will stop the engine and update UI
-        return; // Exit, togglePlay will have cleared the timer.
-    }
     BarDisplayController.updateBeatHighlight(currentBar, currentBeat, true);
 
     let isAccent = false;
@@ -70,9 +61,22 @@ function performCurrentBeatActions() {
     playClick(isAccent);
 }
 
+function performEngineStopActions() {
+    clearTimeout(timerId);
+    timerId = null;
+    if (DOM.startStopBtn) {
+        DOM.startStopBtn.textContent = "START";
+        DOM.startStopBtn.classList.remove('active');
+    }
+    BarDisplayController.clearAllHighlights();
+    clickSound.pause(); clickSound.currentTime = 0;
+    accentClickSound.pause(); accentClickSound.currentTime = 0;
+    // console.log("Metronome engine stopped internally.");
+}
+
 function metronomeTick() {
-    if (!AppState.isPlaying() || AppState.getBarSettings().length === 0) {
-        if (AppState.isPlaying()) MetronomeEngine.stop(); // Ensure stopped if state implies it
+    if (!AppState.isPlaying()) { // AppState is the source of truth for playback state
+        performEngineStopActions(); // Clean up engine if AppState says we're stopped
         return;
     }
 
@@ -85,20 +89,26 @@ function metronomeTick() {
     const audioContext = AppState.getAudioContext();
 
     if (audioContext && audioContext.state === 'running' && AppState.getClickSoundBuffer() && AppState.getAccentSoundBuffer()) {
+        // Check for invalid state before scheduling.
+        // If AppState.advanceBeat() returns false (e.g. no bars), it also sets isPlaying = false.
+        // The next tick will then call performEngineStopActions().
+        if (AppState.getBarSettings().length === 0 || AppState.getCurrentBar() >= AppState.getBarSettings().length) {
+            console.warn("Metronome tick in invalid bar state. Stopping.");
+            AppState.resetPlaybackState(); // Synchronously set isPlaying to false
+            performEngineStopActions(); // Stop immediately
+            return;
+        }
+
         // Schedule beats that are due within the scheduleAheadTime window
-        while (AppState.getNextBeatAudioContextTime() < audioContext.currentTime + scheduleAheadTime) {
+        while (AppState.getNextBeatAudioContextTime() < audioContext.currentTime + AppState.SCHEDULE_AHEAD_TIME) {
             performCurrentBeatActions();
-            AppState.advanceBeat();
+            if (!AppState.advanceBeat()) break; // Stop scheduling if advanceBeat fails (e.g., no bars left)
             AppState.incrementNextBeatAudioContextTime(secondsPerSubBeat);
         }
         // Calculate delay until the next time we need to check for scheduling
-        // This aims to wake up shortly before the next beat is due to be scheduled.
-        // A common approach is to set timeout for (nextBeatAudioContextTime - currentTime - lookahead)
-        // For simplicity, let's use a fraction of scheduleAheadTime or a fixed interval.
-        // A more robust scheduler might use a smaller, fixed interval for the setTimeout loop.
-        delayForSetTimeout = Math.max(0, (AppState.getNextBeatAudioContextTime() - audioContext.currentTime - (scheduleAheadTime / 2)) * 1000);
+        delayForSetTimeout = Math.max(0, (AppState.getNextBeatAudioContextTime() - audioContext.currentTime - (AppState.SCHEDULE_AHEAD_TIME / 2)) * 1000);
         // Fallback to a shorter interval if calculated delay is too long or negative
-        if (delayForSetTimeout <= 0 || delayForSetTimeout > 100) {
+        if (delayForSetTimeout <= 0 || delayForSetTimeout > (AppState.SCHEDULE_AHEAD_TIME * 1000)) { // Compare with scheduleAheadTime itself
             delayForSetTimeout = 50; // Check every 50ms
         }
 
@@ -119,44 +129,32 @@ function metronomeTick() {
 
 const MetronomeEngine = {
     togglePlay: async () => { // Make togglePlay async
-        const wasPlaying = AppState.isPlaying();
-        // AppState.togglePlay() will return false if trying to start with no bars,
-        // or if playback is stopped. This is used below to set button text correctly.
-        // AppState.togglePlay() flips the isPlaying state and handles
-        // core state resets (currentBar, currentBeat, audioContext resume, nextBeatAudioContextTime).
+        const wasPlayingBeforeToggle = AppState.isPlaying();
+
+        // AppState.togglePlay() is the authority for changing play state and handling
+        // AudioContext resume, priming, and initial nextBeatAudioContextTime.
         const isNowPlaying = await AppState.togglePlay(); // Await the result
 
         if (isNowPlaying) {
             // Engine-specific actions when playback STARTS
-            DOM.startStopBtn.textContent = "STOP";
-            DOM.startStopBtn.classList.add('active');
+            if (DOM.startStopBtn) {
+                DOM.startStopBtn.textContent = "STOP";
+                DOM.startStopBtn.classList.add('active');
+            }
 
-            // Only clear highlights if it *just* started. If it was already playing (which togglePlay handles),
-            // highlights are managed by the tick.
-            if (!wasPlaying) {
+            if (!wasPlayingBeforeToggle) { // Only clear highlights if it *just* started.
                 BarDisplayController.clearAllHighlights();
             }
 
-            // AudioContext is resumed and nextBeatTime set by AppState.togglePlay() if it started.
-            // Initialize fallback timer if necessary (if no audioContext)
-            if (!AppState.getAudioContext()) {
+            // Initialize fallback timer if necessary (if no audioContext or not running)
+            const audioContext = AppState.getAudioContext();
+            if (!audioContext || audioContext.state !== 'running') {
                 lastTickTime = Date.now();
             }
             metronomeTick(); // Start the engine's tick loop
         } else {
-            // Engine-specific actions when playback STOPS
-            clearTimeout(timerId);
-            timerId = null;
-            DOM.startStopBtn.textContent = "START";
-            DOM.startStopBtn.classList.remove('active');
-            BarDisplayController.clearAllHighlights(); // Ensure all highlights are cleared on stop
-
-            // Pause and reset HTML5 audio elements
-            clickSound.pause();
-            clickSound.currentTime = 0;
-            accentClickSound.pause();
-            accentClickSound.currentTime = 0;
-            // Web Audio API sounds stop themselves once played.
+            // Engine-specific actions when playback STOPS (or failed to start)
+            performEngineStopActions(); // AppState.togglePlay already set isPlaying to false
         }
     }
 };

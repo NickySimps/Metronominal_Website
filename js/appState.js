@@ -18,7 +18,7 @@ const AppState = (function () {
   // --- Constants ---
   const MAX_TAPS_FOR_AVERAGE = 4;
   const MAX_TAP_INTERVAL_MS = 3000;
-  const SCHEDULE_AHEAD_TIME = 0.1; // Seconds, consistent with MetronomeEngine's scheduleAheadTime
+  const SCHEDULE_AHEAD_TIME_INTERNAL = 0.1; // Seconds
   const POST_RESUME_DELAY_MS = 50;  // Milliseconds to wait for AudioContext to stabilize after resume
   const NUM_PRESET_SLOTS = 16;
   const PRESET_STORAGE_KEY_PREFIX = "metronomePreset_";
@@ -117,8 +117,8 @@ const AppState = (function () {
           }
 
           // Schedule the first beat. Ensure currentTime is read *after* resume and potential priming.
-          nextBeatAudioContextTime = audioContext.currentTime + SCHEDULE_AHEAD_TIME;
-          console.log(`Initial nextBeatAudioContextTime set to: ${nextBeatAudioContextTime} (currentTime: ${audioContext.currentTime}, lookahead: ${SCHEDULE_AHEAD_TIME})`);
+          nextBeatAudioContextTime = audioContext.currentTime + publicAPI.SCHEDULE_AHEAD_TIME;
+          console.log(`Initial nextBeatAudioContextTime set to: ${nextBeatAudioContextTime} (currentTime: ${audioContext.currentTime}, lookahead: ${publicAPI.SCHEDULE_AHEAD_TIME})`);
         }
       }
       // If isPlaying became false, MetronomeEngine will handle its own timer/audio cleanup.
@@ -334,6 +334,7 @@ const AppState = (function () {
     resetState: () => {
       tempo = 120;
       beatMultiplier = 1;
+      // currentVolume is intentionally not reset here, user preference
       currentVolume = 0.8;
       barSettings = [4];
       selectedBarIndex = 0;
@@ -354,6 +355,9 @@ const AppState = (function () {
       currentVolume = initialVolume;
       // tempo is already at its default 120
     },
+
+    // Constants
+    SCHEDULE_AHEAD_TIME: SCHEDULE_AHEAD_TIME_INTERNAL,
   };
   return publicAPI;
 })(); // End of IIFE
