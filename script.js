@@ -50,6 +50,19 @@ function refreshUIFromState() {
     }
     BarDisplayController.renderBarsAndControls(selectedBarIndex);
     BarControlsController.updateTotalBeatsDisplay();
+
+    // If 3D theme is active, ensure its state is also refreshed.
+    if (AppState.getCurrentTheme() === '3dRoom' && ThemeController.is3DSceneActive && ThemeController.is3DSceneActive()) {        
+        ThemeController.create3DMeasuresAndBeats(); // Rebuilds measures and beats based on current AppState
+        ThemeController.updateCameraToFitMeasures(); // Adjust camera to new layout
+        if (AppState.isPlaying()) {
+            // If playing, metronome engine updates visuals. For safety, clear and let engine re-highlight.
+            // For safety on a full refresh, clear and let the engine re-highlight the current beat.
+            ThemeController.clearAll3DVisualHighlights();
+        } else {
+            ThemeController.clearAll3DVisualHighlights(); // Ensure no highlights if not playing
+        }
+    }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {

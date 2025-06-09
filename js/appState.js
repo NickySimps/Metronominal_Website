@@ -13,6 +13,7 @@ const AppState = (function () {
   let clickSoundBuffer = null;
   let accentClickSoundBuffer = null;
   let nextBeatAudioContextTime = 0;
+  let currentTheme = 'default'; // Added for theme state management
   let audioContextPrimed = false; // Flag to ensure priming happens once
 
   // --- Constants ---
@@ -20,8 +21,6 @@ const AppState = (function () {
   const MAX_TAP_INTERVAL_MS = 3000;
   const SCHEDULE_AHEAD_TIME_INTERNAL = 0.1; // Seconds
   const POST_RESUME_DELAY_MS = 50;  // Milliseconds to wait for AudioContext to stabilize after resume
-  const NUM_PRESET_SLOTS = 16;
-  const PRESET_STORAGE_KEY_PREFIX = "metronomePreset_";
 
   // --- Public API ---
   const publicAPI = {
@@ -292,6 +291,7 @@ const AppState = (function () {
       barSettings: JSON.parse(JSON.stringify(barSettings)),
       beatMultiplier: beatMultiplier,
       volume: currentVolume,
+      selectedTheme: currentTheme, // Include current theme
     }),
     /**
      * Loads preset data into the application state.
@@ -323,7 +323,10 @@ const AppState = (function () {
           currentBar = 0;
           currentBeat = 0;
         }
-        return presetData.selectedTheme || "default"; // Return theme for UI update
+        // Set the theme in AppState
+        publicAPI.setCurrentTheme(presetData.selectedTheme || 'default');
+        // Return theme for script.js to call ThemeController.applyTheme
+        return presetData.selectedTheme || "default";
       } catch (e) {
         console.error("Error parsing preset:", e);
         return null;
@@ -334,26 +337,34 @@ const AppState = (function () {
     resetState: () => {
       tempo = 120;
       beatMultiplier = 1;
-      // currentVolume is intentionally not reset here, user preference
-      currentVolume = 0.8;
+      currentVolume = 0.8; // Reset volume to default
       barSettings = [4];
       selectedBarIndex = 0;
       currentBar = 0;
       currentBeat = 0;
       isPlaying = false;
       tapTempoTimestamps = [];
+      currentTheme = 'default'; // Reset theme to default
     },
     initializeState: (
       initialNumberOfBars,
       initialBeatsPerMeasure,
       initialBeatMultiplier,
-      initialVolume
+      initialVolume,
+      initialTheme // Added initialTheme
     ) => {
       barSettings = Array(initialNumberOfBars).fill(initialBeatsPerMeasure);
       selectedBarIndex = initialNumberOfBars > 0 ? 0 : -1;
       beatMultiplier = initialBeatMultiplier;
       currentVolume = initialVolume;
+      currentTheme = initialTheme || 'default'; // Initialize theme
       // tempo is already at its default 120
+    },
+
+    // Theme state management
+    getCurrentTheme: () => currentTheme,
+    setCurrentTheme: (themeName) => {
+      currentTheme = themeName;
     },
 
     // Constants

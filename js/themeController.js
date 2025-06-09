@@ -1,8 +1,12 @@
 /**
  * themeController.js
  * This module manages theme definitions and application.
+ * NOTE: Ensure Three.js is loaded in your HTML before this script if using the global `THREE`.
+ * e.g., <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
  */
 import DOM from './domSelectors.js';
+import AppState from './appState.js';
+import ThreeDThemeManager from './3dTheme.js'; // Import the new 3D theme manager
 
 const themes = {
     default: {
@@ -113,36 +117,114 @@ const themes = {
     }
 };
 
-const ThemeController = {
-    applyTheme: (themeName) => {
-        const theme = themes[themeName];
-        if (!theme) {
-            console.warn(`Theme "${themeName}" not found. Applying default.`);
-            ThemeController.applyTheme('default'); // Apply default if requested one is not found
-            return;
+let mainContainerRef = null; // To store reference to the main 2D UI container
+
+/**
+ * Handles the selection of a theme, including switching to/from 3D mode.
+ * @param {string} themeName - The name of the theme to apply.
+ */
+function handleThemeSelection(themeName) {
+    if (!document.body) {
+        console.error("Document body not found. Cannot apply theme.");
+        return;
+    }
+    // mainContainerRef is assumed to be initialized by initializeThemeControls
+
+    // Remove previous theme classes from body
+    const bodyClasses = Array.from(document.body.classList);
+    bodyClasses.forEach(cls => {
+        if (cls.endsWith('-theme') && cls !== `${themeName}-theme`) {
+            document.body.classList.remove(cls);
         }
+    });
+
+    // Add new theme class if not already present
+    if (!document.body.classList.contains(`${themeName}-theme`)) {
+        document.body.classList.add(`${themeName}-theme`);
+    }
+
+    if (themeName === '3dRoom') {
+        ThreeDThemeManager.initialize(mainContainerRef); // Handles hiding mainContainerRef internally
+    } else {
+        if (ThreeDThemeManager.isActive()) {
+            ThreeDThemeManager.dispose(); // Handles showing mainContainerRef internally
+        }
+        // Apply CSS variables for 2D themes
+        const theme = themes[themeName] || themes.default;
         for (const [variable, value] of Object.entries(theme)) {
             document.documentElement.style.setProperty(variable, value);
         }
-        localStorage.setItem('selectedTheme', themeName);
-        // console.log(`Theme applied: ${themeName}`); // Commented out console log
+    }
+    localStorage.setItem('selectedTheme', themeName);
+    if (AppState && typeof AppState.setCurrentTheme === 'function') {
+        AppState.setCurrentTheme(themeName);
+    }
+    console.log(`Theme applied by ThemeController: ${themeName}`);
+}
+
+const ThemeController = {
+    applyTheme: (themeName) => {
+        // Now delegates to handleThemeSelection which manages both 2D and 3D
+        if (!themes[themeName] && themeName !== '3dRoom') {
+            console.warn(`Theme "${themeName}" not found. Applying default.`);
+            handleThemeSelection('default');
+            return;
+        }
+        handleThemeSelection(themeName);
+    },
+
+    is3DSceneActive: () => {
+        // Check if 3D manager is active AND current theme in AppState is '3dRoom'
+        return ThreeDThemeManager.isActive() && AppState.getCurrentTheme() === '3dRoom';
     },
 
     initializeThemeControls: () => {
+        mainContainerRef = document.querySelector('.main-container');
+        if (!mainContainerRef) {
+            // This is a critical element for hiding/showing UI.
+            console.error('.main-container not found! Theme switching might not work correctly.');
+        }
         // DOM.themeButtons is a NodeList
         DOM.themeButtons.forEach(button => {
             button.addEventListener('click', () => {
-                ThemeController.applyTheme(button.dataset.theme);
+                handleThemeSelection(button.dataset.theme); // Use the internal handler
             });
         });
 
         // Load and apply saved theme or default on initialization (Re-enabled persistence)
         const savedTheme = localStorage.getItem('selectedTheme');
-        if (savedTheme && themes[savedTheme]) {
-            ThemeController.applyTheme(savedTheme);
+        if (savedTheme && (themes[savedTheme] || savedTheme === '3dRoom')) {
+            handleThemeSelection(savedTheme);
         } else {
-            ThemeController.applyTheme('default');
+            handleThemeSelection('default');
             console.log("No saved theme found, applying default."); // Added log for default
+        }
+    },
+
+    updatePlayheadVisuals: (barIndex, beatInBarWithSubdivisions, beatMultiplier) => {
+        if (ThemeController.is3DSceneActive()) {
+            ThreeDThemeManager.updatePlayheadVisuals(barIndex, beatInBarWithSubdivisions, beatMultiplier);
+        }
+    },
+
+    clearAll3DVisualHighlights: () => {
+        if (ThemeController.is3DSceneActive()) {
+            ThreeDThemeManager.clearAllVisualHighlights();
+        }
+    },
+
+    syncCurrentPageWithSelectedBar: () => {
+        if (ThemeController.is3DSceneActive()) {
+            return ThreeDThemeManager.syncCurrentPageWithSelectedBar();
+        }
+        return false; // Page did not change
+    },
+
+    // This method is for external modules (like a main UI refresher)
+    // to trigger a rebuild of 3D measures if necessary.
+    rebuild3DMeasures: () => {
+        if (ThemeController.is3DSceneActive()) {
+            ThreeDThemeManager.rebuildMeasuresAndBeats();
         }
     }
 };

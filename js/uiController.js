@@ -24,7 +24,7 @@ const UIController = {
                 // Display the song name. CSS will handle ellipsis if too long.
                 DOM.currentPresetDisplayHeading.textContent = songName;
             } else {
-                DOM.currentPresetDisplayHeading.textContent = "PRESETS";
+                DOM.currentPresetDisplayHeading.textContent = "Metronominal";
             }
         } else {
             // console.warn("currentPresetDisplayHeading element not found in DOM.");
@@ -34,9 +34,14 @@ const UIController = {
 
     resetToDefaults: async () => { // Make resetToDefaults async
         // 1. Stop Metronome if playing
+        const wasPlaying = AppState.isPlaying();
+        const previousTheme = AppState.getCurrentTheme();
+
         if (AppState.isPlaying()) {
             await MetronomeEngine.togglePlay(); // This will stop the metronome and update its UI
         }
+
+
 
         // 2. Reset core application state
         AppState.resetState();
@@ -46,7 +51,13 @@ const UIController = {
         DOM.beatMultiplierSelect.value = AppState.getBeatMultiplier().toString(); // Ensure string for select value
         // DOM.volumeSlider.value = AppState.getVolume(); // This is handled by updateVolumeDisplay
         VolumeController.updateVolumeDisplay({ animate: true }); // Corrected: Use VolumeController with animation
-        ThemeController.applyTheme('default'); // Assuming ThemeController is imported and initialized
+        
+        // Apply default theme. If current theme was 3D, this will trigger disposeThreeJSScene.
+        ThemeController.applyTheme('default'); 
+
+        if (previousTheme === '3dRoom' && ThemeController.clearAll3DVisualHighlights) {
+            // ThemeController.applyTheme('default') would call disposeThreeJSScene which should reset highlights.
+        }
 
         // Reset Bar Structure UI (AppState handles data, BarControlsController handles UI sync)
         DOM.barsLengthDisplay.textContent = AppState.getBarSettings().length.toString();

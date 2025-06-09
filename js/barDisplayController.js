@@ -241,14 +241,14 @@ const BarDisplayController = {
                 targetBarElement.classList.add('active-bar');
                 currentActiveBarElement = targetBarElement;
 
-                // Auto-scroll to the active bar
-                if (currentActiveBarElement && DOM.barDisplayContainer.contains(currentActiveBarElement)) {
-                    currentActiveBarElement.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'nearest',
-                        inline: 'center'
-                    });
-                }
+                // // Auto-scroll to the active bar
+                // if (currentActiveBarElement && DOM.barDisplayContainer.contains(currentActiveBarElement)) {
+                //     currentActiveBarElement.scrollIntoView({
+                //         behavior: 'smooth',
+                //         block: 'nearest',
+                //         inline: 'center'
+                //     });
+                // }
 
             } else {
                 // Beat index is out of bounds, ensure no beat is marked as highlighted

@@ -5,6 +5,7 @@
 
 import AppState from './appState.js';
 import DOM from './domSelectors.js';
+import ThemeController from './themeController.js'; // Import ThemeController
 import BarDisplayController from './barDisplayController.js';
 
 // Audio elements - private to this module
@@ -58,6 +59,11 @@ function performCurrentBeatActions() {
     if (currentBeat % beatMultiplier === 0) {
         isAccent = true;
     }
+
+    // Update 3D visuals if active
+    if (ThemeController.is3DSceneActive()) {
+        ThemeController.updatePlayheadVisuals(currentBar, currentBeat, beatMultiplier);
+    }
     playClick(isAccent);
 }
 
@@ -71,6 +77,11 @@ function performEngineStopActions() {
     BarDisplayController.clearAllHighlights();
     clickSound.pause(); clickSound.currentTime = 0;
     accentClickSound.pause(); accentClickSound.currentTime = 0;
+
+    // Clear 3D highlights if active
+    if (ThemeController.is3DSceneActive()) {
+        ThemeController.clearAll3DVisualHighlights();
+    }
     // console.log("Metronome engine stopped internally.");
 }
 

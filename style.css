@@ -275,6 +275,7 @@ option {
   justify-content: center;
     display: flex; /* Allows bars to sit side-by-side */
     flex-wrap: wrap; /* Allows bars to wrap to next line if not enough space */
+    box-sizing: border-box; /* Ensures padding is included in the 100% width */
     overflow-x: auto; /* Enable horizontal scrolling if content overflows */
   margin: 4px 0; /* Further reduced margin */
   min-height: 0; /* If needed, ensure it has a purpose */
@@ -426,7 +427,6 @@ option {
 }
 .highlighted{ /* Kept from upstream */
   scale: 1.55;
-  margin: 0 0.1em;
   border-radius: 50%; /* Keep highlighted as circle */
   background: var(--SubdivisionBeatColor); /* Changed to use SubdivisionBeatColor */
 }
