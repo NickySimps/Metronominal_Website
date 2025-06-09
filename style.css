@@ -52,7 +52,7 @@ body {
   height: auto;
   display: flex;
   justify-content: center;
-  align-content: space-evenly;
+  align-content: center;
   flex-wrap: wrap;
   flex-direction: row;
   /* Corrected and softened shadow */
@@ -149,7 +149,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 .beat-settings,
 .bar-settings {
   background: var(--Accent); /* Was white, now yellow-green for contrast with blue outline */
-  width: 100%;
+  width: 110%;
   padding: 8px; /* Reduced padding */
   margin: 0.4rem 0; /* Reduced margin */
 }
