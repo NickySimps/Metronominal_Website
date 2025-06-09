@@ -48,7 +48,7 @@ body {
 
 .metronome-container {
   background-color: var(--Background); /* Changed to white to stand out from var(--Background) */
-  width: 100%; /* Make metronome container take full width of its parent */
+  width: 99%; 
   height: auto;
   display: flex;
   justify-content: center;
