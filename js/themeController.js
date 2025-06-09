@@ -28,26 +28,27 @@ const themes = {
         '--Alt1': '#00529b', // Dark Blue
         '--Alt2': '#4a4a5a', // Medium Dark Gray
         '--TextOnMain': '#ffffff', // Off-White
-        '--TextPrimary': '#000000', // Light Gray
+        '--TextPrimary': '#bbbbbb', // Light Gray
+        '--TextSecondary': '#cccccc', // Very Light Gray
         '--TextSecondary': 'var(--Alt1)', // Medium Light Gray
         '--SubdivisionBeatColor': 'var(--Highlight)', // Bright Yellow (Corrected to use Accent for yellow)
         '--ActiveBarBackground': 'var(--Accent)', // Bright Yellow
-        '--BorderColor': 'transparent', // Set to transparent for flat look
+        '--BorderColor': 'var(--Accent)', // Set to transparent for flat look
         '--BorderRadius': '7px' // Sharper than default
     },
     synthwave: {
         '--Main': '#ff00ff', // Magenta
-        '--Background': '#0d0221', // Deep Indigo/Dark Purple
+        '--Background': '#0f0241', // Deep Indigo/Dark Purple
         '--Accent': '#7b00ff', // Electric Purple
         '--Highlight': '#008090', // Teal
         '--Alt1': '#ff69b4', // Hot Pink
         '--Alt2': '#7b00ff', // Electric Purple (same as Accent)
         '--TextOnMain': '#ffffff', // White
-        '--TextPrimary': '#000000', // Black (often on lighter elements if any)
+        '--TextPrimary': '#eeeeee', // Black (often on lighter elements if any)
         '--TextSecondary': 'var(--Alt1)', // Very Dark Gray
         '--SubdivisionBeatColor': '#00f0ff', // Cyan
         '--ActiveBarBackground': 'var(--Alt1)', // Example: 'rgba(255, 105, 180, 0.2)'
-        '--BorderColor': 'transparent', // Set to transparent for flat look
+        '--BorderColor': 'var(--Alt1)', // Set to transparent for flat look
         '--BorderRadius': '50%' // For circular/pill shapes
     },
     gundam: {
@@ -62,7 +63,7 @@ const themes = {
         '--TextSecondary': '#555555', // Medium Gray
         '--SubdivisionBeatColor': '#87cefa', // Light Sky Blue (Beam Saber effect) 
         '--ActiveBarBackground': 'var(--Main)', // Uses Gundam Blue from --Main
-        '--BorderColor': 'transparent', // Set to transparent for flat look
+        '--BorderColor': 'var(--Main)', // Set to transparent for flat look
         '--BorderRadius': '0px' // Hard squares
     },
     helloKitty: {

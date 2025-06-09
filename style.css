@@ -187,6 +187,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 .start-stop-btn {
   border-radius: var(--BorderRadius); 
   background: var(--Highlight);
+  border: none;
   margin: auto;
   display: flex; /* For centering content */
   align-items: center; /* For centering content */
