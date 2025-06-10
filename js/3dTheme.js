@@ -60,7 +60,7 @@ const yPositionForSectionHeaderLabels = BUTTON_Y_POSITION + mainButtonHeight + 0
 const yPositionForThemeLabels = BUTTON_Y_POSITION + themeButtonHeight + 0.12; // Y for individual theme button text
 const yPositionForThemeSectionHeader = BUTTON_Y_POSITION + themeButtonHeight + 0.32; // Y for "Switch to 2D Theme:"
 
-const LABEL_TEXT_COLOR = defaultThemeColors3D.textOnMain;
+const LABEL_TEXT_COLOR = defaultThemeColors3D.textPrimary;
 const DEFAULT_MEASURE_OPACITY = 0.3;
 const SELECTED_MEASURE_OPACITY = 0.6;
 const PLAYHEAD_SELECTED_MEASURE_OPACITY = 0.45;
@@ -140,7 +140,7 @@ function updateOrAddTextLabel(meshKey, newText, font, size, textColor, textPosit
 
 function createCircularButton(name, color, position, radius = 0.6, height = 0.2) {
     const geometry = new THREE.CylinderGeometry(radius, radius, height, 32);
-    const material = new THREE.MeshStandardMaterial({ color: color, metalness: 0.3, roughness: 0.6 });
+    const material = new THREE.MeshStandardMaterial({ color: color, metalness: 0.3, roughness: 1 });
     const button = new THREE.Mesh(geometry, material);
     button.name = name;
     button.position.set(position.x, BUTTON_Y_POSITION + height / 2, position.z);
@@ -296,10 +296,10 @@ function internalCreate3DControls() {
     const themeButtonXPositions = [-2.5, -0.8, 0.8, 2.5]; // Increased spread
 
     const themesRow1 = [
-        { name: "Dark", id: "switchToDarkTheme3D", color: defaultThemeColors3D.textPrimary }, // Dark grey is thematic for "Dark"
-        { name: "Light", id: "switchToLightTheme3D", color: defaultThemeColors3D.main },      // Default/Light theme uses Main color
-        { name: "Classic", id: "switchToClassicTheme3D", color: defaultThemeColors3D.main }, // Assuming Classic is similar to Light/Default
-        { name: "Synth", id: "switchToSynthwaveTheme3D", color: defaultThemeColors3D.alt2 }   // Synth uses Alt2
+        { name: "Dark", id: "switchToDarkTheme3D", color: defaultThemeColors3D.highlight }, // Dark grey is thematic for "Dark"
+        { name: "Light", id: "switchToLightTheme3D", color: defaultThemeColors3D.background },      // Default/Light theme uses Main color
+        { name: "Gundam", id: "switchToGundamTheme3D", color: defaultThemeColors3D.alt1 },         // Gundam uses Alt1
+        { name: "Synth", id: "switchToSynthwaveTheme3D", color: defaultThemeColors3D.main }   // Synth uses Alt2
     ];
     themesRow1.forEach((theme, index) => {
         btnPos = { x: themeButtonXPositions[index], z: zRowThemes1 };
@@ -309,8 +309,7 @@ function internalCreate3DControls() {
 
     // Row 2 of Theme Buttons
     const themesRow2 = [
-        { name: "Gundam", id: "switchToGundamTheme3D", color: defaultThemeColors3D.alt1 },         // Gundam uses Alt1
-        { name: "Kitty", id: "switchToHelloKittyTheme3D", color: defaultThemeColors3D.highlight },// Kitty uses Highlight
+        { name: "Kitty", id: "switchToHelloKittyTheme3D", color: defaultThemeColors3D.alt2 },// Kitty uses Highlight
         { name: "Beach", id: "switchToBeachTheme3D", color: defaultThemeColors3D.accent },        // Beach uses Accent
         { name: "IceCream", id: "switchToIceCreamTheme3D", color: defaultThemeColors3D.subdivisionBeat } // IceCream uses SubdivisionBeat color
     ];
@@ -322,7 +321,7 @@ function internalCreate3DControls() {
 
     // Add a general label for the theme section
     addTextLabel("Switch to 2D Theme:", loadedFont, themeSectionHeaderLabelSize, LABEL_TEXT_COLOR,
-        { x: 0, y: yPositionForThemeSectionHeader, z: zRowThemes1 },
+        { x: 0, y: yPositionForThemeSectionHeader + 4, z: zRowThemes1 },
         { x: -Math.PI / 2, y: 0, z: 0 }
     );
 
@@ -465,7 +464,7 @@ function internalInitializeScene(_mainContainerRef) {
     mainContainerRef = _mainContainerRef; // Store the passed reference
 
     scene = new THREE.Scene();
-    scene.background = defaultThemeColors3D.background;
+    scene.background = defaultThemeColors3D.alt1;
 
     const aspect = window.innerWidth / window.innerHeight;
     camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 1000); // Slightly reduced FOV
@@ -492,7 +491,7 @@ function internalInitializeScene(_mainContainerRef) {
     document.body.appendChild(threeJsCanvas);
 
     const floorGeometry = new THREE.PlaneGeometry(20, 20);
-    const floorMaterial = new THREE.MeshStandardMaterial({ color: defaultThemeColors3D.alt1, side: THREE.DoubleSide }); // Changed floor color
+    const floorMaterial = new THREE.MeshStandardMaterial({ color: defaultThemeColors3D.background, side: THREE.DoubleSide }); // Changed floor color
     const floor = new THREE.Mesh(floorGeometry, floorMaterial);
     floor.rotation.x = -Math.PI / 2;
     floor.position.y = BUTTON_Y_POSITION;
