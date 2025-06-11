@@ -378,7 +378,7 @@ export function createControls(font, controlsGroup, interactionGroup) {
 
     currentSectionZ -= Z_POS_CAMERA_LIGHT_ROW_SPACING; // Move down for first row of controls
     // Camera Row 1: Zoom, Reset
-    if (font) _updateOrAddTextLabel("cameraZoomLabel", "Zoom", CAMERA_LIGHT_LABEL_SIZE, LABEL_TEXT_COLOR, { x: X_POS_CAMERA_LIGHT_COLUMN, y: Y_POS_CAMERA_LIGHT_LABELS, z: currentSectionZ });
+    if (font) _updateOrAddTextLabel("cameraZoomLabel", "Zoom", CAMERA_LIGHT_LABEL_SIZE, LABEL_TEXT_COLOR, { x: X_POS_CAMERA_LIGHT_COLUMN, y: Y_POS_CAMERA_LIGHT_LABELS, z: currentSectionZ + 0.6 });
     btnPos = { x: X_POS_CAMERA_LIGHT_COLUMN - CAMERA_LIGHT_BUTTON_HORIZONTAL_OFFSET, z: currentSectionZ };
     btn = createButtonMesh("cameraZoomOutButton3D", DefaultThemeColors3D.alt2, btnPos,
         BUTTON_DIM_LARGE, CAMERA_LIGHT_BUTTON_HEIGHT, BUTTON_SHAPE_CIRCLE);
@@ -448,7 +448,7 @@ export function createControls(font, controlsGroup, interactionGroup) {
 
     // Light Row 1: Intensity
     currentSectionZ -= Z_POS_CAMERA_LIGHT_ROW_SPACING;
-    if (font) _updateOrAddTextLabel("lightIntensityLabel", "Intensity", CAMERA_LIGHT_LABEL_SIZE, LABEL_TEXT_COLOR, { x: X_POS_CAMERA_LIGHT_COLUMN, y: Y_POS_CAMERA_LIGHT_LABELS + 0.08, z: currentSectionZ }); // Label slightly higher for value display
+    if (font) _updateOrAddTextLabel("lightIntensityLabel", "Intensity", CAMERA_LIGHT_LABEL_SIZE, LABEL_TEXT_COLOR, { x: X_POS_CAMERA_LIGHT_COLUMN, y: Y_POS_CAMERA_LIGHT_LABELS + 0.08, z: currentSectionZ + 0.6 }); // Label slightly higher for value display
     btnPos = { x: X_POS_CAMERA_LIGHT_COLUMN - CAMERA_LIGHT_BUTTON_HORIZONTAL_OFFSET, z: currentSectionZ };
     btn = createButtonMesh("lightIntensityDownButton3D", DefaultThemeColors3D.alt2, btnPos, BUTTON_DIM_LARGE, CAMERA_LIGHT_BUTTON_HEIGHT, BUTTON_SHAPE_CIRCLE);
     if (localInteractionGroupRef) addHitbox(btn, localInteractionGroupRef);
@@ -511,7 +511,7 @@ export function updateDynamicControlLabels() {
     
     // Volume Value (centered on its control group)
     const volumeControlsXCenter = 2.8; // Must match createControls
-    _updateOrAddTextLabel("volumeValue", `${Math.round(AppState.getVolume() * 100)}%`, valueLabelSize, LABEL_TEXT_COLOR, { x: volumeControlsXCenter, y: Y_POS_LABELS_ABOVE_BUTTONS + SLIDER_HANDLE_HEIGHT - 0.2, z: zValTempoVol });
+    _updateOrAddTextLabel("volumeValue", `${Math.round(AppState.getVolume() * 100)}%`, valueLabelSize, LABEL_TEXT_COLOR, { x: volumeControlsXCenter, y: Y_POS_LABELS_ABOVE_BUTTONS + SLIDER_HANDLE_HEIGHT - 0.2, z: zValTempoVol +0.2 });
 
     // Update Volume Slider Handle Position
     const volumeSliderGroup = localControlsGroupRef.getObjectByName("volumeSlider3D");
@@ -551,7 +551,9 @@ export function updateDynamicControlLabels() {
         const intensityLabelMesh = dynamicTextMeshes["lightIntensityLabel"];
         if (intensityLabelMesh) {
             _updateOrAddTextLabel("lightIntensityValue", `${Math.round(light.intensity * 100)}`, TEXT_SIZE_SMALL, LABEL_TEXT_COLOR,
-                                { x: X_POS_CAMERA_LIGHT_COLUMN, y: Y_POS_CAMERA_LIGHT_LABELS - 0.08, z: intensityLabelMesh.position.z });
+                                { x: X_POS_CAMERA_LIGHT_COLUMN, y: Y_POS_CAMERA_LIGHT_LABELS - 0.08, z: intensityLabelMesh.position.z + 0.1
+
+                                 });
         }
     }
 }

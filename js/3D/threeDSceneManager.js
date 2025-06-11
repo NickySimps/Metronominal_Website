@@ -70,7 +70,7 @@ export function initializeScene(_mainContainerRef, createControlsCb, createMeasu
     if (storedCamPos) {
         camera.position.set(storedCamPos.x, storedCamPos.y, storedCamPos.z);
     } else {
-        camera.position.set(-0.2, 14, 1); // Default position (matches resetCameraView)
+        camera.position.set(0, 9, 0); // Default position (matches resetCameraView)
     }
 
     if (storedLookAt) {
