@@ -17,7 +17,33 @@ html {
   --SubdivisionBeatColor: #ffa07a; /* Light Salmon - for subdivision beats */
   --ActiveBarBackground: var(--Alt1); /* Deep Blue for active bar background */
   --BorderColor: transparent; /* Light grey for borders -> Now transparent by default for flat look */
-  --BorderRadius: 20px; /* Default border radius, will be overridden by themes */
+  --BorderRadius: var(--s5); /* Default border radius (20px), will be overridden by themes */
+
+  /* New Font Sizes */
+  --font-1: 0.8rem;  /* Smallest */
+  --font-2: 1rem;    /* Default/Medium */
+  --font-3: 1.3rem;  /* Large */
+  --font-4: 1.6rem;  /* Extra Large */
+
+  /* New Spacing Units (Golden Ratio Inspired Scale) */
+  --space-unit: 8px;
+  --s0: 1px;                                 /* 1px */
+  --s1: calc(var(--space-unit) * 0.25);      /* 2px */
+  --s2: calc(var(--space-unit) * 0.5);       /* 4px */
+  --s3: var(--space-unit);                   /* 8px */
+  --s4: calc(var(--space-unit) * 1.5);       /* 12px */
+  --s5: calc(var(--space-unit) * 2.5);       /* 20px */
+  --s6: calc(var(--space-unit) * 4);         /* 32px */
+  --s6-5: calc(var(--space-unit) * 5);       /* 40px */
+  --s7: calc(var(--space-unit) * 6);         /* 48px */
+  --s8: calc(var(--space-unit) * 8);         /* 64px */
+  --s8-5: calc(var(--space-unit) * 7.5);     /* 60px */
+  --s9: calc(var(--space-unit) * 10);        /* 80px */
+  --s10: calc(var(--space-unit) * 12);       /* 96px */
+  --s11: calc(var(--space-unit) * 14);       /* 112px */
+  --s13: calc(var(--space-unit) * 18);       /* 144px */
+  --s14: calc(var(--space-unit) * 20);       /* 160px */
+  --s15: calc(var(--space-unit) * 22);       /* 176px */
 }
 
 
@@ -25,15 +51,15 @@ body {
   overflow-x: hidden; /* Further ensure body content doesn't cause horizontal scroll */
   background-color: var(--Background);
   font-family: "Inter", sans-serif; /* Changed font */
-  font-size: 1.3em; /* Reduced base font size for more compactness */
+  font-size: var(--font-3); /* Standardized base font size */
   display: flex;
   justify-content: center;
   align-items: flex-start; /* Align to start to respect padding-top */
   min-height: 100vh; /* Ensure body takes at least full viewport height */
   width: 100%; /* Make body take full width */
   margin: 0; /* Remove auto margins for centering */
-  /* Adjusted padding: top, horizontal, bottom, horizontal */
-  padding: 70px 15px 20px 15px; 
+  /* Standardized padding: top, horizontal, bottom, horizontal */
+  padding: var(--s8) var(--s4) var(--s5) var(--s4); /* 64px 12px 20px 12px */
   box-sizing: border-box; /* Include padding in the 100% width */
   user-select: none; /* Keep user-select none */
   color: var(--TextPrimary);
@@ -56,8 +82,8 @@ body {
   flex-wrap: wrap;
   flex-direction: row;
   /* Corrected and softened shadow */
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-  padding: 5% 0px; /* Corrected padding and adjusted value */
+  box-shadow: 0 var(--s3) var(--s5) rgba(0, 0, 0, 0.08); /* 0 8px 20px */
+  padding: var(--s6) 0; /* Standardized padding (32px 0) */
   border-radius: var(--BorderRadius);
 
 }
@@ -65,21 +91,21 @@ body {
 .tempo-container,
 .measures-container,
 .bar-settings-container {
-  padding: 8px; /* Reduced padding */
+  padding: var(--s3); /* Standardized padding (8px) */
   background: var(--Background); /* White card background */
   text-align: center;
   width: 100%; /* Common width */
 }
 
 .tempo-container {
-  font-size: 1.3em; /* Reduced font size */
+  font-size: var(--font-3); /* Standardized font size */
   width: 100%;
 }
 
 .tempo-text {
   font-weight: lighter;
   color: var(--TextSecondary);
-  font-size: smaller;
+  font-size: var(--font-1); /* Standardized font size */
 }
 
 .tempo-text-box.updating .tempo-text {
@@ -88,19 +114,19 @@ body {
 
 @keyframes fadeOutIn {
   0% { opacity: 1; transform: translateY(0); }
-  49% { opacity: 0; transform: translateY(-5px); }
-  50% { opacity: 0; transform: translateY(5px); } /* New text starts from slightly below */
-  51% { opacity: 0; transform: translateY(5px); } /* Hold invisible briefly */
+  49% { opacity: 0; transform: translateY(-var(--s2)); } /* -4px */
+  50% { opacity: 0; transform: translateY(var(--s2)); } /* New text starts from slightly below (4px) */
+  51% { opacity: 0; transform: translateY(var(--s2)); } /* Hold invisible briefly (4px) */
   100% { opacity: 1; transform: translateY(0); }
 }
 
 .tempo-settings {
-  margin: 8px; /* Reduced margin */
+  margin: var(--s3); /* Standardized margin (8px) */
 }
 
 .tempo-slider {
   width: auto;
-  padding: 0 15px; /* Reduced padding for mobile */
+  padding: 0 var(--s4); /* Standardized padding (0 12px) */
 }
 
 .slider {
@@ -117,16 +143,18 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 input[type="range"]:focus {
-  outline: none;
+  /* outline: none; */ /* Avoid removing outline without a replacement */
+  outline: 2px solid var(--Main); /* Example: Use a theme color for focus */
+  outline-offset: 2px;
 }
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 25px;
-  height: 25px;
+  width: var(--s5); /* Standardized width (20px) */
+  height: var(--s5); /* Standardized height (20px) */
   border-radius: 50%;
   background: var(--Main);
-  margin-top: -12px;
+  margin-top: calc(var(--s4) * -1); /* Standardized margin (-12px) */
 }
 
 input[type="range"]::-webkit-slider-container {
@@ -134,9 +162,9 @@ input[type="range"]::-webkit-slider-container {
 }
 
 input[type="range"]::-webkit-slider-runnable-track {
-  background: var(--Alt1); /* Was black, now purple for consolidation */
+  background: var(--Alt1);
   width: 100%;
-  height: 2px;
+  height: var(--s1); /* Standardized height (2px) */
 }
 
 .tempo-settings,
@@ -150,20 +178,20 @@ input[type="range"]::-webkit-slider-runnable-track {
 .bar-settings {
   background: var(--Accent); /* Was white, now yellow-green for contrast with blue outline */
   width: 110%;
-  padding: 8px; /* Reduced padding */
-  margin: 0.4rem 0; /* Reduced margin */
+  padding: var(--s3); /* Standardized padding (8px) */
+  margin: var(--s2) 0; /* Standardized margin (4px 0) */
 }
 
 .start-stop-btn {
-  height: 140px; /* Further reduced for mobile */
-  width: 140px;  /* Further reduced for mobile */
-  padding: 4px; /* Reduced padding */
-  margin: 4px;  /* Reduced margin */
+  height: var(--s13); /* Standardized height (144px) */
+  width: var(--s13);  /* Standardized width (144px) */
+  padding: var(--s2); /* Standardized padding (4px) */
+  margin: var(--s2);  /* Standardized margin (4px) */
   display: flex; /* Added for consistent centering with other buttons */
   align-items: center; /* Added for consistent centering */
   justify-content: center; /* Added for consistent centering */
   text-align: center;
-  line-height: 5;
+  line-height: 5; /* Unitless line-height is fine */
 }
 .start-stop-btn.active {
   background-color: var(--Alt2); /* A more active/warning color */
@@ -178,7 +206,7 @@ input[type="range"]::-webkit-slider-runnable-track {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: 8px; /* Reduced padding */
+  padding: var(--s3); /* Standardized padding (8px) */
 }
 
 .adjust-tempo,
@@ -201,38 +229,38 @@ input[type="range"]::-webkit-slider-runnable-track {
 .adjust-measure-length:hover,
 .start-stop-btn:hover {
   background: var(--Alt1); /* Was dodgerblue, now purple */
-  color: var(--TextOnMain); 
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+  color: var(--TextOnMain);
+  transform: translateY(calc(var(--s1) * -1)); /* -2px */
+  box-shadow: 0 var(--s2) var(--s3) rgba(0,0,0,0.2); /* 0 4px 8px */
 }
 
 .adjust-tempo:active,
 .adjust-bar-length:active,
 .adjust-measure-length:active,
 .start-stop-btn:active {
-  transform: translateY(1px);
-  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  transform: translateY(var(--s0)); /* 1px */
+  box-shadow: 0 var(--s1) var(--s2) rgba(0,0,0,0.15); /* 0 2px 4px */
   background-color: var(--Main); /* Slightly different active color */
   color: var(--TextOnMain);
 }
 .tap-tempo-btn.tapped {
   background-color: var(--Accent); /* Feedback color */
   /* Use a transform that doesn't conflict too much with :active */
-  transform: scale(0.96) translateY(0px); 
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  transform: scale(0.96) translateY(0px);
+  box-shadow: 0 var(--s0) var(--s1) rgba(0,0,0,0.1); /* 0 1px 2px */
 }
 
 .adjust-tempo {
-  height: 80px; /* Further reduced for mobile */
-  width: 80px;  /* Further reduced for mobile */
+  height: var(--s9); /* Standardized height (80px) */
+  width: var(--s9);  /* Standardized width (80px) */
   margin: auto;
-  padding: 8px; /* Reduced padding */
+  padding: var(--s3); /* Standardized padding (8px) */
 }
 
 .adjust-measure-length,
 .adjust-bar-length {
-  height: 50px; /* Further reduced for mobile */
-  width: 50px;  /* Further reduced for mobile */
+  height: var(--s7); /* Standardized height (48px) */
+  width: var(--s7);  /* Standardized width (48px) */
   margin: auto;
   padding: 0px; /* Corrected: only one padding value needed */
 }
@@ -243,10 +271,10 @@ input[type="range"]::-webkit-slider-runnable-track {
   align-items: center;
 }
 select {
-    height: 50px;
-    width: 50px;
+    height: var(--s7); /* Standardized height (48px) */
+    width: var(--s7); /* Standardized width (48px) */
     outline-color: transparent; /* Changed from var(--Accent) */
-    border: 1px solid transparent; /* Changed from var(--Main) */
+    border: var(--s0) solid transparent; /* Standardized border (1px) */
     background-color: var(--Highlight);
     color: var(--TextPrimary);
     border-radius: var(--BorderRadius);
@@ -266,40 +294,40 @@ option {
 
 .bar-display-container {
   background: var(--Background);
-  outline: var(--BorderColor) 1px solid; /* Will be transparent due to --BorderColor change */
+  outline: var(--BorderColor) var(--s0) solid; /* Standardized outline (1px) */
   border-radius: var(--BorderRadius);
   width: 100%;
   height: auto;
-  padding: 4px; /* Further reduced padding */
+  padding: var(--s2); /* Standardized padding (4px) */
   align-items: center;
   justify-content: center;
     display: flex; /* Allows bars to sit side-by-side */
     flex-wrap: wrap; /* Allows bars to wrap to next line if not enough space */
     box-sizing: border-box; /* Ensures padding is included in the 100% width */
     overflow-x: auto; /* Enable horizontal scrolling if content overflows */
-  margin: 4px 0; /* Further reduced margin */
+  margin: var(--s2) 0; /* Standardized margin (4px 0) */
   min-height: 0; /* If needed, ensure it has a purpose */
 }
 
 .bar-visual {
-    padding: 6px; /* Reduced padding */
-    margin: 4px;  /* Reduced margin */
-    border: 1px solid var(--BorderColor); /* Was #ccc */
+    padding: var(--s3); /* Standardized padding (8px) */
+    margin: var(--s2);  /* Standardized margin (4px) */
+    border: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
     background-color: var(--Highlight); /* Was #f9f9f9 */
     cursor: pointer;
     /* text-align: center; Flex properties will handle alignment */
     transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-    min-width: 40px; /* Ensure clickable area */
-    min-height: 30px; /* Give some base height */
+    min-width: var(--s6-5); /* Standardized min-width (40px) */
+    min-height: var(--s6); /* Standardized min-height (32px) */
     display: flex;   /* Arrange beat squares horizontally */
     flex-wrap: wrap; /* Allow squares to wrap if too many */
-    gap: 3px;        /* Reduced spacing between beat squares */
+    gap: var(--s2);        /* Standardized gap (4px) */
     border-radius: var(--BorderRadius); /* Keep border radius */
     align-items: center; /* Vertically align squares */
 }
 .bar-visual:hover {
   border-color: transparent; /* Changed from var(--Main) for flat look */
-  box-shadow: 0 0 8px var(--Accent);
+  box-shadow: 0 0 var(--s3) var(--Accent); /* 0 0 8px */
 }
 
 .bar-visual.active-bar {
@@ -311,23 +339,23 @@ option {
 .bar-visual.selected {
     border-color: var(--Alt1); /* Was dodgerblue */
     /* background-color: var(--Main); */ /* Optional: change background on selection */
-    outline: 2px solid var(--Alt2); /* Was dodgerblue */
-    box-shadow: 0 0 8px var(--Alt1); /* Was rgba(30, 144, 255, 0.5), alpha lost */
+    outline: var(--s1) solid var(--Alt2); /* Standardized outline (2px) */
+    box-shadow: 0 0 var(--s3) var(--Alt1); /* Standardized shadow (0 0 8px) */
 }
 .beat-square {
-    width: 10px;  /* Reduced size */
-    height: 10px; /* Reduced size */
+    width: var(--s3);  /* Standardized size (8px) */
+    height: var(--s3); /* Standardized size (8px) */
     background-color: color-mix(in srgb, var(--Highlight) 60%, white); /* Lighter version of highlight */
-    border: 1px solid transparent; /* Changed from var(--Highlight) */
+    border: var(--s0) solid transparent; /* Standardized border (1px) */
     border-radius: var(--BorderRadius);
     transition: all 0.2s ease-out; /* Smoother and slightly longer "pop" for liquid feel */
 }
 .bar-visual.medium-dense-beats {
-  gap: 3px; /* Slightly reduced gap */
+  gap: var(--s2); /* Standardized gap (4px) */
 }
 .bar-visual.medium-dense-beats .beat-square {
-  width: 7px; /* Reduced size */
-  height: 7px;/* Reduced size */
+  width: var(--s3); /* Standardized size (8px) */
+  height: var(--s3);/* Standardized size (8px) */
   border-radius: var(--BorderRadius);
 }
 /* Adjust highlighted style for medium density if needed */
@@ -337,11 +365,11 @@ option {
 }
 
 .bar-visual.high-dense-beats {
-  gap: 2px; /* Even tighter gap */
+  gap: var(--s1); /* Standardized gap (2px) */
 }
 .bar-visual.high-dense-beats .beat-square {
-  width: 5px; /* Reduced size */
-  height: 5px;/* Reduced size */
+  width: var(--s2); /* Standardized size (4px) */
+  height: var(--s2);/* Standardized size (4px) */
   border-radius: var(--BorderRadius);
 }
 /* Adjust highlighted style for high density */
@@ -377,11 +405,11 @@ option {
 /* .highlighted class (already existing) will be used for beat squares */
 
 .total-beats-display, select {
-  outline: 1px solid transparent; /* Changed from var(--Main) */
-  padding: 3px 5px; /* Adjusted padding for compactness */
+  outline: var(--s0) solid transparent; /* Standardized outline (1px) */
+  padding: var(--s2) var(--s2); /* Standardized padding (4px 4px) */
   background: var(--Highlight);
   border-radius: var(--BorderRadius);
-  font-size: 0.55em; /* Further reduced font size */
+  font-size: var(--font-1); /* Standardized font size */
   width: auto; /* Keep auto width */
   text-align: center; 
   height: auto; /* Let padding and content define height, or set explicitly if needed */
@@ -391,10 +419,10 @@ option {
 .measure-bar {
   background: var(--Highlight);
   display: flex;
-  gap: 1px; /* Reduced gap */
+  gap: var(--s0); /* Standardized gap (1px) */
   width: 3em;
   align-items: center;
-  padding: 3px; /* Kept from upstream */
+  padding: var(--s2); /* Standardized padding (4px) */
   margin: 0px;
   border-radius: var(--BorderRadius);
   justify-content: center;
@@ -403,7 +431,7 @@ option {
 .measure-bar-segment {
     height: 90%;
     width: 90%;
-    margin: 1px 3px;
+    margin: var(--s0) var(--s2); /* Standardized margin (1px 4px) */
     border-radius: var(--BorderRadius);
     background: var(--Main); /* Was rgba(0,0,0,0.25), now solid purple */
 }
@@ -439,7 +467,7 @@ option {
 /* Tablet and larger */
 @media (min-width: 768px) {
   body {
-    font-size: 1.45em; /* Slightly reduced for tablet */
+    font-size: var(--font-4); /* Standardized font size */
   }
   .metronome-container {
     flex-direction: row; /* Side-by-side on larger screens */
@@ -447,24 +475,24 @@ option {
 
  
   .tempo-slider {
-    padding: 0 30px; /* Restore padding for larger screens */
+    padding: 0 var(--s6); /* Standardized padding (0 32px) */
   }
   .bar-display-container {
-    padding: 8px; /* Reduced padding */
-    margin: 8px 0; /* Reduced margin */
+    padding: var(--s3); /* Standardized padding (8px) */
+    margin: var(--s3) 0; /* Standardized margin (8px 0) */
   }
   .start-stop-btn {
-    height: 180px; /* Reduced size */
-    width: 180px;  /* Reduced size */
+    height: var(--s15); /* Standardized size (176px) */
+    width: var(--s15);  /* Standardized size (176px) */
   }
   .adjust-tempo {
-    height: 100px; /* Reduced size */
-    width: 100px;  /* Reduced size */
+    height: var(--s10); /* Standardized size (96px) */
+    width: var(--s10);  /* Standardized size (96px) */
   }
   .adjust-measure-length,
   .adjust-bar-length {
-    height: 60px; /* Reduced size */
-    width: 60px;  /* Reduced size */
+    height: var(--s8-5); /* Standardized size (60px) */
+    width: var(--s8-5);  /* Standardized size (60px) */
   }
 }
 
@@ -474,19 +502,19 @@ option {
   flex-wrap: wrap; /* Allow wrapping on smaller screens if needed */
   justify-content: space-around; /* Distribute space */
   align-items: center;
-  padding: 5px 10px; /* Compact padding */
-  margin-bottom: 10px; /* Space before main-container */
+  padding: var(--s2) var(--s3); /* Standardized padding (4px 8px) */
+  margin-bottom: var(--s3); /* Standardized margin (8px) */
   background-color: color-mix(in srgb, var(--Background) 90%, black 5%); /* Slightly different from body */
   border-radius: var(--BorderRadius);
-  gap: 10px; /* Space between control groups */
+  gap: var(--s3); /* Standardized gap (8px) */
 }
 .control-group {
   display: flex;
   align-items: center;
-  gap: 5px; /* Space between label and control */
+  gap: var(--s2); /* Standardized gap (4px) */
 }
 .control-label {
-  font-size: 0.6em; /* Small label text */
+  font-size: var(--font-1); /* Standardized font size */
   color: var(--TextSecondary);
 }
 /* Desktop and larger */
@@ -497,12 +525,12 @@ option {
   }
 
   body {
-    font-size: 1.35em; /* Keep font size adjustment */
+    font-size: var(--font-3); /* Standardized font size */
     /* max-width removed to allow full width */
     height: 100%;     /* Make body fill the html element's height (effectively 100vh) */
     overflow: hidden;   /* Prevent body from scrolling if its content overflows */
     box-sizing: border-box; /* Ensure padding is included in the body's height calculation */
-    padding-top: 20px; /* Override global top padding for desktop */
+    padding-top: var(--s5); /* Standardized padding (20px) */
     /* Horizontal and bottom padding will be inherited from global body style (15px horizontal, 20px bottom) */
     /* margin: 0; is inherited from global body style */
   }
@@ -517,37 +545,37 @@ option {
   }
 
   .global-app-controls {
-    padding: 5px 8px;
-    margin-bottom: 8px;
-    gap: 8px;
+    padding: var(--s2) var(--s3); /* Standardized padding (4px 8px) */
+    margin-bottom: var(--s3); /* Standardized margin (8px) */
+    gap: var(--s3); /* Standardized gap (8px) */
   }
   .control-label {
-    font-size: 0.55em; /* Even smaller for desktop */
+    font-size: var(--font-1); /* Standardized font size */
   }
   /* Style for a compact select if used in global-app-controls */
   .compact-select {
-    font-size: 0.55em;
-    padding: 2px 4px;
+    font-size: var(--font-1); /* Standardized font size */
+    padding: var(--s1) var(--s2); /* Standardized padding (2px 4px) */
   }
 
   .start-stop-btn {
-    height: 160px; /* Significantly reduced */
-    width: 160px;  /* Significantly reduced */
+    height: var(--s14); /* Standardized size (160px) */
+    width: var(--s14);  /* Standardized size (160px) */
   }
   .adjust-tempo {
-    height: 90px; /* Significantly reduced */
-    width: 90px;  /* Significantly reduced */
+    height: calc(var(--s10) - var(--s3)); /* Standardized size (88px, approx 90px) */
+    width: calc(var(--s10) - var(--s3));  /* Standardized size (88px, approx 90px) */
   }
   .adjust-measure-length,
   .adjust-bar-length {
-    height: 55px; /* Significantly reduced */
-    width: 55px;  /* Significantly reduced */
+    height: calc(var(--s7) + var(--s3)); /* Standardized size (56px, approx 55px) */
+    width: calc(var(--s7) + var(--s3));  /* Standardized size (56px, approx 55px) */
   }
 }
 .compact-input {
-    font-size: 0.6em; /* Or match your .compact-select */
-    padding: 4px 8px; /* Or match your .compact-select */
-    border: 1px solid var(--BorderColor); /* Or your standard input border */
+    font-size: var(--font-1); /* Standardized font size */
+    padding: var(--s2) var(--s3); /* Standardized padding (4px 8px) */
+    border: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
     background-color: var(--Highlight);
     border-radius: var(--BorderRadius);
     color: var(--TextPrimary);
@@ -558,26 +586,26 @@ option {
 /* Theme Switcher Styles */
 .theme-controls {
   position: fixed;
-  top: 10px;
-  right: 10px;
+  top: var(--s3); /* Standardized position (8px) */
+  right: var(--s3); /* Standardized position (8px) */
   display: flex; /* Keep as flex */
-  gap: 6px; /* Reduced gap */
-  padding: 8px; /* Increased padding slightly */
+  gap: var(--s3); /* Standardized gap (8px) */
+  padding: var(--s3); /* Standardized padding (8px) */
   background-color: color-mix(in srgb, var(--Background) 80%, transparent); 
-  border: 1px solid var(--BorderColor); /* Will be transparent */
+  border: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
   border-radius: var(--BorderRadius);
   z-index: 1000; /* Ensure it's on top of other elements */
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  box-shadow: 0 var(--s1) var(--s2) rgba(0,0,0,0.1); /* 0 2px 4px */
 }
 
 .theme-controls button {
-  padding: 5px 8px; /* Reduced padding */
-  border: 1px solid var(--BorderColor); /* Will be transparent */
+  padding: var(--s2) var(--s3); /* Standardized padding (4px 8px) */
+  border: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
   background-color: var(--Highlight);
   color: var(--TextPrimary);
   cursor: pointer;
   border-radius: var(--BorderRadius); /* Keep consistent */
-  font-size: 0.45em; /* Smaller font size relative to body */
+  font-size: var(--font-1); /* Standardized font size */
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
@@ -600,11 +628,11 @@ option {
   }
   49% { /* Point just before text content changes */
     opacity: 0;
-    transform: translateY(-3px); /* Slight upward movement */
+    transform: translateY(calc(var(--s1) * -1)); /* Slight upward movement (-2px) */
   }
   50% { /* Text content changes here via JS */
     opacity: 0;
-    transform: translateY(3px); /* Start from slightly below */
+    transform: translateY(var(--s1)); /* Start from slightly below (2px) */
   }
   100% {
     opacity: 1;
@@ -621,7 +649,7 @@ option {
 @keyframes bar-appear {
   from {
     opacity: 0;
-    transform: scaleX(0.5) translateX(-15px);
+    transform: scaleX(0.5) translateX(calc(var(--s4) * -1)); /* -12px */
   }
   to {
     opacity: 1;
@@ -642,7 +670,7 @@ option {
   }
   to {
     opacity: 0;
-    transform: scaleX(0.5) translateX(-15px); /* Mirrors the 'from' state of bar-appear */
+    transform: scaleX(0.5) translateX(calc(var(--s4) * -1)); /* -12px, mirrors the 'from' state of bar-appear */
   }
 }
 
@@ -651,14 +679,14 @@ option {
     display: flex;
     align-items: center;
     justify-content: center; /* Keep centered */
-    gap: 8px; /* Reduced gap */
-    margin: 10px auto; /* Reduced margin */
-    padding: 4px 10px; /* Reduced padding */
+    gap: var(--s3); /* Standardized gap (8px) */
+    margin: var(--s3) auto; /* Standardized margin (8px auto) */
+    padding: var(--s2) var(--s3); /* Standardized padding (4px 8px) */
     width: 90%; 
     max-width: 350px;
 }
 .volume-controls-container label {
-    font-size: 0.7em; /* Smaller label */
+    font-size: var(--font-1); /* Standardized font size */
     color: var(--TextSecondary);
     white-space: nowrap; 
 }
@@ -670,27 +698,27 @@ option {
 
 .volume-slider { /* This class is on the input[type="range"] */
     flex-grow: 1;
-    min-width: 100px; 
+    min-width: var(--s10); /* Standardized min-width (96px) */
     /* General input[type="range"] styles will apply for thumb and track */
 }
 
 .volume-value {
-    font-size: 0.7em; /* Smaller value display */
+    font-size: var(--font-1); /* Standardized font size */
     color: var(--TextPrimary); /* Keep color */
-    min-width: 40px; 
+    min-width: var(--s6-5); /* Standardized min-width (40px) */
     text-align: right;
     background-color: var(--Highlight); /* Consistent with other displays */
-    padding: 2px 5px; /* Reduced padding */
+    padding: var(--s1) var(--s2); /* Standardized padding (2px 4px) */
     border-radius: var(--BorderRadius); /* Keep border radius */
-    border: 1px solid var(--BorderColor); /* Will be transparent */
+    border: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
 }
 
 /* Preset Controls Styling */
 .preset-controls {
     width: 100%;
-    padding: 10px; /* Reduced padding */
-    margin-top: 15px; /* Reduced margin */
-    border-top: 1px solid var(--BorderColor); /* Will be transparent */
+    padding: var(--s3); /* Standardized padding (8px) */
+    margin-top: var(--s4); /* Standardized margin (12px) */
+    border-top: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
     text-align: center;
 }
 /* Styles for the preset display heading (formerly just <h3>PRESETS</h3>) */
@@ -698,7 +726,7 @@ option {
     font-size: 0.9em; /* Adjusted size */
     font-weight: 500; 
     color: var(--TextPrimary);
-    margin-bottom: 10px; /* Reduced margin */
+    margin-bottom: var(--s3); /* Standardized margin (8px) */
     text-transform: uppercase;
     letter-spacing: 0.05em; 
     /* Ensure long song names don't break layout */
@@ -713,12 +741,12 @@ option {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px; /* Reduced gap */
-    margin-bottom: 8px; /* Reduced margin */
+    gap: var(--s3); /* Standardized gap (8px) */
+    margin-bottom: var(--s3); /* Standardized margin (8px) */
 }
 /* Corrected selector for preset slot label span */
 .preset-slot-label {
-    font-size: 0.7em;
+    font-size: var(--font-1); /* Standardized font size */
     color: var(--TextSecondary);
 }
 /* Original rule for label, can be removed or kept if actual label elements are used elsewhere */
@@ -728,20 +756,20 @@ option {
 }*/
 /* #preset-slot-select inherits from general 'select' but we can refine */
 #preset-slot-select {
-    font-size: 0.6em; /* Reduced font size */
-    padding: 4px 8px; /* Reduced padding */
+    font-size: var(--font-1); /* Standardized font size */
+    padding: var(--s2) var(--s3); /* Standardized padding (4px 8px) */
     /* width: auto; height: auto; already in general select via .total-beats-display, select */
-    min-width: 50px; 
+    min-width: var(--s7); /* Standardized min-width (48px) */
 }
 
 .preset-btn {
-    padding: 6px 12px; /* Reduced padding */
+    padding: var(--s3) var(--s4); /* Standardized padding (8px 12px) */
     border-radius: var(--BorderRadius); /* Keep border radius */
-    border: 1px solid transparent; /* Changed from var(--Main) */
+    border: var(--s0) solid transparent; /* Standardized border (1px) */
     background-color: var(--Highlight);
     color: var(--TextPrimary);
     cursor: pointer;
-    font-size: 0.6em; /* Reduced font size */
+    font-size: var(--font-1); /* Standardized font size */
     transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
 }
 .preset-btn:hover {
@@ -750,25 +778,25 @@ option {
 }
 .preset-btn:active {
     background-color: color-mix(in srgb, var(--Accent) 80%, white);
-    transform: translateY(1px);
+    transform: translateY(var(--s0)); /* Standardized transform (1px) */
 }
 
 /* Suggestion for your CSS file */
 .top-controls-area {
     position: fixed;    /* Changed from absolute to fixed */
-    top: 10px;          /* Aligned with .theme-controls top */
-    left: 10px;         /* Positioned from left viewport edge */
+    top: var(--s3);          /* Standardized position (8px) */
+    left: var(--s3);         /* Standardized position (8px) */
     display: flex;
-    gap: 8px;          /* Reduced space between buttons */
+    gap: var(--s3);          /* Standardized gap (8px) */
     z-index: 1000;      /* Ensure it's on top if other elements overlap */
 }
 
 .top-controls-area button {
     /* Basic styling, adjust to match your theme */
-    padding: 6px 10px; /* Reduced padding */
-    font-size: 0.9em;
+    padding: var(--s3) var(--s3); /* Standardized padding (8px 8px) */
+    font-size: var(--font-2); /* Standardized font size */
     cursor: pointer;
-    border: 1px solid var(--BorderColor, transparent); /* Fallback also transparent */
+    border: var(--s0) solid var(--BorderColor, transparent); /* Standardized border (1px) */
     background-color: var(--Accent, #f0f0f0);
     color: var(--TextPrimary, #333);
     border-radius: var(--BorderRadius);
@@ -788,20 +816,20 @@ option {
       display: flex;
       justify-content: space-around;
       align-items: center;
-      padding: 8px;
+      padding: var(--s3); /* Standardized padding (8px) */
       box-sizing: border-box;
       background-color: color-mix(in srgb, var(--Background) 80%, transparent);
       border-radius: 0; /* Removed border-radius for full-width bars */
-      box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+      box-shadow: 0 calc(var(--s1) * -1) var(--s2) rgba(0, 0, 0, 0.1); /* 0 -2px 4px */
       z-index: 1000;
     }
 
     body { /* Override global body styles for mobile */
       /* Adjust body padding to make space for the fixed top and bottom bars */
       /* These values are estimates; you might need to fine-tune them based on the actual height of your bars */
-      padding-top: 50px; /* Adjusted for potentially taller top bar with global controls */
+      padding-top: var(--s7); /* Standardized padding (48px, approx 50px) */
       padding-left: 0;
-      padding-bottom: 50px; /* Adjusted for theme controls bar */
+      padding-bottom: var(--s7); /* Standardized padding (48px, approx 50px) */
       padding-right: 0;
       max-width: 100%;
       margin: 0; /* Remove auto margins */
@@ -814,8 +842,8 @@ option {
       left: 0; /* Ensure it starts from the left edge */
       width: 100%;
       justify-content: center;
-      border-bottom: 1px solid var(--BorderColor); /* Will be transparent */
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Correct shadow for a top-fixed bar */
+      border-bottom: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
+      box-shadow: 0 var(--s1) var(--s2) rgba(0, 0, 0, 0.1); /* Standardized shadow (0 2px 4px) */
     }
   
     /* Specific styling for .theme-controls */
@@ -826,13 +854,13 @@ option {
       left: 0; /* Stretch across the bottom */
       width: 100%;
       justify-content: space-around;
-      border-top: 1px solid var(--BorderColor); /* Will be transparent */
+      border-top: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
     }
   
     .top-controls-area button,
     .theme-controls button {
-      font-size: 0.6em;
-      padding: 4px 6px;
+      font-size: var(--font-1); /* Standardized font size */
+      padding: var(--s2) var(--s3); /* Standardized padding (4px 8px) */
       white-space: nowrap; /* Keep text on one line for ellipsis */
       text-align: center;
       
@@ -847,15 +875,15 @@ option {
 
     /* Example: Reduce size of large elements to help content fit vertically */
     .start-stop-btn {
-      height: 110px; /* Further reduced from 120px */
-      width: 110px;  /* Further reduced from 120px */
-      font-size: 0.85em; /* Slightly smaller text */
+      height: var(--s11); /* Standardized size (112px, approx 110px) */
+      width: var(--s11);  /* Standardized size (112px, approx 110px) */
+      font-size: var(--font-1); /* Standardized font size */
     }
 
     .main-container {
       width: 100%; /* Ensure main container takes full width */
       max-width: 100%; /* Override any max-width constraints */
-      padding: 0 10px; /* Add some padding on the sides */
+      padding: 0 var(--s3); /* Standardized padding (0 8px) */
     }
   }
 
@@ -895,10 +923,11 @@ option {
     .subdivision-label::before,
     .preset-slot-label::before {
         font-size: 1.2rem;
+        font-size: var(--font-3); /* Standardized font size (1.3rem) */
         text-indent: 0; /* Reset text-indent */
         display: inline-block; /* Ensure it's displayed */
         vertical-align: middle;
         /* Add margin if needed for spacing */
-        margin: 0 0.2em; /* Example margin */
+        margin: 0 var(--s2); /* Standardized margin (0 4px) */
     }
 }

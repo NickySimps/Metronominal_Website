@@ -52,11 +52,11 @@ function refreshUIFromState() {
     BarControlsController.updateTotalBeatsDisplay();
 
     // If 3D theme is active, ensure its state is also refreshed.
-    if (AppState.getCurrentTheme() === '3dRoom' && ThemeController.is3DSceneActive && ThemeController.is3DSceneActive()) {        
-        ThemeController.create3DMeasuresAndBeats(); // Rebuilds measures and beats based on current AppState
-        ThemeController.updateCameraToFitMeasures(); // Adjust camera to new layout
+    if (AppState.getCurrentTheme() === '3dRoom' && ThemeController.is3DSceneActive()) {
+        // This will update 3D labels, rebuild measures/beats, and adjust the camera
+        ThemeController.update3DScenePostStateChange();
+
         if (AppState.isPlaying()) {
-            // If playing, metronome engine updates visuals. For safety, clear and let engine re-highlight.
             // For safety on a full refresh, clear and let the engine re-highlight the current beat.
             ThemeController.clearAll3DVisualHighlights();
         } else {
@@ -97,6 +97,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Initial render of dynamic content not handled by controller initializers
         // Ensure initial descriptive text (like "Moderate" for tempo) is set
         refreshUIFromState(); // Initial UI refresh based on state
+
+        // Add event listener for when switching from 3D to 2D theme
+        document.addEventListener('switchedFrom3DTo2D', () => {
+            console.log("Event: Switched from 3D to 2D theme. Refreshing 2D UI.");
+            refreshUIFromState();
+        });
 
         console.log("Metronome initialized.");
     }

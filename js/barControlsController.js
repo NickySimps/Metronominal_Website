@@ -5,6 +5,7 @@
  * It interacts with MetronomeEngine for playback control that affects UI.
  * It interacts with domSelectors to access control elements.
  */
+import ThemeController from './themeController.js'; // Added for 3D UI updates
 
 import AppState from './appState.js'; // Assuming AppState is a module
 import DOM from './domSelectors.js'; // Assuming domSelectors is a module
@@ -129,6 +130,11 @@ async function syncBarSettings() { // Make syncBarSettings async
     }
 
     updateTotalBeatsDisplay(); // Ensure total beats is updated after any change
+
+    // After all AppState changes and 2D UI updates, refresh 3D if active
+    if (ThemeController.is3DSceneActive()) {
+        ThemeController.update3DScenePostStateChange();
+    }
 }
 
 const BarControlsController = {
@@ -145,6 +151,10 @@ const BarControlsController = {
                     BarDisplayController.renderBarsAndControls(); // Re-render visuals
                     updateBeatControlsDisplay(); // Update beats display
                     updateTotalBeatsDisplay(); // Update total beats
+                    // Trigger 3D UI update
+                    if (ThemeController.is3DSceneActive()) {
+                        ThemeController.update3DScenePostStateChange();
+                    }
                 };
 
                 animateControlUpdate(DOM.beatsPerCurrentMeasureDisplay, updateAction);
@@ -159,6 +169,10 @@ const BarControlsController = {
                     BarDisplayController.renderBarsAndControls();
                     updateBeatControlsDisplay();
                     updateTotalBeatsDisplay();
+                    // Trigger 3D UI update
+                    if (ThemeController.is3DSceneActive()) {
+                        ThemeController.update3DScenePostStateChange();
+                    }
                 };
 
                 animateControlUpdate(DOM.beatsPerCurrentMeasureDisplay, updateAction);
@@ -208,6 +222,10 @@ const BarControlsController = {
             BarDisplayController.renderBarsAndControls(-1);
             if (wasPlaying && AppState.getBarSettings().length > 0) {
                 await MetronomeEngine.togglePlay(); // Restart playback; this updates button UI
+            }
+            // Trigger 3D UI update
+            if (ThemeController.is3DSceneActive()) {
+                ThemeController.update3DScenePostStateChange();
             }
         });
 

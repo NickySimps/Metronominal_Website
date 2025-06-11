@@ -8,6 +8,7 @@
 
 import AppState from './appState.js'; // Assuming AppState is a module
 import DOM from './domSelectors.js'; // Assuming domSelectors is a module
+import BarControlsController from './barControlsController.js'; // Import BarControlsController
 
 // State variables related to display highlighting
 let previousHighlightedBeatElement = null; // To keep track of the previously highlighted beat
@@ -43,7 +44,8 @@ function handleBarClick(event) {
     if (AppState.getSelectedBarIndex() !== clickedIndex) {
         AppState.setSelectedBarIndex(clickedIndex);
         BarDisplayController.renderBarsAndControls(); // Re-render, no "new bar" animation needed here
-        // TODO: Notify barControlsController to update its display
+        // Notify barControlsController to update its display for beats per current measure
+        BarControlsController.updateBeatControlsDisplay();
     }
 }
 

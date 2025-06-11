@@ -4,9 +4,10 @@
  * NOTE: Ensure Three.js is loaded in your HTML before this script if using the global `THREE`.
  * e.g., <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
  */
+import * as SceneManager from './3D/threeDSceneManager.js'; // For accessing camera
 import DOM from './domSelectors.js';
 import AppState from './appState.js';
-import ThreeDThemeManager from './3dTheme.js'; // Import the new 3D theme manager
+import ThreeDThemeManager from './3D/3dTheme.js'; // Import the new 3D theme manager
 
 const themes = {
     default: {
@@ -128,12 +129,13 @@ function handleThemeSelection(themeName) {
         console.error("Document body not found. Cannot apply theme.");
         return;
     }
-    // mainContainerRef is assumed to be initialized by initializeThemeControls
+
+    const themeJustBeforeThisCall = AppState.getCurrentTheme();
 
     // Remove previous theme classes from body
     const bodyClasses = Array.from(document.body.classList);
     bodyClasses.forEach(cls => {
-        if (cls.endsWith('-theme') && cls !== `${themeName}-theme`) {
+        if (cls.endsWith('-theme') && cls !== `${themeName}-theme` && cls !== 'debug-mode') { // Keep debug-mode if present
             document.body.classList.remove(cls);
         }
     });
@@ -144,21 +146,42 @@ function handleThemeSelection(themeName) {
     }
 
     if (themeName === '3dRoom') {
+        if (ThreeDThemeManager.isActive() && themeJustBeforeThisCall === '3dRoom') {
+            // If '3dRoom' is selected again while already active, dispose and re-initialize for a clean state.
+            ThreeDThemeManager.dispose();
+        }
         ThreeDThemeManager.initialize(mainContainerRef); // Handles hiding mainContainerRef internally
-    } else {
-        if (ThreeDThemeManager.isActive()) {
+    } else { // Switching to or staying in a 2D theme
+        const wasPreviously3DManagerActive = ThreeDThemeManager.isActive(); // Check if renderer, etc., existed
+
+        if (wasPreviously3DManagerActive) {
+            // Save camera state before disposing 3D scene
+            const camera = SceneManager.getCamera();
+            if (camera) {
+                AppState.setCameraPosition3D(camera.position);
+                if (camera.userData.lookAtPoint) {
+                    AppState.setCameraLookAtPoint3D(camera.userData.lookAtPoint);
+                }
+            }
             ThreeDThemeManager.dispose(); // Handles showing mainContainerRef internally
         }
+
         // Apply CSS variables for 2D themes
         const theme = themes[themeName] || themes.default;
         for (const [variable, value] of Object.entries(theme)) {
             document.documentElement.style.setProperty(variable, value);
         }
+
+        // If the logical theme state *before this call* was '3dRoom',
+        // AND the 3D manager was actually active (renderer existed),
+        // AND the new theme is a 2D theme, then we've switched from active 3D to 2D.
+        if (themeJustBeforeThisCall === '3dRoom' && wasPreviously3DManagerActive && themeName !== '3dRoom') {
+            document.dispatchEvent(new CustomEvent('switchedFrom3DTo2D'));
+        }
     }
+
     localStorage.setItem('selectedTheme', themeName);
-    if (AppState && typeof AppState.setCurrentTheme === 'function') {
-        AppState.setCurrentTheme(themeName);
-    }
+    AppState.setCurrentTheme(themeName); // Update AppState's current theme
     console.log(`Theme applied by ThemeController: ${themeName}`);
 }
 
@@ -191,14 +214,14 @@ const ThemeController = {
             });
         });
 
-        // Load and apply saved theme or default on initialization (Re-enabled persistence)
+        // Load and apply saved theme or default on initialization
         const savedTheme = localStorage.getItem('selectedTheme');
-        if (savedTheme && (themes[savedTheme] || savedTheme === '3dRoom')) {
-            handleThemeSelection(savedTheme);
-        } else {
-            handleThemeSelection('default');
-            console.log("No saved theme found, applying default."); // Added log for default
+        let themeToLoad = 'default'; 
+
+        if (savedTheme && (themes[savedTheme] || savedTheme === '3dRoom')) { // If a valid theme (2D or 3D) is saved
+            themeToLoad = savedTheme;
         }
+        handleThemeSelection(themeToLoad);
     },
 
     updatePlayheadVisuals: (barIndex, beatInBarWithSubdivisions, beatMultiplier) => {
@@ -220,11 +243,22 @@ const ThemeController = {
         return false; // Page did not change
     },
 
-    // This method is for external modules (like a main UI refresher)
-    // to trigger a rebuild of 3D measures if necessary.
+    /**
+     * Rebuilds 3D measures. Typically called when bar settings change significantly.
+     */
     rebuild3DMeasures: () => {
         if (ThemeController.is3DSceneActive()) {
             ThreeDThemeManager.rebuildMeasuresAndBeats();
+        }
+    },
+    /**
+     * Updates 3D control labels and rebuilds measures.
+     * Call this after AppState changes that affect 3D display.
+     * Renamed from update3DControlsPostStateChange for clarity.
+     */
+    update3DScenePostStateChange: () => {
+        if (ThemeController.is3DSceneActive()) {
+            ThreeDThemeManager.update3DScenePostStateChange();
         }
     }
 };

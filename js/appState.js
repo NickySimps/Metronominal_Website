@@ -15,6 +15,8 @@ const AppState = (function () {
   let nextBeatAudioContextTime = 0;
   let currentTheme = 'default'; // Added for theme state management
   let audioContextPrimed = false; // Flag to ensure priming happens once
+  let cameraPosition3D = null; // Added for 3D theme camera state
+  let cameraLookAtPoint3D = null; // Added for 3D theme camera state
 
   // --- Constants ---
   const MAX_TAPS_FOR_AVERAGE = 4;
@@ -152,14 +154,17 @@ const AppState = (function () {
     getBarSettings: () => [...barSettings],
     getSelectedBarIndex: () => selectedBarIndex,
     setSelectedBarIndex: (index) => {
-      if (index >= 0 && index < barSettings.length) {
-        selectedBarIndex = index;
-      } else if (barSettings.length === 0) {
+      if (barSettings.length === 0) { // Highest priority: if no bars, always -1
         selectedBarIndex = -1;
-      } else {
-        selectedBarIndex = Math.max(0, barSettings.length - 1);
+      } else if (index === -1) { // Explicitly allow deselecting all if bars exist
+        selectedBarIndex = -1;
+      } else if (index >= 0 && index < barSettings.length) { // Valid index within bounds
+        selectedBarIndex = index;
+      } else { // Index is out of bounds (e.g., too high, or negative but not -1) and bars exist, clamp.
+        selectedBarIndex = Math.max(0, Math.min(index, barSettings.length - 1));
       }
     },
+
     updateBarArray: (newTotalBars, defaultBeatsPerNewBar = 4) => {
       const previousNumberOfBars = barSettings.length;
       newTotalBars = parseInt(newTotalBars, 10);
@@ -345,6 +350,8 @@ const AppState = (function () {
       isPlaying = false;
       tapTempoTimestamps = [];
       currentTheme = 'default'; // Reset theme to default
+      cameraPosition3D = null; // Reset 3D camera state
+      cameraLookAtPoint3D = null; // Reset 3D camera state
     },
     initializeState: (
       initialNumberOfBars,
@@ -354,7 +361,11 @@ const AppState = (function () {
       initialTheme // Added initialTheme
     ) => {
       barSettings = Array(initialNumberOfBars).fill(initialBeatsPerMeasure);
-      selectedBarIndex = initialNumberOfBars > 0 ? 0 : -1;
+      // Always initialize with no bar selected.
+      // User interaction or preset loading will determine selection.
+      selectedBarIndex = -1;
+      // If initialNumberOfBars is 0, selectedBarIndex remains -1.
+      // If initialNumberOfBars > 0, selectedBarIndex is also -1 initially.
       beatMultiplier = initialBeatMultiplier;
       currentVolume = initialVolume;
       currentTheme = initialTheme || 'default'; // Initialize theme
@@ -366,6 +377,13 @@ const AppState = (function () {
     setCurrentTheme: (themeName) => {
       currentTheme = themeName;
     },
+
+    // 3D Camera State
+    getCameraPosition3D: () => cameraPosition3D,
+    setCameraPosition3D: (pos) => { cameraPosition3D = pos ? { x: pos.x, y: pos.y, z: pos.z } : null; },
+    getCameraLookAtPoint3D: () => cameraLookAtPoint3D,
+    setCameraLookAtPoint3D: (lookAt) => { cameraLookAtPoint3D = lookAt ? { x: lookAt.x, y: lookAt.y, z: lookAt.z } : null; },
+
 
     // Constants
     SCHEDULE_AHEAD_TIME: SCHEDULE_AHEAD_TIME_INTERNAL,
