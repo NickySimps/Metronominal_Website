@@ -7,6 +7,7 @@ import DOM from '../domSelectors.js'; // For DOM element clicks
 import AppState from '../appState.js';
 import ThemeController from '../themeController.js'; // For theme switching actions
 import * as CameraManager from './threeDCameraManager.js'; // For camera controls
+import VolumeController from '../volumeController.js'; // For updating 2D volume slider
 import * as SceneManager from './threeDSceneManager.js'; // For light controls
 import * as ControlsManager from './threeDControlsManager.js'; // For label updates after interactions
 import * as MeasuresManager from './threeDMeasuresManager.js'; // For measure clicks & page changes
@@ -176,7 +177,7 @@ function onPointerMove(event) {
 
         const knobGroupName = draggedObject.parent.name;
         if (knobGroupName === "tempoKnob3D") {
-            let newTempo = initialKnobValue + Math.round(deltaMouseX * 0.25); // Adjusted sensitivity
+            let newTempo = initialKnobValue - Math.round(deltaMouseX * 0.25); // Reversed direction
             AppState.setTempo(Math.max(20, Math.min(newTempo, 300)));
         } else if (knobGroupName === "beatMultiplierKnob3D" && DOM.beatMultiplierSelect) {
             const optionsCount = DOM.beatMultiplierSelect.options.length;
@@ -204,6 +205,7 @@ function onPointerMove(event) {
         let newVolume = initialKnobValue + deltaMouseX * SLIDER_SENSITIVITY; // initialKnobValue holds initial volume
         newVolume = Math.max(0, Math.min(1, parseFloat(newVolume.toFixed(2))));
         AppState.setVolume(newVolume);
+        VolumeController.updateVolumeDisplay(); // Sync 2D slider and its display
 
         // Visual update of handle position is now done by ControlsManager.updateDynamicControlLabels
         // which is called below. This ensures consistency.
@@ -412,8 +414,8 @@ function onSceneClick(event) {
         else if (name === "switchToIceCreamTheme3D") { animateClick(clickedMesh); ThemeController.applyTheme('iceCream'); }
 
         // Camera Controls
-        else if (name === "cameraZoomInButton3D") { CameraManager.zoomCamera(1); animateClick(clickedMesh); }
-        else if (name === "cameraZoomOutButton3D") { CameraManager.zoomCamera(-1); animateClick(clickedMesh); }
+        else if (name === "cameraZoomInButton3D") { CameraManager.zoomCamera(-1); animateClick(clickedMesh); }
+        else if (name === "cameraZoomOutButton3D") { CameraManager.zoomCamera(1); animateClick(clickedMesh); }
         else if (name === "cameraResetButton3D") { CameraManager.resetCameraView(); animateClick(clickedMesh); }
         // else if (name === "cameraOrbitLeftButton3D") { CameraManager.orbitCameraHorizontal(CAMERA_ORBIT_ANGLE_STEP); animateClick(clickedMesh); } // Removed
         // else if (name === "cameraOrbitRightButton3D") { CameraManager.orbitCameraHorizontal(-CAMERA_ORBIT_ANGLE_STEP); animateClick(clickedMesh); } // Removed        

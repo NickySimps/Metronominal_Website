@@ -16,7 +16,7 @@ let directionalLight; // Make directional light accessible
 
 // Initial/Default light parameters
 const INITIAL_LIGHT_POSITION = new THREE.Vector3(40, 40, -50);
-const INITIAL_LIGHT_INTENSITY = 0.9;
+const INITIAL_LIGHT_INTENSITY = 2;
 
 // Store orbital parameters for the light
 let lightOrbitRadius = Math.sqrt(INITIAL_LIGHT_POSITION.x**2 + INITIAL_LIGHT_POSITION.z**2);
@@ -70,7 +70,7 @@ export function initializeScene(_mainContainerRef, createControlsCb, createMeasu
     if (storedCamPos) {
         camera.position.set(storedCamPos.x, storedCamPos.y, storedCamPos.z);
     } else {
-        camera.position.set(7, 7, 10); // Default position (matches resetCameraView)
+        camera.position.set(-0.2, 14, 1); // Default position (matches resetCameraView)
     }
 
     if (storedLookAt) {

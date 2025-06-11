@@ -86,9 +86,9 @@ export function resetCameraView() {
     const camera = getCamera();
     if (!camera) return;
     // Consistent initial/reset view
-    camera.position.set(7, 7, 10); 
+    camera.position.set(-0.2, 14, 1); // Default position (matches resetCameraView)
     const lookAtPoint = new THREE.Vector3(0, -1.5, 0); // Default lookAt from SceneManager
-    
+
     camera.lookAt(lookAtPoint);
     camera.userData.lookAtPoint = lookAtPoint.clone(); // Reset stored lookAtPoint
     // Update AppState with the reset camera position and lookAt

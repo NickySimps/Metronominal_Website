@@ -81,7 +81,7 @@ function addHitbox(visibleObject, interactionGroup) { // This function will now 
     }
 
     let hitboxRadius, hitboxHeight;
-    const HITBOX_SCALE_FACTOR = 1.5; // Increased from 1.2 for larger hitboxes
+    const HITBOX_SCALE_FACTOR = 1.2; // Increased from 1.2 for larger hitboxes
 
     if (geometryForHitbox instanceof THREE.CylinderGeometry) {
         hitboxRadius = geometryForHitbox.parameters.radiusTop * HITBOX_SCALE_FACTOR;
