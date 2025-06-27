@@ -8,11 +8,24 @@
 
 import AppState from './appState.js'; // Assuming AppState is a module
 import DOM from './domSelectors.js'; // Assuming domSelectors is a module
-import BarControlsController from './barControlsController.js'; // Import BarControlsController
+import BarControlsController from './barControlsController.js';
+import MetronomeEngine from './metronomeEngine.js';
+import ThemeController from './themeController.js';
 
 // State variables related to display highlighting
 let previousHighlightedBeatElement = null; // To keep track of the previously highlighted beat
 let currentActiveBarElement = null; // To keep track of the bar visual that is currently active
+
+// State variables for long-press interaction
+let longPressTimer = null;
+let isLongPressActive = false;
+let longPressedBarElement = null;
+let longPressInitialPosition = { x: 0, y: 0 };
+let prevSubdivisionOptionElement = null; // Renamed for clarity
+let nextSubdivisionOptionElement = null; // Renamed for clarity
+let hoveredSubdivisionOption = null;
+const LONG_PRESS_DURATION = 400; // ms
+const POINTER_MOVE_THRESHOLD = 30; // pixels (Increased for more forgiving long-press)
 
 // Helper function to create a beat square element with animation and classes
 function createBeatSquareElement(indexInBar, currentBeatMultiplier) {
@@ -38,15 +51,172 @@ function updateBeatSquareClasses(beatSquare, indexInBar, currentBeatMultiplier) 
     }
 }
 
-// Handler for clicking on a bar
-function handleBarClick(event) {
-    const clickedIndex = parseInt(event.currentTarget.dataset.index);
-    if (AppState.getSelectedBarIndex() !== clickedIndex) {
-        AppState.setSelectedBarIndex(clickedIndex);
-        BarDisplayController.renderBarsAndControls(); // Re-render, no "new bar" animation needed here
-        // Notify barControlsController to update its display for beats per current measure
-        BarControlsController.updateBeatControlsDisplay();
+function onBarPointerDown(event) {
+    // Don't initiate on right-click
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    longPressedBarElement = event.currentTarget;
+    longPressInitialPosition = { x: event.clientX, y: event.clientY };
+
+    longPressTimer = setTimeout(() => {
+        isLongPressActive = true;
+        longPressTimer = null; // Timer has fired
+        if (longPressedBarElement) { // Ensure longPressedBarElement is still valid
+        showSubdivisionSelector(longPressedBarElement);
+        } else { // If for some reason it's null, clean up
+            resetLongPressState();
+            cleanupPointerListeners();
+        }
+    }, LONG_PRESS_DURATION);
+
+    window.addEventListener('pointermove', onWindowPointerMove);
+    window.addEventListener('pointerup', onWindowPointerUp);
+}
+
+function onWindowPointerMove(event) {
+    if (longPressTimer) {
+        const moveDistance = Math.sqrt(
+            Math.pow(event.clientX - longPressInitialPosition.x, 2) +
+            Math.pow(event.clientY - longPressInitialPosition.y, 2)
+        );
+        if (moveDistance > POINTER_MOVE_THRESHOLD) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+            isLongPressActive = false; // Ensure long-press state is cancelled
+            longPressedBarElement = null; // Clear the element reference
+        }
     }
+
+    if (isLongPressActive && (prevSubdivisionOptionElement || nextSubdivisionOptionElement)) {
+        const elementUnderPointer = document.elementFromPoint(event.clientX, event.clientY);
+        let newHoveredOption = null;
+
+        if (elementUnderPointer && elementUnderPointer.classList.contains('subdivision-option')) {
+            newHoveredOption = elementUnderPointer;
+        }
+
+        if (newHoveredOption !== hoveredSubdivisionOption) {
+            if (hoveredSubdivisionOption) {
+                hoveredSubdivisionOption.classList.remove('hovered');
+            }
+            if (newHoveredOption) {
+                newHoveredOption.classList.add('hovered');
+            }
+            hoveredSubdivisionOption = newHoveredOption;
+        }
+    }
+}
+
+async function onWindowPointerUp(event) {
+    if (isLongPressActive) {
+        if (hoveredSubdivisionOption) {
+            const newSubdivision = hoveredSubdivisionOption.dataset.value;
+            const barIndex = parseInt(longPressedBarElement.dataset.index, 10);
+
+            if (newSubdivision && !isNaN(barIndex)) {
+                const wasPlaying = AppState.isPlaying();
+                if (wasPlaying) {
+                    await MetronomeEngine.togglePlay();
+                }
+                
+                AppState.setSelectedBarIndex(barIndex);
+                AppState.setSubdivisionForSelectedBar(newSubdivision);
+                
+                BarDisplayController.renderBarsAndControls();
+                BarControlsController.updateBeatControlsDisplay();
+                
+                if (wasPlaying && AppState.getBarSettings().length > 0) {
+                    await MetronomeEngine.togglePlay();
+                }
+
+                if (ThemeController.is3DSceneActive()) {
+                    ThemeController.update3DScenePostStateChange();
+                }
+            }
+        } 
+    } else if (longPressTimer) {
+        // This was a short click
+        event.preventDefault(); // Prevent default behavior for short clicks too
+        clearTimeout(longPressTimer);
+        const clickedIndex = parseInt(longPressedBarElement.dataset.index, 10);
+        if (AppState.getSelectedBarIndex() !== clickedIndex) {
+            AppState.setSelectedBarIndex(clickedIndex);
+            BarDisplayController.renderBarsAndControls();
+            BarControlsController.updateBeatControlsDisplay();
+        }
+    }
+
+    cleanupPointerListeners(); // Always clean up listeners on pointerup
+    hideSubdivisionSelector();
+    resetLongPressState();
+}
+
+function cleanupPointerListeners() {
+    window.removeEventListener('pointermove', onWindowPointerMove);
+    window.removeEventListener('pointerup', onWindowPointerUp);
+}
+
+function resetLongPressState() {
+    isLongPressActive = false;
+    longPressTimer = null;
+    longPressedBarElement = null;
+    hoveredSubdivisionOption = null;
+}
+
+function showSubdivisionSelector(barElement) {
+    hideSubdivisionSelector(); // Clear any existing selectors
+
+    const barIndex = parseInt(barElement.dataset.index, 10);
+    if (isNaN(barIndex)) return;
+
+    const subdivisionOptions = Array.from(DOM.beatMultiplierSelect.options).map(opt => ({
+        value: parseInt(opt.value, 10),
+        text: opt.text
+    }));
+    const currentSubdivision = AppState.getSubdivisionForBar(barIndex);
+    const currentIndex = subdivisionOptions.findIndex(opt => opt.value === currentSubdivision);
+
+    const prevOptionData = currentIndex > 0 ? subdivisionOptions[currentIndex - 1] : null;
+    const nextOptionData = currentIndex < subdivisionOptions.length - 1 ? subdivisionOptions[currentIndex + 1] : null;
+
+    if (!prevOptionData && !nextOptionData) return;
+
+    const createOptionElement = (optionData, direction) => {
+        const element = document.createElement('div');
+        element.className = 'subdivision-option';
+        element.dataset.value = optionData.value;
+        element.textContent = direction === 'prev' ? `< ${optionData.text}` : `${optionData.text} >`;
+        return element;
+    };
+
+    if (prevOptionData) {
+        prevSubdivisionOptionElement = createOptionElement(prevOptionData, 'prev');
+        barElement.parentNode.insertBefore(prevSubdivisionOptionElement, barElement);
+    }
+
+    if (nextOptionData) {
+        nextSubdivisionOptionElement = createOptionElement(nextOptionData, 'next');
+        barElement.parentNode.insertBefore(nextSubdivisionOptionElement, barElement.nextSibling);
+    }
+    
+    // Trigger animation
+    setTimeout(() => {
+        if(prevSubdivisionOptionElement) prevSubdivisionOptionElement.classList.add('visible');
+        if(nextSubdivisionOptionElement) nextSubdivisionOptionElement.classList.add('visible');
+    }, 10);
+}
+
+function hideSubdivisionSelector() {
+    // A more direct and reliable way to remove the elements
+    if (prevSubdivisionOptionElement && prevSubdivisionOptionElement.parentNode) {
+        prevSubdivisionOptionElement.remove();
+    }
+    if (nextSubdivisionOptionElement && nextSubdivisionOptionElement.parentNode) {
+        nextSubdivisionOptionElement.remove();
+    }
+    prevSubdivisionOptionElement = null;
+    nextSubdivisionOptionElement = null;
 }
 
 const BarDisplayController = {
@@ -56,9 +226,11 @@ const BarDisplayController = {
      *   animates bars with index >= this count as newly added.
      */
     renderBarsAndControls: (previousBarCountForAnimation = -1) => {
-        const barSettings = AppState.getBarSettings();
+        BarDisplayController.clearAllHighlights(); // Ensure a clean slate before any re-render
+
+        const barSettings = AppState.getBarSettings(); // This now returns [{beats, subdivision}]
         const selectedBarIndex = AppState.getSelectedBarIndex();
-        const beatMultiplier = AppState.getBeatMultiplier();
+        // Removed: const beatMultiplier = AppState.getBeatMultiplier(); // Now per-bar
         const isPlaying = AppState.isPlaying();
         const currentBar = AppState.getCurrentBar();
         const currentBeat = AppState.getCurrentBeat();
@@ -86,9 +258,11 @@ const BarDisplayController = {
 
         const newBarsFragment = document.createDocumentFragment(); // For bars that are entirely new
 
-        barSettings.forEach((mainBeatsInBar, index) => {
+        barSettings.forEach((barData, index) => { // barData is {beats, subdivision}
             let barDiv = existingBarVisualsMap.get(String(index));
-            const totalSubBeatsNeeded = mainBeatsInBar * beatMultiplier;
+            const mainBeatsInBar = barData.beats;
+            const subdivision = barData.subdivision; // Get subdivision for this specific bar
+            const totalSubBeatsNeeded = mainBeatsInBar * subdivision;
             let isNewBarInstance = false; // Flag to know if we are creating a new DOM element for the bar
 
             if (barDiv) { // Bar already exists in DOM
@@ -103,14 +277,14 @@ const BarDisplayController = {
                 if (previousBarCountForAnimation !== -1 && index >= previousBarCountForAnimation) {
                     barDiv.classList.add('newly-added-bar-animation');
                 }
-                barDiv.addEventListener('click', handleBarClick);
+                barDiv.addEventListener('pointerdown', onBarPointerDown);
             }
 
             // ---- START: Add density class logic ----
             // This applies to both existing and newly created barDivs
             barDiv.classList.remove('medium-dense-beats', 'high-dense-beats'); // Clear existing density classes
-            const HIGH_DENSITY_THRESHOLD = 20; // e.g., > 5 beats of 16ths, or > 2.5 beats of 32nds
-            const MEDIUM_DENSITY_THRESHOLD = 10; // e.g., > 2.5 beats of 16ths, or > 1.25 beats of 32nds
+            const HIGH_DENSITY_THRESHOLD = 40; // e.g., > 10 beats of 16ths
+            const MEDIUM_DENSITY_THRESHOLD = 20; // e.g., > 5 beats of 16ths
 
             if (totalSubBeatsNeeded > HIGH_DENSITY_THRESHOLD) {
                 barDiv.classList.add('high-dense-beats');
@@ -122,7 +296,7 @@ const BarDisplayController = {
             // Now, handle beat squares (add/remove/update)
             if (isNewBarInstance) { // If it's a brand new bar DOM element, just add all beats
                 for (let i = 0; i < totalSubBeatsNeeded; i++) {
-                    const beatSquare = createBeatSquareElement(i, beatMultiplier);
+                    const beatSquare = createBeatSquareElement(i, subdivision); // Pass subdivision
                     barDiv.appendChild(beatSquare);
                 }
             } else { // Bar DOM element existed, update its beats intelligently
@@ -131,7 +305,7 @@ const BarDisplayController = {
 
                 if (totalSubBeatsNeeded > currentSubBeatCountInDom) { // Add beats
                     for (let i = currentSubBeatCountInDom; i < totalSubBeatsNeeded; i++) {
-                        const beatSquare = createBeatSquareElement(i, beatMultiplier);
+                        const beatSquare = createBeatSquareElement(i, subdivision); // Pass subdivision
                         barDiv.appendChild(beatSquare);
                     }
                 } else if (totalSubBeatsNeeded < currentSubBeatCountInDom) { // Remove beats
@@ -151,7 +325,7 @@ const BarDisplayController = {
                     }
                 } else { // Same number of sub-beats, ensure classes are correct (e.g. if multiplier changed type)
                     existingBeatSquares.forEach((sq, beatIdx) => {
-                        updateBeatSquareClasses(sq, beatIdx, beatMultiplier);
+                        updateBeatSquareClasses(sq, beatIdx, subdivision); // Pass subdivision
                     });
                 }
             }

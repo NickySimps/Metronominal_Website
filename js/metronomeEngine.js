@@ -46,7 +46,7 @@ function performCurrentBeatActions() {
     const barSettings = AppState.getBarSettings();
     const currentBar = AppState.getCurrentBar();
     const currentBeat = AppState.getCurrentBeat(); // This is the sub-beat index
-    const beatMultiplier = AppState.getBeatMultiplier();
+    const beatMultiplier = AppState.getBeatMultiplierForCurrentBar();
 
     BarDisplayController.updateBeatHighlight(currentBar, currentBeat, true);
 
@@ -92,7 +92,7 @@ function metronomeTick() {
     }
 
     const tempo = AppState.getTempo();
-    const beatMultiplier = AppState.getBeatMultiplier();
+    const beatMultiplier = AppState.getBeatMultiplierForCurrentBar();
     const secondsPerMainBeat = 60.0 / tempo;
     const secondsPerSubBeat = secondsPerMainBeat / beatMultiplier;
 

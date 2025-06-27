@@ -29,7 +29,11 @@ const ThreeDThemeManager = {
             },
             // Callback for creating measures
             (measuresGroup) => {
-                MeasuresManager.createMeasuresAndBeats(measuresGroup);
+                MeasuresManager.createMeasuresAndBeats(
+                    measuresGroup,
+                    SceneManager.getLoadedFont(),
+                    SceneManager.getInteractionGroup()
+                );
                 // Monolithic does not dynamically adjust camera to fit content after creation.
                 // Initial camera setup is in SceneManager.initializeScene.
             }
@@ -119,7 +123,11 @@ const ThreeDThemeManager = {
     },
     rebuildMeasuresAndBeats: function() {
         if (!this.isActive()) return;
-        MeasuresManager.createMeasuresAndBeats(SceneManager.getMeasuresGroup());
+        MeasuresManager.createMeasuresAndBeats(
+            SceneManager.getMeasuresGroup(),
+            SceneManager.getLoadedFont(),
+            SceneManager.getInteractionGroup()
+        );
         // Monolithic does not adjust camera after rebuild.
     },
     adjustCameraToFitSceneContent: function() {

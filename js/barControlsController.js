@@ -26,11 +26,24 @@ function animateControlUpdate(controlElement, updateFunction, animationDuration 
 // Function to update the "beats-per-current-measure" display
 function updateBeatControlsDisplay() {
     const selectedBarIndex = AppState.getSelectedBarIndex();
-    const barSettings = AppState.getBarSettings();
-    if (selectedBarIndex !== -1 && barSettings[selectedBarIndex] !== undefined) {
-        DOM.beatsPerCurrentMeasureDisplay.textContent = barSettings[selectedBarIndex];
+    const barSettings = AppState.getBarSettings(); // This now returns [{beats, subdivision}]
+
+    let beatsToDisplay = '-';
+    let subdivisionToDisplay = '1'; // Default subdivision
+
+    if (barSettings.length > 0) {
+        // If a bar is selected, use its settings. Otherwise, use the first bar's settings.
+        const targetBarIndex = (selectedBarIndex !== -1 && barSettings[selectedBarIndex] !== undefined)
+                               ? selectedBarIndex
+                               : 0; // Default to first bar if no bar is explicitly selected
+        beatsToDisplay = barSettings[targetBarIndex].beats;
+        subdivisionToDisplay = barSettings[targetBarIndex].subdivision.toString();
+        DOM.beatsPerCurrentMeasureDisplay.textContent = beatsToDisplay;
+        DOM.beatMultiplierSelect.value = subdivisionToDisplay;
     } else {
-        DOM.beatsPerCurrentMeasureDisplay.textContent = '-';
+        // No bars exist, display default or empty state
+        DOM.beatsPerCurrentMeasureDisplay.textContent = beatsToDisplay; // Will be '-'
+        DOM.beatMultiplierSelect.value = subdivisionToDisplay; // Will be '1'
     }
 }
 
@@ -216,7 +229,7 @@ const BarControlsController = {
                 await MetronomeEngine.togglePlay(); // Stop playback; this updates button UI
             }
 
-            AppState.setBeatMultiplier(DOM.beatMultiplierSelect.value); // Update state
+            AppState.setSubdivisionForSelectedBar(DOM.beatMultiplierSelect.value); // Update state
 
             // Re-render visuals based on new multiplier
             BarDisplayController.renderBarsAndControls(-1);

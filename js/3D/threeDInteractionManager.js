@@ -33,6 +33,14 @@ let joystickDragAnchorScreenPos = new THREE.Vector2(); // For total visual displ
 let joystickLastFrameScreenPos = new THREE.Vector2();  // For per-frame delta for camera orbit, updated each move
 let joystickStickRestPosition = new THREE.Vector3(); // Stick's initial local position within its parent group
 
+let longPressTimer = null;
+let isLongPressActive = false;
+let longPressedObject = null;
+let longPressInitialPosition = new THREE.Vector2();
+let hoveredSubdivisionSelector = null;
+const LONG_PRESS_DURATION = 400; // ms
+const POINTER_MOVE_THRESHOLD = 30; // pixels (Increased for more forgiving long-press)
+
 let isDraggingLightJoystick = false;
 let lightJoystickDragAnchorScreenPos = new THREE.Vector2();
 let lightJoystickLastFrameScreenPos = new THREE.Vector2();
@@ -61,14 +69,28 @@ function getClickedObject(event, targetObjectsArray) {
 function onPointerDown(event) {
     if (draggedObject) return; // Already dragging something
 
-    // Raycast against the hitboxes group first
-    const intersection = getClickedObject(event, localHitboxesGroup.children);
+    // Raycast against interactive controls AND measure boxes
+    const intersection = getClickedObject(event, [...localHitboxesGroup.children, ...localMeasuresGroup.children]);
     if (!intersection) return;
 
-    const hitboxMesh = intersection.object;
-    const actualInteractiveObject = hitboxMesh.userData.visibleButton;
+    const clickedMesh = intersection.object;
+    const actualInteractiveObject = clickedMesh.userData.visibleButton || clickedMesh;
 
     if (!actualInteractiveObject) return;
+
+    // Handle long press on measure boxes
+    if (actualInteractiveObject.name.startsWith("measureBox_")) {
+        event.preventDefault();
+        longPressedObject = actualInteractiveObject;
+        longPressInitialPosition.set(event.clientX, event.clientY);
+        
+        longPressTimer = setTimeout(() => {
+            isLongPressActive = true;
+            longPressTimer = null; // Timer has fired
+            MeasuresManager.showSubdivisionSelector(longPressedObject);
+        }, LONG_PRESS_DURATION);
+        return; // Stop further processing for this pointer down
+    }
 
     // Determine which part to drag based on the actualInteractiveObject (the visible group/mesh)
     if (actualInteractiveObject.name === "cameraJoystick3D") {
@@ -137,7 +159,33 @@ function onPointerDown(event) {
 function onPointerMove(event) {
     if (!draggedObject) return;
     event.preventDefault();
+    
+    // Cancel long press if pointer moves too much
+    if (longPressTimer) {
+        const moveDistance = longPressInitialPosition.distanceTo(new THREE.Vector2(event.clientX, event.clientY));
+        if (moveDistance > POINTER_MOVE_THRESHOLD) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+            longPressedObject = null;
+        }
+    }
 
+    // Handle sliding over subdivision selectors
+    if (isLongPressActive) {
+        event.preventDefault();
+        const intersection = getClickedObject(event, localHitboxesGroup.children);
+        let newHoveredSelector = null;
+        if (intersection && intersection.object.name.startsWith("subdivisionSelector_")) {
+            newHoveredSelector = intersection.object.userData.visibleButton;
+        }
+
+        if (newHoveredSelector !== hoveredSubdivisionSelector) {
+            MeasuresManager.highlightSubdivisionSelector(newHoveredSelector);
+            hoveredSubdivisionSelector = newHoveredSelector;
+        }
+        return; // Don't process other drag events
+    }
+    
     if (isDraggingJoystick) {
         const stick = draggedObject;
         const deltaX = event.clientX - joystickLastFrameScreenPos.x;
@@ -180,25 +228,7 @@ function onPointerMove(event) {
             let newTempo = initialKnobValue - Math.round(deltaMouseX * 0.25); // Reversed direction
             AppState.setTempo(Math.max(20, Math.min(newTempo, 300)));
         } else if (knobGroupName === "beatMultiplierKnob3D" && DOM.beatMultiplierSelect) {
-            const optionsCount = DOM.beatMultiplierSelect.options.length;
-            if (optionsCount > 0) {
-                let newIndex = initialKnobValue + Math.round(deltaMouseX * 0.03); // Sensitivity
-                newIndex = Math.max(0, Math.min(newIndex, optionsCount - 1));
-                if (DOM.beatMultiplierSelect.selectedIndex !== newIndex) {
-                    DOM.beatMultiplierSelect.selectedIndex = newIndex; // This will trigger its own 'change' event if script.js is set up for it
-                    DOM.beatMultiplierSelect.dispatchEvent(new Event('change')); // Explicitly dispatch
-                }
-            }
-        } else if (knobGroupName === "presetSlotKnob3D" && DOM.presetSlotSelect) {
-            const optionsCount = DOM.presetSlotSelect.options.length;
-            if (optionsCount > 0) {
-                let newIndex = initialKnobValue + Math.round(deltaMouseX * 0.03); // Sensitivity
-                newIndex = Math.max(0, Math.min(newIndex, optionsCount - 1));
-                if (DOM.presetSlotSelect.selectedIndex !== newIndex) {
-                    DOM.presetSlotSelect.selectedIndex = newIndex;
-                    // DOM.presetSlotSelect.dispatchEvent(new Event('change')); // Typically not needed for preset slot selection via knob
-                }
-            }
+        // Removed: beatMultiplierKnob3D logic as it's now buttons
         }
     } else if (isDraggingSlider && draggedObject.name === "volumeSlider3D_handle") {
         const deltaMouseX = event.clientX - initialMouseX;
@@ -245,7 +275,47 @@ function onPointerMove(event) {
     ControlsManager.updateDynamicControlLabels(); // Update labels
 }
 function onPointerUp(event) {
-    if (isDraggingJoystick && draggedObject) {
+    // If a long press was active, finalize the selection
+    if (isLongPressActive) {
+        event.preventDefault();
+        if (hoveredSubdivisionSelector) {
+            const parts = hoveredSubdivisionSelector.name.split('_');
+            const newSubdivision = parseInt(parts[parts.length - 1], 10);
+            const barIndex = parseInt(longPressedObject.name.split('_')[1], 10);
+
+            if (!isNaN(newSubdivision) && !isNaN(barIndex)) {
+                // Select the bar first to ensure subdivision is set for the correct one
+                AppState.setSelectedBarIndex(barIndex);
+                AppState.setSubdivisionForSelectedBar(newSubdivision);
+                
+                // Trigger 2D select change to ensure consistency and other listeners fire
+                // This will trigger a full UI rebuild including 3D measures
+                DOM.beatMultiplierSelect.value = newSubdivision.toString();
+                DOM.beatMultiplierSelect.dispatchEvent(new Event('change'));
+            }
+        }
+        
+        MeasuresManager.hideSubdivisionSelector();
+        isLongPressActive = false;
+        longPressedObject = null;
+        hoveredSubdivisionSelector = null;
+        return;
+    }
+
+    // If the timer was running, it's a short click on a measure box
+    if (longPressTimer) {
+        event.preventDefault();
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+        if (longPressedObject) {
+            handleMeasureBoxClick(longPressedObject, parseInt(longPressedObject.name.split('_')[1], 10));
+        }
+        longPressedObject = null;
+        return;
+    }
+
+    // Original onPointerUp logic for draggables
+    else if (isDraggingJoystick && draggedObject) {
         // Animate stick back to center
         // For simplicity, just snap back. A tweening library would be smoother.
         draggedObject.position.copy(joystickStickRestPosition);
@@ -345,8 +415,15 @@ function onSceneClick(event) {
             }, 50);
         } else if (name === "prevSubdivisionButton3D") {
             animateClick(clickedMesh);
-            if (DOM.beatMultiplierSelect && DOM.beatMultiplierSelect.selectedIndex > 0) {
-                DOM.beatMultiplierSelect.selectedIndex--;
+            // Change: Update subdivision for selected bar
+            const currentSubdivision = AppState.getSubdivisionForSelectedBar();
+            const subdivisionOptions = Array.from(DOM.beatMultiplierSelect.options).map(opt => parseInt(opt.value, 10));
+            const currentIndex = subdivisionOptions.indexOf(currentSubdivision);
+            if (currentIndex > 0) {
+                const newSubdivision = subdivisionOptions[currentIndex - 1];
+                AppState.setSubdivisionForSelectedBar(newSubdivision);
+                // Trigger 2D select change to ensure consistency and other listeners fire
+                DOM.beatMultiplierSelect.value = newSubdivision.toString();
                 DOM.beatMultiplierSelect.dispatchEvent(new Event('change'));
                 setTimeout(() => {
                     ControlsManager.updateDynamicControlLabels();
@@ -355,8 +432,15 @@ function onSceneClick(event) {
             }
         } else if (name === "nextSubdivisionButton3D") {
             animateClick(clickedMesh);
-            if (DOM.beatMultiplierSelect && DOM.beatMultiplierSelect.selectedIndex < DOM.beatMultiplierSelect.options.length - 1) {
-                DOM.beatMultiplierSelect.selectedIndex++;
+            // Change: Update subdivision for selected bar
+            const currentSubdivision = AppState.getSubdivisionForSelectedBar();
+            const subdivisionOptions = Array.from(DOM.beatMultiplierSelect.options).map(opt => parseInt(opt.value, 10));
+            const currentIndex = subdivisionOptions.indexOf(currentSubdivision);
+            if (currentIndex < subdivisionOptions.length - 1) {
+                const newSubdivision = subdivisionOptions[currentIndex + 1];
+                AppState.setSubdivisionForSelectedBar(newSubdivision);
+                // Trigger 2D select change to ensure consistency and other listeners fire
+                DOM.beatMultiplierSelect.value = newSubdivision.toString();
                 DOM.beatMultiplierSelect.dispatchEvent(new Event('change'));
                 setTimeout(() => {
                     ControlsManager.updateDynamicControlLabels();
@@ -387,10 +471,6 @@ function onSceneClick(event) {
             // This should ideally be handled by the main refreshUIFromState in script.js after preset load.
             // For strict adherence, we can replicate, but it's better if script.js handles the full refresh.
             // Assuming script.js handles the full refresh including ThemeController.update3DScenePostStateChange()
-        } else if (name.startsWith("measureBox_")) {
-            const barIndex = parseInt(name.split('_')[1], 10);
-            handleMeasureBoxClick(clickedMesh, barIndex); // Pass clickedMesh
-            isButtonInteraction = true; // As per monolithic
         } else if (name === "prevMeasuresPageButton3D") {
             animateClick(clickedMesh);
             MeasuresManager.decrementPage();

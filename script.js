@@ -38,10 +38,19 @@ function updatePresetDropdownDisplayNames() {
 function refreshUIFromState() {
     TempoController.updateTempoDisplay({ animate: true }); // Pass animate option
     VolumeController.updateVolumeDisplay({ animate: true }); // Pass animate option
-    // Ensure beatsPerCurrentMeasureDisplay is updated based on the (potentially) new selectedBarIndex or first bar
+
+    // Ensure beatsPerCurrentMeasureDisplay is updated based on the (potentially) new selectedBarIndex or first bar.
+    // This is a preliminary update; BarControlsController.updateBeatControlsDisplay will refine it.
     const currentBarSettings = AppState.getBarSettings();
     const selectedBarIndex = AppState.getSelectedBarIndex();
-    const beatsForCurrentBar = currentBarSettings[selectedBarIndex] || currentBarSettings[0] || 4;
+
+    let beatsForCurrentBar = 4; // Default value
+    if (currentBarSettings.length > 0) {
+        const targetBar = (selectedBarIndex !== -1 && currentBarSettings[selectedBarIndex])
+                            ? currentBarSettings[selectedBarIndex]
+                            : currentBarSettings[0]; // Fallback to first bar if no bar explicitly selected
+        beatsForCurrentBar = targetBar ? targetBar.beats : 4;
+    }
     if (DOM.beatsPerCurrentMeasureDisplay) { // Check if element exists
         DOM.beatsPerCurrentMeasureDisplay.textContent = beatsForCurrentBar;
     }

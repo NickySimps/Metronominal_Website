@@ -526,14 +526,18 @@ export function updateDynamicControlLabels() {
     // Beats & Bars Values
     const barSettings = AppState.getBarSettings();
     const selectedIdx = AppState.getSelectedBarIndex();
-    const beatsVal = (barSettings && barSettings.length > 0 && selectedIdx !== -1 && barSettings[selectedIdx] !== undefined)
-        ? barSettings[selectedIdx]
-        : (barSettings && barSettings.length > 0 ? barSettings[0] : 4);
+    let beatsVal = 4; // Default
+    if (barSettings && barSettings.length > 0) {
+        const barToRead = selectedIdx !== -1 ? barSettings[selectedIdx] : barSettings[0];
+        if (barToRead && typeof barToRead.beats === 'number') {
+            beatsVal = barToRead.beats;
+        }
+    }
     _updateOrAddTextLabel("beatsValue", beatsVal.toString(), valueLabelSize, LABEL_TEXT_COLOR, { x: -2.5, y: Y_POS_LABELS_ABOVE_BUTTONS, z: zValBeatsBarsSub });
     _updateOrAddTextLabel("barsValue", (barSettings ? barSettings.length : 0).toString(), valueLabelSize, LABEL_TEXT_COLOR, { x: 0, y: Y_POS_LABELS_ABOVE_BUTTONS, z: zValBeatsBarsSub });
 
     // Subdivision Value (centered between its < > buttons)
-    if (DOM.beatMultiplierSelect) _updateOrAddTextLabel("subdivisionValue", getSelectedOptionText(DOM.beatMultiplierSelect), presetSlotSubdivLabelSize, LABEL_TEXT_COLOR, { x: 2.5, y: Y_POS_LABELS_ABOVE_BUTTONS, z: zValBeatsBarsSub });
+    _updateOrAddTextLabel("subdivisionValue", AppState.getSubdivisionForSelectedBar().toString(), presetSlotSubdivLabelSize, LABEL_TEXT_COLOR, { x: 2.5, y: Y_POS_LABELS_ABOVE_BUTTONS, z: zValBeatsBarsSub });
 
     // Preset Slot Value (centered between its < > buttons)
     if (DOM.presetSlotSelect) _updateOrAddTextLabel("presetSlotValue", getSelectedOptionText(DOM.presetSlotSelect), presetSlotSubdivLabelSize, LABEL_TEXT_COLOR, { x: -2.5, y: Y_POS_LABELS_ABOVE_BUTTONS, z: zValPresets });

@@ -48,7 +48,7 @@ const UIController = {
 
         // 3. Update UI elements based on reset state
         TempoController.updateTempoDisplay({ animate: true }); // Use TempoController with animation
-        DOM.beatMultiplierSelect.value = AppState.getBeatMultiplier().toString(); // Ensure string for select value
+        DOM.beatMultiplierSelect.value = AppState.getSubdivisionForSelectedBar().toString(); // Ensure string for select value
         // DOM.volumeSlider.value = AppState.getVolume(); // This is handled by updateVolumeDisplay
         VolumeController.updateVolumeDisplay({ animate: true }); // Corrected: Use VolumeController with animation
         

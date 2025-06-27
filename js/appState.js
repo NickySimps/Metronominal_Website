@@ -1,13 +1,13 @@
 const AppState = (function () {
   // --- Private State ---
   let tempo = 120;
-  let barSettings = []; // Stores the number of beats for each bar, e.g., [4, 3, 5]
+  // Change: barSettings now stores objects with beats and subdivision
+  let barSettings = []; // e.g., [{beats: 4, subdivision: 1}, {beats: 3, subdivision: 2}]
   let selectedBarIndex = 0; // Index of the currently selected bar
   let isPlaying = false;
   let currentBar = 0;
   let currentBeat = 0; // This will be sub-beat index
   let currentVolume = 0.8;
-  let beatMultiplier = 1;
   let tapTempoTimestamps = [];
   let audioContext = null;
   let clickSoundBuffer = null;
@@ -133,8 +133,10 @@ const AppState = (function () {
         return false;
       }
       currentBeat++;
-      const totalSubBeatsInCurrentBar =
-        barSettings[currentBar] * beatMultiplier;
+      // Get beatMultiplier from the current bar's settings
+      const currentBarData = barSettings[currentBar];
+      const beatMultiplier = currentBarData ? currentBarData.subdivision : 1; // Default to 1 if not found
+      const totalSubBeatsInCurrentBar = currentBarData.beats * beatMultiplier; // Use current bar's beats and subdivision
       if (currentBeat >= totalSubBeatsInCurrentBar) {
         currentBeat = 0;
         currentBar++;
@@ -165,7 +167,7 @@ const AppState = (function () {
       }
     },
 
-    updateBarArray: (newTotalBars, defaultBeatsPerNewBar = 4) => {
+    updateBarArray: (newTotalBars, defaultBeatsPerNewBar = 4, defaultSubdivisionPerNewBar = 1) => {
       const previousNumberOfBars = barSettings.length;
       newTotalBars = parseInt(newTotalBars, 10);
 
@@ -173,9 +175,13 @@ const AppState = (function () {
         for (let i = previousNumberOfBars; i < newTotalBars; i++) {
           const beats =
             barSettings.length > 0
-              ? barSettings[barSettings.length - 1]
+              ? barSettings[barSettings.length - 1].beats // Use beats from last bar
               : defaultBeatsPerNewBar;
-          barSettings.push(beats);
+          const subdivision =
+            barSettings.length > 0
+              ? barSettings[barSettings.length - 1].subdivision // Use subdivision from last bar
+              : defaultSubdivisionPerNewBar;
+          barSettings.push({ beats: beats, subdivision: subdivision });
         }
       } else if (newTotalBars < previousNumberOfBars) {
         barSettings.length = newTotalBars;
@@ -191,8 +197,12 @@ const AppState = (function () {
         if (currentBar >= barSettings.length) {
           currentBar = 0;
           currentBeat = 0;
-        } else if (currentBeat >= barSettings[currentBar] * beatMultiplier) {
-          currentBeat = 0;
+        } else if (currentBar < barSettings.length) { // Ensure currentBar is valid
+          const currentBarData = barSettings[currentBar];
+          const beatMultiplier = currentBarData ? currentBarData.subdivision : 1;
+          if (currentBeat >= currentBarData.beats * beatMultiplier) {
+            currentBeat = 0;
+          }
         }
       }
     },
@@ -201,7 +211,7 @@ const AppState = (function () {
         selectedBarIndex !== -1 &&
         barSettings[selectedBarIndex] !== undefined
       ) {
-        return barSettings[selectedBarIndex];
+        return barSettings[selectedBarIndex].beats;
       }
       return null;
     },
@@ -210,7 +220,7 @@ const AppState = (function () {
         selectedBarIndex !== -1 &&
         barSettings[selectedBarIndex] !== undefined
       ) {
-        barSettings[selectedBarIndex]++;
+        barSettings[selectedBarIndex].beats++;
       }
     },
     decreaseBeatsForSelectedBar: () => {
@@ -218,26 +228,45 @@ const AppState = (function () {
         selectedBarIndex !== -1 &&
         barSettings[selectedBarIndex] !== undefined
       ) {
-        if (barSettings[selectedBarIndex] > 1) {
-          barSettings[selectedBarIndex]--;
+        if (barSettings[selectedBarIndex].beats > 1) {
+          barSettings[selectedBarIndex].beats--;
         }
       }
     },
-    getTotalBeats: () => barSettings.reduce((sum, beats) => sum + beats, 0),
+    getTotalBeats: () => barSettings.reduce((sum, bar) => sum + bar.beats, 0),
 
-    // Beat Multiplier
-    getBeatMultiplier: () => beatMultiplier,
-    setBeatMultiplier: (multiplier) => {
-      beatMultiplier = parseInt(multiplier, 10) || 1;
-      if (
-        barSettings.length > 0 &&
-        currentBar < barSettings.length &&
-        barSettings[currentBar] !== undefined
-      ) {
-        const totalSubBeatsInCurrentBar =
-          barSettings[currentBar] * beatMultiplier;
-        if (currentBeat >= totalSubBeatsInCurrentBar) {
-          currentBeat = 0;
+    // New: Get subdivision for a specific bar index
+    getSubdivisionForBar: (barIndex) => {
+      if (barIndex >= 0 && barIndex < barSettings.length) {
+        return barSettings[barIndex].subdivision;
+      }
+      return 1; // Default subdivision
+    },
+    // New: Get subdivision for the currently playing bar
+    getBeatMultiplierForCurrentBar: () => {
+      if (currentBar >= 0 && currentBar < barSettings.length) {
+        return barSettings[currentBar].subdivision;
+      }
+      return 1; // Default subdivision
+    },
+    // New: Get subdivision for the selected bar
+    getSubdivisionForSelectedBar: () => {
+      if (selectedBarIndex !== -1 && barSettings[selectedBarIndex] !== undefined) {
+        return barSettings[selectedBarIndex].subdivision;
+      }
+      return 1; // Default subdivision
+    },
+    // New: Set subdivision for the selected bar
+    setSubdivisionForSelectedBar: (multiplier) => {
+      if (selectedBarIndex !== -1 && barSettings[selectedBarIndex] !== undefined) {
+        barSettings[selectedBarIndex].subdivision = parseInt(multiplier, 10) || 1;
+        // Adjust currentBeat if the change makes it out of bounds for the current bar
+        if (selectedBarIndex === currentBar) {
+          const currentBarData = barSettings[currentBar];
+          const beatMultiplier = currentBarData.subdivision;
+          if (currentBeat >= currentBarData.beats * beatMultiplier) {
+            currentBeat = 0;
+          }
         }
       }
     },
@@ -293,8 +322,7 @@ const AppState = (function () {
     // Presets
     getCurrentStateForPreset: () => ({
       tempo: tempo,
-      barSettings: JSON.parse(JSON.stringify(barSettings)),
-      beatMultiplier: beatMultiplier,
+      barSettings: JSON.parse(JSON.stringify(barSettings)), // Ensure deep copy of objects
       volume: currentVolume,
       selectedTheme: currentTheme, // Include current theme
     }),
@@ -312,10 +340,26 @@ const AppState = (function () {
       try {
         // Directly use properties from the passed presetData object
         tempo = presetData.tempo || 120;
-        barSettings = Array.isArray(presetData.barSettings)
-          ? presetData.barSettings
-          : [4];
-        beatMultiplier = presetData.beatMultiplier || 1;
+        // Handle loading both old (array of numbers) and new (array of objects) preset formats
+        if (Array.isArray(presetData.barSettings)) {
+            barSettings = presetData.barSettings.map(bar => {
+                if (typeof bar === 'object' && bar !== null && bar.hasOwnProperty('beats')) {
+                    // It's already in the new format {beats, subdivision}
+                    return {
+                        beats: bar.beats || 4,
+                        subdivision: bar.subdivision || 1
+                    };
+                } else if (typeof bar === 'number') {
+                    // It's the old format, just a number for beats. Convert it.
+                    // Use the global beatMultiplier from the old preset format if it exists.
+                    return { beats: bar, subdivision: presetData.beatMultiplier || 1 };
+                }
+                // Fallback for malformed array entries
+                return { beats: 4, subdivision: 1 };
+            });
+        } else {
+            barSettings = [{ beats: 4, subdivision: 1 }]; // Default if malformed
+        }
         currentVolume =
           typeof presetData.volume === "number" ? presetData.volume : 0.8;
 
@@ -327,6 +371,12 @@ const AppState = (function () {
         } else if (currentBar >= barSettings.length) {
           currentBar = 0;
           currentBeat = 0;
+        } else if (currentBar < barSettings.length) { // Ensure currentBeat is valid for the new bar settings
+          const currentBarData = barSettings[currentBar];
+          const beatMultiplier = currentBarData.subdivision;
+          if (currentBeat >= currentBarData.beats * beatMultiplier) {
+            currentBeat = 0;
+          }
         }
         // Set the theme in AppState
         publicAPI.setCurrentTheme(presetData.selectedTheme || 'default');
@@ -341,9 +391,8 @@ const AppState = (function () {
     // Reset & Initialization
     resetState: () => {
       tempo = 120;
-      beatMultiplier = 1;
       currentVolume = 0.8; // Reset volume to default
-      barSettings = [4];
+      barSettings = [{ beats: 4, subdivision: 1 }]; // Default bar with subdivision
       selectedBarIndex = 0;
       currentBar = 0;
       currentBeat = 0;
@@ -360,13 +409,16 @@ const AppState = (function () {
       initialVolume,
       initialTheme // Added initialTheme
     ) => {
-      barSettings = Array(initialNumberOfBars).fill(initialBeatsPerMeasure);
+      // Initialize barSettings with objects
+      barSettings = Array(initialNumberOfBars).fill(null).map(() => ({
+        beats: initialBeatsPerMeasure,
+        subdivision: initialBeatMultiplier
+      }));
       // Always initialize with no bar selected.
       // User interaction or preset loading will determine selection.
       selectedBarIndex = -1;
       // If initialNumberOfBars is 0, selectedBarIndex remains -1.
       // If initialNumberOfBars > 0, selectedBarIndex is also -1 initially.
-      beatMultiplier = initialBeatMultiplier;
       currentVolume = initialVolume;
       currentTheme = initialTheme || 'default'; // Initialize theme
       // tempo is already at its default 120
