@@ -165,15 +165,12 @@ function resetLongPressState() {
 }
 
 function showSubdivisionSelector(barElement) {
-    hideSubdivisionSelector(); // Clear any existing selectors
+    hideSubdivisionSelector(); // Always clear previous options first
 
     const barIndex = parseInt(barElement.dataset.index, 10);
     if (isNaN(barIndex)) return;
 
-    const subdivisionOptions = Array.from(DOM.beatMultiplierSelect.options).map(opt => ({
-        value: parseInt(opt.value, 10),
-        text: opt.text
-    }));
+    const subdivisionOptions = Array.from(DOM.beatMultiplierSelect.options).map(opt => ({ value: parseInt(opt.value, 10), text: opt.text }));
     const currentSubdivision = AppState.getSubdivisionForBar(barIndex);
     const currentIndex = subdivisionOptions.findIndex(opt => opt.value === currentSubdivision);
 
@@ -182,39 +179,70 @@ function showSubdivisionSelector(barElement) {
 
     if (!prevOptionData && !nextOptionData) return;
 
+    const isDesktop = window.innerWidth >= 768;
+
     const createOptionElement = (optionData, direction) => {
         const element = document.createElement('div');
         element.className = 'subdivision-option';
         element.dataset.value = optionData.value;
-        element.textContent = direction === 'prev' ? `< ${optionData.text}` : `${optionData.text} >`;
+        element.textContent = direction === 'prev' || direction === 'up' ? `< ${optionData.text}` : `${optionData.text} >`;
         return element;
     };
 
-    if (prevOptionData) {
-        prevSubdivisionOptionElement = createOptionElement(prevOptionData, 'prev');
-        barElement.parentNode.insertBefore(prevSubdivisionOptionElement, barElement);
+    if (isDesktop) {
+        // Desktop: Flank the selected bar inside the container
+        if (prevOptionData) {
+            prevSubdivisionOptionElement = createOptionElement(prevOptionData, 'prev');
+            prevSubdivisionOptionElement.classList.add('desktop');
+            barElement.parentNode.insertBefore(prevSubdivisionOptionElement, barElement);
+        }
+        if (nextOptionData) {
+            nextSubdivisionOptionElement = createOptionElement(nextOptionData, 'next');
+            nextSubdivisionOptionElement.classList.add('desktop');
+            barElement.parentNode.insertBefore(nextSubdivisionOptionElement, barElement.nextSibling);
+        }
+    } else {
+        // Mobile: Position above and below using fixed positioning
+        const barRect = barElement.getBoundingClientRect();
+        const verticalSpacing = 15;
+        if (prevOptionData) {
+            prevSubdivisionOptionElement = createOptionElement(prevOptionData, 'up');
+            document.body.appendChild(prevSubdivisionOptionElement);
+            prevSubdivisionOptionElement.style.left = `${barRect.left + barRect.width / 2}px`;
+            prevSubdivisionOptionElement.style.top = `${barRect.top - verticalSpacing}px`;
+            prevSubdivisionOptionElement.style.transform = 'translate(-50%, -100%)';
+        }
+        if (nextOptionData) {
+            nextSubdivisionOptionElement = createOptionElement(nextOptionData, 'down');
+            document.body.appendChild(nextSubdivisionOptionElement);
+            nextSubdivisionOptionElement.style.left = `${barRect.left + barRect.width / 2}px`;
+            nextSubdivisionOptionElement.style.top = `${barRect.bottom + verticalSpacing}px`;
+            nextSubdivisionOptionElement.style.transform = 'translate(-50%, 0)';
+        }
     }
 
-    if (nextOptionData) {
-        nextSubdivisionOptionElement = createOptionElement(nextOptionData, 'next');
-        barElement.parentNode.insertBefore(nextSubdivisionOptionElement, barElement.nextSibling);
-    }
-    
-    // Trigger animation
+    // Trigger the animation
     setTimeout(() => {
-        if(prevSubdivisionOptionElement) prevSubdivisionOptionElement.classList.add('visible');
-        if(nextSubdivisionOptionElement) nextSubdivisionOptionElement.classList.add('visible');
+        if (prevSubdivisionOptionElement) prevSubdivisionOptionElement.classList.add('visible');
+        if (nextSubdivisionOptionElement) nextSubdivisionOptionElement.classList.add('visible');
     }, 10);
 }
 
 function hideSubdivisionSelector() {
-    // A more direct and reliable way to remove the elements
-    if (prevSubdivisionOptionElement && prevSubdivisionOptionElement.parentNode) {
-        prevSubdivisionOptionElement.remove();
-    }
-    if (nextSubdivisionOptionElement && nextSubdivisionOptionElement.parentNode) {
-        nextSubdivisionOptionElement.remove();
-    }
+    const existingOptions = document.querySelectorAll('.subdivision-option');
+    
+    existingOptions.forEach(option => {
+        // Trigger the animation out by removing the .visible class
+        option.classList.remove('visible');
+        
+        // Remove the element from the DOM after the transition is complete.
+        // The longest transition is 400ms, so we wait 500ms to be safe.
+        setTimeout(() => {
+            option.remove();
+        }, 500);
+    });
+
+    // Nullify references immediately to prevent race conditions
     prevSubdivisionOptionElement = null;
     nextSubdivisionOptionElement = null;
 }
@@ -277,8 +305,11 @@ const BarDisplayController = {
                 if (previousBarCountForAnimation !== -1 && index >= previousBarCountForAnimation) {
                     barDiv.classList.add('newly-added-bar-animation');
                 }
-                barDiv.addEventListener('pointerdown', onBarPointerDown);
             }
+
+            // Attach the event listener regardless of whether the bar is new or existing.
+            // Adding the same listener multiple times has no effect.
+            barDiv.addEventListener('pointerdown', onBarPointerDown);
 
             // ---- START: Add density class logic ----
             // This applies to both existing and newly created barDivs

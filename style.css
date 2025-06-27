@@ -908,10 +908,10 @@ select {
     border-top: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
   }
   /* Add this to your style.css file */
-  .subdivision-option {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  /* Base styles for all subdivision options */
+.subdivision-option {
+    position: fixed;
+    z-index: 1001;
     padding: 10px 15px;
     background-color: var(--Accent);
     color: var(--TextOnMain);
@@ -920,16 +920,41 @@ select {
     user-select: none;
     font-weight: bold;
     white-space: nowrap;
-    margin: 0 5px;
-    opacity: 0;
-    max-width: 0;
-    overflow: hidden; /* Hide content during animation */
-    transition: max-width 0.4s ease, opacity 0.3s ease, padding 0.4s ease;
+    /* Temporarily remove opacity and scale for debugging */
+    /* opacity: 0; */
+    /* scale: 0.8; */
+    transition: none; /* Disable transitions for debugging */
 }
 
+/* Desktop-specific overrides */
+.subdivision-option.desktop {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 5px;
+    /* Temporarily set fixed size for debugging */
+    width: 100px;
+    height: 40px;
+    /* Temporarily remove animation-related properties */
+    /* max-width: 0; */
+    /* padding: 10px 0; */
+    /* overflow: hidden; */
+    /* scale: 1; */
+    transition: none; /* Disable transitions for debugging */
+}
+
+/* Visible state for all options (temporarily make them always visible for debugging) */
 .subdivision-option.visible {
-    max-width: 150px; /* Animate to this width */
     opacity: 1;
+    scale: 1;
+}
+
+/* Visible state specifically for desktop options (temporarily make them always visible for debugging) */
+.subdivision-option.desktop.visible {
+    /* max-width: 150px; */
+    /* padding: 10px 15px; */
+    /* opacity: 1; */
 }
 
   .top-controls-area button,
