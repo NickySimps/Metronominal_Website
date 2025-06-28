@@ -225,7 +225,7 @@ function showSubdivisionSelector(barElement) {
     setTimeout(() => {
         if (prevSubdivisionOptionElement) prevSubdivisionOptionElement.classList.add('visible');
         if (nextSubdivisionOptionElement) nextSubdivisionOptionElement.classList.add('visible');
-    }, 10);
+    }, 2);
 }
 
 function hideSubdivisionSelector() {

@@ -386,7 +386,7 @@ option {
 
 /* Adjust highlighted style for different densities */
 .beat-square.highlighted {
-    scale: 1.7; /* Base highlight scale */
+  scale: 1.7; /* Base highlight scale */
 }
 .bar-visual.medium-dense-beats .beat-square.highlighted {
   scale: 1.8; /* Slightly larger scale for medium density */
@@ -909,7 +909,7 @@ select {
   }
   /* Add this to your style.css file */
   /* Base styles for all subdivision options */
-.subdivision-option {
+  .subdivision-option {
     position: fixed;
     z-index: 1001;
     padding: 10px 15px;
@@ -921,13 +921,13 @@ select {
     font-weight: bold;
     white-space: nowrap;
     /* Temporarily remove opacity and scale for debugging */
-    /* opacity: 0; */
-    /* scale: 0.8; */
-    transition: none; /* Disable transitions for debugging */
-}
+    opacity: 0;
+    scale: 0.8;
+    transition: all 0.2s ease; /* Disable transitions for debugging */
+  }
 
-/* Desktop-specific overrides */
-.subdivision-option.desktop {
+  /* Desktop-specific overrides */
+  .subdivision-option.desktop {
     position: absolute;
     display: inline-flex;
     align-items: center;
@@ -936,26 +936,32 @@ select {
     /* Temporarily set fixed size for debugging */
     width: 100px;
     height: 40px;
-    /* Temporarily remove animation-related properties */
-    /* max-width: 0; */
-    /* padding: 10px 0; */
-    /* overflow: hidden; */
-    /* scale: 1; */
-    transition: none; /* Disable transitions for debugging */
-}
+    padding: 10px 15px;
+    background-color: var(--Accent);
+    color: var(--TextOnMain);
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+    font-weight: bold;
+    white-space: nowrap;
+    /* Temporarily remove opacity and scale for debugging */
+    opacity: 0;
+    scale: 0.8;
+    transition: all 0.2s ease; /* Disable transitions for debugging */
+  }
 
-/* Visible state for all options (temporarily make them always visible for debugging) */
-.subdivision-option.visible {
+  /* Visible state for all options (temporarily make them always visible for debugging) */
+  .subdivision-option.visible {
     opacity: 1;
     scale: 1;
-}
+  }
 
-/* Visible state specifically for desktop options (temporarily make them always visible for debugging) */
-.subdivision-option.desktop.visible {
-    /* max-width: 150px; */
-    /* padding: 10px 15px; */
-    /* opacity: 1; */
-}
+  /* Visible state specifically for desktop options (temporarily make them always visible for debugging) */
+  .subdivision-option.desktop.visible {
+    max-width: 150px; 
+    padding: 10px 15px;
+    opacity: 1;
+  }
 
   .top-controls-area button,
   .theme-controls button {
@@ -1046,3 +1052,25 @@ select {
     margin: 0 var(--s2); /* Standardized margin (0 4px) */
   }
 }
+
+.subdivision-option.desktop {
+   
+    /* Temporarily set fixed size for debugging */
+
+    padding: 10px 15px;
+    background-color: var(--Accent);
+    color: var(--TextOnMain);
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+    font-weight: bold;
+    white-space: nowrap;
+    /* Temporarily remove opacity and scale for debugging */
+    opacity: 0;
+    scale: 0.8;
+    transition: all 0.2s ease; /* Disable transitions for debugging */
+  }
+.subdivision-option.desktop.visible{
+  opacity: 1;
+  scale: 1;
+};  
