@@ -24,8 +24,8 @@ let longPressInitialPosition = { x: 0, y: 0 };
 let prevSubdivisionOptionElement = null; // Renamed for clarity
 let nextSubdivisionOptionElement = null; // Renamed for clarity
 let hoveredSubdivisionOption = null;
-const LONG_PRESS_DURATION = 400; // ms
-const POINTER_MOVE_THRESHOLD = 30; // pixels (Increased for more forgiving long-press)
+const LONG_PRESS_DURATION = 250; // ms
+const POINTER_MOVE_THRESHOLD = 15; // pixels (Increased for more forgiving long-press)
 
 // Helper function to create a beat square element with animation and classes
 function createBeatSquareElement(indexInBar, currentBeatMultiplier) {
@@ -239,7 +239,7 @@ function hideSubdivisionSelector() {
         // The longest transition is 400ms, so we wait 500ms to be safe.
         setTimeout(() => {
             option.remove();
-        }, 500);
+        }, 250);
     });
 
     // Nullify references immediately to prevent race conditions
