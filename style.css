@@ -1075,3 +1075,39 @@ select {
   opacity: 1;
   scale: 1;
 };  
+
+@keyframes boop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.05) rotate(1deg); }
+  100% { transform: scale(1); }
+}
+
+button:active,
+.adjust-tempo:active,
+.adjust-bar-length:active,
+.adjust-measure-length:active,
+.start-stop-btn:active {
+  animation: boop 0.2s ease;
+}
+@keyframes pulse-glow {
+  0%   { box-shadow: 0 0 0 rgba(255, 0, 221, 0.5); }
+  50%  { box-shadow: 0 0 10px rgba(255, 0, 221, 0.8); }
+  100% { box-shadow: 0 0 0 rgba(255, 0, 221, 0.5); }
+}
+
+.start-stop-btn.active {
+  animation: pulse-glow 1.2s infinite;
+}
+@keyframes wiggle {
+  0% { transform: rotate(0deg); }
+  25% { transform: rotate(1.5deg); }
+  50% { transform: rotate(-1.5deg); }
+  75% { transform: rotate(1deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.adjust-tempo:hover,
+.adjust-bar-length:hover,
+.adjust-measure-length:hover {
+  animation: wiggle 0.3s ease;
+}
