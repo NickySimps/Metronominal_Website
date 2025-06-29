@@ -81,7 +81,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const initialNumberOfBars = parseInt(DOM.barsLengthDisplay.textContent, 10);
         const initialBeatsPerMeasure = parseInt(DOM.beatsPerCurrentMeasureDisplay.textContent, 10) || 4;
         // Initialize beatMultiplier from the dropdown's current value
-        const initialBeatMultiplier = parseInt(DOM.beatMultiplierSelect.value, 10) || 1;
+        const initialBeatMultiplier = parseFloat(DOM.beatMultiplierSelect.value) || 1;
 
         // Initialize Volume
         const initialVolume = parseFloat(DOM.volumeSlider.value);

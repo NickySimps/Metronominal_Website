@@ -135,7 +135,7 @@ const AppState = (function () {
       currentBeat++;
       // Get beatMultiplier from the current bar's settings
       const currentBarData = barSettings[currentBar];
-      const beatMultiplier = currentBarData ? currentBarData.subdivision : 1; // Default to 1 if not found
+      const beatMultiplier = parseFloat(currentBarData ? currentBarData.subdivision : 1); // Default to 1 if not found
       const totalSubBeatsInCurrentBar = currentBarData.beats * beatMultiplier; // Use current bar's beats and subdivision
       if (currentBeat >= totalSubBeatsInCurrentBar) {
         currentBeat = 0;
@@ -167,7 +167,7 @@ const AppState = (function () {
       }
     },
 
-    updateBarArray: (newTotalBars, defaultBeatsPerNewBar = 4, defaultSubdivisionPerNewBar = 1) => {
+    updateBarArray: (newTotalBars, defaultBeatsPerNewBar = barSettings.beats, defaultSubdivisionPerNewBar = barSettings.subdivision) => {
       const previousNumberOfBars = barSettings.length;
       newTotalBars = parseInt(newTotalBars, 10);
 
@@ -199,7 +199,7 @@ const AppState = (function () {
           currentBeat = 0;
         } else if (currentBar < barSettings.length) { // Ensure currentBar is valid
           const currentBarData = barSettings[currentBar];
-          const beatMultiplier = currentBarData ? currentBarData.subdivision : 1;
+          const beatMultiplier = parseFloat(currentBarData ? currentBarData.subdivision : 1);
           if (currentBeat >= currentBarData.beats * beatMultiplier) {
             currentBeat = 0;
           }
@@ -259,7 +259,7 @@ const AppState = (function () {
     // New: Set subdivision for the selected bar
     setSubdivisionForSelectedBar: (multiplier) => {
       if (selectedBarIndex !== -1 && barSettings[selectedBarIndex] !== undefined) {
-        barSettings[selectedBarIndex].subdivision = parseInt(multiplier, 10) || 1;
+        barSettings[selectedBarIndex].subdivision = parseFloat(multiplier) || 1;
         // Adjust currentBeat if the change makes it out of bounds for the current bar
         if (selectedBarIndex === currentBar) {
           const currentBarData = barSettings[currentBar];

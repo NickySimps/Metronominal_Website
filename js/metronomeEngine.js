@@ -46,7 +46,7 @@ function performCurrentBeatActions() {
     const barSettings = AppState.getBarSettings();
     const currentBar = AppState.getCurrentBar();
     const currentBeat = AppState.getCurrentBeat(); // This is the sub-beat index
-    const beatMultiplier = AppState.getBeatMultiplierForCurrentBar();
+    const beatMultiplier = parseFloat(AppState.getBeatMultiplierForCurrentBar());
 
     BarDisplayController.updateBeatHighlight(currentBar, currentBeat, true);
 
@@ -56,8 +56,14 @@ function performCurrentBeatActions() {
     // For simplicity, we'll just accent based on the beatMultiplier.
     // If beatMultiplier is 1, every beat is a "main beat start".
     // If beatMultiplier > 1, only beats at index 0, beatMultiplier, 2*beatMultiplier, etc. are main beat starts.
-    if (currentBeat % beatMultiplier === 0) {
-        isAccent = true;
+    if (beatMultiplier >= 1) {
+        if (currentBeat % beatMultiplier === 0) {
+            isAccent = true;
+        }
+    } else {
+        if (currentBeat % 1 === 0) { // Accent every main beat for whole and half notes
+            isAccent = true;
+        }
     }
 
     // Update 3D visuals if active
@@ -92,9 +98,15 @@ function metronomeTick() {
     }
 
     const tempo = AppState.getTempo();
-    const beatMultiplier = AppState.getBeatMultiplierForCurrentBar();
+    const beatMultiplier = parseFloat(AppState.getBeatMultiplierForCurrentBar());
     const secondsPerMainBeat = 60.0 / tempo;
-    const secondsPerSubBeat = secondsPerMainBeat / beatMultiplier;
+    let secondsPerSubBeat;
+
+    if (beatMultiplier >= 1) {
+        secondsPerSubBeat = secondsPerMainBeat / beatMultiplier;
+    } else {
+        secondsPerSubBeat = secondsPerMainBeat * (1 / beatMultiplier);
+    }
 
     let delayForSetTimeout;
     const audioContext = AppState.getAudioContext();
