@@ -185,7 +185,7 @@ function showSubdivisionSelector(barElement) {
         const element = document.createElement('div');
         element.className = 'subdivision-option';
         element.dataset.value = optionData.value;
-        element.textContent = direction === 'prev' || direction === 'up' ? `< ${optionData.text}` : `${optionData.text} >`;
+        element.textContent = direction === 'prev' || direction === 'up' ? `${optionData.text} <` : `> ${optionData.text}`;
         return element;
     };
 
