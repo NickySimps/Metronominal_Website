@@ -11,8 +11,8 @@ import ThreeDThemeManager from './3D/3dTheme.js'; // Import the new 3D theme man
 
 const themes = {
     default: { // Pistachio Theme (unlabeled)
-        '--Main': '#c000a0', // Deep Pink/Magenta
-        '--Background': '#f0f0f0', // Light Gray
+        '--Main': '#00b430', // Pistachio Green',
+        '--Background': '#e3ffe8', // Light Green
         '--Accent': '#ffe0b2', // Pale Orange/Peach
         '--Highlight': '#a0faa0', // Light Green
         '--Alt1': '#4682b4', // Steel Blue
@@ -20,9 +20,9 @@ const themes = {
         '--TextOnMain': '#000000', // White
         '--TextPrimary': '#333333', // Dark Gray
         '--TextSecondary': '#555555', // Medium Gray
-        '--SubdivisionBeatColor': '#ffe0b2', // OrangeRed for non-highlighted beat square (high contrast)
+        '--SubdivisionBeatColor': 'rgba(14, 75, 0, 0.85)', // OrangeRed for non-highlighted beat square (high contrast)
         '--HighlightedBeatColor': '#ffc471', // Light Orange', 
-        '--ActiveBarBackground': 'rgba(70, 130, 180, 0.5)', // Steel Blue with transparency
+        '--ActiveBarBackground': 'rgb(255, 217, 248)', // Steel Blue with transparency
         '--BorderColor': 'transparent', // Set to transparent for flat look
         '--BorderRadius': '20px', // Slightly rounded
         '--font-family': '"Inter", sans-serif'
@@ -143,7 +143,7 @@ const themes = {
         '--HighlightedBeatColor': '#ff4500', // OrangeRed - distinct and high contrast
         '--ActiveBarBackground': 'rgba(51, 51, 51, 0.5)',
         '--BorderColor': '#4a4a4a',
-        '--BorderRadius': '0px',
+        '--BorderRadius': '3px',
         '--font-family': '"Roboto Mono", monospace'
     },
     pastel: { // Replaces White
