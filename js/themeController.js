@@ -10,20 +10,22 @@ import AppState from './appState.js';
 import ThreeDThemeManager from './3D/3dTheme.js'; // Import the new 3D theme manager
 
 const themes = {
-    default: {
+    default: { // Pistachio Theme (unlabeled)
         '--Main': '#c000a0', // Deep Pink/Magenta
         '--Background': '#f0f0f0', // Light Gray
         '--Accent': '#ffe0b2', // Pale Orange/Peach
         '--Highlight': '#a0faa0', // Light Green
         '--Alt1': '#4682b4', // Steel Blue
         '--Alt2': '#dc143c', // Crimson Red
-        '--TextOnMain': '#ffffff', // White
+        '--TextOnMain': '#000000', // White
         '--TextPrimary': '#333333', // Dark Gray
         '--TextSecondary': '#555555', // Medium Gray
-        '--SubdivisionBeatColor': '#ffa07a', // Light Salmon
-        '--ActiveBarBackground': 'var(--Alt1)', // Example: 'rgba(70, 130, 180, 0.2)'
+        '--SubdivisionBeatColor': '#ffe0b2', // OrangeRed for non-highlighted beat square (high contrast)
+        '--HighlightedBeatColor': '#ffc471', // Light Orange', 
+        '--ActiveBarBackground': 'rgba(70, 130, 180, 0.5)', // Steel Blue with transparency
         '--BorderColor': 'transparent', // Set to transparent for flat look
-        '--BorderRadius': '20px' // Slightly rounded
+        '--BorderRadius': '20px', // Slightly rounded
+        '--font-family': '"Inter", sans-serif'
     },
     dark: {
         '--Main': '#1c1c22', // Very Dark Gray (almost black)
@@ -35,11 +37,12 @@ const themes = {
         '--TextOnMain': '#ffffff', // Off-White
         '--TextPrimary': '#bbbbbb', // Light Gray
         '--TextSecondary': '#cccccc', // Very Light Gray
-        '--TextSecondary': 'var(--Alt1)', // Medium Light Gray
-        '--SubdivisionBeatColor': 'var(--Highlight)', // Bright Yellow (Corrected to use Accent for yellow)
-        '--ActiveBarBackground': 'var(--Accent)', // Bright Yellow
+        '--SubdivisionBeatColor': '#ffffff', // OrangeRed for non-highlighted beat square (high contrast)
+        '--HighlightedBeatColor': '#00ffff', // Cyan for highlighted beat square (high contrast)
+        '--ActiveBarBackground': 'rgba(0, 82, 155, 0.5)', // Dark Blue with transparency
         '--BorderColor': 'var(--Accent)', // Set to transparent for flat look
-        '--BorderRadius': '7px' // Sharper than default
+        '--BorderRadius': '7px', // Sharper than default
+        '--font-family': '"Roboto Mono", monospace'
     },
     synthwave: {
         '--Main': '#ff00ff', // Magenta
@@ -48,31 +51,35 @@ const themes = {
         '--Highlight': '#008090', // Teal
         '--Alt1': '#ff69b4', // Hot Pink
         '--Alt2': '#7b00ff', // Electric Purple (same as Accent)
-        '--TextOnMain': '#ffffff', // White
+        '--TextOnMain': '#37ff48', // White
         '--TextPrimary': '#eeeeee', // Black (often on lighter elements if any)
         '--TextSecondary': 'var(--Alt1)', // Very Dark Gray
-        '--SubdivisionBeatColor': '#00f0ff', // Cyan
-        '--ActiveBarBackground': 'var(--Alt1)', // Example: 'rgba(255, 105, 180, 0.2)'
+        '--SubdivisionBeatColor': '#37ff48', // Green',
+        '--HighlightedBeatColor': '#00ffff', // Cyan for highlighted beat square (high contrast)
+        '--ActiveBarBackground': 'rgba(255, 105, 180, 0.5)', // Hot Pink with transparency
         '--BorderColor': 'var(--Alt1)', // Set to transparent for flat look
-        '--BorderRadius': '50%' // For circular/pill shapes
+        '--BorderRadius': '50%', // For circular/pill shapes
+        '--font-family': '"Press Start 2P", cursive'
     },
     gundam: {
-        '--Main': '#0050a0', // Gundam Blue
+        '--Main': '#ffd700', // Gundam Blue
         '--Background': '#e8e8e8', // Light Gray (Gundam White)
         '--Accent': '#cc0000', // Gundam Red
-        '--Highlight': '#ffd700', // Gundam Yellow (Gold)
+        '--Highlight': '#0050a0', // Gundam Yellow (Gold)
         '--Alt1': '#4a4a4a', // Dark Gray (Inner Frame/Details)
         '--Alt2': '#d04000', // Orange-Red (Thrusters/Accents)
         '--TextOnMain': '#ffffff', // White
-        '--TextPrimary': '#222222', // Dark Gray
+        '--TextPrimary': '#fffff1', // Dark Gray
         '--TextSecondary': '#555555', // Medium Gray
-        '--SubdivisionBeatColor': '#87cefa', // Light Sky Blue (Beam Saber effect) 
-        '--ActiveBarBackground': 'var(--Main)', // Uses Gundam Blue from --Main
+        '--SubdivisionBeatColor': '#ff4500', // OrangeRed for non-highlighted beat square (high contrast)
+        '--HighlightedBeatColor': '#37ff48', // Deep Sky Blue for highlighted beat square (high contrast)
+        '--ActiveBarBackground': 'rgba(0, 80, 160, 0.5)', // Gundam Blue with transparency
         '--BorderColor': 'var(--Main)', // Set to transparent for flat look
-        '--BorderRadius': '0px' // Hard squares
+        '--BorderRadius': '0px', // Hard squares
+        '--font-family': '"Orbitron", sans-serif'
     },
     helloKitty: {
-        '--Main': '#ff99cc', // Hello Kitty Pink
+        '--Main': '#ffffff', // Hello Kitty Pink
         '--Background': '#ffffff', // White
         '--Accent': '#ff3366', // Brighter Pink/Red for accents
         '--Highlight': '#66ccff', // Light Blue
@@ -81,10 +88,12 @@ const themes = {
         '--TextOnMain': '#ffffff',
         '--TextPrimary': '#333333',
         '--TextSecondary': '#555555',
-        '--SubdivisionBeatColor': '#ffcce5', // Lighter Pink
-        '--ActiveBarBackground': 'var(--Main)',
+        '--SubdivisionBeatColor': '#ff4500', // OrangeRed for non-highlighted beat square (high contrast)
+        '--HighlightedBeatColor': '#ff007f', // Rose for highlighted beat square (high contrast)
+        '--ActiveBarBackground': 'rgba(255, 153, 204, 0.5)', // Hello Kitty Pink with transparency
         '--BorderColor': 'transparent', // Set to transparent for flat look
-        '--BorderRadius': '15px' // Cute and rounded
+        '--BorderRadius': '15px', // Cute and rounded
+        '--font-family': '"Handlee", cursive'
     },
     beach: {
         '--Main': '#0077be', // Ocean Blue
@@ -96,10 +105,12 @@ const themes = {
         '--TextOnMain': '#ffffff',
         '--TextPrimary': '#4a3b28', // Dark Sand/Driftwood
         '--TextSecondary': '#705c3b', // Medium Sand
-        '--SubdivisionBeatColor': '#ffeb99', // Lighter Yellow
-        '--ActiveBarBackground': 'var(--Highlight)',
+        '--SubdivisionBeatColor': '#ffcc00', // OrangeRed for non-highlighted beat square (high contrast)
+        '--HighlightedBeatColor': '#ff8c00', // Dark Orange for highlighted beat square (high contrast)
+        '--ActiveBarBackground': 'rgba(73, 254, 242, 0.5)', // Sky Blue with transparency
         '--BorderColor': 'transparent', // Set to transparent for flat look
-        '--BorderRadius': '10px' // Softly rounded
+        '--BorderRadius': '10px', // Softly rounded
+        '--font-family': '"Pacifico", cursive'
     },
     iceCream: {
         '--Main': '#ffc0cb', // Strawberry Pink
@@ -111,10 +122,63 @@ const themes = {
         '--TextOnMain': '#5d3a1a', // Dark Brown text on light pink
         '--TextPrimary': '#5d3a1a', // Chocolate Brown
         '--TextSecondary': '#8b5a2b', // Lighter Brown
-        '--SubdivisionBeatColor': '#7cfd54', // Pistachio Green
-        '--ActiveBarBackground': 'var(--Accent)',
+        '--SubdivisionBeatColor': '#add8e6', // OrangeRed for non-highlighted beat square (high contrast)
+        '--HighlightedBeatColor': '#32cd32', // Lime Green for highlighted beat square (high contrast)
+        '--ActiveBarBackground': 'rgba(193, 116, 22, 0.71)', // Pastel Blue with transparency
         '--BorderColor': 'transparent', // Set to transparent for flat look
-        '--BorderRadius': '25px' // Scoopy and round
+        '--BorderRadius': '25px', // Scoopy and round
+        '--font-family': '"Bubblegum Sans", cursive'
+    },
+    tuxedo: { // Replaces Black
+        '--Main': '#1a1a1a', // Very Dark Gray
+        '--Background': '#f0f0f0', // Off-white
+        '--Accent': '#c0c0c0', // Silver
+        '--Highlight': '#333333', // Dark Gray
+        '--Alt1': '#666666', // Medium Gray
+        '--Alt2': '#b22222', // Firebrick Red - for strong accent/alert
+        '--TextOnMain': '#ffffff',
+        '--TextPrimary': '#ffffff',
+        '--TextSecondary': '#333333',
+        '--SubdivisionBeatColor': '#ffffff', // Gold - high contrast on dark
+        '--HighlightedBeatColor': '#ff4500', // OrangeRed - distinct and high contrast
+        '--ActiveBarBackground': 'rgba(51, 51, 51, 0.5)',
+        '--BorderColor': '#4a4a4a',
+        '--BorderRadius': '0px',
+        '--font-family': '"Roboto Mono", monospace'
+    },
+    pastel: { // Replaces White
+        '--Main': '#ffe0e6', // Lighter Pink
+        '--Background': '#ffffe0', // Lighter Pale Yellow
+        '--Accent': '#e0f2f7', // Lighter Light Blue
+        '--Highlight': '#e0ffe0', // Lighter Pale Green
+        '--Alt1': '#f2e0f2', // Lighter Plum - muted purple
+        '--Alt2': '#ff9980', // Lighter Tomato - for strong accent
+        '--TextOnMain': '#8000ff', // Lighter Indigo
+        '--TextPrimary': '#8000ff', // Lighter Indigo
+        '--TextSecondary': '#c080ff', // Lighter Blue Violet
+        '--SubdivisionBeatColor': '#f2e0f2', // Lighter Plum - high contrast on light
+        '--HighlightedBeatColor': '#c080ff', // Lighter Blue Violet - distinct and high contrast
+        '--ActiveBarBackground': 'rgba(200, 230, 240, 0.5)', // Lighter Light Blue with transparency
+        '--BorderColor': 'transparent',
+        '--BorderRadius': '15px',
+        '--font-family': '"Inter", sans-serif'
+    },
+    colorblind: { // Replaces Gray
+        '--Main': '#0072B2', // Strong Blue
+        '--Background': '#F0E442', // Yellowish Orange - high contrast with blue
+        '--Accent': '#D55E00', // Orange-Red
+        '--Highlight': '#009E73', // Bluish Green
+        '--Alt1': '#CC79A7', // Reddish Purple
+        '--Alt2': '#56B4E9', // Sky Blue
+        '--TextOnMain': '#ffffff',
+        '--TextPrimary': '#000000',
+        '--TextSecondary': '#333333',
+        '--SubdivisionBeatColor': '#E69F00', // Orange - high contrast
+        '--HighlightedBeatColor': '#000000', // Black - distinct and high contrast
+        '--ActiveBarBackground': 'rgba(0, 114, 178, 0.5)',
+        '--BorderColor': '#0072B2',
+        '--BorderRadius': '10px',
+        '--font-family': '"Roboto Mono", monospace'
     }
 };
 

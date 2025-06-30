@@ -124,12 +124,9 @@ export function createMeasuresAndBeats(measuresGroup, font, interactionGroup) {
         let requiredWidthForCubesUnscaled = 0;
 
         if (subBeats > 0) {
-            requiredWidthForCubesUnscaled = subBeats * initialCubeSideLength;
-            if (subBeats > 1) {
-                requiredWidthForCubesUnscaled += (subBeats - 1) * initialMinSpacing;
-                const numberOfGroupGaps = Math.floor((subBeats - 1) / GROUP_SIZE_3D);
-                requiredWidthForCubesUnscaled += numberOfGroupGaps * initialGroupGap;
-            }
+            const subdivision = currentBarData ? currentBarData.subdivision : 1;
+            const numberOfGroupGaps = subdivision > 0 ? Math.floor((subBeats - 1) / subdivision) : 0;
+            requiredWidthForCubesUnscaled = subBeats * initialCubeSideLength + (subBeats - 1) * initialMinSpacing + numberOfGroupGaps * initialGroupGap;
         }
 
         if (subBeats > 0 && requiredWidthForCubesUnscaled > availableWidthForCubes && availableWidthForCubes > 0) {
@@ -161,7 +158,7 @@ export function createMeasuresAndBeats(measuresGroup, font, interactionGroup) {
                 beatCube.castShadow = true; // From monolithic
                 measureBox.add(beatCube);
                 currentCubeX += currentCubeSideLength + currentMinSpacing;
-                if ((j + 1) % GROUP_SIZE_3D === 0 && j < subBeats - 1) { // From monolithic
+                if ((j + 1) % (currentBarData ? currentBarData.subdivision : 1) === 0 && j < subBeats - 1) { // From monolithic
                     currentCubeX += currentGroupGap;
                 }
             }

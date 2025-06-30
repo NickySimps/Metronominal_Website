@@ -1,4 +1,10 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Handlee&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Pacifico&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bubblegum+Sans&display=swap");
 
 html {
   overflow-x: hidden; /* Prevent horizontal scrolling for the entire page */
@@ -9,6 +15,7 @@ html {
   --Background: #f0f0f0; /* Off-white/Very Light Grey */
   --Accent: #ffb347; /* Yellow-Orange - Secondary Accent */
   --Highlight: #90ee90; /* Light Green */
+  --HighlightedBeatColor: var(--Highlight); /* Define the missing variable */
   --Alt1: #4682b4; /* Steel Blue - Potentially for stronger call to actions or specific states */
   --Alt2: #dc143c; /* Crimson - Good for active/warning states */
   --TextOnMain: #ffffff; /* White text for contrast on Main/Alt1 colors */
@@ -51,7 +58,11 @@ html {
 body {
   overflow-x: hidden; /* Further ensure body content doesn't cause horizontal scroll */
   background-color: var(--Background);
-  font-family: "Inter", sans-serif; /* Changed font */
+  font-family: var(
+    --font-family,
+    "Inter",
+    sans-serif
+  ); /* Use theme font, fallback to Inter */
   font-size: var(--font-3); /* Standardized base font size */
   display: flex;
   justify-content: center;
@@ -66,7 +77,7 @@ body {
   color: var(--TextPrimary);
 }
 body * {
-    transition: all 0.2s ease-in-out;
+  transition: all 0.3s ease-in-out;
 }
 
 .main-container {
@@ -313,15 +324,19 @@ option {
   border-color: transparent;
 }
 
+button{
+  color: var(--TextOnMain);
+}
+
 .bar-display-container {
   background: var(--Background);
   outline: var(--BorderColor) var(--s0) solid; /* Standardized outline (1px) */
-  border-radius: var(--BorderRadius);
+  border-radius: calc(var(--BorderRadius)/25);
   width: 100%;
   height: auto;
   padding: var(--s2); /* Standardized padding (4px) */
   align-items: center;
-  justify-content: center;
+  justify-content: space-around;
   display: flex; /* Allows bars to sit side-by-side */
   flex-wrap: wrap; /* Allows bars to wrap to next line if not enough space */
   box-sizing: border-box; /* Ensures padding is included in the 100% width */
@@ -338,19 +353,18 @@ option {
   margin: var(--s2); /* Standardized margin (4px) */
   border: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
   background-color: var(--Highlight); /* Was #f9f9f9 */
-  cursor: pointer;
   flex-grow: 1;
   /* text-align: center; Flex properties will handle alignment */
   transition: background-color 0.2s ease, border-color 0.2s ease,
     box-shadow 0.2s ease;
-  min-width: var(--s6-5); /* Standardized min-width (40px) */
-  min-height: var(--s6); /* Standardized min-height (32px) */
+  flex-basis: 240px; /* Set a base size, allowing flex-grow to fill space */
   display: flex; /* Arrange beat squares horizontally */
-  flex-wrap: nowrap; /* Force squares into a single line */
-  gap: var(--s2); /* Standardized gap (4px) */
+  flex-wrap: nowrap; /* Prevent beat squares from wrapping to a new line */
+  gap: var(--s1); /* Standardized gap (4px) */
   border-radius: var(--BorderRadius); /* Keep border radius */
   align-items: center; /* Vertically align squares */
   touch-action: none; /* Prevent browser default touch actions like scrolling on mobile */
+  justify-content: space-around;
 }
 .bar-visual:hover {
   border-color: transparent; /* Changed from var(--Main) for flat look */
@@ -369,41 +383,49 @@ option {
   box-shadow: 0 0 var(--s3) var(--Alt1); /* Standardized shadow (0 0 8px) */
 }
 .beat-square {
-  flex-grow: 1; /* Allow square to grow and fill space */
-  flex-basis: 0; /* Distribute space evenly from a zero basis */
-  min-width: var(--s3); /* Set a minimum width of 8px to prevent them from becoming too narrow */
-  height: var(--s4); /* Increased base size to 12px */
+  flex: 0 1 auto; /* Allow shrinking and growing from flex-basis */
+  height: var(--s5); /* Fixed height */
   background-color: color-mix(
     in srgb,
-    var(--Highlight) 60%,
+    var(--Main) 60%,
     white
   ); /* Lighter version of highlight */
   border: var(--s0) solid transparent; /* Standardized border (1px) */
   border-radius: var(--BorderRadius);
   transition: all 0.2s ease-out; /* Smoother and slightly longer "pop" for liquid feel */
 }
-.bar-visual.medium-dense-beats .beat-square {
-  height: var(--s3);
-}
-.bar-visual.high-dense-beats .beat-square {
-  height: var(--s2);
+.beat-square.main-beat-marker.highlighted {
+  scale: 1 1.8; /* Base highlight scale */
+  background: var(--HighlightedBeatColor);
 }
 
-/* Adjust highlighted style for different densities */
-.beat-square.highlighted {
-  scale: 1 1.7 ; /* Base highlight scale */
-  background: var(--SubdivisionBeatColor);
-}
-.bar-visual.medium-dense-beats .beat-square.highlighted {
-  scale: 1 1.8; /* Slightly larger scale for medium density */
-}
-.bar-visual.high-dense-beats .beat-square.highlighted {
-  scale: 1 2; /* Even larger scale for high density to ensure visibility */
+.beat-square.subdivision.highlighted-sub {
+  scale: 1 1.4; /* Slightly smaller scale for subdivisions */
+  background: color-mix(in srgb, var(--HighlightedBeatColor) 60%, white);
 }
 
 /* Style for beat squares that are subdivisions */
 .beat-square.subdivision {
   background-color: var(--SubdivisionBeatColor);
+}
+
+/* Grouping for subdivisions */
+.beat-square.group-end-2 {
+  margin-right: var(--s1); /* Add a small gap after every 2nd subdivision */
+}
+
+.beat-square.group-end-4 {
+  margin-right: var(
+    --s2
+  ); /* Add a slightly larger gap after every 4th subdivision */
+}
+
+.beat-square.group-end-3,
+.beat-square.group-end-5,
+.beat-square.group-end-6,
+.beat-square.group-end-7,
+.beat-square.group-end-8 {
+  margin-right: var(--s1); /* Add a small gap for other subdivision groupings */
 }
 /* Animation for newly removed beat squares */
 .beat-square.removing-beat-animation {
@@ -890,7 +912,7 @@ select {
     bottom: auto;
     left: 0; /* Ensure it starts from the left edge */
     width: 100%;
-    justify-content: center;
+    justify-content: space-between;
     border-bottom: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
     box-shadow: 0 var(--s1) var(--s2) rgba(0, 0, 0, 0.1); /* Standardized shadow (0 2px 4px) */
   }
@@ -902,8 +924,12 @@ select {
     right: 0; /* Ensure it starts from the right edge */
     left: 0; /* Stretch across the bottom */
     width: 100%;
-    justify-content: space-around;
+    justify-content: flex-start; /* Align items to the start */
     border-top: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
+    overflow-x: auto; /* Enable horizontal scrolling */
+    white-space: nowrap; /* Keep all buttons on one line */
+    padding-left: var(--s3); /* Add some padding to the left */
+    padding-right: var(--s3); /* Add some padding to the right */
   }
   /* Add this to your style.css file */
   /* Base styles for all subdivision options */
@@ -956,7 +982,7 @@ select {
 
   /* Visible state specifically for desktop options (temporarily make them always visible for debugging) */
   .subdivision-option.desktop.visible {
-    max-width: 150px; 
+    max-width: 150px;
     padding: 10px 15px;
     opacity: 1;
   }
@@ -965,16 +991,14 @@ select {
   .theme-controls button {
     font-size: var(--font-1); /* Standardized font size */
     padding: var(--s2) var(--s3); /* Standardized padding (4px 8px) */
-    white-space: nowrap; /* Keep text on one line for ellipsis */
+    white-space: nowrap; /* Keep text on one line */
     text-align: center;
-
-    /* Make buttons share space equally and handle overflow */
-    flex-grow: 1; /* Allow buttons to grow to fill space */
-    flex-shrink: 1; /* Allow buttons to shrink if space is limited */
-    flex-basis: 0; /* Distribute space from a zero basis for equal sharing */
-    min-width: 0; /* Crucial: allows shrinking below intrinsic content width */
-    overflow: hidden; /* Hide text that doesn't fit */
-    text-overflow: ellipsis; /* Show '...' for hidden text */
+    flex-shrink: 0; /* Prevent buttons from shrinking */
+    flex-grow: 0; /* Prevent buttons from growing */
+    flex-basis: auto; /* Let content determine size */
+    overflow: visible; /* Ensure text is visible */
+    text-overflow: clip; /* Prevent ellipsis */
+    margin-right: var(--s2); /* Add some space between buttons */
   }
 
   /* Example: Reduce size of large elements to help content fit vertically */
@@ -994,89 +1018,39 @@ select {
 @media (max-width: 768px) {
   /* Styles for mobile devices */
 
-  /* Combined styles for hiding text and displaying emojis */
-  /* Hide original text */
-  .bpm-text,
-  .volume-label,
-  .measures-text,
-  .bars-text,
-  .some-info-panel > span:first-child,
-  .subdivision-label,
-  .preset-slot-label {
-    text-indent: -9999px;
-    display: inline-block;
-    font-size: 0;
-    overflow: hidden;
-    white-space: nowrap;
-  }
-
-  /* Specific emoji content and margins */
-  .bpm-text::before {
-    content: "⏱️";
-  }
-  .volume-label::before {
-    content: "🔊";
-  } /* Assuming you want a volume emoji */
-  .measures-text::before {
-    content: "📏";
-  } /* Assuming you want a measures emoji */
-  .bars-text::before {
-    content: "🧱";
-  } /* Assuming you want a bars emoji */
-  .some-info-panel > span:first-child::before {
-    content: "ℹ️";
-  } /* Assuming you want an info emoji */
-  .subdivision-label::before {
-    content: "🎶";
-  }
-  .preset-slot-label::before {
-    content: "💾";
-  }
-
-  /* Common styles for emoji pseudo-elements */
-  .bpm-text::before,
-  .volume-label::before,
-  .measures-text::before,
-  .bars-text::before,
-  .some-info-panel > span:first-child::before,
-  .subdivision-label::before,
-  .preset-slot-label::before {
-    font-size: 1.2rem;
-    font-size: var(--font-3); /* Standardized font size (1.3rem) */
-    text-indent: 0; /* Reset text-indent */
-    display: inline-block; /* Ensure it's displayed */
-    vertical-align: middle;
-    /* Add margin if needed for spacing */
-    margin: 0 var(--s2); /* Standardized margin (0 4px) */
-  }
 }
 
 .subdivision-option.desktop {
-   
-    /* Temporarily set fixed size for debugging */
+  /* Temporarily set fixed size for debugging */
 
-    padding: 10px 15px;
-    background-color: var(--Accent);
-    color: var(--TextOnMain);
-    border-radius: 8px;
-    cursor: pointer;
-    user-select: none;
-    font-weight: bold;
-    white-space: nowrap;
-    /* Temporarily remove opacity and scale for debugging */
-    opacity: 0;
-    scale: 0.8;
-    transition: all 0.2s ease; /* Disable transitions for debugging */
-  }
-.subdivision-option.desktop.visible{
+  padding: 10px 15px;
+  background-color: var(--Accent);
+  color: var(--TextOnMain);
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: bold;
+  white-space: nowrap;
+  /* Temporarily remove opacity and scale for debugging */
+  opacity: 0;
+  scale: 0.8;
+  transition: all 0.2s ease; /* Disable transitions for debugging */
+}
+.subdivision-option.desktop.visible {
   opacity: 1;
   scale: 1;
-};  
+}
 
 @keyframes boop {
-  0%   { transform: scale(1); }
-  50%  { transform: scale(1.05) rotate(1deg); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05) rotate(1deg);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 button:active,
@@ -1087,20 +1061,36 @@ button:active,
   animation: boop 0.2s ease;
 }
 @keyframes pulse-glow {
-  0%   { box-shadow: 0 0 0 rgba(255, 0, 221, 0.5); }
-  50%  { box-shadow: 0 0 10px rgba(255, 0, 221, 0.8); }
-  100% { box-shadow: 0 0 0 rgba(255, 0, 221, 0.5); }
+  0% {
+    box-shadow: 0 0 0 rgba(255, 0, 221, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 10px rgba(255, 0, 221, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 0 rgba(255, 0, 221, 0.5);
+  }
 }
 
 .start-stop-btn.active {
   animation: pulse-glow 1.2s infinite;
 }
 @keyframes wiggle {
-  0% { transform: rotate(0deg); }
-  25% { transform: rotate(1.5deg); }
-  50% { transform: rotate(-1.5deg); }
-  75% { transform: rotate(1deg); }
-  100% { transform: rotate(0deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(1.5deg);
+  }
+  50% {
+    transform: rotate(-1.5deg);
+  }
+  75% {
+    transform: rotate(1deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
 }
 
 .adjust-tempo:hover,

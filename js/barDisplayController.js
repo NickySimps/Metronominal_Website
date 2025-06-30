@@ -86,12 +86,22 @@ function updateBeatSquareClasses(
   currentBeatMultiplier,
   mainBeatsInBar
 ) {
-  beatSquare.classList.remove("main-beat-marker", "subdivision"); // Clear old type classes
+  beatSquare.classList.remove("main-beat-marker", "subdivision", "group-end-2", "group-end-3", "group-end-4", "group-end-5", "group-end-6", "group-end-7", "group-end-8"); // Clear old type classes
 
   if (isMainBeat(indexInBar, currentBeatMultiplier, mainBeatsInBar)) {
     beatSquare.classList.add("main-beat-marker");
   } else {
     beatSquare.classList.add("subdivision");
+
+    const subdivisionFloat = parseFloat(currentBeatMultiplier);
+    if (subdivisionFloat > 1) { // Only apply grouping if there are actual subdivisions
+      const positionWithinMainBeat = indexInBar % subdivisionFloat;
+
+      // If this is the last sub-beat within a main beat grouping, add the class.
+      if (positionWithinMainBeat === subdivisionFloat - 1) {
+        beatSquare.classList.add(`group-end-${subdivisionFloat}`);
+      }
+    }
   }
 }
 
@@ -417,18 +427,6 @@ const BarDisplayController = {
       // Adding the same listener multiple times has no effect.
       barDiv.addEventListener("pointerdown", onBarPointerDown);
 
-      // ---- START: Add density class logic ----
-      // This applies to both existing and newly created barDivs
-      barDiv.classList.remove("medium-dense-beats", "high-dense-beats"); // Clear existing density classes
-      const HIGH_DENSITY_THRESHOLD = 40; // e.g., > 10 beats of 16ths
-      const MEDIUM_DENSITY_THRESHOLD = 20; // e.g., > 5 beats of 16ths
-
-      if (totalSubBeatsNeeded > HIGH_DENSITY_THRESHOLD) {
-        barDiv.classList.add("high-dense-beats");
-      } else if (totalSubBeatsNeeded > MEDIUM_DENSITY_THRESHOLD) {
-        barDiv.classList.add("medium-dense-beats");
-      }
-      // ---- END: Add density class logic ----
 
       // Now, handle beat squares (add/remove/update)
       if (isNewBarInstance) {
@@ -483,13 +481,21 @@ const BarDisplayController = {
               );
             }
           }
-        } else {
-          // Same number of sub-beats, ensure classes are correct (e.g. if multiplier changed type)
-          existingBeatSquares.forEach((sq, beatIdx) => {
-            updateBeatSquareClasses(sq, beatIdx, subdivision, mainBeatsInBar);
-          });
         }
+        // Even if the number of beats is the same, we need to update their classes
+        // and flex-basis.
+        const allBeatSquares = barDiv.querySelectorAll(".beat-square");
+        allBeatSquares.forEach((sq, beatIdx) => {
+          updateBeatSquareClasses(sq, beatIdx, subdivision, mainBeatsInBar);
+        });
       }
+
+      // Set the flex-basis on all beat squares to make them scale
+      const allBeatSquares = barDiv.querySelectorAll(".beat-square");
+      const flexBasis = 100 / totalSubBeatsNeeded * 0.9;
+      allBeatSquares.forEach(sq => {
+        sq.style.flexBasis = `${flexBasis}%`;
+      });
 
       // Update selection class for the bar (whether existing or new)
       if (index === selectedBarIndex) {
@@ -535,14 +541,14 @@ const BarDisplayController = {
    */
   clearAllHighlights: () => {
     if (previousHighlightedBeatElement) {
-      previousHighlightedBeatElement.classList.remove("highlighted");
+      previousHighlightedBeatElement.classList.remove("highlighted", "highlighted-sub");
       previousHighlightedBeatElement = null;
     }
     // Fallback to ensure all are cleared if previousHighlightedBeatElement was missed
     const allBeatSquares = DOM.barDisplayContainer.querySelectorAll(
-      ".beat-square.highlighted"
+      ".beat-square.highlighted, .beat-square.highlighted-sub"
     );
-    allBeatSquares.forEach((sq) => sq.classList.remove("highlighted"));
+    allBeatSquares.forEach((sq) => sq.classList.remove("highlighted", "highlighted-sub"));
 
     // Also clear the active bar styling
     if (currentActiveBarElement) {
@@ -569,7 +575,7 @@ const BarDisplayController = {
 
     // 1. Clear previous beat's highlight style
     if (previousHighlightedBeatElement) {
-      previousHighlightedBeatElement.classList.remove("highlighted");
+      previousHighlightedBeatElement.classList.remove("highlighted", "highlighted-sub");
     }
 
     // 2. Clear 'active-bar' from the previously active bar IF it's different from the new target
@@ -586,7 +592,14 @@ const BarDisplayController = {
       const beatSquares = targetBarElement.querySelectorAll(".beat-square");
       if (beatIndex >= 0 && beatIndex < beatSquares.length) {
         const beatToHighlight = beatSquares[beatIndex];
-        beatToHighlight.classList.add("highlighted");
+        
+        // Check if the beat is a main beat or a subdivision
+        if (beatToHighlight.classList.contains('main-beat-marker')) {
+          beatToHighlight.classList.add("highlighted");
+        } else {
+          beatToHighlight.classList.add("highlighted-sub");
+        }
+        
         previousHighlightedBeatElement = beatToHighlight;
 
         targetBarElement.classList.add("active-bar");
