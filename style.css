@@ -11,22 +11,21 @@ html {
 }
 
 :root {
-  --Main: #ff00dd; /* Bright Pink/Magenta */
-  --Background: #f0f0f0; /* Off-white/Very Light Grey */
-  --Accent: #ffb347; /* Yellow-Orange - Secondary Accent */
-  --Highlight: #90ee90; /* Light Green */
-  --HighlightedBeatColor: var(--Highlight); /* Define the missing variable */
-  --Alt1: #4682b4; /* Steel Blue - Potentially for stronger call to actions or specific states */
-  --Alt2: #dc143c; /* Crimson - Good for active/warning states */
-  --TextOnMain: #ffffff; /* White text for contrast on Main/Alt1 colors */
-  --TextPrimary: #333333; /* Dark Grey for primary text */
-  --TextSecondary: #555555; /* Medium Grey for secondary text */
-  --SubdivisionBeatColor: #ffa07a; /* Light Salmon - for subdivision beats */
-  --ActiveBarBackground: var(--Alt1); /* Deep Blue for active bar background */
-  --BorderColor: transparent; /* Light grey for borders -> Now transparent by default for flat look */
-  --BorderRadius: var(
-    --s5
-  ); /* Default border radius (20px), will be overridden by themes */
+  --Main: #00b430; /* Pistachio Green */
+  --Background: #e3ffe8; /* Light Green */
+  --Accent: #ffe0b2; /* Pale Orange/Peach */
+  --Highlight: #a0faa0; /* Light Green */
+  --HighlightedBeatColor: #ffc471; /* Light Orange */
+  --Alt1: #4682b4; /* Steel Blue */
+  --Alt2: #dc143c; /* Crimson Red */
+  --TextOnMain: #000000; /* Black */
+  --TextPrimary: #333333; /* Dark Gray */
+  --TextSecondary: #555555; /* Medium Gray */
+  --SubdivisionBeatColor: rgba(14, 75, 0, 0.85); /* Dark Green */
+  --ActiveBarBackground: rgb(255, 217, 248); /* Light Pink */
+  --BorderColor: transparent; /* Set to transparent for flat look */
+  --BorderRadius: 20px; /* Slightly rounded */
+  --font-family: "Inter", sans-serif;
 
   /* New Font Sizes */
   --font-1: 0.8rem; /* Smallest */
@@ -1144,6 +1143,12 @@ button:active,
 }
 
 /* Add this to your style.css file */
+#all-tracks-wrapper{
+  display: flex;
+  flex-flow: row wrap;
+  flex-grow: 1;
+  justify-content: center;
+}
 .track-container {
   display: flex;
   flex-direction: column;
@@ -1155,9 +1160,9 @@ button:active,
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  width: 90vw;
+  width: clamp(340px, 90%, auto);
   padding: var(--s2);
-  margin: var(--s3) 0;
+  margin: var(--s3) var(--s2);
   border-radius: 8px;
   background-color: var(--track-background);
   color: var(--track-text);
@@ -1278,7 +1283,7 @@ button:active,
   z-index: 1002; /* Higher than other elements */
   display: flex;
   flex-flow: row wrap;
-  width: 90%;
+  width: clamp(60%, 90%, 250px);
   gap: var(--s2);
   padding: var(--s5);
   background-color: var(--Background);
