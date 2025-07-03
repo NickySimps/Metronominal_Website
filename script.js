@@ -46,7 +46,10 @@ async function initialize() {
         AppState.loadAudioBuffers();
     }
 
-    // 2. Initialize all controllers with their correct function names.
+    // 2. Load state from local storage
+    AppState.loadStateFromLocalStorage();
+
+    // 3. Initialize all controllers with their correct function names.
     UIController.initializeUIControls(refreshUIFromState); // Corrected function name
     ThemeController.initializeThemeControls();            // Corrected function name
     TempoController.initializeTempoControls();            // Corrected function name
@@ -57,10 +60,10 @@ async function initialize() {
     VolumeController.initializeVolumeControls();
 
 
-    // 3. Set the initial state of the application.
-    AppState.resetState(); 
+    // 4. Set the initial state of the application.
+    // AppState.resetState(); // This is removed to keep the loaded state
     
-    // 4. Perform the first render of the UI.
+    // 5. Perform the first render of the UI.
     refreshUIFromState();
 
     console.log("Metronominal initialized successfully.");
