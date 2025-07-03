@@ -181,10 +181,11 @@ input[type="range"]:focus {
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: var(--s5); /* Standardized width (20px) */
-  height: var(--s5); /* Standardized height (20px) */
+  width: var(--s6); /* Standardized width (20px) */
+  height: var(--s6); /* Standardized height (20px) */
   border-radius: 50%;
-  background: var(--Main);
+  background: var(--Accent);
+  box-shadow: var(--text-shadow);
   margin-top: calc(var(--s4) * -1); /* Standardized margin (-12px) */
 }
 
@@ -478,7 +479,14 @@ button {
   font-size: var(--font-3);
   text-align: center;
   color: var(--TextPrimary);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
 }
+
+.sound-label:hover {
+    background-color: var(--Accent);
+}
+
 .total-beats-display,
 select {
   outline: var(--s0) solid transparent;
@@ -1374,4 +1382,59 @@ button:active,
 
 .track.muted .track-mute-btn {
   background-color: var(--Main);
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    z-index: 1001;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+}
+
+.modal-content {
+    background-color: var(--Background);
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+    border-radius: var(--BorderRadius);
+    position: relative;
+    box-shadow:var(--text-shadow);
+}
+
+.close-button {
+    color: var(--TextOnMain);
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+#sound-sliders-container {
+    margin-top: 20px;
+}
+
+.slider-container {
+    margin-bottom: 15px;
+}
+
+.slider-container label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.slider-container input[type="range"] {
+    width: 100%;
 }

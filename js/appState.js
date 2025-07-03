@@ -1,5 +1,88 @@
 // js/appState.js
 
+const defaultKick = {
+  volume: 1.0,
+  startFrequency: 150,
+  endFrequency: 50,
+  decay: 0.4,
+  pitchEnvelopeTime: 0.1,
+};
+
+const defaultSnare = {
+  volume: 1.0,
+  bodyFrequencyStart: 200,
+  bodyFrequencyEnd: 100,
+  bodyDecay: 0.2,
+  noiseFilterFrequency: 1500,
+  noiseDecay: 0.2,
+};
+
+const defaultHiHat = {
+  volume: 1.0,
+  filterFrequency: 7000,
+  decay: 0.05,
+};
+
+const defaultOpenHiHat = {
+  volume: 1.0,
+  filterFrequency: 6000,
+  decay: 0.4,
+};
+
+const defaultHiTom = {
+  volume: 1.0,
+  startFrequency: 300,
+  endFrequency: 150,
+  decay: 0.3,
+};
+
+const defaultMidTom = {
+  volume: 1.0,
+  startFrequency: 150,
+  endFrequency: 80,
+  decay: 0.4,
+};
+
+const defaultLowTom = {
+  volume: 1.0,
+  startFrequency: 100,
+  endFrequency: 50,
+  decay: 0.5,
+};
+
+const defaultClap = {
+  volume: 1.0,
+  filterFrequency: 1200,
+  qValue: 15,
+  decay: 0.15,
+};
+
+const defaultClaves = {
+  volume: 1.0,
+  frequency: 2500,
+  decay: 0.08,
+};
+
+const defaultShaker = {
+  volume: 1.0,
+  filterFrequency: 6000,
+  qValue: 5,
+  decay: 0.2,
+};
+
+const defaultSoundSettings = {
+    'Synth Kick': defaultKick,
+    'Synth Snare': defaultSnare,
+    'Synth HiHat': defaultHiHat,
+    'Synth Open HiHat': defaultOpenHiHat,
+    'Synth Hi Tom': defaultHiTom,
+    'Synth Mid Tom': defaultMidTom,
+    'Synth Low Tom': defaultLowTom,
+    'Synth Clap': defaultClap,
+    'Synth Claves': defaultClaves,
+    'Synth Shaker': defaultShaker
+};
+
 const AppState = (function () {
   // --- Private State ---
   let tempo = 120;
@@ -13,8 +96,8 @@ const AppState = (function () {
       volume: 1.0,
       currentBar: 0,
       currentBeat: 0,
-      mainBeatSound: "Click1.mp3",
-      subdivisionSound: "Click2.mp3",
+      mainBeatSound: { sound: 'Synth Kick', settings: { ...defaultKick } },
+      subdivisionSound: { sound: 'Synth HiHat', settings: { ...defaultHiHat } },
       nextBeatTime: 0,
     },
   ];
@@ -168,8 +251,8 @@ const AppState = (function () {
         volume: 1.0,
         currentBar: 0,
         currentBeat: 0,
-        mainBeatSound: "Click1.mp3",
-        subdivisionSound: "Click2.mp3",
+        mainBeatSound: { sound: 'Synth Kick', settings: { ...defaultKick } },
+        subdivisionSound: { sound: 'Synth HiHat', settings: { ...defaultHiHat } },
         nextBeatTime: 0,
       });
       publicAPI.setSelectedTrackIndex(Tracks.length - 1);
@@ -190,8 +273,8 @@ const AppState = (function () {
           volume: 1.0,
           currentBar: 0,
           currentBeat: 0,
-          mainBeatSound: "Click1.mp3",
-          subdivisionSound: "Click2.mp3",
+          mainBeatSound: { sound: 'Synth Kick', settings: { ...defaultKick } },
+          subdivisionSound: { sound: 'Synth HiHat', settings: { ...defaultHiHat } },
           nextBeatTime: 0,
         };
         publicAPI.setSelectedTrackIndex(0);
@@ -411,6 +494,9 @@ const AppState = (function () {
       return Object.keys(soundBuffers).length > 0;
     },
     getSoundBuffer: (sound) => soundBuffers[sound],
+    getDefaultSoundSettings: (sound) => {
+        return defaultSoundSettings[sound];
+    },
 
   // Presets & State
   getCurrentStateForPreset: () => ({
@@ -472,8 +558,8 @@ const AppState = (function () {
           volume: 1.0,
           currentBar: 0,
           currentBeat: 0,
-          mainBeatSound: "Click1.mp3",
-          subdivisionSound: "Click2.mp3",
+          mainBeatSound: { sound: 'Synth Kick', settings: { ...defaultKick } },
+          subdivisionSound: { sound: 'Synth HiHat', settings: { ...defaultHiHat } },
           nextBeatTime: 0,
         },
       ];

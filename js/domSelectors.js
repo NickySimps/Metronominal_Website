@@ -46,6 +46,9 @@ const DOM = {
     // Bar Container Controls
     get addTrackButton() { return document.getElementById('add-track-btn'); },
     get trackWrapper() { return document.getElementById('all-tracks-wrapper'); },
+
+    // Sound Settings Modal
+    get soundSettingsModal() { return document.getElementById('sound-settings-modal'); },
 };
 
 export default DOM;

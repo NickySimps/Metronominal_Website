@@ -25,46 +25,26 @@ function playBeatSound(track, beatTime) {
     const beatMultiplier = parseFloat(currentBarData.subdivision);
     const isAccent = (track.currentBeat === 0) || (beatMultiplier > 1 && track.currentBeat % beatMultiplier === 0);
 
-    const soundToPlay = isAccent ? track.mainBeatSound : track.subdivisionSound;
+    const soundObject = isAccent ? track.mainBeatSound : track.subdivisionSound;
+    const soundToPlay = soundObject.sound; // Extract the sound name string
+
+    // Calculate final volume by combining global, track, and individual sound volumes
     const trackVolume = track.volume !== undefined ? track.volume : 1.0;
-    const finalVolume = AppState.getVolume() * trackVolume;
+    const soundVolume = soundObject.settings && soundObject.settings.volume !== undefined ? soundObject.settings.volume : 1.0;
+    const finalVolume = AppState.getVolume() * trackVolume * soundVolume;
 
     // Check if the sound is a synth sound
-    if (soundToPlay.startsWith('Synth')) {
-        switch (soundToPlay) {
-            case 'Synth Kick':
-                SoundSynth.playKick(audioContext, beatTime, finalVolume);
-                break;
-            case 'Synth Snare':
-                SoundSynth.playSnare(audioContext, beatTime, finalVolume);
-                break;
-            case 'Synth Hi-Hat':
-                SoundSynth.playHiHat(audioContext, beatTime, finalVolume);
-                break;
-            case 'Synth Tom':
-                SoundSynth.playMidTom(audioContext, beatTime, finalVolume); // Default to Mid Tom
-                break;
-            case 'Synth Open Hi-Hat':
-                SoundSynth.playOpenHiHat(audioContext, beatTime, finalVolume);
-                break;
-            case 'Synth Hi Tom':
-                SoundSynth.playHiTom(audioContext, beatTime, finalVolume);
-                break;
-            case 'Synth Mid Tom':
-                SoundSynth.playMidTom(audioContext, beatTime, finalVolume);
-                break;
-            case 'Synth Low Tom':
-                SoundSynth.playLowTom(audioContext, beatTime, finalVolume);
-                break;
-            case 'Synth Clap':
-                SoundSynth.playClap(audioContext, beatTime, finalVolume);
-                break;
-            case 'Synth Claves':
-                SoundSynth.playClaves(audioContext, beatTime, finalVolume);
-                break;
-            case 'Synth Shaker':
-                SoundSynth.playShaker(audioContext, beatTime, finalVolume);
-                break;
+    if (soundToPlay && soundToPlay.startsWith('Synth')) {
+        const synthFunctionName = `play${soundToPlay.replace('Synth ', '').replace(/ /g, '')}`;
+        
+        // Dynamically call the synth function if it exists
+        if (SoundSynth[synthFunctionName]) {
+            // The individual sound's volume has been factored in. Now, set the final combined volume for the synth function.
+            const settingsWithVolume = { ...soundObject.settings, volume: finalVolume };
+            // Pass the entire settings object to the synth function
+            SoundSynth[synthFunctionName](audioContext, beatTime, settingsWithVolume);
+        } else {
+            console.warn(`Synth function ${synthFunctionName} not found in SoundSynth.`);
         }
     } else {
         // Fallback to the original file-based sound logic

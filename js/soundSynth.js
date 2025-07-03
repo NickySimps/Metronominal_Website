@@ -1,4 +1,3 @@
-
 /**
  * A collection of functions to synthesize drum sounds using the Web Audio API.
  */
@@ -10,7 +9,17 @@ const SoundSynth = {
    * @param {number} time - The time to schedule the sound to play.
    * @param {number} volume - The master volume level (0.0 to 1.0).
    */
-  playKick: (audioContext, time, volume = 1.0) => {
+  playKick: (
+    audioContext,
+    time,
+    {
+      volume = 1.0,
+      startFrequency = 150,
+      endFrequency = 50,
+      decay = 0.4,
+      pitchEnvelopeTime = 0.1,
+    } = {}
+  ) => {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
@@ -20,15 +29,18 @@ const SoundSynth = {
     // Set master volume
     gain.gain.setValueAtTime(volume, time);
 
-    // Pitch Envelope (from 150Hz down to 50Hz)
-    osc.frequency.setValueAtTime(150, time);
-    osc.frequency.exponentialRampToValueAtTime(50, time + 0.1);
+    // Pitch Envelope (from startFrequency down to endFrequency)
+    osc.frequency.setValueAtTime(startFrequency, time);
+    osc.frequency.exponentialRampToValueAtTime(
+      endFrequency,
+      time + pitchEnvelopeTime
+    );
 
     // Volume Envelope (a sharp decay)
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
 
     osc.start(time);
-    osc.stop(time + 0.4);
+    osc.stop(time + decay);
   },
 
   /**
@@ -38,7 +50,18 @@ const SoundSynth = {
    * @param {number} time - The time to schedule the sound to play.
    * @param {number} volume - The master volume level (0.0 to 1.0).
    */
-  playSnare: (audioContext, time, volume = 1.0) => {
+  playSnare: (
+    audioContext,
+    time,
+    {
+      volume = 1.0,
+      bodyFrequencyStart = 200,
+      bodyFrequencyEnd = 100,
+      bodyDecay = 0.2,
+      noiseFilterFrequency = 1500,
+      noiseDecay = 0.2,
+    } = {}
+  ) => {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
     const noise = audioContext.createBufferSource();
@@ -46,29 +69,33 @@ const SoundSynth = {
     const noiseGain = audioContext.createGain();
 
     // Configure the tonal part (the "body" of the snare)
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(200, time);
-    osc.frequency.exponentialRampToValueAtTime(100, time + 0.1);
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(bodyFrequencyStart, time);
+    osc.frequency.exponentialRampToValueAtTime(bodyFrequencyEnd, time + 0.1);
     gain.gain.setValueAtTime(0.7 * volume, time);
-    gain.gain.exponentialRampToValueAtTime(0.01 * volume, time + 0.2);
-    
+    gain.gain.exponentialRampToValueAtTime(0.01 * volume, time + bodyDecay);
+
     osc.connect(gain);
     gain.connect(audioContext.destination);
 
     // Configure the noise part (the "snap" of the snare)
     const bufferSize = audioContext.sampleRate * 0.2; // 0.2 seconds of noise
-    const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const buffer = audioContext.createBuffer(
+      1,
+      bufferSize,
+      audioContext.sampleRate
+    );
     const output = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
       output[i] = Math.random() * 2 - 1;
     }
     noise.buffer = buffer;
 
-    noiseFilter.type = 'highpass';
-    noiseFilter.frequency.value = 1500;
-    
+    noiseFilter.type = "highpass";
+    noiseFilter.frequency.value = noiseFilterFrequency;
+
     noiseGain.gain.setValueAtTime(0.8 * volume, time);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, time + noiseDecay);
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
@@ -77,8 +104,9 @@ const SoundSynth = {
     osc.start(time);
     noise.start(time);
 
-    osc.stop(time + 0.3);
-    noise.stop(time + 0.3);
+    const stopTime = time + Math.max(bodyDecay, noiseDecay) + 0.1;
+    osc.stop(stopTime);
+    noise.stop(stopTime);
   },
 
   /**
@@ -88,14 +116,22 @@ const SoundSynth = {
    * @param {number} time - The time to schedule the sound to play.
    * @param {number} volume - The master volume level (0.0 to 1.0).
    */
-  playHiHat: (audioContext, time, volume = 1.0) => {
+  playHiHat: (
+    audioContext,
+    time,
+    { volume = 1.0, filterFrequency = 7000, decay = 0.05 } = {}
+  ) => {
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
     // Use the same noise generation as the snare
-    const bufferSize = audioContext.sampleRate * 0.1; 
-    const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const bufferSize = audioContext.sampleRate * 0.1;
+    const buffer = audioContext.createBuffer(
+      1,
+      bufferSize,
+      audioContext.sampleRate
+    );
     const output = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
       output[i] = Math.random() * 2 - 1;
@@ -103,54 +139,62 @@ const SoundSynth = {
     noise.buffer = buffer;
 
     // Filter the noise to be high-frequency (the "tsss" sound)
-    noiseFilter.type = 'highpass';
-    noiseFilter.frequency.value = 7000;
+    noiseFilter.type = "highpass";
+    noiseFilter.frequency.value = filterFrequency;
 
     // Very short volume envelope for a "ticking" sound
     noiseGain.gain.setValueAtTime(0.4 * volume, time);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.05);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, time + decay);
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
     noiseGain.connect(audioContext.destination);
-    
+
     noise.start(time);
-    noise.stop(time + 0.1);
+    noise.stop(time + decay + 0.05);
   },
 
-    /**
+  /**
    * Plays a synthesized open hi-hat sound.
    * Similar to a closed hi-hat but with a longer, sustained decay.
    * @param {AudioContext} audioContext - The global AudioContext.
    * @param {number} time - The time to schedule the sound to play.
    * @param {number} volume - The master volume level (0.0 to 1.0).
    */
-  playOpenHiHat: (audioContext, time, volume = 1.0) => {
+  playOpenHiHat: (
+    audioContext,
+    time,
+    { volume = 1.0, filterFrequency = 6000, decay = 0.4 } = {}
+  ) => {
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
-    const bufferSize = audioContext.sampleRate * 0.5; 
-    const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const bufferSize = audioContext.sampleRate * 0.5;
+    const buffer = audioContext.createBuffer(
+      1,
+      bufferSize,
+      audioContext.sampleRate
+    );
     const output = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
       output[i] = Math.random() * 2 - 1;
     }
     noise.buffer = buffer;
 
-    noiseFilter.type = 'highpass';
-    noiseFilter.frequency.value = 6000;
+    noiseFilter.type = "highpass";
+    noiseFilter.frequency.value = filterFrequency;
 
     // Longer decay for the "open" sound
     noiseGain.gain.setValueAtTime(0.4 * volume, time);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, time + decay);
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
     noiseGain.connect(audioContext.destination);
-    
+
     noise.start(time);
-    noise.stop(time + 0.5);
+    noise.stop(time + decay + 0.1);
   },
 
   /**
@@ -159,22 +203,26 @@ const SoundSynth = {
    * @param {number} time - The time to schedule the sound to play.
    * @param {number} volume - The master volume level (0.0 to 1.0).
    */
-  playHiTom: (audioContext, time, volume = 1.0) => {
+  playHiTom: (
+    audioContext,
+    time,
+    { volume = 1.0, startFrequency = 300, endFrequency = 150, decay = 0.3 } = {}
+  ) => {
     const osc = audioContext.createOscillator(); // Tonal part
     const gain = audioContext.createGain(); // Gain for tonal part
 
     // Tonal part (pitched sine wave)
-    osc.frequency.setValueAtTime(300, time); // Higher start frequency
-    osc.frequency.exponentialRampToValueAtTime(150, time + 0.2); 
-    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(startFrequency, time); // Higher start frequency
+    osc.frequency.exponentialRampToValueAtTime(endFrequency, time + 0.2);
+    osc.type = "triangle";
     gain.gain.setValueAtTime(1.0 * volume, time); // Full volume
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.3); // Decay quickly
-    
+    gain.gain.exponentialRampToValueAtTime(0.001, time + decay); // Decay quickly
+
     osc.connect(gain);
     gain.connect(audioContext.destination);
 
     osc.start(time);
-    osc.stop(time + 0.3); // Stop after the decay
+    osc.stop(time + decay); // Stop after the decay
   },
 
   /**
@@ -183,21 +231,25 @@ const SoundSynth = {
    * @param {number} time - The time to schedule the sound to play.
    * @param {number} volume - The master volume level (0.0 to 1.0).
    */
-  playMidTom: (audioContext, time, volume = 1.0) => {
+  playMidTom: (
+    audioContext,
+    time,
+    { volume = 1.0, startFrequency = 150, endFrequency = 80, decay = 0.4 } = {}
+  ) => {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
-    osc.frequency.setValueAtTime(150, time); 
-    osc.frequency.exponentialRampToValueAtTime(80, time + 0.25);
-    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(startFrequency, time);
+    osc.frequency.exponentialRampToValueAtTime(endFrequency, time + 0.25);
+    osc.type = "triangle";
     gain.gain.setValueAtTime(1.0 * volume, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
-    
+    gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
+
     osc.connect(gain);
     gain.connect(audioContext.destination);
 
     osc.start(time);
-    osc.stop(time + 0.4);
+    osc.stop(time + decay);
   },
 
   /**
@@ -206,21 +258,25 @@ const SoundSynth = {
    * @param {number} time - The time to schedule the sound to play.
    * @param {number} volume - The master volume level (0.0 to 1.0).
    */
-  playLowTom: (audioContext, time, volume = 1.0) => {
+  playLowTom: (
+    audioContext,
+    time,
+    { volume = 1.0, startFrequency = 100, endFrequency = 50, decay = 0.5 } = {}
+  ) => {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
-    osc.frequency.setValueAtTime(100, time); // Lower start frequency
-    osc.frequency.exponentialRampToValueAtTime(50, time + 0.3);
-    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(startFrequency, time); // Lower start frequency
+    osc.frequency.exponentialRampToValueAtTime(endFrequency, time + 0.3);
+    osc.type = "triangle";
     gain.gain.setValueAtTime(1.0 * volume, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
-    
+    gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
+
     osc.connect(gain);
     gain.connect(audioContext.destination);
 
     osc.start(time);
-    osc.stop(time + 0.5);
+    osc.stop(time + decay);
   },
 
   /**
@@ -230,34 +286,42 @@ const SoundSynth = {
    * @param {number} time - The time to schedule the sound to play.
    * @param {number} volume - The master volume level (0.0 to 1.0).
    */
-  playClap: (audioContext, time, volume = 1.0) => {
+  playClap: (
+    audioContext,
+    time,
+    { volume = 1.0, filterFrequency = 1200, qValue = 15, decay = 0.15 } = {}
+  ) => {
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
     const bufferSize = audioContext.sampleRate * 0.2;
-    const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const buffer = audioContext.createBuffer(
+      1,
+      bufferSize,
+      audioContext.sampleRate
+    );
     const output = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
       output[i] = Math.random() * 2 - 1;
     }
     noise.buffer = buffer;
 
-    noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.value = 1200;
-    noiseFilter.Q.value = 15;
+    noiseFilter.type = "bandpass";
+    noiseFilter.frequency.value = filterFrequency;
+    noiseFilter.Q.value = qValue;
 
     noiseGain.gain.setValueAtTime(0, time);
     noiseGain.gain.linearRampToValueAtTime(volume, time + 0.01);
     noiseGain.gain.exponentialRampToValueAtTime(0.3 * volume, time + 0.03);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, time + decay);
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
     noiseGain.connect(audioContext.destination);
 
     noise.start(time);
-    noise.stop(time + 0.2);
+    noise.stop(time + decay + 0.05);
   },
 
   /**
@@ -267,21 +331,25 @@ const SoundSynth = {
    * @param {number} time - The time to schedule the sound to play.
    * @param {number} volume - The master volume level (0.0 to 1.0).
    */
-  playClaves: (audioContext, time, volume = 1.0) => {
+  playClaves: (
+    audioContext,
+    time,
+    { volume = 1.0, frequency = 2500, decay = 0.08 } = {}
+  ) => {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(2500, time);
-    
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(frequency, time);
+
     gain.gain.setValueAtTime(volume, time);
-    gain.gain.exponentialRampToValueAtTime(0.001, time + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
 
     osc.connect(gain);
     gain.connect(audioContext.destination);
 
     osc.start(time);
-    osc.stop(time + 0.1);
+    osc.stop(time + decay + 0.02);
   },
 
   /**
@@ -291,34 +359,42 @@ const SoundSynth = {
    * @param {number} time - The time to schedule the sound to play.
    * @param {number} volume - The master volume level (0.0 to 1.0).
    */
-  playShaker: (audioContext, time, volume = 1.0) => {
+  playShaker: (
+    audioContext,
+    time,
+    { volume = 1.0, filterFrequency = 6000, qValue = 5, decay = 0.2 } = {}
+  ) => {
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
     const bufferSize = audioContext.sampleRate * 0.3;
-    const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+    const buffer = audioContext.createBuffer(
+      1,
+      bufferSize,
+      audioContext.sampleRate
+    );
     const output = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
       output[i] = Math.random() * 2 - 1;
     }
     noise.buffer = buffer;
 
-    noiseFilter.type = 'bandpass';
-    noiseFilter.frequency.value = 6000;
-    noiseFilter.Q.value = 5;
+    noiseFilter.type = "bandpass";
+    noiseFilter.frequency.value = filterFrequency;
+    noiseFilter.Q.value = qValue;
 
     noiseGain.gain.setValueAtTime(0, time);
     noiseGain.gain.linearRampToValueAtTime(0.5 * volume, time + 0.02);
-    noiseGain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, time + decay);
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
     noiseGain.connect(audioContext.destination);
 
     noise.start(time);
-    noise.stop(time + 0.3);
-  }
+    noise.stop(time + decay + 0.1);
+  },
 };
 
 export default SoundSynth;
