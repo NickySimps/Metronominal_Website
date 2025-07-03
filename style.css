@@ -252,10 +252,11 @@ input[type="range"]::-webkit-slider-runnable-track {
   background: var(--Highlight);
   border: none;
   margin: var(--s2) auto;
-  width: clamp(60px, 24%, 30%);
+  width: clamp(60px, 23%, 30%);
   height: clamp(10%, 100px, 25%);
   padding: var(--s5) 0;
   display: flex; /* For centering content */
+  flex-flow: row nowrap;
   align-items: center; /* For centering content */
   justify-content: center; /* For centering content */
   cursor: pointer;
@@ -1176,8 +1177,12 @@ button:active,
 }
 
 .track-name {
-  font-weight: bold;
-  margin-right: auto; /* Pushes other controls to the right */
+    font-weight: bold;
+    margin: var(--s2);
+    background: var(--Accent);
+    border-radius: var(--BorderRadius);
+    padding: var(--s2);
+    box-shadow: var(--Main) 0px var(--s1);
 }
 .track-volume-value,
 .track-volume-label {
@@ -1245,27 +1250,31 @@ button:active,
 
 /* Track color variations */
 .track-color-0 {
-  --track-background: color-mix(in srgb, var(--Main) 20%, var(--TextPrimary));
+  --track-background: color-mix(in srgb, var(--Main) 0%, var(--TextPrimary));
   --track-text: #ffffff;
 }
 
 .track-color-1 {
-  --track-background: color-mix(in srgb, var(--Main) 40%, var(--TextPrimary));
+  --track-background: color-mix(in srgb, var(--Main) 20%, var(--TextPrimary));
   --track-text: #333333;
 }
 
 .track-color-2 {
-  --track-background: color-mix(in srgb, var(--Main) 60%, var(--TextPrimary));
+  --track-background: color-mix(in srgb, var(--Main) 40%, var(--TextPrimary));
   --track-text: #ffffff;
 }
 
 .track-color-3 {
-  --track-background: color-mix(in srgb, var(--Main) 80%, var(--TextPrimary));
+  --track-background: color-mix(in srgb, var(--Main) 60%, var(--TextPrimary));
   --track-text: #333333;
 }
 .track-color-4 {
-  --track-background: color-mix(in srgb, var(--Main) 100%, var(--TextPrimary));
+  --track-background: color-mix(in srgb, var(--Main) 80%, var(--TextPrimary));
   --track-text: #ffffff;
+}
+.track-color-5 {
+  --track-background: color-mix(in srgb, var(--Main) 100%, var(--TextPrimary));
+  --track-text: #333333;
 }
 
 /* Beat square styling */

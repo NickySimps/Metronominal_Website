@@ -29,7 +29,7 @@ const TrackController = {
       containerElement.classList.add("track");
       containerElement.dataset.containerIndex = index;
 
-      const colorInversionClass = `track-color-${index % 5}`;
+      const colorInversionClass = `track-color-${index % 6}`;
       containerElement.classList.add(colorInversionClass);
 
       if (container.solo) {
