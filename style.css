@@ -1181,7 +1181,7 @@ button:active,
     position: absolute;
     z-index: 10;
     background-color: var(--Accent);
-    border: 1px solid var(--Main);
+    border:var(--s1) solid var(--Main);
     border-radius: 5px;
     padding: 5px;
 }
@@ -1228,13 +1228,14 @@ button:active,
   position: fixed;
   z-index: 1002; /* Higher than other elements */
   display: flex;
-  flex-direction: row;
-  gap: 5px;
-  padding: 10px;
+  width: 90%;
+  flex-flow: row wrap;
+  gap: var(--s2);
+  padding: var(--s3);
   background-color: var(--Background);
-  border: 1px solid var(--BorderColor);
+  border:var(--s1) solid var(--BorderColor);
   border-radius: var(--BorderRadius);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 var(--s2) var(--s4) rgba(0, 0, 0, 0.15);
   opacity: 0;
   transform: translate(-50%, -110%) scale(0.9); /* Start slightly above and scaled down */
   transform-origin: bottom center;
@@ -1250,7 +1251,8 @@ button:active,
 
 /* Individual Subdivision Option */
 .subdivision-option {
-  padding: 8px 16px;
+  padding: var(--s3) var(--s4);
+  margin: var(--s2) var(--s3);
   background-color: var(--Highlight);
   color: var(--TextPrimary);
   border-radius: calc(var(--BorderRadius) - 4px);
@@ -1258,7 +1260,7 @@ button:active,
   text-align: center;
   font-size: var(--font-2);
   transition: background-color 0.15s ease, transform 0.15s ease;
-  border: 1px solid transparent;
+  border:var(--s1) solid transparent;
 }
 
 .subdivision-option:hover,
