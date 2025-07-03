@@ -20,7 +20,6 @@ function refreshUIFromState() {
     VolumeController.updateVolumeDisplay({ animate: true });
 
 
-    // Add this line to set the bar count display correctly on refresh
     const selectedTrack = AppState.getTracks()[AppState.getSelectedTrackIndex()];
     if (selectedTrack && DOM.barsLengthDisplay) {
         DOM.barsLengthDisplay.textContent = selectedTrack.barSettings.length;
@@ -30,7 +29,6 @@ function refreshUIFromState() {
     UIController.updateCurrentPresetDisplay();
     BarControlsController.updateTotalBeatsDisplay();
 
-    // If 3D theme is active, refresh its state as well
     if (AppState.getCurrentTheme() === '3dRoom' && ThemeController.is3DSceneActive()) {
         ThemeController.update3DScenePostStateChange();
     }
@@ -46,24 +44,25 @@ async function initialize() {
         AppState.loadAudioBuffers();
     }
 
-    // 2. Load state from local storage
-    AppState.loadStateFromLocalStorage();
+    // 2. Load state from local storage. If it fails, reset to default.
+    const stateLoaded = AppState.loadStateFromLocalStorage();
+    if (!stateLoaded) {
+        // If no state was loaded, explicitly reset to the default state.
+        // This ensures the app starts correctly on the very first visit.
+        AppState.resetState();
+    }
 
-    // 3. Initialize all controllers with their correct function names.
-    UIController.initializeUIControls(refreshUIFromState); // Corrected function name
-    ThemeController.initializeThemeControls();            // Corrected function name
-    TempoController.initializeTempoControls();            // Corrected function name
-    PlaybackController.initializePlaybackControls();      // Corrected function name
-    BarControlsController.initializeBarControls();        // Corrected function name
-    TrackController.init();                               // This one was correct
-    PresetController.initializePresetControls(refreshUIFromState); // Corrected function name
+    // 3. Initialize all controllers.
+    UIController.initializeUIControls(refreshUIFromState);
+    ThemeController.initializeThemeControls();
+    TempoController.initializeTempoControls();
+    PlaybackController.initializePlaybackControls();
+    BarControlsController.initializeBarControls();
+    TrackController.init();
+    PresetController.initializePresetControls(refreshUIFromState);
     VolumeController.initializeVolumeControls();
-
-
-    // 4. Set the initial state of the application.
-    // AppState.resetState(); // This is removed to keep the loaded state
     
-    // 5. Perform the first render of the UI.
+    // 4. Perform the first render of the UI with the correct state.
     refreshUIFromState();
 
     console.log("Metronominal initialized successfully.");

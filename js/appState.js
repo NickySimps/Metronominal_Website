@@ -4,7 +4,18 @@ const AppState = (function () {
   // --- Private State ---
   let tempo = 120;
   let volume = 1.0;
-  let Tracks = [];
+  // Set a default track on initial load
+  let Tracks = [
+    {
+      barSettings: [{ beats: 4, subdivision: 1 }],
+      muted: false,
+      currentBar: 0,
+      currentBeat: 0,
+      mainBeatSound: "Click1.mp3",
+      subdivisionSound: "Click2.mp3",
+      nextBeatTime: 0,
+    },
+  ];
   let selectedTrackIndex = 0;
   let selectedBarIndexInContainer = 0;
   let isPlaying = false;
@@ -96,7 +107,6 @@ const AppState = (function () {
     // Playback State
     isPlaying: () => isPlaying,
     togglePlay: async () => {
-      // ... (rest of the function is unchanged)
       if (
         !isPlaying &&
         Tracks.every((container) => container.barSettings.length === 0)
@@ -169,9 +179,8 @@ const AppState = (function () {
           publicAPI.setSelectedTrackIndex(Tracks.length - 1);
         }
       } else {
-         // This now correctly resets the last track instead of creating a new one
          Tracks[0] = {
-            barSettings: [], // Start with no bars
+            barSettings: [], 
             muted: false,
             currentBar: 0,
             currentBeat: 0,
@@ -180,7 +189,7 @@ const AppState = (function () {
             nextBeatTime: 0,
         };
         publicAPI.setSelectedTrackIndex(0);
-        publicAPI.setSelectedBarIndexInContainer(-1); // No bars, so no selected bar
+        publicAPI.setSelectedBarIndexInContainer(-1); 
       }
       saveState();
     },
@@ -225,7 +234,6 @@ const AppState = (function () {
           );
         }
       }
-       // Note: No saveState() here, this is just a selection change.
     },
     getSelectedBarIndexInContainer: () => selectedBarIndexInContainer,
     setSelectedBarIndexInContainer: (index) => {
@@ -239,7 +247,6 @@ const AppState = (function () {
       } else if (index >= 0 && index < currentContainer.barSettings.length) {
         selectedBarIndexInContainer = index;
       }
-       // Note: No saveState() here.
     },
     updateBarArray: (
       newTotalBars,
@@ -278,7 +285,6 @@ const AppState = (function () {
       if (newTotalBars === 0 && Tracks.length > 1) {
           publicAPI.removeTrack(selectedTrackIndex);
       } else if (newTotalBars === 0 && Tracks.length === 1) {
-          // If it's the last track, just empty its bars
           currentContainer.barSettings = [];
           publicAPI.setSelectedBarIndexInContainer(-1);
       }
@@ -287,7 +293,6 @@ const AppState = (function () {
     },
 
     getTotalBeats: () => {
-        // ... (rest of the function is unchanged)
       const selectedTrack = Tracks[selectedTrackIndex];
       if (!selectedTrack || !selectedTrack.barSettings) {
         return 0;
@@ -298,7 +303,6 @@ const AppState = (function () {
       );
     },
     getBeatsForSelectedBar: () => {
-        // ... (rest of the function is unchanged)
       const currentContainer = Tracks[selectedTrackIndex];
       if (
         currentContainer &&
@@ -336,7 +340,6 @@ const AppState = (function () {
       }
     },
     getSubdivisionForSelectedBar: () => {
-        // ... (rest of the function is unchanged)
       const currentContainer = Tracks[selectedTrackIndex];
       if (
         currentContainer &&
@@ -366,7 +369,6 @@ const AppState = (function () {
 
     // AudioContext and Buffers
     initializeAudioContext: () => {
-        // ... (rest of the function is unchanged)
       try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         return audioContext;
@@ -377,7 +379,6 @@ const AppState = (function () {
     },
     getAudioContext: () => audioContext,
     loadAudioBuffers: async () => {
-        // ... (rest of the function is unchanged)
       if (!audioContext) return false;
       const sounds = ["Click1.mp3", "Click2.mp3", "Crank1.mp3", "Crank2.mp3"];
       for (const sound of sounds) {
@@ -397,10 +398,10 @@ const AppState = (function () {
     getCurrentStateForPreset: () => ({
       tempo: tempo,
       volume: volume,
-      Tracks: JSON.parse(JSON.stringify(Tracks)), // Deep copy
+      Tracks: JSON.parse(JSON.stringify(Tracks)), 
       selectedTheme: currentTheme,
-      selectedTrackIndex: selectedTrackIndex, // Save selection
-      selectedBarIndexInContainer: selectedBarIndexInContainer, // Save selection
+      selectedTrackIndex: selectedTrackIndex, 
+      selectedBarIndexInContainer: selectedBarIndexInContainer, 
     }),
     loadPresetData: (data) => {
       if (!data) return;
@@ -410,7 +411,6 @@ const AppState = (function () {
         Tracks = data.Tracks;
       }
       publicAPI.setCurrentTheme(data.selectedTheme || "default");
-      // Restore selection, defaulting to 0 if not present or invalid
       const trackIndex = (data.selectedTrackIndex >= 0 && data.selectedTrackIndex < Tracks.length) ? data.selectedTrackIndex : 0;
       publicAPI.setSelectedTrackIndex(trackIndex);
       const barIndex = (data.selectedBarIndexInContainer >= 0 && Tracks[trackIndex] && data.selectedBarIndexInContainer < Tracks[trackIndex].barSettings.length) ? data.selectedBarIndexInContainer : 0;
@@ -437,7 +437,7 @@ const AppState = (function () {
       selectedBarIndexInContainer = 0;
       isPlaying = false;
       currentTheme = "default";
-      saveState(); // Save the default state for the next session
+      saveState(); 
     },
 
     // Theme
