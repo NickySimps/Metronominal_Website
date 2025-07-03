@@ -1283,7 +1283,7 @@ button:active,
   z-index: 1002; /* Higher than other elements */
   display: flex;
   flex-flow: row wrap;
-  width: clamp(60%, 90%, 250px);
+  width: clamp(25vw, 90%, 250px);
   gap: var(--s2);
   padding: var(--s5);
   background-color: var(--Background);
@@ -1305,8 +1305,8 @@ button:active,
 
 /* Individual Subdivision Option */
 .subdivision-option {
-  padding: 8px 16px;
-  margin: var(--s4);
+  padding: 8px 12px;
+  margin: var(--s3);
   background-color: var(--Highlight);
   color: var(--TextPrimary);
   border-radius: calc(var(--BorderRadius) - 4px);
