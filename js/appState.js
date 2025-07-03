@@ -13,21 +13,48 @@ const AppState = (function () {
   let soundBuffers = {};
   let currentTheme = "default";
   let audioContextPrimed = false;
-  let cameraPosition3D = null;
-  let cameraLookAtPoint3D = null;
 
   // --- Constants ---
   const MAX_TAPS_FOR_AVERAGE = 4;
   const MAX_TAP_INTERVAL_MS = 3000;
   const SCHEDULE_AHEAD_TIME_INTERNAL = 0.1;
   const POST_RESUME_DELAY_MS = 50;
+  const LOCAL_STORAGE_KEY = "metronominalState";
+
+  // --- Private Functions ---
+  const saveState = () => {
+    try {
+      const state = publicAPI.getCurrentStateForPreset();
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.error("Could not save state to localStorage:", e);
+    }
+  };
 
   // --- Public API ---
   const publicAPI = {
+    // Persistence
+    saveStateToLocalStorage: saveState,
+    loadStateFromLocalStorage: () => {
+      try {
+        const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (savedState) {
+          const parsedState = JSON.parse(savedState);
+          publicAPI.loadPresetData(parsedState);
+          return true; // Indicates success
+        }
+        return false; // No saved state found
+      } catch (e) {
+        console.error("Could not load state from localStorage:", e);
+        return false; // Error during loading
+      }
+    },
+
     // Tempo
     getTempo: () => tempo,
     setTempo: (newTempo) => {
       tempo = Math.max(20, Math.min(parseInt(newTempo, 10) || 120, 300));
+      saveState();
     },
     increaseTempo: () => publicAPI.setTempo(tempo + 1),
     decreaseTempo: () => publicAPI.setTempo(tempo - 1),
@@ -63,11 +90,13 @@ const AppState = (function () {
     getVolume: () => volume,
     setVolume: (newVolume) => {
       volume = Math.max(0, Math.min(parseFloat(newVolume), 1));
+      saveState();
     },
 
     // Playback State
     isPlaying: () => isPlaying,
     togglePlay: async () => {
+      // ... (rest of the function is unchanged)
       if (
         !isPlaying &&
         Tracks.every((container) => container.barSettings.length === 0)
@@ -131,6 +160,7 @@ const AppState = (function () {
       });
       publicAPI.setSelectedTrackIndex(Tracks.length - 1);
       publicAPI.setSelectedBarIndexInContainer(0);
+      saveState();
     },
     removeTrack: (containerIndex) => {
       if (Tracks.length > 1) {
@@ -138,20 +168,26 @@ const AppState = (function () {
         if (selectedTrackIndex >= Tracks.length) {
           publicAPI.setSelectedTrackIndex(Tracks.length - 1);
         }
-      } else if (Tracks.length === 1) {
-        Tracks[0] = {
-          barSettings: [],
-          muted: false,
-          currentBar: 0,
-          currentBeat: 0,
+      } else {
+         // This now correctly resets the last track instead of creating a new one
+         Tracks[0] = {
+            barSettings: [], // Start with no bars
+            muted: false,
+            currentBar: 0,
+            currentBeat: 0,
+            mainBeatSound: "Click1.mp3",
+            subdivisionSound: "Click2.mp3",
+            nextBeatTime: 0,
         };
         publicAPI.setSelectedTrackIndex(0);
-        publicAPI.setSelectedBarIndexInContainer(-1);
+        publicAPI.setSelectedBarIndexInContainer(-1); // No bars, so no selected bar
       }
+      saveState();
     },
     updateTrack: (containerIndex, updatedProperties) => {
       if (Tracks[containerIndex]) {
         Object.assign(Tracks[containerIndex], updatedProperties);
+        saveState();
       }
     },
     resetPlaybackState: () => {
@@ -189,6 +225,7 @@ const AppState = (function () {
           );
         }
       }
+       // Note: No saveState() here, this is just a selection change.
     },
     getSelectedBarIndexInContainer: () => selectedBarIndexInContainer,
     setSelectedBarIndexInContainer: (index) => {
@@ -202,6 +239,7 @@ const AppState = (function () {
       } else if (index >= 0 && index < currentContainer.barSettings.length) {
         selectedBarIndexInContainer = index;
       }
+       // Note: No saveState() here.
     },
     updateBarArray: (
       newTotalBars,
@@ -236,20 +274,31 @@ const AppState = (function () {
       } else if (newTotalBars < previousNumberOfBars) {
         currentContainer.barSettings.length = newTotalBars;
       }
+      
+      if (newTotalBars === 0 && Tracks.length > 1) {
+          publicAPI.removeTrack(selectedTrackIndex);
+      } else if (newTotalBars === 0 && Tracks.length === 1) {
+          // If it's the last track, just empty its bars
+          currentContainer.barSettings = [];
+          publicAPI.setSelectedBarIndexInContainer(-1);
+      }
+
+      saveState();
     },
 
     getTotalBeats: () => {
+        // ... (rest of the function is unchanged)
       const selectedTrack = Tracks[selectedTrackIndex];
       if (!selectedTrack || !selectedTrack.barSettings) {
         return 0;
       }
-      // Sum the 'beats' from each bar in the selected track
       return selectedTrack.barSettings.reduce(
         (total, bar) => total + parseInt(bar.beats, 10),
         0
       );
     },
     getBeatsForSelectedBar: () => {
+        // ... (rest of the function is unchanged)
       const currentContainer = Tracks[selectedTrackIndex];
       if (
         currentContainer &&
@@ -268,6 +317,7 @@ const AppState = (function () {
         currentContainer.barSettings[selectedBarIndexInContainer]
       ) {
         currentContainer.barSettings[selectedBarIndexInContainer].beats++;
+        saveState();
       }
     },
     decreaseBeatsForSelectedBar: () => {
@@ -281,10 +331,12 @@ const AppState = (function () {
           currentContainer.barSettings[selectedBarIndexInContainer].beats > 1
         ) {
           currentContainer.barSettings[selectedBarIndexInContainer].beats--;
+          saveState();
         }
       }
     },
     getSubdivisionForSelectedBar: () => {
+        // ... (rest of the function is unchanged)
       const currentContainer = Tracks[selectedTrackIndex];
       if (
         currentContainer &&
@@ -296,32 +348,25 @@ const AppState = (function () {
       }
       return 1;
     },
-
-    /**
-     * ADD THIS FUNCTION
-     * Gets the subdivision for a specific bar in a specific track.
-     * @param {number} trackIndex - The index of the track.
-     * @param {number} barIndex - The index of the bar within the track.
-     * @returns {number} The subdivision value, or 1 as a default.
-     */
     getSubdivisionForBar: (trackIndex, barIndex) => {
         const track = Tracks[trackIndex];
         if (track && track.barSettings && track.barSettings[barIndex]) {
             return track.barSettings[barIndex].subdivision;
         }
-        return 1; // Return a default value if not found
+        return 1;
     },
-    
     setSubdivisionForSelectedBar: (multiplier) => {
       const currentContainer = Tracks[selectedTrackIndex];
       if (currentContainer && selectedBarIndexInContainer !== -1) {
         currentContainer.barSettings[selectedBarIndexInContainer].subdivision =
           parseFloat(multiplier) || 1;
+        saveState();
       }
     },
 
     // AudioContext and Buffers
     initializeAudioContext: () => {
+        // ... (rest of the function is unchanged)
       try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         return audioContext;
@@ -332,6 +377,7 @@ const AppState = (function () {
     },
     getAudioContext: () => audioContext,
     loadAudioBuffers: async () => {
+        // ... (rest of the function is unchanged)
       if (!audioContext) return false;
       const sounds = ["Click1.mp3", "Click2.mp3", "Crank1.mp3", "Crank2.mp3"];
       for (const sound of sounds) {
@@ -347,38 +393,29 @@ const AppState = (function () {
     },
     getSoundBuffer: (sound) => soundBuffers[sound],
 
-    // Presets
+    // Presets & State
     getCurrentStateForPreset: () => ({
       tempo: tempo,
-      Tracks: JSON.parse(JSON.stringify(Tracks)),
+      volume: volume,
+      Tracks: JSON.parse(JSON.stringify(Tracks)), // Deep copy
       selectedTheme: currentTheme,
+      selectedTrackIndex: selectedTrackIndex, // Save selection
+      selectedBarIndexInContainer: selectedBarIndexInContainer, // Save selection
     }),
-    loadPresetData: (presetData) => {
-      if (!presetData) return;
-
-      tempo = presetData.tempo || 120;
-      if (Array.isArray(presetData.Tracks)) {
-        Tracks = presetData.Tracks.map((container) => {
-          const newContainer = {
-            barSettings: [],
-            muted: container.muted || false,
-            currentBar: 0,
-            currentBeat: 0,
-            nextBeatTime: 0,
-          };
-          if (Array.isArray(container.barSettings)) {
-            newContainer.barSettings = container.barSettings.map((bar) => ({
-              beats: bar.beats || 4,
-              subdivision: bar.subdivision || 1,
-            }));
-          }
-          return newContainer;
-        });
+    loadPresetData: (data) => {
+      if (!data) return;
+      tempo = data.tempo || 120;
+      volume = data.volume || 1.0;
+      if (Array.isArray(data.Tracks)) {
+        Tracks = data.Tracks;
       }
-      publicAPI.setSelectedTrackIndex(0);
-      publicAPI.setSelectedBarIndexInContainer(0);
+      publicAPI.setCurrentTheme(data.selectedTheme || "default");
+      // Restore selection, defaulting to 0 if not present or invalid
+      const trackIndex = (data.selectedTrackIndex >= 0 && data.selectedTrackIndex < Tracks.length) ? data.selectedTrackIndex : 0;
+      publicAPI.setSelectedTrackIndex(trackIndex);
+      const barIndex = (data.selectedBarIndexInContainer >= 0 && Tracks[trackIndex] && data.selectedBarIndexInContainer < Tracks[trackIndex].barSettings.length) ? data.selectedBarIndexInContainer : 0;
+      publicAPI.setSelectedBarIndexInContainer(barIndex);
       isPlaying = false;
-      publicAPI.setCurrentTheme(presetData.selectedTheme || "default");
     },
 
     // Reset & Initialization
@@ -400,12 +437,14 @@ const AppState = (function () {
       selectedBarIndexInContainer = 0;
       isPlaying = false;
       currentTheme = "default";
+      saveState(); // Save the default state for the next session
     },
 
     // Theme
     getCurrentTheme: () => currentTheme,
     setCurrentTheme: (themeName) => {
       currentTheme = themeName;
+      saveState();
     },
 
     // Constants

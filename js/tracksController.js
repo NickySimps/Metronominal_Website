@@ -1,97 +1,125 @@
-import DOM from './domSelectors.js';
-import AppState from './appState.js';
-import BarDisplayController from './barDisplayController.js';
+import DOM from "./domSelectors.js";
+import AppState from "./appState.js";
+import BarDisplayController from "./barDisplayController.js";
+import BarControlsController from "./barControlsController.js";
+
 
 const TrackController = {
-    init: () => {
-        DOM.addTrackButton.addEventListener('click', TrackController.addTrack); 
-        DOM.trackWrapper.addEventListener('click', TrackController.handleTrackClicks);
-        TrackController.renderTracks();
-    },
+  init: () => {
+    DOM.addTrackButton.addEventListener("click", TrackController.addTrack);
+    DOM.trackWrapper.addEventListener(
+      "click",
+      TrackController.handleTrackClicks
+    );
+    TrackController.renderTracks();
+  },
 
-    renderTracks: () => {
-        const Tracks = AppState.getTracks();
-        DOM.trackWrapper.innerHTML = ''; // Clear existing containers
+  renderTracks: () => {
+    const Tracks = AppState.getTracks();
+    DOM.trackWrapper.innerHTML = ""; // Clear existing containers
 
-        Tracks.forEach((container, index) => {
-            const containerElement = document.createElement('div');
-            containerElement.classList.add('track');
-            containerElement.dataset.containerIndex = index;
+    Tracks.forEach((container, index) => {
+      const containerElement = document.createElement("div");
+      containerElement.classList.add("track");
+      containerElement.dataset.containerIndex = index;
 
-            // Determine color inversion based on index
-            const colorInversionClass = `track-color-${index % 7}`; // Cycle through 4 inversions
-            containerElement.classList.add(colorInversionClass);
+      // Determine color inversion based on index
+      const colorInversionClass = `track-color-${index % 7}`; // Cycle through 4 inversions
+      containerElement.classList.add(colorInversionClass);
 
-            containerElement.innerHTML = `
+      containerElement.innerHTML = `
                 <div class="track-controls">
-                    <button class="track-mute-btn">${container.muted ? 'Unmute' : 'Mute'}</button>
-                    <button class="track-solo-btn">${container.solo ? 'Unsolo' : 'Solo'}</button>
+                    <button class="track-mute-btn">${
+                      container.muted ? "Unmute" : "Mute"
+                    }</button>
+                    <button class="track-solo-btn">${
+                      container.solo ? "Unsolo" : "Solo"
+                    }</button>
                     <button class="track-remove-btn">-</button>
                 </div>
                 <div class="bar-display-container" data-container-index="${index}"></div>
             `;
-            DOM.trackWrapper.appendChild(containerElement);
-        });
+      DOM.trackWrapper.appendChild(containerElement);
+    });
 
-        // Render the actual beat displays inside the containers
-        BarDisplayController.renderBarsAndControls();
+    // Render the actual beat displays inside the containers
+    BarDisplayController.renderBarsAndControls();
 
-        // No longer need to attach listeners here, it's handled by event delegation in init()
-    },
+    // No longer need to attach listeners here, it's handled by event delegation in init()
+  },
 
-    handleTrackClicks: (event) => {
-        const target = event.target;
+  handleTrackClicks: (event) => {
+    const target = event.target;
+    const trackElement = target.closest(".track");
 
-        // Handle Mute Button Click
-        if (target.matches('.track-mute-btn')) {
-            const containerIndex = target.closest('.track').dataset.containerIndex;
-            const container = AppState.getTracks()[containerIndex];
-            AppState.updateTrack(containerIndex, { muted: !container.muted });
-            target.textContent = AppState.getTracks()[containerIndex].muted ? 'Unmute' : 'Mute';
-            return;
-        }
+    // If the click is outside any track, do nothing
+    if (!trackElement) return;
 
-        // Handle Solo Button Click
-        if (target.matches('.track-solo-btn')) {
-            const containerIndex = target.closest('.track').dataset.containerIndex;
-            const container = AppState.getTracks()[containerIndex];
-            AppState.updateTrack(containerIndex, { muted: !container.muted });
-            target.textContent = AppState.getTracks()[containerIndex].muted ? 'Unsolo' : 'Solo';
-            return;
-        }
+    const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
+    const currentlySelectedTrack = AppState.getSelectedTrackIndex();
 
-        // Handle Remove Button Click
-        if (target.matches('.track-remove-btn')) {
-            const containerIndex = target.closest('.track').dataset.containerIndex;
-            AppState.removeTrack(containerIndex);
-            TrackController.renderTracks(); // Re-render all containers after removal
-            return;
-        }
+    // Handle button clicks (Mute, Remove)
+    if (target.matches(".track-mute-btn, .track-remove-btn")) {
+      if (target.matches(".track-mute-btn")) {
+        const track = AppState.getTracks()[containerIndex];
+        AppState.updateTrack(containerIndex, { muted: !track.muted });
+        target.textContent = AppState.getTracks()[containerIndex].muted
+          ? "Unmute"
+          : "Mute";
+      }
+      if (target.matches(".track-remove-btn")) {
+        AppState.removeTrack(containerIndex);
+        TrackController.renderTracks(); // Re-render is needed after removal
+        // After removing, force an update of the controls to reflect the new state
+        BarControlsController.updateBarControlsForSelectedTrack();
+      }
+      return; // Stop further processing for button clicks
+    }
 
-        // Handle Bar Selection Click
-        const barVisual = target.closest('.bar-visual');
-        if (barVisual) {
-            const containerIndex = parseInt(barVisual.dataset.containerIndex, 10);
-            const barIndex = parseInt(barVisual.dataset.barIndex, 10);
+    // If a new track is selected, update the state
+    if (currentlySelectedTrack !== containerIndex) {
+      AppState.setSelectedTrackIndex(containerIndex);
+    }
 
-            AppState.setSelectedTrackIndex(containerIndex);
-            AppState.setSelectedBarIndexInContainer(barIndex);
+    // Handle bar selection within the now-active track
+    const barVisual = target.closest(".bar-visual");
+    if (barVisual) {
+      const barIndex = parseInt(barVisual.dataset.barIndex, 10);
+      AppState.setSelectedBarIndexInContainer(barIndex);
+    }
 
-            // Update UI for selection
-            DOM.trackWrapper.querySelectorAll('.bar-visual').forEach(b => b.classList.remove('selected'));
-            barVisual.classList.add('selected');
-            BarDisplayController.renderBarsAndControls(); 
-            
+    // After any selection change, update all relevant UI
+    // 1. Update the visual selection for tracks and bars
+    TrackController.updateSelectionVisuals();
+    // 2. Update the main controls (Bars and Beats displays)
+    BarControlsController.updateBarControlsForSelectedTrack();
+  },
 
-            // Notify other components that a bar was selected
-            document.dispatchEvent(new CustomEvent('barSelected'));
-        }
-    },
+  /**
+   * NEW FUNCTION: Adds 'selected' classes to the correct track and bar
+   */
+  updateSelectionVisuals: () => {
+    const selectedTrackIndex = AppState.getSelectedTrackIndex();
+    const selectedBarIndex = AppState.getSelectedBarIndexInContainer();
 
-    addTrack: () => {
-        AppState.addTrack();
-        TrackController.renderTracks();
-    },
+    // Update track selection class
+    DOM.trackWrapper.querySelectorAll(".track").forEach((trackEl, index) => {
+      trackEl.classList.toggle("selected", index === selectedTrackIndex);
+    });
+
+    // Update bar selection class
+    DOM.trackWrapper.querySelectorAll(".bar-visual").forEach((barEl) => {
+      const isSelected =
+        parseInt(barEl.dataset.containerIndex, 10) === selectedTrackIndex &&
+        parseInt(barEl.dataset.barIndex, 10) === selectedBarIndex;
+      barEl.classList.toggle("selected", isSelected);
+    });
+  },
+
+  addTrack: () => {
+    AppState.addTrack();
+    TrackController.renderTracks();
+  },
 };
 
 export default TrackController;

@@ -11,6 +11,8 @@ import AppState from './appState.js'; // Assuming AppState is a module
 import DOM from './domSelectors.js'; // Assuming domSelectors is a module
 import BarDisplayController from './barDisplayController.js'; // Assuming BarDisplayController is a module
 import MetronomeEngine from './metronomeEngine.js'; // For toggling play with UI updates
+import TrackController from './tracksController.js';
+
 
 // Helper for animated text updates (similar to tempo description)
 function animateControlUpdate(controlElement, updateFunction, animationDuration = 500) {
@@ -57,99 +59,25 @@ function updateTotalBeatsDisplay() {
 
 // Function to synchronize AppState barSettings with the number displayed in barsLengthDisplay
 // and trigger necessary UI updates.
-async function syncBarSettings() { // Make syncBarSettings async
-    // Before changing barSettings, if playing, briefly stop to avoid errors with highlight
-    let wasPlaying = AppState.isPlaying();
-    if (wasPlaying) {
-        await MetronomeEngine.togglePlay(); // Stop playback; this updates button UI
+async function syncBarSettings() {
+    const selectedTrackIndex = AppState.getSelectedTrackIndex();
+    const barSettings = AppState.getBarSettings(selectedTrackIndex);
+    const barCount = barSettings ? barSettings.length : 0;
+
+    if (DOM.barsLengthDisplay) {
+        DOM.barsLengthDisplay.textContent = barCount;
     }
 
-    const selectedContainerIndex = AppState.getSelectedTrackIndex();
-    if (selectedContainerIndex === -1) {
-        console.warn("No bar container selected. Cannot sync bar settings.");
-        return;
-    }
+    // This function is now just for rendering the UI after the state has changed.
+    TrackController.renderTracks(); // Re-render tracks to handle potential removal
+    updateTotalBeatsDisplay();
+    updateBeatControlsDisplay();
 
-    const currentContainerBarSettings = AppState.getBarSettings(selectedContainerIndex);
-    const currentNumberOfBars = parseInt(DOM.barsLengthDisplay.textContent, 10);
-    const previousNumberOfBars = currentContainerBarSettings.length;
-
-    // Update the AppState's bar array based on the new count for the selected container
-    AppState.updateBarArray(currentNumberOfBars);
-
-    // --- DOM Update Logic ---
-    const targetBarDisplayContainer = DOM.trackWrapper.querySelector(`.bar-display-container[data-container-index="${selectedContainerIndex}"]`);
-    if (!targetBarDisplayContainer) {
-        console.error(`Target bar display container not found for index ${selectedContainerIndex}`);
-        return;
-    }
-
-    if (currentNumberOfBars > previousNumberOfBars) { // Adding bars
-        BarDisplayController.renderBarsAndControls(previousNumberOfBars); // Re-render all to ensure correct selection and new bars are added
-        if (wasPlaying && AppState.getBarSettings(selectedContainerIndex).length > 0) await MetronomeEngine.togglePlay(); // Restart if needed; this updates button UI
-
-    } else if (currentNumberOfBars < previousNumberOfBars) { // Removing bars
-        const barsToAnimateOutCount = previousNumberOfBars - currentNumberOfBars;
-        let domBarsAnimatedOut = 0;
-
-        const barVisualsInDom = Array.from(targetBarDisplayContainer.querySelectorAll('.bar-visual:not(.removing-bar-animation)'));
-
-        for (let i = 0; i < barsToAnimateOutCount; i++) {
-            const barToRemove = barVisualsInDom[previousNumberOfBars - 1 - i];
-
-            if (barToRemove && !barToRemove.classList.contains('removing-bar-animation')) {
-                barToRemove.classList.add('removing-bar-animation');
-                barToRemove.addEventListener('animationend', function handleAnimationEnd(event) {
-                    event.target.removeEventListener('animationend', handleAnimationEnd);
-                    event.target.remove();
-                    domBarsAnimatedOut++;
-
-                    if (domBarsAnimatedOut === barsToAnimateOutCount) {
-                        // All animations for this removal batch are done.
-                        // Re-index remaining DOM bars and update selection.
-                        const remainingBarVisuals = targetBarDisplayContainer.querySelectorAll('.bar-visual');
-                        remainingBarVisuals.forEach((bar, index) => {
-                            bar.dataset.barIndex = index; // Re-assign data-bar-index
-                            if (index === AppState.getSelectedBarIndexInContainer()) bar.classList.add('selected');
-                            else bar.classList.remove('selected');
-                        });
-
-                        updateBeatControlsDisplay(); // Update based on new selectedBarIndexInContainer
-                        updateTotalBeatsDisplay(); // Update total beats
-
-                        if (wasPlaying) {
-                            if (AppState.getBarSettings(selectedContainerIndex).length > 0) MetronomeEngine.togglePlay(); // Restart if needed
-                            else {
-                                // MetronomeEngine.togglePlay would have set button to START
-                            }
-                        }
-                    }
-                });
-            } else if (!barToRemove) {
-                domBarsAnimatedOut++;
-            }
-        }
-        if (domBarsAnimatedOut === barsToAnimateOutCount && wasPlaying && AppState.getBarSettings(selectedContainerIndex).length === 0) {
-            // If wasPlaying and now 0 bars, MetronomeEngine.togglePlay (called at the start of this 'if wasPlaying' block)
-            // would have stopped it and set the button to START.
-        }
-
-    } else { // Number of bars is the same
-        BarDisplayController.renderBarsAndControls(); // Re-render to apply selection, no "new bar" animation
-        if (wasPlaying && AppState.getBarSettings(selectedContainerIndex).length > 0) await MetronomeEngine.togglePlay(); // Restart if needed
-    }
-
-    if (AppState.getBarSettings(selectedContainerIndex).length === 0 && wasPlaying) { // General cleanup if no bars and it was playing
-        // MetronomeEngine.togglePlay (called at the start of 'if wasPlaying' block) handles UI update.
-    }
-
-    updateTotalBeatsDisplay(); // Ensure total beats is updated after any change
-
-    // After all AppState changes and 2D UI updates, refresh 3D if active
     if (ThemeController.is3DSceneActive()) {
         ThemeController.update3DScenePostStateChange();
     }
 }
+
 
 const BarControlsController = {
     /**
@@ -195,32 +123,45 @@ const BarControlsController = {
 
         // Event Listeners for changing total number of bars
         DOM.increaseBarLengthBtn.addEventListener('click', () => {
-            let currentBars = parseInt(DOM.barsLengthDisplay.textContent, 10);
+            const selectedTrackIndex = AppState.getSelectedTrackIndex();
+            if (selectedTrackIndex === -1) return;
+
+            // Get the bar count directly from the AppState
+            let currentBars = AppState.getBarSettings(selectedTrackIndex).length;
             currentBars++;
-            const finalBars = currentBars; // Store for use in timeout
+            
+            // Update the AppState first
+            AppState.updateBarArray(currentBars);
 
             const updateAction = () => {
-                DOM.barsLengthDisplay.textContent = finalBars;
-                syncBarSettings(); // Sync state and trigger render
+                // Then, update the UI to match the new state
+                DOM.barsLengthDisplay.textContent = currentBars;
+                syncBarSettings(); // Re-render the UI
             };
 
             animateControlUpdate(DOM.barsLengthDisplay, updateAction);
         });
 
         DOM.decreaseBarLengthBtn.addEventListener('click', () => {
-            let currentBars = parseInt(DOM.barsLengthDisplay.textContent, 10);
-            if (currentBars > 0) { // Can go down to 0 bars
+            const selectedTrackIndex = AppState.getSelectedTrackIndex();
+            if (selectedTrackIndex === -1) return;
+
+            let currentBars = AppState.getBarSettings(selectedTrackIndex).length;
+            if (currentBars > 0) {
                 currentBars--;
-                const finalBars = currentBars; // Store for use in timeout
+                AppState.updateBarArray(currentBars);
 
                 const updateAction = () => {
-                    DOM.barsLengthDisplay.textContent = finalBars;
-                    syncBarSettings(); // Sync state and trigger render
+                    if (AppState.getTracks()[selectedTrackIndex] && AppState.getTracks()[selectedTrackIndex].barSettings.length > 0) {
+                        DOM.barsLengthDisplay.textContent = currentBars;
+                    }
+                    syncBarSettings();
                 };
 
                 animateControlUpdate(DOM.barsLengthDisplay, updateAction);
             }
         });
+
 
         // Event listener for beat multiplier change
         document.addEventListener('barSelected', () => {
@@ -228,18 +169,10 @@ const BarControlsController = {
         });
 
         DOM.beatMultiplierSelect.addEventListener('change', async () => { // Make event handler async
-            const wasPlaying = AppState.isPlaying();
-            if (wasPlaying) {
-                await MetronomeEngine.togglePlay(); // Stop playback; this updates button UI
-            }
-
             AppState.setSubdivisionForSelectedBar(DOM.beatMultiplierSelect.value); // Update state
 
             // Re-render visuals based on new multiplier
             BarDisplayController.renderBarsAndControls();
-            if (wasPlaying && AppState.getBarSettings(AppState.getSelectedTrackIndex()).length > 0) {
-                await MetronomeEngine.togglePlay(); // Restart playback; this updates button UI
-            }
             // Trigger 3D UI update
             if (ThemeController.is3DSceneActive()) {
                 ThemeController.update3DScenePostStateChange();
@@ -271,6 +204,25 @@ const BarControlsController = {
     syncBarSettings: syncBarSettings,
 
     // Add other control-related functions here if needed
+        updateBarControlsForSelectedTrack: () => {
+        const selectedTrackIndex = AppState.getSelectedTrackIndex();
+        if (selectedTrackIndex === -1) {
+            // Handle case where no track is selected (e.g., all tracks deleted)
+            DOM.barsLengthDisplay.textContent = '0';
+            DOM.beatsPerCurrentMeasureDisplay.textContent = '-';
+            DOM.beatMultiplierSelect.value = '1';
+            return;
+        }
+
+        const selectedTrack = AppState.getTracks()[selectedTrackIndex];
+        
+        // Update the "Bars" count display
+        DOM.barsLengthDisplay.textContent = selectedTrack.barSettings.length;
+
+        // Update the "Beats per Measure" and "Subdivision" displays
+        updateBeatControlsDisplay();
+        updateTotalBeatsDisplay();
+    },
 };
 
 export default BarControlsController;
