@@ -35,6 +35,10 @@ const TrackController = {
       if (container.solo) {
         containerElement.classList.add("soloed");
       }
+      if (container.muted) {
+        containerElement.classList.add("muted");
+      }
+
 
       // **MODIFIED HTML TO INCLUDE PLACEHOLDERS FOR SOUND SELECTORS**
       containerElement.innerHTML = `
@@ -110,47 +114,49 @@ const TrackController = {
     }
   },
 
-  handleTrackClicks: (event) => {
+ handleTrackClicks: (event) => {
     const target = event.target;
     const trackElement = target.closest(".track");
 
     if (!trackElement) return;
 
     const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
-    const currentlySelectedTrack = AppState.getSelectedTrackIndex();
 
-    if (target.matches(".track-mute-btn, .track-solo-btn, .track-remove-btn")) {
-      if (target.matches(".track-mute-btn")) {
-        const track = AppState.getTracks()[containerIndex];
-        AppState.updateTrack(containerIndex, { muted: !track.muted });
-        target.textContent = AppState.getTracks()[containerIndex].muted
-          ? "Unmute"
-          : "Mute";
-      }
-      if (target.matches(".track-solo-btn")) {
-        AppState.toggleSolo(containerIndex);
-        TrackController.renderTracks(); 
-      }
-      if (target.matches(".track-remove-btn")) {
-        AppState.removeTrack(containerIndex);
-        TrackController.renderTracks(); 
-        BarControlsController.updateBarControlsForSelectedTrack();
-      }
-      return; 
-    }
+    // --- Start of Corrected Block ---
 
-    if (currentlySelectedTrack !== containerIndex) {
-      AppState.setSelectedTrackIndex(containerIndex);
-    }
+    // This refactored block handles all clicks within a track.
+    if (target.matches(".track-mute-btn")) {
+      const track = AppState.getTracks()[containerIndex];
+      AppState.updateTrack(containerIndex, { muted: !track.muted });
+      TrackController.renderTracks();
 
-    const barVisual = target.closest(".bar-visual");
-    if (barVisual) {
-      const barIndex = parseInt(barVisual.dataset.barIndex, 10);
-      AppState.setSelectedBarIndexInContainer(barIndex);
+    } else if (target.matches(".track-solo-btn")) {
+      AppState.toggleSolo(containerIndex);
+      TrackController.renderTracks();
+
+    } else if (target.matches(".track-remove-btn")) {
+      AppState.removeTrack(containerIndex);
+      TrackController.renderTracks();
+      BarControlsController.updateBarControlsForSelectedTrack();
+
+    } else {
+      // If no specific button was clicked, handle it as a track/bar selection.
+      const currentlySelectedTrack = AppState.getSelectedTrackIndex();
+      if (currentlySelectedTrack !== containerIndex) {
+        AppState.setSelectedTrackIndex(containerIndex);
+      }
+
+      const barVisual = target.closest(".bar-visual");
+      if (barVisual) {
+        const barIndex = parseInt(barVisual.dataset.barIndex, 10);
+        AppState.setSelectedBarIndexInContainer(barIndex);
+      }
+
+      // After any selection change, update the visuals.
+      TrackController.updateSelectionVisuals();
+      BarControlsController.updateBarControlsForSelectedTrack();
     }
-    
-    TrackController.updateSelectionVisuals();
-    BarControlsController.updateBarControlsForSelectedTrack();
+    // --- End of Corrected Block ---
   },
 
   updateSelectionVisuals: () => {

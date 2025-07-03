@@ -1360,3 +1360,18 @@ button:active,
   color: var(--TextOnMain);
   font-weight: bold;
 }
+
+/*Mute Track Styling */
+.track.muted {
+  background-color: var(--Highlight);
+  box-shadow: 0 0 15px var(--Alt1);
+  border: 2px solid var(--Main);
+}
+
+.track.muted .track-name {
+  color: var(--TextOnMain);
+}
+
+.track.muted .track-mute-btn {
+  background-color: var(--Main);
+}
