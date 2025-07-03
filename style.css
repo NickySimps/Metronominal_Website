@@ -1188,12 +1188,12 @@ button:active,
 
 /* Track color variations */
 .track-color-0 {
-    --track-background: color-mix(in srgb, var(--Main) 40%, var(--TextPrimary));
+    --track-background: color-mix(in srgb, var(--Main) 20%, var(--TextPrimary));
     --track-text: #ffffff;
 }
 
 .track-color-1 {
-    --track-background: color-mix(in srgb, var(--Main) 50%, var(--TextPrimary));
+    --track-background: color-mix(in srgb, var(--Main) 40%, var(--TextPrimary));
     --track-text: #333333;
 }
 
@@ -1203,22 +1203,15 @@ button:active,
 }
 
 .track-color-3 {
-    --track-background: color-mix(in srgb, var(--Main) 70%, var(--TextPrimary));
-    --track-text: #333333;
-}
-.track-color-4 {
     --track-background: color-mix(in srgb, var(--Main) 80%, var(--TextPrimary));
     --track-text: #333333;
 }
-
-.track-color-5 {
-    --track-background: color-mix(in srgb, var(--Main) 90%, var(--TextPrimary));
-    --track-text: #ffffff;
-}
-
-.track-color-6 {
+.track-color-4 {
     --track-background: color-mix(in srgb, var(--Main) 100%, var(--TextPrimary));
     --track-text: #333333;
+}
+
+
 }
 
 /* Beat square styling */
@@ -1227,7 +1220,7 @@ button:active,
 }
 
 .beat-square.highlighted {
-    background-color: var(--track-text);
+    background-color: var(--HighlightedBeatColor);
 }
 
 /* Subdivision Options Container */

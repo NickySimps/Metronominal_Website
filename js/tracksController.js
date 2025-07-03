@@ -24,7 +24,7 @@ const TrackController = {
       containerElement.dataset.containerIndex = index;
 
       // Determine color inversion based on index
-      const colorInversionClass = `track-color-${index % 7}`; // Cycle through 4 inversions
+      const colorInversionClass = `track-color-${index % 5}`; // Cycle through 4 inversions
       containerElement.classList.add(colorInversionClass);
 
       containerElement.innerHTML = `
