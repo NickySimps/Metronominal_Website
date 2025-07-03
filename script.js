@@ -1,177 +1,57 @@
+// js/script.js
+
 import AppState from './js/appState.js';
 import DOM from './js/domSelectors.js';
-import MetronomeEngine from './js/metronomeEngine.js';
-import BarDisplayController from './js/barDisplayController.js';
-import BarControlsController from './js/barControlsController.js';
-import UIController from './js/uiController.js'; // For reset and other general UI
+import UIController from './js/uiController.js';
 import ThemeController from './js/themeController.js';
-import TempoController from './js/tempoController.js'; // Import for initialization
-import VolumeController from './js/volumeController.js'; // Import for initialization
-import PlaybackController from './js/playbackController.js'; // Import for initialization
-import PresetController from './js/presetController.js'; // Import PresetController
-
-// --- Helper Functions for Presets ---
-
-/**
- * Updates the display names in the preset slot dropdown.
- * Reads song names from presets and updates the option texts.
- */
-function updatePresetDropdownDisplayNames() {
-    const presetSlotSelect = DOM.presetSlotSelect; // Assuming DOM.presetSlotSelect is '#preset-slot-select'
-    if (!presetSlotSelect) {
-        console.error("Preset slot select dropdown not found in DOM.");
-        return;
-    }
-    const allDisplayData = PresetController.getAllPresetDisplayData();
-
-    allDisplayData.forEach(data => {
-        if (presetSlotSelect.options[data.slotIndex]) {
-            presetSlotSelect.options[data.slotIndex].textContent = data.displaySongName;
-        }
-    });
-}
+import TempoController from './js/tempoController.js';
+import PlaybackController from './js/playbackController.js';
+import BarControlsController from './js/barControlsController.js';
+import TrackController from './js/tracksController.js';
+import PresetController from './js/presetController.js';
 
 /**
  * Refreshes all relevant UI components to reflect the current AppState.
- * Call this after loading a preset or any other state change that needs a full UI update.
  */
 function refreshUIFromState() {
-    TempoController.updateTempoDisplay({ animate: true }); // Pass animate option
-    VolumeController.updateVolumeDisplay({ animate: true }); // Pass animate option
-
-    // Ensure beatsPerCurrentMeasureDisplay is updated based on the (potentially) new selectedBarIndex or first bar.
-    // This is a preliminary update; BarControlsController.updateBeatControlsDisplay will refine it.
-    const currentBarSettings = AppState.getBarSettings();
-    const selectedBarIndex = AppState.getSelectedBarIndex();
-
-    let beatsForCurrentBar = 4; // Default value
-    if (currentBarSettings.length > 0) {
-        const targetBar = (selectedBarIndex !== -1 && currentBarSettings[selectedBarIndex])
-                            ? currentBarSettings[selectedBarIndex]
-                            : currentBarSettings[0]; // Fallback to first bar if no bar explicitly selected
-        beatsForCurrentBar = targetBar ? targetBar.beats : 4;
-    }
-    if (DOM.beatsPerCurrentMeasureDisplay) { // Check if element exists
-        DOM.beatsPerCurrentMeasureDisplay.textContent = beatsForCurrentBar;
-    }
-    if (DOM.barsLengthDisplay) { // Check if element exists
-        DOM.barsLengthDisplay.textContent = currentBarSettings.length;
-    }
-    BarDisplayController.renderBarsAndControls(selectedBarIndex);
+    TempoController.updateTempoDisplay({ animate: true });
+    TrackController.renderTracks();
+    UIController.updateCurrentPresetDisplay();
     BarControlsController.updateTotalBeatsDisplay();
 
-    // If 3D theme is active, ensure its state is also refreshed.
+    // If 3D theme is active, refresh its state as well
     if (AppState.getCurrentTheme() === '3dRoom' && ThemeController.is3DSceneActive()) {
-        // This will update 3D labels, rebuild measures/beats, and adjust the camera
         ThemeController.update3DScenePostStateChange();
-
-        if (AppState.isPlaying()) {
-            // For safety on a full refresh, clear and let the engine re-highlight the current beat.
-            ThemeController.clearAll3DVisualHighlights();
-        } else {
-            ThemeController.clearAll3DVisualHighlights(); // Ensure no highlights if not playing
-        }
     }
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    // Initial setup
-    async function initialize() {
-        // Initialize AppState with initial values from DOM/defaults
-        const initialNumberOfBars = parseInt(DOM.barsLengthDisplay.textContent, 10);
-        const initialBeatsPerMeasure = parseInt(DOM.beatsPerCurrentMeasureDisplay.textContent, 10) || 4;
-        // Initialize beatMultiplier from the dropdown's current value
-        const initialBeatMultiplier = parseFloat(DOM.beatMultiplierSelect.value) || 1;
-
-        // Initialize Volume
-        const initialVolume = parseFloat(DOM.volumeSlider.value);
-
-        AppState.initializeState(initialNumberOfBars, initialBeatsPerMeasure, initialBeatMultiplier, initialVolume);
-
-        // Initialize AudioContext and load buffers
-        const audioContext = AppState.initializeAudioContext();
-        if (audioContext) {
-            await AppState.loadAudioBuffers(); // Wait for buffers to load
-        }
-
-        // Initialize Controllers that manage their own event listeners and initial state
-        ThemeController.initializeThemeControls();
-        TempoController.initializeTempoControls(); // Added
-        VolumeController.initializeVolumeControls(); // Added
-        PlaybackController.initializePlaybackControls(); // Added
-        BarControlsController.initializeBarControls();
-        UIController.initializeUIControls(refreshUIFromState); // Pass refreshUIFromState
-        initializePresetControls(); // Initialize preset controls
-
-        // Initial render of dynamic content not handled by controller initializers
-        // Ensure initial descriptive text (like "Moderate" for tempo) is set
-        refreshUIFromState(); // Initial UI refresh based on state
-
-        // Add event listener for when switching from 3D to 2D theme
-        document.addEventListener('switchedFrom3DTo2D', () => {
-            console.log("Event: Switched from 3D to 2D theme. Refreshing 2D UI.");
-            refreshUIFromState();
-        });
-
-        console.log("Metronome initialized.");
+/**
+ * Initializes the entire application.
+ */
+async function initialize() {
+    // 1. Initialize the AudioContext first.
+    const audioContext = AppState.initializeAudioContext();
+    if (audioContext) {
+        AppState.loadAudioBuffers();
     }
 
-    function initializePresetControls() {
-        if (!DOM.savePresetButton || !DOM.loadPresetButton || !DOM.presetSlotSelect || !DOM.presetNameInput) {
-            console.error("One or more preset control DOM elements are missing. Presets will not function.");
-            return;
-        }
+    // 2. Initialize all controllers with their correct function names.
+    UIController.initializeUIControls(refreshUIFromState); // Corrected function name
+    ThemeController.initializeThemeControls();            // Corrected function name
+    TempoController.initializeTempoControls();            // Corrected function name
+    PlaybackController.initializePlaybackControls();      // Corrected function name
+    BarControlsController.initializeBarControls();        // Corrected function name
+    TrackController.init();                               // This one was correct
+    PresetController.initializePresetControls(refreshUIFromState); // Corrected function name
 
-        updatePresetDropdownDisplayNames(); // Populate dropdown on init
-        UIController.updateCurrentPresetDisplay(); // Set initial preset display heading
+    // 3. Set the initial state of the application.
+    AppState.resetState(); 
+    
+    // 4. Perform the first render of the UI.
+    refreshUIFromState();
 
-        DOM.savePresetButton.addEventListener('click', () => {
-            const selectedSlotIndex = parseInt(DOM.presetSlotSelect.value, 10);
-            const songName = DOM.presetNameInput.value.trim();
+    console.log("Metronominal initialized successfully.");
+}
 
-            const result = PresetController.saveCurrentPreset(selectedSlotIndex, songName);
-
-            if (result && result.success) {
-                console.log(`Preset saved successfully to slot ${result.slotIndex + 1} with name "${result.savedSongName}".`);
-                // Update the specific option in the dropdown
-                const optionToUpdate = DOM.presetSlotSelect.options[result.slotIndex];
-                if (optionToUpdate) {
-                    optionToUpdate.textContent = result.savedSongName && result.savedSongName.trim() !== '' ? result.savedSongName : `Slot ${result.slotIndex + 1}`;
-                }
-                // Add user feedback (e.g., a temporary message on the UI)
-                UIController.showTemporaryMessage("Preset Saved!", "success");
-            } else {
-                console.error("Failed to save preset.", result ? result.error : 'Unknown error');
-                UIController.showTemporaryMessage("Error Saving Preset", "error");
-            }
-        });
-
-        DOM.loadPresetButton.addEventListener('click', () => {
-            const selectedSlotIndex = parseInt(DOM.presetSlotSelect.value, 10);
-            const loadedData = PresetController.loadPreset(selectedSlotIndex);
-
-            if (loadedData) {
-                console.log(`Preset loaded from slot ${selectedSlotIndex + 1}. Song: "${loadedData.songName}", Theme: "${loadedData.theme}"`);
-                DOM.presetNameInput.value = loadedData.songName || '';
-                ThemeController.applyTheme(loadedData.theme);
-                UIController.updateCurrentPresetDisplay(loadedData.songName);
-
-                // AppState is now updated by PresetController.loadPreset -> AppState.loadPresetData
-                // Now, refresh the entire UI to reflect the new AppState
-                refreshUIFromState();
-                
-                // Add user feedback
-                UIController.showTemporaryMessage("Preset Loaded!", "success");
-            } else {
-                console.log(`No preset data found in slot ${selectedSlotIndex + 1} or error loading.`);
-                DOM.presetNameInput.value = ''; // Clear name input if load fails or slot is empty
-                UIController.updateCurrentPresetDisplay(); // Reset to "PRESETS"
-                UIController.showTemporaryMessage("Preset Slot Empty or Error", "info");
-            }
-        });
-    }
-
-    // Initialize the application
-    initialize();
-
-});
+// Start the application once the DOM is ready.
+document.addEventListener('DOMContentLoaded', initialize);

@@ -105,9 +105,9 @@ const ThreeDThemeManager = {
     isActive: function() {
         return SceneManager.isSceneActive();
     },
-    updatePlayheadVisuals: function(barIndex, beatInBarWithSubdivisions, beatMultiplier) {
+    updatePlayheadVisuals: function(containerIndex, barIndex, beatInBarWithSubdivisions, beatMultiplier) {
         if (!this.isActive()) return;
-        MeasuresManager.updatePlayheadVisuals(barIndex, beatInBarWithSubdivisions, beatMultiplier);
+        MeasuresManager.updatePlayheadVisuals(containerIndex, barIndex, beatInBarWithSubdivisions, beatMultiplier);
     },
     clearAllVisualHighlights: function() {
         if (!this.isActive()) return;

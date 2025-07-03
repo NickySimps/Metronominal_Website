@@ -181,62 +181,43 @@ export function createMeasuresAndBeats(measuresGroup, font, interactionGroup) {
     console.log("3dTheme: Measures and Beats created/rebuilt by MeasuresManager.");
 }
 
-export function updatePlayheadVisuals(barIndex, beatInBarWithSubdivisions, beatMultiplier) {
+export function updatePlayheadVisuals(containerIndex, barIndex, beatInBarWithSubdivisions, beatMultiplier) {
     if (!localMeasuresGroupRef) return;
 
-    // Page sync from monolithic
-    if (barIndex >= 0 && AppState.getBarSettings().length > 0) {
-        const targetPage = Math.floor(barIndex / MEASURES_PER_PAGE_3D);
-        if (targetPage !== currentMeasurePage3D) {
-            currentMeasurePage3D = targetPage;
-            createMeasuresAndBeats(localMeasuresGroupRef); // Rebuild for new page
-        }
-    }
+    // Update measure box color for playhead
+    // This logic needs to be adapted for multiple containers and their individual playheads
+    // For now, we'll just highlight the beat in the specified container.
 
-    // Update measure box color for playhead from monolithic
-    if (barIndex !== currentPlayheadBarIndex) {
-        if (currentPlayheadBarIndex !== -1) {
-            const oldBox = localMeasuresGroupRef.getObjectByName(`measureBox_${currentPlayheadBarIndex}`);
-            if (oldBox) {
-                if (oldBox === selectedMeasureBoxMesh) {
-                    oldBox.material.color.set(SELECTED_MEASURE_COLOR);
-                    oldBox.material.opacity = SELECTED_MEASURE_OPACITY;
-                } else {
-                    oldBox.material.color.set(DEFAULT_MEASURE_COLOR);
-                    oldBox.material.opacity = DEFAULT_MEASURE_OPACITY;
+    // Clear previous highlight if it was in a different container or bar
+    if (currentHighlightedBeat3D.container !== -1 && currentHighlightedBeat3D.bar !== -1 && currentHighlightedBeat3D.beat !== -1) {
+        const prevContainerGroup = localMeasuresGroupRef.getObjectByName(`TrackGroup_${currentHighlightedBeat3D.container}`);
+        if (prevContainerGroup) {
+            const prevMeasureBox = prevContainerGroup.getObjectByName(`measureBox_${currentHighlightedBeat3D.container}_${currentHighlightedBeat3D.bar}`);
+            if (prevMeasureBox) {
+                const prevBeat = prevMeasureBox.getObjectByName(`beatSphere_${currentHighlightedBeat3D.container}_${currentHighlightedBeat3D.bar}_${currentHighlightedBeat3D.beat}`);
+                if (prevBeat) {
+                    const prevContainer = AppState.getTracks()[currentHighlightedBeat3D.container];
+                    const prevBarData = prevContainer.barSettings[currentHighlightedBeat3D.bar];
+                    const prevSubdivision = prevBarData ? prevBarData.subdivision : 1;
+                    prevBeat.material.color.set(currentHighlightedBeat3D.beat % prevSubdivision === 0 ? MAIN_BEAT_COLOR_3D_DEFAULT : SUB_BEAT_COLOR_3D_DEFAULT);
+                    prevBeat.position.y = 0;
                 }
             }
         }
-        const newBox = localMeasuresGroupRef.getObjectByName(`measureBox_${barIndex}`);
-        if (newBox) {
-            newBox.material.color.set(PLAYHEAD_SELECTED_MEASURE_COLOR);
-            newBox.material.opacity = PLAYHEAD_SELECTED_MEASURE_OPACITY;
-        }
-        currentPlayheadBarIndex = barIndex;
     }
 
-    // Update beat highlight from monolithic
-    if (currentHighlightedBeat3D.bar !== -1 && currentHighlightedBeat3D.beat !== -1) {
-        const prevMeasureBox = localMeasuresGroupRef.getObjectByName(`measureBox_${currentHighlightedBeat3D.bar}`);
-        if (prevMeasureBox) {
-            const prevBeat = prevMeasureBox.getObjectByName(`beatSphere_${currentHighlightedBeat3D.bar}_${currentHighlightedBeat3D.beat}`);
-            if (prevBeat) {
-                const prevSubdivision = AppState.getSubdivisionForBar(currentHighlightedBeat3D.bar);
-                prevBeat.material.color.set(currentHighlightedBeat3D.beat % prevSubdivision === 0 ? MAIN_BEAT_COLOR_3D_DEFAULT : SUB_BEAT_COLOR_3D_DEFAULT);
-                prevBeat.position.y = 0;
-            }
-        }
-    }
-
-    const currentMeasureBox = localMeasuresGroupRef.getObjectByName(`measureBox_${barIndex}`);
-    if (currentMeasureBox) {
-        const beatToHighlight = currentMeasureBox.getObjectByName(`beatSphere_${barIndex}_${beatInBarWithSubdivisions}`);
-        if (beatToHighlight) {
-            beatToHighlight.material.color.set(HIGHLIGHT_COLOR_3D);
-            beatToHighlight.position.y = BEAT_HIGHLIGHT_Y_OFFSET;
-            currentHighlightedBeat3D = { bar: barIndex, beat: beatInBarWithSubdivisions };
-        } else { currentHighlightedBeat3D = { bar: -1, beat: -1 }; }
-    } else { currentHighlightedBeat3D = { bar: -1, beat: -1 }; }
+    const currentContainerGroup = localMeasuresGroupRef.getObjectByName(`TrackGroup_${containerIndex}`);
+    if (currentContainerGroup) {
+        const currentMeasureBox = currentContainerGroup.getObjectByName(`measureBox_${containerIndex}_${barIndex}`);
+        if (currentMeasureBox) {
+            const beatToHighlight = currentMeasureBox.getObjectByName(`beatSphere_${containerIndex}_${barIndex}_${beatInBarWithSubdivisions}`);
+            if (beatToHighlight) {
+                beatToHighlight.material.color.set(HIGHLIGHT_COLOR_3D);
+                beatToHighlight.position.y = BEAT_HIGHLIGHT_Y_OFFSET;
+                currentHighlightedBeat3D = { container: containerIndex, bar: barIndex, beat: beatInBarWithSubdivisions };
+            } else { currentHighlightedBeat3D = { container: -1, bar: -1, beat: -1 }; }
+        } else { currentHighlightedBeat3D = { container: -1, bar: -1, beat: -1 }; }
+    } else { currentHighlightedBeat3D = { container: -1, bar: -1, beat: -1 }; }
 }
 
 export function clearAllVisualHighlights() {
@@ -244,12 +225,16 @@ export function clearAllVisualHighlights() {
     localMeasuresGroupRef.traverse((object) => {
         if (object.isMesh && object.name && object.name.startsWith('beatSphere_')) {
             const parts = object.name.split('_');
-            const barIdx = parseInt(parts[1], 10);
-            const beatIdx = parseInt(parts[2], 10);
+            const containerIdx = parseInt(parts[1], 10);
+            const barIdx = parseInt(parts[2], 10);
+            const beatIdx = parseInt(parts[3], 10);
             // Get subdivision for this specific beat's bar
-            const subdivision = AppState.getSubdivisionForBar(barIdx);
-            object.material.color.set(beatIdx % subdivision === 0 ? MAIN_BEAT_COLOR_3D_DEFAULT : SUB_BEAT_COLOR_3D_DEFAULT);
-            object.position.y = 0;
+            const container = AppState.getTracks()[containerIdx];
+            if (container) {
+                const subdivision = container.barSettings[barIdx].subdivision;
+                object.material.color.set(beatIdx % subdivision === 0 ? MAIN_BEAT_COLOR_3D_DEFAULT : SUB_BEAT_COLOR_3D_DEFAULT);
+                object.position.y = 0;
+            }
         } else if (object.isMesh && object.name?.startsWith('measureBox_')) {
             if (object !== selectedMeasureBoxMesh) { // Don't reset user-selected one unless it's also playhead
                 object.material.color.set(DEFAULT_MEASURE_COLOR);
@@ -258,7 +243,7 @@ export function clearAllVisualHighlights() {
         }
     });
     currentPlayheadBarIndex = -1;
-    currentHighlightedBeat3D = { bar: -1, beat: -1 };
+    currentHighlightedBeat3D = { container: -1, bar: -1, beat: -1 };
 }
 
 export function showSubdivisionSelector(measureBox) {

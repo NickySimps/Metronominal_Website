@@ -45,6 +45,7 @@ const UIController = {
 
         // 2. Reset core application state
         AppState.resetState();
+        BarControlsController.syncBarSettings();
 
         // 3. Update UI elements based on reset state
         TempoController.updateTempoDisplay({ animate: true }); // Use TempoController with animation
@@ -60,7 +61,8 @@ const UIController = {
         }
 
         // Reset Bar Structure UI (AppState handles data, BarControlsController handles UI sync)
-        DOM.barsLengthDisplay.textContent = AppState.getBarSettings().length.toString();
+        DOM.barsLengthDisplay.textContent = AppState.getBarSettings(AppState.getSelectedTrackIndex()).length.toString();
+         BarControlsController.syncBarSettings();
         // syncBarSettings will update beatsPerCurrentMeasureDisplay and totalBeatsDisplay
         // and re-render bars via BarDisplayController
         BarControlsController.syncBarSettings();

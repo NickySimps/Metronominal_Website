@@ -86,7 +86,7 @@ const themes = {
         '--Alt1': '#fdfd96', // Pale Yellow (Nose/Flower center)
         '--Alt2': '#ff6699', // Deeper Pink
         '--TextOnMain': '#ffffff',
-        '--TextPrimary': '#333333',
+        '--TextPrimary': 'hsl(0, 0.00%, 0.00%)',
         '--TextSecondary': '#555555',
         '--SubdivisionBeatColor': '#ff4500', // OrangeRed for non-highlighted beat square (high contrast)
         '--HighlightedBeatColor': '#ff007f', // Rose for highlighted beat square (high contrast)
@@ -288,9 +288,9 @@ const ThemeController = {
         handleThemeSelection(themeToLoad);
     },
 
-    updatePlayheadVisuals: (barIndex, beatInBarWithSubdivisions, beatMultiplier) => {
+    updatePlayheadVisuals: (containerIndex, barIndex, beatInBarWithSubdivisions, beatMultiplier) => {
         if (ThemeController.is3DSceneActive()) {
-            ThreeDThemeManager.updatePlayheadVisuals(barIndex, beatInBarWithSubdivisions, beatMultiplier);
+            ThreeDThemeManager.updatePlayheadVisuals(containerIndex, barIndex, beatInBarWithSubdivisions, beatMultiplier);
         }
     },
 

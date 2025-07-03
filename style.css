@@ -239,9 +239,12 @@ input[type="range"]::-webkit-slider-runnable-track {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  padding: var(--s3); /* Standardized padding (8px) */
+  padding: var(--s2); /* Standardized padding (8px) */
 }
-
+#add-track-btn,
+.track-mute-btn,
+.track-solo-btn,
+.track-remove-btn,
 .adjust-tempo,
 .adjust-bar-length,
 .adjust-measure-length,
@@ -249,7 +252,10 @@ input[type="range"]::-webkit-slider-runnable-track {
   border-radius: var(--BorderRadius);
   background: var(--Highlight);
   border: none;
-  margin: auto;
+  margin: var(--s2) auto;
+  width: clamp(25%, 100px, 30%);
+  height: clamp(10%, 100px, 25%);
+  padding:  var(--s5) 0;
   display: flex; /* For centering content */
   align-items: center; /* For centering content */
   justify-content: center; /* For centering content */
@@ -302,6 +308,7 @@ input[type="range"]::-webkit-slider-runnable-track {
   width: 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 select {
   height: var(--s7); /* Standardized height (48px) */
@@ -859,7 +866,7 @@ select {
   left: var(--s3); /* Standardized position (8px) */
   display: flex;
   gap: var(--s3); /* Standardized gap (8px) */
-  z-index: 1000; /* Ensure it's on top if other elements overlap */
+  z-index: 1000; /* Ensure it's on top of other elements */
 }
 
 .top-controls-area button {
@@ -935,7 +942,6 @@ select {
   /* Add this to your style.css file */
   /* Base styles for all subdivision options */
   .subdivision-option {
-    position: fixed;
     z-index: 1001;
     padding: 10px 15px;
     background-color: var(--Accent);
@@ -946,7 +952,6 @@ select {
     font-weight: bold;
     white-space: nowrap;
     /* Temporarily remove opacity and scale for debugging */
-    opacity: 0;
     scale: 0.8;
     transition: all 0.2s ease; /* Disable transitions for debugging */
   }
@@ -1098,4 +1103,182 @@ button:active,
 .adjust-bar-length:hover,
 .adjust-measure-length:hover {
   animation: wiggle 0.3s ease;
+}
+
+
+/* Debugging styles */
+.debug-mode .bar-visual {
+  border: 2px dashed red;
+}
+
+.debug-mode .beat-square {
+  border: 1px dotted blue;
+}
+
+.debug-mode .subdivision-option {
+  border: 2px solid lime;
+}
+
+.debug-mode .bar-display-container {
+  border: 2px solid purple;
+}
+
+.debug-mode .subdivision-option.desktop {
+  border: 2px solid orange;
+}
+
+.debug-mode .subdivision-option.visible {
+  border: 2px solid yellow;
+}
+
+.debug-mode .subdivision-option.desktop.visible {
+  border: 2px solid cyan;
+}
+
+/* Add this to your style.css file */
+.track-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.track {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 90vw;
+    padding: var(--s2);
+    margin: var(--s3) 0;
+    border-radius: 8px;
+    background-color: var(--track-background);
+    color: var(--track-text);
+}
+
+.track-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--s2);
+}
+
+.track-name {
+    font-weight: bold;
+}
+
+.track-volume-slider {
+    width: 100px;
+}
+
+.track-sound-select {
+    /* Add styles for the sound dropdown */
+}
+
+#add-track-btn {
+    /* Add styles for the "Add Track" button */
+}
+
+.subdivision-selector {
+    position: absolute;
+    z-index: 10;
+    background-color: var(--Accent);
+    border: 1px solid var(--Main);
+    border-radius: 5px;
+    padding: 5px;
+}
+
+/* Track color variations */
+.track-color-0 {
+    --track-background: color-mix(in srgb, var(--Main) 40%, var(--TextPrimary));
+    --track-text: #ffffff;
+}
+
+.track-color-1 {
+    --track-background: color-mix(in srgb, var(--Main) 50%, var(--TextPrimary));
+    --track-text: #333333;
+}
+
+.track-color-2 {
+    --track-background: color-mix(in srgb, var(--Main) 60%, var(--TextPrimary));
+    --track-text: #ffffff;
+}
+
+.track-color-3 {
+    --track-background: color-mix(in srgb, var(--Main) 70%, var(--TextPrimary));
+    --track-text: #333333;
+}
+.track-color-4 {
+    --track-background: color-mix(in srgb, var(--Main) 80%, var(--TextPrimary));
+    --track-text: #333333;
+}
+
+.track-color-5 {
+    --track-background: color-mix(in srgb, var(--Main) 90%, var(--TextPrimary));
+    --track-text: #ffffff;
+}
+
+.track-color-6 {
+    --track-background: color-mix(in srgb, var(--Main) 100%, var(--TextPrimary));
+    --track-text: #333333;
+}
+
+/* Beat square styling */
+.beat-square {
+    background-color: color-mix(in srgb, var(--track-background) 60%, white);
+}
+
+.beat-square.highlighted {
+    background-color: var(--track-text);
+}
+
+/* Subdivision Options Container */
+.subdivision-options-container {
+  position: fixed;
+  z-index: 1002; /* Higher than other elements */
+  display: flex;
+  flex-direction: row;
+  gap: 5px;
+  padding: 10px;
+  background-color: var(--Background);
+  border: 1px solid var(--BorderColor);
+  border-radius: var(--BorderRadius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  opacity: 0;
+  transform: translate(-50%, -110%) scale(0.9); /* Start slightly above and scaled down */
+  transform-origin: bottom center;
+  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+  pointer-events: none; /* Initially not interactive */
+}
+
+.subdivision-options-container.visible {
+  opacity: 1;
+  transform: translate(-50%, -100%) scale(1); /* Move to final position */
+  pointer-events: auto; /* Become interactive */
+}
+
+/* Individual Subdivision Option */
+.subdivision-option {
+  padding: 8px 16px;
+  background-color: var(--Highlight);
+  color: var(--TextPrimary);
+  border-radius: calc(var(--BorderRadius) - 4px);
+  cursor: pointer;
+  text-align: center;
+  font-size: var(--font-2);
+  transition: background-color 0.15s ease, transform 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.subdivision-option:hover,
+.subdivision-option.hovered {
+  background-color: var(--Accent);
+  color: var(--TextOnMain);
+  transform: scale(1.05);
+  border-color: var(--Main);
+}
+
+.subdivision-option.current {
+  font-weight: bold;
+  background-color: var(--Main);
+  color: var(--TextOnMain);
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.2);
 }

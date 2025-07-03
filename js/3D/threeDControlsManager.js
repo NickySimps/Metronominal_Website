@@ -524,11 +524,12 @@ export function updateDynamicControlLabels() {
     }
 
     // Beats & Bars Values
-    const barSettings = AppState.getBarSettings();
-    const selectedIdx = AppState.getSelectedBarIndex();
+    const selectedTrackIndex = AppState.getSelectedTrackIndex();
+    const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
+    const barSettings = AppState.getBarSettings(selectedTrackIndex);
     let beatsVal = 4; // Default
     if (barSettings && barSettings.length > 0) {
-        const barToRead = selectedIdx !== -1 ? barSettings[selectedIdx] : barSettings[0];
+        const barToRead = selectedBarIndexInContainer !== -1 ? barSettings[selectedBarIndexInContainer] : barSettings[0];
         if (barToRead && typeof barToRead.beats === 'number') {
             beatsVal = barToRead.beats;
         }
