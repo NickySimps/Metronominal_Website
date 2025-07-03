@@ -22,7 +22,7 @@ let isLongPressActive = false;
 let longPressedBarElement = null;
 let longPressInitialPosition = { x: 0, y: 0 };
 let hoveredSubdivisionOption = null;
-const LONG_PRESS_DURATION = 250; // ms
+const LONG_PRESS_DURATION = 150; // ms
 const POINTER_MOVE_THRESHOLD = 15; // pixels (Increased for more forgiving long-press)
 
 // Helper function to calculate total sub-beats needed based on subdivision

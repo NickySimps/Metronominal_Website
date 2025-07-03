@@ -27,6 +27,10 @@ const TrackController = {
       const colorInversionClass = `track-color-${index % 5}`; // Cycle through 4 inversions
       containerElement.classList.add(colorInversionClass);
 
+      if (container.solo) {
+        containerElement.classList.add("soloed");
+      }
+
       containerElement.innerHTML = `
                 <div class="track-controls">
                     <button class="track-mute-btn">${
@@ -58,14 +62,18 @@ const TrackController = {
     const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
     const currentlySelectedTrack = AppState.getSelectedTrackIndex();
 
-    // Handle button clicks (Mute, Remove)
-    if (target.matches(".track-mute-btn, .track-remove-btn")) {
+    // Handle button clicks (Mute, Solo, Remove)
+    if (target.matches(".track-mute-btn, .track-solo-btn, .track-remove-btn")) {
       if (target.matches(".track-mute-btn")) {
         const track = AppState.getTracks()[containerIndex];
         AppState.updateTrack(containerIndex, { muted: !track.muted });
         target.textContent = AppState.getTracks()[containerIndex].muted
           ? "Unmute"
           : "Mute";
+      }
+      if (target.matches(".track-solo-btn")) {
+        AppState.toggleSolo(containerIndex);
+        TrackController.renderTracks(); // Re-render all tracks to update their visual state
       }
       if (target.matches(".track-remove-btn")) {
         AppState.removeTrack(containerIndex);

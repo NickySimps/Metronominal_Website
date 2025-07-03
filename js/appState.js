@@ -9,6 +9,7 @@ const AppState = (function () {
     {
       barSettings: [{ beats: 4, subdivision: 1 }],
       muted: false,
+      solo: false,
       currentBar: 0,
       currentBeat: 0,
       mainBeatSound: "Click1.mp3",
@@ -162,6 +163,7 @@ const AppState = (function () {
       Tracks.push({
         barSettings: [{ beats: 4, subdivision: 1 }],
         muted: false,
+        solo: false,
         currentBar: 0,
         currentBeat: 0,
         mainBeatSound: "Click1.mp3",
@@ -182,6 +184,7 @@ const AppState = (function () {
          Tracks[0] = {
             barSettings: [], 
             muted: false,
+            solo: false,
             currentBar: 0,
             currentBeat: 0,
             mainBeatSound: "Click1.mp3",
@@ -198,6 +201,18 @@ const AppState = (function () {
         Object.assign(Tracks[containerIndex], updatedProperties);
         saveState();
       }
+    },
+    isAnyTrackSoloed: () => Tracks.some(track => track.solo),
+    toggleSolo: (trackIndex) => {
+        if (Tracks[trackIndex]) {
+            Tracks[trackIndex].solo = !Tracks[trackIndex].solo;
+            // When a track is soloed, its mute state should be overridden, so we can set it to false
+            // for a better user experience, so it's not "soloed and muted".
+            if (Tracks[trackIndex].solo) {
+                Tracks[trackIndex].muted = false;
+            }
+            saveState();
+        }
     },
     resetPlaybackState: () => {
       Tracks.forEach((container) => {
@@ -409,6 +424,12 @@ const AppState = (function () {
       volume = data.volume || 1.0;
       if (Array.isArray(data.Tracks)) {
         Tracks = data.Tracks;
+        // Ensure all loaded tracks have the solo property
+        Tracks.forEach(track => {
+            if (track.solo === undefined) {
+                track.solo = false;
+            }
+        });
       }
       publicAPI.setCurrentTheme(data.selectedTheme || "default");
       const trackIndex = (data.selectedTrackIndex >= 0 && data.selectedTrackIndex < Tracks.length) ? data.selectedTrackIndex : 0;
@@ -426,6 +447,7 @@ const AppState = (function () {
         {
           barSettings: [{ beats: 4, subdivision: 1 }],
           muted: false,
+          solo: false,
           currentBar: 0,
           currentBeat: 0,
           mainBeatSound: "Click1.mp3",

@@ -254,8 +254,8 @@ export function showSubdivisionSelector(measureBox) {
     const barIndex = parseInt(measureBox.name.split('_')[1], 10);
     if (isNaN(barIndex)) return;
 
-    const subdivisionOptions = Array.from(DOM.beatMultiplierSelect.options).map(opt => parseInt(opt.value, 10));
-    const currentSubdivision = AppState.getSubdivisionForBar(barIndex);
+    const subdivisionOptions = Array.from(DOM.beatMultiplierSelect.options).map(opt => parseFloat(opt.value));
+    const currentSubdivision = AppState.getSubdivisionForBar(0, barIndex); // Assuming track 0 for now, needs to be adapted for multi-track
     const currentIndex = subdivisionOptions.indexOf(currentSubdivision);
 
     longPressedMeasureBoxRef = measureBox; // Store reference to the long-pressed box

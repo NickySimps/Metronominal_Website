@@ -13,7 +13,10 @@ let animationFrameId = null; // Holds the requestAnimationFrame ID for the sched
 
 function playBeatSound(track, beatTime) {
     const audioContext = AppState.getAudioContext();
-    if (!audioContext || audioContext.state !== 'running' || !track || track.muted) {
+    const isAnySoloed = AppState.isAnyTrackSoloed();
+    const canPlay = !isAnySoloed ? !track.muted : track.solo;
+
+    if (!audioContext || audioContext.state !== 'running' || !track || !canPlay) {
         return;
     }
 

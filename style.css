@@ -1181,19 +1181,16 @@ button:active,
     position: absolute;
     z-index: 10;
     background-color: var(--Accent);
-    border:var(--s1) solid var(--Main);
     border-radius: 5px;
     padding: 5px;
 }
 
 /* Track color variations */
 .track-color-0 {
-    --track-background: color-mix(in srgb, var(--Main) 20%, var(--TextPrimary));
     --track-text: #ffffff;
 }
 
 .track-color-1 {
-    --track-background: color-mix(in srgb, var(--Main) 40%, var(--TextPrimary));
     --track-text: #333333;
 }
 
@@ -1203,11 +1200,9 @@ button:active,
 }
 
 .track-color-3 {
-    --track-background: color-mix(in srgb, var(--Main) 80%, var(--TextPrimary));
     --track-text: #333333;
 }
 .track-color-4 {
-    --track-background: color-mix(in srgb, var(--Main) 100%, var(--TextPrimary));
     --track-text: #333333;
 }
 
@@ -1276,4 +1271,21 @@ button:active,
   background-color: var(--Main);
   color: var(--TextOnMain);
   box-shadow: inset 0 0 8px rgba(0,0,0,0.2);
+}
+
+/* Solo track styling */
+.track.soloed {
+    background-color: var(--Accent);
+    box-shadow: 0 0 15px var(--Accent);
+    border: 2px solid var(--Main);
+}
+
+.track.soloed .track-name {
+    color: var(--TextOnMain);
+}
+
+.track.soloed .track-solo-btn {
+    background-color: var(--Main);
+    color: var(--TextOnMain);
+    font-weight: bold;
 }

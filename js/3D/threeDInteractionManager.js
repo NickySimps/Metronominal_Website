@@ -280,7 +280,7 @@ function onPointerUp(event) {
         event.preventDefault();
         if (hoveredSubdivisionSelector) {
             const parts = hoveredSubdivisionSelector.name.split('_');
-            const newSubdivision = parseInt(parts[parts.length - 1], 10);
+            const newSubdivision = parseFloat(parts[parts.length - 1]);
             const barIndex = parseInt(longPressedObject.name.split('_')[1], 10);
 
             if (!isNaN(newSubdivision) && !isNaN(barIndex)) {
