@@ -77,7 +77,7 @@ document.addEventListener('keydown', (event) => {
             break;
         case 't':  // 't': Tap tempo
             event.preventDefault();
-            TempoController.tapTempo();
+            DOM.tapTempoBtn.click(); // Simulate click on the tap tempo button
             break;
         case 'r':  // 'r': Reset
             event.preventDefault();
@@ -87,12 +87,12 @@ document.addEventListener('keydown', (event) => {
         case '=': // '=' Increase Tempo
         case '+':
             event.preventDefault();
-            TempoController.increaseTempo();
+            DOM.increaseTempoBtn.click();
             break;
         case '-': // '-' Decrease Tempo
         case '_':
             event.preventDefault();
-            TempoController.decreaseTempo();
+            DOM.decreaseTempoBtn.click();
             break;
         case ']': // ']' Increase Bars
             event.preventDefault();
@@ -104,19 +104,21 @@ document.addEventListener('keydown', (event) => {
             break;
         case "'": // ''' Increase Beats (Apostrophe)
             event.preventDefault();
-            BarControlsController.increaseBeatsForSelectedBar();
+            DOM.increaseMeasureLengthBtn.click();
             break;
         case ';': // ';' Decrease Beats (Semicolon)
             event.preventDefault();
-            BarControlsController.decreaseBeatsForSelectedBar();
+            DOM.decreaseMeasureLengthBtn.click();
             break;
         case 'ArrowUp':
             event.preventDefault();
-            VolumeController.increaseVolume();
+            AppState.setVolume(AppState.getVolume() + 0.01);
+            VolumeController.updateVolumeDisplay({ animate: true });
             break;
         case 'ArrowDown':
             event.preventDefault();
-            VolumeController.decreaseVolume();
+            AppState.setVolume(AppState.getVolume() - 0.01);
+            VolumeController.updateVolumeDisplay({ animate: true });
             break;
     }
 });
