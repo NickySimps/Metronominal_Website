@@ -26,6 +26,7 @@ html {
   --BorderColor: transparent; /* Set to transparent for flat look */
   --BorderRadius: 20px; /* Slightly rounded */
   --font-family: "Inter", sans-serif;
+  --text-shadow: 0px 1px 2px rgba(0, 0, 0, 0.2);
 
   /* New Font Sizes */
   --font-1: 0.8rem; /* Smallest */
@@ -77,6 +78,7 @@ body {
 }
 body * {
   transition: all 0.3s ease-in-out;
+  text-shadow: var(--text-shadow);
 }
 
 .main-container {
@@ -467,7 +469,7 @@ button {
 }
 
 /* .highlighted class (already existing) will be used for beat squares */
-.sound-label{
+.sound-label {
   width: clamp(50px, 80px, 45%);
   display: inline-block;
   background-color: var(--Highlight);
@@ -1144,7 +1146,7 @@ button:active,
 }
 
 /* Add this to your style.css file */
-#all-tracks-wrapper{
+#all-tracks-wrapper {
   display: flex;
   flex-flow: row wrap;
   flex-grow: 1;
@@ -1177,12 +1179,13 @@ button:active,
 }
 
 .track-name {
-    font-weight: bold;
-    margin: var(--s2);
-    background: var(--Accent);
-    border-radius: var(--BorderRadius);
-    padding: var(--s2);
-    box-shadow: var(--Main) 0px var(--s1);
+  font-weight: bold;
+  margin: var(--s2);
+  background: var(--Accent);
+  border-radius: var(--BorderRadius);
+  text-shadow: var(--track-background) 1px 2px;
+  padding: var(--s2);
+  box-shadow: var(--Main) 0px var(--s2);
 }
 .track-volume-value,
 .track-volume-label {
@@ -1196,7 +1199,7 @@ button:active,
   border-radius: var(--BorderRadius);
 }
 
-.track-volume-controls{
+.track-volume-controls {
   width: 100%;
   display: flex;
   flex-flow: row nowrap;
@@ -1213,7 +1216,7 @@ button:active,
   outline: none;
   opacity: 0.8;
   margin: 0px var(--s3);
-  transition: opacity .2s;
+  transition: opacity 0.2s;
 }
 
 .track-volume-slider:hover {

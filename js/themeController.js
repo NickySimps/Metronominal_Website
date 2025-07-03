@@ -25,7 +25,8 @@ const themes = {
         '--ActiveBarBackground': 'rgb(255, 217, 248)', // Steel Blue with transparency
         '--BorderColor': 'transparent', // Set to transparent for flat look
         '--BorderRadius': '20px', // Slightly rounded
-        '--font-family': '"Inter", sans-serif'
+        '--font-family': '"Inter", sans-serif',
+        '--text-shadow': '2px 2px 4px var(--Alt1)' // Added text shadow
     },
     dark: {
         '--Main': '#1c1c22', // Very Dark Gray (almost black)
@@ -42,7 +43,8 @@ const themes = {
         '--ActiveBarBackground': 'rgba(0, 82, 155, 0.5)', // Dark Blue with transparency
         '--BorderColor': 'var(--Accent)', // Set to transparent for flat look
         '--BorderRadius': '7px', // Sharper than default
-        '--font-family': '"Roboto Mono", monospace'
+        '--font-family': '"Roboto Mono", monospace',
+        '--text-shadow': '0px 0px 0px var(--Accent)' // Added text shadow
     },
     synthwave: {
         '--Main': '#ff00ff', // Magenta
@@ -59,7 +61,8 @@ const themes = {
         '--ActiveBarBackground': 'rgba(255, 105, 180, 0.5)', // Hot Pink with transparency
         '--BorderColor': 'var(--Alt1)', // Set to transparent for flat look
         '--BorderRadius': '50%', // For circular/pill shapes
-        '--font-family': '"Press Start 2P", cursive'
+        '--font-family': '"Press Start 2P", cursive',
+        '--text-shadow': '0px 0px 10px var(--SubdivisionBeatColor)' // Added text shadow
     },
     gundam: {
         '--Main': '#ffd700', // Gundam Blue
@@ -76,7 +79,8 @@ const themes = {
         '--ActiveBarBackground': 'rgba(0, 80, 160, 0.5)', // Gundam Blue with transparency
         '--BorderColor': 'var(--Main)', // Set to transparent for flat look
         '--BorderRadius': '0px', // Hard squares
-        '--font-family': '"Orbitron", sans-serif'
+        '--font-family': '"Orbitron", sans-serif',
+        '--text-shadow': '1px 1px 0px var(--Alt2)' // Added text shadow
     },
     helloKitty: {
         '--Main': '#ffffff', // Hello Kitty Pink
@@ -93,7 +97,8 @@ const themes = {
         '--ActiveBarBackground': 'rgba(255, 153, 204, 0.5)', // Hello Kitty Pink with transparency
         '--BorderColor': 'transparent', // Set to transparent for flat look
         '--BorderRadius': '15px', // Cute and rounded
-        '--font-family': '"Handlee", cursive'
+        '--font-family': '"Handlee", cursive',
+        '--text-shadow': '1px 1px 2px var(--Alt2)' // Added text shadow
     },
     beach: {
         '--Main': '#0077be', // Ocean Blue
@@ -110,7 +115,8 @@ const themes = {
         '--ActiveBarBackground': 'rgba(73, 254, 242, 0.5)', // Sky Blue with transparency
         '--BorderColor': 'transparent', // Set to transparent for flat look
         '--BorderRadius': '10px', // Softly rounded
-        '--font-family': '"Pacifico", cursive'
+        '--font-family': '"Pacifico", cursive',
+        '--text-shadow': '2px 1px 2px var(--Alt1)' // Added text shadow
     },
     iceCream: {
         '--Main': '#ffc0cb', // Strawberry Pink
@@ -127,7 +133,8 @@ const themes = {
         '--ActiveBarBackground': 'rgba(193, 116, 22, 0.71)', // Pastel Blue with transparency
         '--BorderColor': 'transparent', // Set to transparent for flat look
         '--BorderRadius': '25px', // Scoopy and round
-        '--font-family': '"Bubblegum Sans", cursive'
+        '--font-family': '"Bubblegum Sans", cursive',
+        '--text-shadow': '2px 2px 4px var(--Highlight)' // Added text shadow
     },
     tuxedo: { // Replaces Black
         '--Main': '#1a1a1a', // Very Dark Gray
@@ -144,7 +151,8 @@ const themes = {
         '--ActiveBarBackground': 'rgba(51, 51, 51, 0.5)',
         '--BorderColor': '#4a4a4a',
         '--BorderRadius': '3px',
-        '--font-family': '"Roboto Mono", monospace'
+        '--font-family': '"Roboto Mono", monospace',
+        '--text-shadow': '1px 1px 0px var(--Alt2)' // Added text shadow
     },
     pastel: { // Replaces White
         '--Main': '#ffe0e6', // Lighter Pink
@@ -161,7 +169,8 @@ const themes = {
         '--ActiveBarBackground': 'rgba(200, 230, 240, 0.5)', // Lighter Light Blue with transparency
         '--BorderColor': 'transparent',
         '--BorderRadius': '15px',
-        '--font-family': '"Inter", sans-serif'
+        '--font-family': '"Inter", sans-serif',
+        '--text-shadow': '0px 2px 2px var(--Alt2)' // Added text shadow
     },
     colorblind: { // Replaces Gray
         '--Main': '#0072B2', // Strong Blue
@@ -178,7 +187,8 @@ const themes = {
         '--ActiveBarBackground': 'rgba(0, 114, 178, 0.5)',
         '--BorderColor': '#0072B2',
         '--BorderRadius': '10px',
-        '--font-family': '"Roboto Mono", monospace'
+        '--font-family': '"Roboto Mono", monospace',
+        '--text-shadow': '2px 2px 2px var(--Main)' // Added text shadow
     }
 };
 
