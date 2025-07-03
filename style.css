@@ -229,7 +229,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 .start-stop-btn.active {
   background-color: var(--Alt2); /* A more active/warning color */
   color: var(--TextOnMain);
-  box-shadow: var(--Main) 0px 0px 15px, inset var(--Alt1) 0px 0px 10px;
+  box-shadow: var(--Main) 0px 0px 15px, inset var(--Alt1) 0px 0pxvar (--s5);
 }
 
 .measure-settings-container,
@@ -253,9 +253,9 @@ input[type="range"]::-webkit-slider-runnable-track {
   background: var(--Highlight);
   border: none;
   margin: var(--s2) auto;
-  width: clamp(25%, 100px, 30%);
+  width: clamp(60px, 24%, 30%);
   height: clamp(10%, 100px, 25%);
-  padding:  var(--s5) 0;
+  padding: var(--s5) 0;
   display: flex; /* For centering content */
   align-items: center; /* For centering content */
   justify-content: center; /* For centering content */
@@ -332,14 +332,14 @@ option {
   border-color: transparent;
 }
 
-button{
+button {
   color: var(--TextOnMain);
 }
 
 .bar-display-container {
   background: var(--Background);
   outline: var(--BorderColor) var(--s0) solid; /* Standardized outline (1px) */
-  border-radius: calc(var(--BorderRadius)/25);
+  border-radius: calc(var(--BorderRadius) / 25);
   width: 100%;
   height: auto;
   padding: var(--s2); /* Standardized padding (4px) */
@@ -467,18 +467,28 @@ button{
 }
 
 /* .highlighted class (already existing) will be used for beat squares */
-
+.sound-label{
+  width: clamp(50px, 80px, 45%);
+  display: inline-block;
+  background-color: var(--Highlight);
+  border-radius: var(--BorderRadius);
+  padding: var(--s2);
+  font-size: var(--font-3);
+  text-align: center;
+  color: var(--TextPrimary);
+}
 .total-beats-display,
 select {
-  outline: var(--s0) solid transparent; /* Standardized outline (1px) */
-  padding: var(--s2) var(--s2); /* Standardized padding (4px 4px) */
+  outline: var(--s0) solid transparent;
+  padding: var(--s2) var(--s2);
   background: var(--Highlight);
   border-radius: var(--BorderRadius);
-  font-size: var(--font-1); /* Standardized font size */
-  width: auto; /* Keep auto width */
+  font-size: var(--font-1);
+  width: clamp(50px, 50%, 211px);
   text-align: center;
-  height: auto; /* Let padding and content define height, or set explicitly if needed */
-  margin-right: auto;
+  height: var(--s6);
+  gap: 5px;
+  margin: var(--s3);
 }
 .measure-bar {
   background: var(--Highlight);
@@ -943,7 +953,7 @@ select {
   /* Base styles for all subdivision options */
   .subdivision-option {
     z-index: 1001;
-    padding: 10px 15px;
+    padding: var(--s5) 15px;
     background-color: var(--Accent);
     color: var(--TextOnMain);
     border-radius: 8px;
@@ -962,11 +972,11 @@ select {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    margin: 0 5px;
+    margin: 0 var(--s2);
     /* Temporarily set fixed size for debugging */
     width: 100px;
     height: 40px;
-    padding: 10px 15px;
+    padding: var(--s5) 15px;
     background-color: var(--Accent);
     color: var(--TextOnMain);
     border-radius: 8px;
@@ -989,7 +999,7 @@ select {
   /* Visible state specifically for desktop options (temporarily make them always visible for debugging) */
   .subdivision-option.desktop.visible {
     max-width: 150px;
-    padding: 10px 15px;
+    padding: var(--s5) 15px;
     opacity: 1;
   }
 
@@ -1023,13 +1033,12 @@ select {
 
 @media (max-width: 768px) {
   /* Styles for mobile devices */
-
 }
 
 .subdivision-option.desktop {
   /* Temporarily set fixed size for debugging */
 
-  padding: 10px 15px;
+  padding: var(--s5) 15px;
   background-color: var(--Accent);
   color: var(--TextOnMain);
   border-radius: 8px;
@@ -1071,7 +1080,7 @@ button:active,
     box-shadow: 0 0 0 rgba(255, 0, 221, 0.5);
   }
   50% {
-    box-shadow: 0 0 10px rgba(255, 0, 221, 0.8);
+    box-shadow: 0 0 var(--s5) rgba(255, 0, 221, 0.8);
   }
   100% {
     box-shadow: 0 0 0 rgba(255, 0, 221, 0.5);
@@ -1105,7 +1114,6 @@ button:active,
   animation: wiggle 0.3s ease;
 }
 
-
 /* Debugging styles */
 .debug-mode .bar-visual {
   border: 2px dashed red;
@@ -1137,85 +1145,131 @@ button:active,
 
 /* Add this to your style.css file */
 .track-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .track {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    width: 90vw;
-    padding: var(--s2);
-    margin: var(--s3) 0;
-    border-radius: 8px;
-    background-color: var(--track-background);
-    color: var(--track-text);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 90vw;
+  padding: var(--s2);
+  margin: var(--s3) 0;
+  border-radius: 8px;
+  background-color: var(--track-background);
+  color: var(--track-text);
 }
 
 .track-controls {
-    display: flex;
-    align-items: center;
-    gap: var(--s2);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  flex-wrap: wrap; /* Allow controls to wrap on smaller screens */
 }
 
 .track-name {
-    font-weight: bold;
+  font-weight: bold;
+  margin-right: auto; /* Pushes other controls to the right */
+}
+.track-volume-value,
+.track-volume-label {
+  font-size: var(--font-1);
+  width: 8%;
+  text-align: center;
+  margin: var(s1);
+  color: var(--track-background);
+  background-color: var(--track-text);
+  padding: var(--s1) var(--s2);
+  border-radius: var(--BorderRadius);
+}
+
+.track-volume-controls{
+  width: 100%;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  margin: var(--s2);
 }
 
 .track-volume-slider {
-    width: 100px;
+  -webkit-appearance: none;
+  width: clamp(120px, 90%, 600px); /* A fixed width for consistency */
+  height: var(--s1); /* 2px track height */
+  background: var(--Alt1);
+  border-radius: var(--s1);
+  outline: none;
+  opacity: 0.8;
+  margin: 0px var(--s3);
+  transition: opacity .2s;
+}
+
+.track-volume-slider:hover {
+  opacity: 1;
+}
+
+.track-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--s5); /* 12px thumb */
+  height: var(--s5); /* 12px thumb */
+  background: var(--Main);
+  cursor: pointer;
+  border-radius: 50%;
+  align-self: center;
 }
 
 .track-sound-select {
-    /* Add styles for the sound dropdown */
+  /* Add styles for the sound dropdown */
 }
 
 #add-track-btn {
-    /* Add styles for the "Add Track" button */
+  /* Add styles for the "Add Track" button */
 }
 
 .subdivision-selector {
-    position: absolute;
-    z-index: 10;
-    background-color: var(--Accent);
-    border-radius: 5px;
-    padding: 5px;
+  position: absolute;
+  z-index: 10;
+  background-color: var(--Accent);
+  border: var(--s0) solid var(--Main);
+  border-radius: var(--s2);
+  padding: var(--s2);
 }
 
 /* Track color variations */
 .track-color-0 {
-    --track-text: #ffffff;
+  --track-background: color-mix(in srgb, var(--Main) 20%, var(--TextPrimary));
+  --track-text: #ffffff;
 }
 
 .track-color-1 {
-    --track-text: #333333;
+  --track-background: color-mix(in srgb, var(--Main) 40%, var(--TextPrimary));
+  --track-text: #333333;
 }
 
 .track-color-2 {
-    --track-background: color-mix(in srgb, var(--Main) 60%, var(--TextPrimary));
-    --track-text: #ffffff;
+  --track-background: color-mix(in srgb, var(--Main) 60%, var(--TextPrimary));
+  --track-text: #ffffff;
 }
 
 .track-color-3 {
-    --track-text: #333333;
+  --track-background: color-mix(in srgb, var(--Main) 80%, var(--TextPrimary));
+  --track-text: #333333;
 }
 .track-color-4 {
-    --track-text: #333333;
-}
-
-
+  --track-background: color-mix(in srgb, var(--Main) 100%, var(--TextPrimary));
+  --track-text: #ffffff;
 }
 
 /* Beat square styling */
 .beat-square {
-    background-color: color-mix(in srgb, var(--track-background) 60%, white);
+  background-color: color-mix(in srgb, var(--track-background) 60%, white);
 }
 
 .beat-square.highlighted {
-    background-color: var(--HighlightedBeatColor);
+  background-color: var(--HighlightedBeatColor);
 }
 
 /* Subdivision Options Container */
@@ -1223,14 +1277,14 @@ button:active,
   position: fixed;
   z-index: 1002; /* Higher than other elements */
   display: flex;
-  width: 90%;
   flex-flow: row wrap;
+  width: 90%;
   gap: var(--s2);
-  padding: var(--s3);
+  padding: var(--s5);
   background-color: var(--Background);
-  border:var(--s1) solid var(--BorderColor);
+  border: 1px solid var(--BorderColor);
   border-radius: var(--BorderRadius);
-  box-shadow: 0 var(--s2) var(--s4) rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   opacity: 0;
   transform: translate(-50%, -110%) scale(0.9); /* Start slightly above and scaled down */
   transform-origin: bottom center;
@@ -1246,8 +1300,8 @@ button:active,
 
 /* Individual Subdivision Option */
 .subdivision-option {
-  padding: var(--s3) var(--s4);
-  margin: var(--s2) var(--s3);
+  padding: 8px 16px;
+  margin: var(--s4);
   background-color: var(--Highlight);
   color: var(--TextPrimary);
   border-radius: calc(var(--BorderRadius) - 4px);
@@ -1255,7 +1309,7 @@ button:active,
   text-align: center;
   font-size: var(--font-2);
   transition: background-color 0.15s ease, transform 0.15s ease;
-  border:var(--s1) solid transparent;
+  border: 1px solid transparent;
 }
 
 .subdivision-option:hover,
@@ -1270,22 +1324,22 @@ button:active,
   font-weight: bold;
   background-color: var(--Main);
   color: var(--TextOnMain);
-  box-shadow: inset 0 0 8px rgba(0,0,0,0.2);
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Solo track styling */
 .track.soloed {
-    background-color: var(--Accent);
-    box-shadow: 0 0 15px var(--Accent);
-    border: 2px solid var(--Main);
+  background-color: var(--Accent);
+  box-shadow: 0 0 15px var(--Accent);
+  border: 2px solid var(--Main);
 }
 
 .track.soloed .track-name {
-    color: var(--TextOnMain);
+  color: var(--TextOnMain);
 }
 
 .track.soloed .track-solo-btn {
-    background-color: var(--Main);
-    color: var(--TextOnMain);
-    font-weight: bold;
+  background-color: var(--Main);
+  color: var(--TextOnMain);
+  font-weight: bold;
 }

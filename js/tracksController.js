@@ -11,6 +11,12 @@ const TrackController = {
       "click",
       TrackController.handleTrackClicks
     );
+    DOM.trackWrapper.addEventListener(
+        "input",
+        TrackController.handleTrackSliderInput
+    );
+     // Add a 'change' event listener to the wrapper for the new dropdowns
+    DOM.trackWrapper.addEventListener('change', TrackController.handleTrackSoundChange);
     TrackController.renderTracks();
   },
 
@@ -23,16 +29,17 @@ const TrackController = {
       containerElement.classList.add("track");
       containerElement.dataset.containerIndex = index;
 
-      // Determine color inversion based on index
-      const colorInversionClass = `track-color-${index % 5}`; // Cycle through 4 inversions
+      const colorInversionClass = `track-color-${index % 5}`;
       containerElement.classList.add(colorInversionClass);
 
       if (container.solo) {
         containerElement.classList.add("soloed");
       }
 
+      // **MODIFIED HTML TO INCLUDE PLACEHOLDERS FOR SOUND SELECTORS**
       containerElement.innerHTML = `
                 <div class="track-controls">
+                    <span class="track-name">Track ${index + 1}</span>
                     <button class="track-mute-btn">${
                       container.muted ? "Unmute" : "Mute"
                     }</button>
@@ -40,29 +47,78 @@ const TrackController = {
                       container.solo ? "Unsolo" : "Solo"
                     }</button>
                     <button class="track-remove-btn">-</button>
+                    <div class="track-volume-controls">    
+                    <span for="track-volume-${index}" class="track-volume-label">Vol:</span>
+                    <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${container.volume}">
+                    <span for="track-volume-${index}" class="track-volume-value">${(container.volume * 100).toFixed(0)}%</span>
+                    </div>
+                </div>
+                <div class="track-sound-controls">
+                    <div class="sound-selection">
+                      <span class="sound-label" >Main:</span>
+                      </div>
+                    <div class="sound-selection">
+                      <span class="sound-label">Sub:</span>
+                      </div>
                 </div>
                 <div class="bar-display-container" data-container-index="${index}"></div>
             `;
+            
+      // **NEW: Find the placeholders and append the actual dropdowns**
+      const mainSoundSelectorContainer = containerElement.querySelector('.sound-selection:nth-child(1)');
+      const subSoundSelectorContainer = containerElement.querySelector('.sound-selection:nth-child(2)');
+
+      if (mainSoundSelectorContainer && subSoundSelectorContainer) {
+          mainSoundSelectorContainer.appendChild(createSoundSelector(container.mainBeatSound, 'main-beat-sound-select'));
+          subSoundSelectorContainer.appendChild(createSoundSelector(container.subdivisionSound, 'subdivision-sound-select'));
+      }
+            
       DOM.trackWrapper.appendChild(containerElement);
     });
 
-    // Render the actual beat displays inside the containers
     BarDisplayController.renderBarsAndControls();
+  },
+  
+  // **NEW FUNCTION to handle changes from the sound dropdowns**
+  handleTrackSoundChange: (event) => {
+      const target = event.target;
+      if (target.matches('.sound-selector')) {
+          const trackElement = target.closest(".track");
+          if (trackElement) {
+              const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
+              const newSound = target.value;
+              
+              if (target.classList.contains('main-beat-sound-select')) {
+                  AppState.updateTrack(containerIndex, { mainBeatSound: newSound });
+              } else if (target.classList.contains('subdivision-sound-select')) {
+                  AppState.updateTrack(containerIndex, { subdivisionSound: newSound });
+              }
+          }
+      }
+  },
 
-    // No longer need to attach listeners here, it's handled by event delegation in init()
+  handleTrackSliderInput: (event) => {
+    const target = event.target;
+    if (target.matches('.track-volume-slider')) {
+        const trackElement = target.closest(".track");
+        if (trackElement) {
+            const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
+            const newVolume = parseFloat(target.value);
+            AppState.updateTrack(containerIndex, { volume: newVolume });
+            trackElement.querySelector('.track-volume-value').textContent = `${(newVolume * 100).toFixed(0)}%`;
+        }
+    }
   },
 
   handleTrackClicks: (event) => {
     const target = event.target;
     const trackElement = target.closest(".track");
 
-    // If the click is outside any track, do nothing
     if (!trackElement) return;
 
     const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
     const currentlySelectedTrack = AppState.getSelectedTrackIndex();
 
-    // Handle button clicks (Mute, Solo, Remove)
     if (target.matches(".track-mute-btn, .track-solo-btn, .track-remove-btn")) {
       if (target.matches(".track-mute-btn")) {
         const track = AppState.getTracks()[containerIndex];
@@ -73,49 +129,38 @@ const TrackController = {
       }
       if (target.matches(".track-solo-btn")) {
         AppState.toggleSolo(containerIndex);
-        TrackController.renderTracks(); // Re-render all tracks to update their visual state
+        TrackController.renderTracks(); 
       }
       if (target.matches(".track-remove-btn")) {
         AppState.removeTrack(containerIndex);
-        TrackController.renderTracks(); // Re-render is needed after removal
-        // After removing, force an update of the controls to reflect the new state
+        TrackController.renderTracks(); 
         BarControlsController.updateBarControlsForSelectedTrack();
       }
-      return; // Stop further processing for button clicks
+      return; 
     }
 
-    // If a new track is selected, update the state
     if (currentlySelectedTrack !== containerIndex) {
       AppState.setSelectedTrackIndex(containerIndex);
     }
 
-    // Handle bar selection within the now-active track
     const barVisual = target.closest(".bar-visual");
     if (barVisual) {
       const barIndex = parseInt(barVisual.dataset.barIndex, 10);
       AppState.setSelectedBarIndexInContainer(barIndex);
     }
-
-    // After any selection change, update all relevant UI
-    // 1. Update the visual selection for tracks and bars
+    
     TrackController.updateSelectionVisuals();
-    // 2. Update the main controls (Bars and Beats displays)
     BarControlsController.updateBarControlsForSelectedTrack();
   },
 
-  /**
-   * NEW FUNCTION: Adds 'selected' classes to the correct track and bar
-   */
   updateSelectionVisuals: () => {
     const selectedTrackIndex = AppState.getSelectedTrackIndex();
     const selectedBarIndex = AppState.getSelectedBarIndexInContainer();
 
-    // Update track selection class
     DOM.trackWrapper.querySelectorAll(".track").forEach((trackEl, index) => {
       trackEl.classList.toggle("selected", index === selectedTrackIndex);
     });
 
-    // Update bar selection class
     DOM.trackWrapper.querySelectorAll(".bar-visual").forEach((barEl) => {
       const isSelected =
         parseInt(barEl.dataset.containerIndex, 10) === selectedTrackIndex &&
@@ -128,6 +173,41 @@ const TrackController = {
     AppState.addTrack();
     TrackController.renderTracks();
   },
+  
 };
+
+function createSoundSelector(selectedSound, typeClass) {
+  const select = document.createElement('select');
+  select.className = `sound-selector ${typeClass}`;
+  
+  const soundOptions = [
+    'Synth Kick', 
+    'Synth Snare',
+    'Synth Clap',
+    'Synth Hi-Hat',
+    'Synth Open Hi-Hat',
+    'Synth Shaker',
+    'Synth Claves',
+    'Synth Hi Tom',
+    'Synth Mid Tom',
+    'Synth Low Tom',
+    'Click1.mp3', 
+    'Click2.mp3',
+    'Crank1.mp3',
+    'Crank2.mp3'
+  ];
+
+  soundOptions.forEach(soundName => {
+    const option = document.createElement('option');
+    option.value = soundName;
+    option.textContent = soundName.replace('.mp3', '').replace('Synth ', '');
+    if (soundName === selectedSound) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  });
+
+  return select;
+}
 
 export default TrackController;

@@ -18,17 +18,12 @@ import VolumeController from './js/volumeController.js';
 function refreshUIFromState() {
     TempoController.updateTempoDisplay({ animate: true });
     VolumeController.updateVolumeDisplay({ animate: true });
-
-
-    const selectedTrack = AppState.getTracks()[AppState.getSelectedTrackIndex()];
-    if (selectedTrack && DOM.barsLengthDisplay) {
-        DOM.barsLengthDisplay.textContent = selectedTrack.barSettings.length;
-    }
-
+ 
     TrackController.renderTracks();
-    UIController.updateCurrentPresetDisplay();
-    BarControlsController.updateTotalBeatsDisplay();
-
+    // This single call now handles all bar/beat related display updates for the selected track.
+    BarControlsController.updateBarControlsForSelectedTrack();
+    // The song name display is now updated directly by the preset controller on load.
+ 
     if (AppState.getCurrentTheme() === '3dRoom' && ThemeController.is3DSceneActive()) {
         ThemeController.update3DScenePostStateChange();
     }

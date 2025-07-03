@@ -10,6 +10,7 @@ const AppState = (function () {
       barSettings: [{ beats: 4, subdivision: 1 }],
       muted: false,
       solo: false,
+      volume: 1.0,
       currentBar: 0,
       currentBeat: 0,
       mainBeatSound: "Click1.mp3",
@@ -164,6 +165,7 @@ const AppState = (function () {
         barSettings: [{ beats: 4, subdivision: 1 }],
         muted: false,
         solo: false,
+        volume: 1.0,
         currentBar: 0,
         currentBeat: 0,
         mainBeatSound: "Click1.mp3",
@@ -181,18 +183,19 @@ const AppState = (function () {
           publicAPI.setSelectedTrackIndex(Tracks.length - 1);
         }
       } else {
-         Tracks[0] = {
-            barSettings: [], 
-            muted: false,
-            solo: false,
-            currentBar: 0,
-            currentBeat: 0,
-            mainBeatSound: "Click1.mp3",
-            subdivisionSound: "Click2.mp3",
-            nextBeatTime: 0,
+        Tracks[0] = {
+          barSettings: [],
+          muted: false,
+          solo: false,
+          volume: 1.0,
+          currentBar: 0,
+          currentBeat: 0,
+          mainBeatSound: "Click1.mp3",
+          subdivisionSound: "Click2.mp3",
+          nextBeatTime: 0,
         };
         publicAPI.setSelectedTrackIndex(0);
-        publicAPI.setSelectedBarIndexInContainer(-1); 
+        publicAPI.setSelectedBarIndexInContainer(-1);
       }
       saveState();
     },
@@ -202,17 +205,17 @@ const AppState = (function () {
         saveState();
       }
     },
-    isAnyTrackSoloed: () => Tracks.some(track => track.solo),
+    isAnyTrackSoloed: () => Tracks.some((track) => track.solo),
     toggleSolo: (trackIndex) => {
-        if (Tracks[trackIndex]) {
-            Tracks[trackIndex].solo = !Tracks[trackIndex].solo;
-            // When a track is soloed, its mute state should be overridden, so we can set it to false
-            // for a better user experience, so it's not "soloed and muted".
-            if (Tracks[trackIndex].solo) {
-                Tracks[trackIndex].muted = false;
-            }
-            saveState();
+      if (Tracks[trackIndex]) {
+        Tracks[trackIndex].solo = !Tracks[trackIndex].solo;
+        // When a track is soloed, its mute state should be overridden, so we can set it to false
+        // for a better user experience, so it's not "soloed and muted".
+        if (Tracks[trackIndex].solo) {
+          Tracks[trackIndex].muted = false;
         }
+        saveState();
+      }
     },
     resetPlaybackState: () => {
       Tracks.forEach((container) => {
@@ -296,12 +299,12 @@ const AppState = (function () {
       } else if (newTotalBars < previousNumberOfBars) {
         currentContainer.barSettings.length = newTotalBars;
       }
-      
+
       if (newTotalBars === 0 && Tracks.length > 1) {
-          publicAPI.removeTrack(selectedTrackIndex);
+        publicAPI.removeTrack(selectedTrackIndex);
       } else if (newTotalBars === 0 && Tracks.length === 1) {
-          currentContainer.barSettings = [];
-          publicAPI.setSelectedBarIndexInContainer(-1);
+        currentContainer.barSettings = [];
+        publicAPI.setSelectedBarIndexInContainer(-1);
       }
 
       saveState();
@@ -367,11 +370,11 @@ const AppState = (function () {
       return 1;
     },
     getSubdivisionForBar: (trackIndex, barIndex) => {
-        const track = Tracks[trackIndex];
-        if (track && track.barSettings && track.barSettings[barIndex]) {
-            return track.barSettings[barIndex].subdivision;
-        }
-        return 1;
+      const track = Tracks[trackIndex];
+      if (track && track.barSettings && track.barSettings[barIndex]) {
+        return track.barSettings[barIndex].subdivision;
+      }
+      return 1;
     },
     setSubdivisionForSelectedBar: (multiplier) => {
       const currentContainer = Tracks[selectedTrackIndex];
@@ -409,35 +412,53 @@ const AppState = (function () {
     },
     getSoundBuffer: (sound) => soundBuffers[sound],
 
-    // Presets & State
-    getCurrentStateForPreset: () => ({
-      tempo: tempo,
-      volume: volume,
-      Tracks: JSON.parse(JSON.stringify(Tracks)), 
-      selectedTheme: currentTheme,
-      selectedTrackIndex: selectedTrackIndex, 
-      selectedBarIndexInContainer: selectedBarIndexInContainer, 
-    }),
-    loadPresetData: (data) => {
-      if (!data) return;
-      tempo = data.tempo || 120;
-      volume = data.volume || 1.0;
-      if (Array.isArray(data.Tracks)) {
-        Tracks = data.Tracks;
-        // Ensure all loaded tracks have the solo property
-        Tracks.forEach(track => {
-            if (track.solo === undefined) {
-                track.solo = false;
-            }
-        });
-      }
-      publicAPI.setCurrentTheme(data.selectedTheme || "default");
-      const trackIndex = (data.selectedTrackIndex >= 0 && data.selectedTrackIndex < Tracks.length) ? data.selectedTrackIndex : 0;
-      publicAPI.setSelectedTrackIndex(trackIndex);
-      const barIndex = (data.selectedBarIndexInContainer >= 0 && Tracks[trackIndex] && data.selectedBarIndexInContainer < Tracks[trackIndex].barSettings.length) ? data.selectedBarIndexInContainer : 0;
-      publicAPI.setSelectedBarIndexInContainer(barIndex);
-      isPlaying = false;
-    },
+  // Presets & State
+  getCurrentStateForPreset: () => ({
+    tempo: tempo,
+    volume: volume,
+    Tracks: JSON.parse(JSON.stringify(Tracks)),
+    selectedTheme: currentTheme,
+    selectedTrackIndex: selectedTrackIndex,
+    selectedBarIndexInContainer: selectedBarIndexInContainer,
+  }),
+  loadPresetData: (data) => {
+    if (!data) return;
+    tempo = data.tempo || 120;
+    volume = data.volume || 1.0;
+    if (Array.isArray(data.Tracks)) {
+      Tracks = data.Tracks;
+      // Ensure all loaded tracks have the solo and volume properties
+      Tracks.forEach((track) => {
+        if (track.solo === undefined) {
+          track.solo = false;
+        }
+        if (track.volume === undefined) {
+          track.volume = 1.0;
+        }
+      });
+    }
+    publicAPI.setCurrentTheme(data.selectedTheme || "default");
+
+    // Directly set the indices from the preset data to avoid setter side-effects.
+    let newTrackIndex = data.selectedTrackIndex;
+    let newBarIndex = data.selectedBarIndexInContainer;
+
+    // Validate the loaded indices to prevent errors.
+    if (newTrackIndex === undefined || newTrackIndex < 0 || newTrackIndex >= Tracks.length) {
+      newTrackIndex = 0;
+    }
+
+    const currentTrack = Tracks[newTrackIndex];
+    if (!currentTrack || newBarIndex === undefined || newBarIndex < 0 || newBarIndex >= currentTrack.barSettings.length) {
+      // If the bar index is invalid, reset it to the first bar if one exists.
+      newBarIndex = currentTrack && currentTrack.barSettings.length > 0 ? 0 : -1;
+    }
+
+    selectedTrackIndex = newTrackIndex;
+    selectedBarIndexInContainer = newBarIndex;
+
+    isPlaying = false; // Always stop playback when a preset is loaded.
+  },
 
     // Reset & Initialization
     resetState: () => {
@@ -448,6 +469,7 @@ const AppState = (function () {
           barSettings: [{ beats: 4, subdivision: 1 }],
           muted: false,
           solo: false,
+          volume: 1.0,
           currentBar: 0,
           currentBeat: 0,
           mainBeatSound: "Click1.mp3",
@@ -459,7 +481,7 @@ const AppState = (function () {
       selectedBarIndexInContainer = 0;
       isPlaying = false;
       currentTheme = "default";
-      saveState(); 
+      saveState();
     },
 
     // Theme

@@ -8,6 +8,7 @@ import AppState from './appState.js';
 import DOM from './domSelectors.js';
 import ThemeController from './themeController.js';
 import BarDisplayController from './barDisplayController.js';
+import SoundSynth from './soundSynth.js';
 
 let animationFrameId = null; // Holds the requestAnimationFrame ID for the scheduler loop
 
@@ -23,20 +24,60 @@ function playBeatSound(track, beatTime) {
     const currentBarData = track.barSettings[track.currentBar];
     const beatMultiplier = parseFloat(currentBarData.subdivision);
     const isAccent = (track.currentBeat === 0) || (beatMultiplier > 1 && track.currentBeat % beatMultiplier === 0);
-    
-    const soundBuffer = isAccent 
-        ? AppState.getSoundBuffer(track.mainBeatSound) 
-        : AppState.getSoundBuffer(track.subdivisionSound);
 
-    if (soundBuffer) {
-        const source = audioContext.createBufferSource();
-        source.buffer = soundBuffer;
-        const gainNode = audioContext.createGain();
-        const trackVolume = track.volume !== undefined ? track.volume : 1.0;
-        gainNode.gain.setValueAtTime(AppState.getVolume() * trackVolume, audioContext.currentTime);
-        source.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        source.start(beatTime);
+    const soundToPlay = isAccent ? track.mainBeatSound : track.subdivisionSound;
+    const trackVolume = track.volume !== undefined ? track.volume : 1.0;
+    const finalVolume = AppState.getVolume() * trackVolume;
+
+    // Check if the sound is a synth sound
+    if (soundToPlay.startsWith('Synth')) {
+        switch (soundToPlay) {
+            case 'Synth Kick':
+                SoundSynth.playKick(audioContext, beatTime, finalVolume);
+                break;
+            case 'Synth Snare':
+                SoundSynth.playSnare(audioContext, beatTime, finalVolume);
+                break;
+            case 'Synth Hi-Hat':
+                SoundSynth.playHiHat(audioContext, beatTime, finalVolume);
+                break;
+            case 'Synth Tom':
+                SoundSynth.playMidTom(audioContext, beatTime, finalVolume); // Default to Mid Tom
+                break;
+            case 'Synth Open Hi-Hat':
+                SoundSynth.playOpenHiHat(audioContext, beatTime, finalVolume);
+                break;
+            case 'Synth Hi Tom':
+                SoundSynth.playHiTom(audioContext, beatTime, finalVolume);
+                break;
+            case 'Synth Mid Tom':
+                SoundSynth.playMidTom(audioContext, beatTime, finalVolume);
+                break;
+            case 'Synth Low Tom':
+                SoundSynth.playLowTom(audioContext, beatTime, finalVolume);
+                break;
+            case 'Synth Clap':
+                SoundSynth.playClap(audioContext, beatTime, finalVolume);
+                break;
+            case 'Synth Claves':
+                SoundSynth.playClaves(audioContext, beatTime, finalVolume);
+                break;
+            case 'Synth Shaker':
+                SoundSynth.playShaker(audioContext, beatTime, finalVolume);
+                break;
+        }
+    } else {
+        // Fallback to the original file-based sound logic
+        const soundBuffer = AppState.getSoundBuffer(soundToPlay);
+        if (soundBuffer) {
+            const source = audioContext.createBufferSource();
+            source.buffer = soundBuffer;
+            const gainNode = audioContext.createGain();
+            gainNode.gain.setValueAtTime(finalVolume, audioContext.currentTime);
+            source.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            source.start(beatTime);
+        }
     }
 }
 
