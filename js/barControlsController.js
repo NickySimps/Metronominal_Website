@@ -223,6 +223,14 @@ const BarControlsController = {
         updateBeatControlsDisplay();
         updateTotalBeatsDisplay();
     },
+     increaseBarLength: () => { // Add this function
+        DOM.increaseBarLengthBtn.click();
+    },
+
+    decreaseBarLength: () => { // Add this function
+        DOM.decreaseBarLengthBtn.click();
+    }
+
 };
 
 export default BarControlsController;

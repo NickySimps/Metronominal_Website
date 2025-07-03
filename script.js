@@ -10,6 +10,7 @@ import BarControlsController from './js/barControlsController.js';
 import TrackController from './js/tracksController.js';
 import PresetController from './js/presetController.js';
 import VolumeController from './js/volumeController.js';
+import MetronomeEngine from './js/metronomeEngine.js';
 
 
 /**
@@ -65,3 +66,57 @@ async function initialize() {
 
 // Start the application once the DOM is ready.
 document.addEventListener('DOMContentLoaded', initialize);
+
+// Keyboard shortcut handling
+document.addEventListener('keydown', (event) => {
+    if (event.target instanceof HTMLInputElement) return;  // Disable shortcuts when typing in input fields
+    switch (event.key) {
+        case ' ':  // Spacebar: Toggle play/pause
+            event.preventDefault();
+            MetronomeEngine.togglePlay();
+            break;
+        case 't':  // 't': Tap tempo
+            event.preventDefault();
+            TempoController.tapTempo();
+            break;
+        case 'r':  // 'r': Reset
+            event.preventDefault();
+            AppState.resetState();
+            refreshUIFromState();
+            break;
+        case '=': // '=' Increase Tempo
+        case '+':
+            event.preventDefault();
+            TempoController.increaseTempo();
+            break;
+        case '-': // '-' Decrease Tempo
+        case '_':
+            event.preventDefault();
+            TempoController.decreaseTempo();
+            break;
+        case ']': // ']' Increase Bars
+            event.preventDefault();
+            BarControlsController.increaseBarLength();
+            break;
+        case '[': // '[' Decrease Bars
+            event.preventDefault();
+            BarControlsController.decreaseBarLength();
+            break;
+        case "'": // ''' Increase Beats (Apostrophe)
+            event.preventDefault();
+            BarControlsController.increaseBeatsForSelectedBar();
+            break;
+        case ';': // ';' Decrease Beats (Semicolon)
+            event.preventDefault();
+            BarControlsController.decreaseBeatsForSelectedBar();
+            break;
+        case 'ArrowUp':
+            event.preventDefault();
+            VolumeController.increaseVolume();
+            break;
+        case 'ArrowDown':
+            event.preventDefault();
+            VolumeController.decreaseVolume();
+            break;
+    }
+});
