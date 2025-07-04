@@ -7,7 +7,8 @@ const SoundSynth = {
    * A kick is a low-frequency sine wave with a rapid pitch and volume drop.
    * @param {AudioContext} audioContext - The global AudioContext.
    * @param {number} time - The time to schedule the sound to play.
-   * @param {number} volume - The master volume level (0.0 to 1.0).
+   * @param {object} settings - The settings for the sound.
+   * @param {AudioNode} destination - The destination node for the sound.
    */
   playKick: (
     audioContext,
@@ -18,13 +19,14 @@ const SoundSynth = {
       endFrequency = 50,
       decay = 0.4,
       pitchEnvelopeTime = 0.1,
-    } = {}
+    } = {},
+    destination = null
   ) => {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
     osc.connect(gain);
-    gain.connect(audioContext.destination);
+    gain.connect(destination || audioContext.destination);
 
     // Set master volume
     gain.gain.setValueAtTime(volume, time);
@@ -48,7 +50,8 @@ const SoundSynth = {
    * A snare is a mix of a tonal "thump" and a burst of filtered noise.
    * @param {AudioContext} audioContext - The global AudioContext.
    * @param {number} time - The time to schedule the sound to play.
-   * @param {number} volume - The master volume level (0.0 to 1.0).
+   * @param {object} settings - The settings for the sound.
+   * @param {AudioNode} destination - The destination node for the sound.
    */
   playSnare: (
     audioContext,
@@ -60,7 +63,8 @@ const SoundSynth = {
       bodyDecay = 0.2,
       noiseFilterFrequency = 1500,
       noiseDecay = 0.2,
-    } = {}
+    } = {},
+    destination = null
   ) => {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
@@ -68,15 +72,17 @@ const SoundSynth = {
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
+    const finalDestination = destination || audioContext.destination;
+
     // Configure the tonal part (the "body" of the snare)
     osc.type = "triangle";
     osc.frequency.setValueAtTime(bodyFrequencyStart, time);
     osc.frequency.exponentialRampToValueAtTime(bodyFrequencyEnd, time + 0.1);
     gain.gain.setValueAtTime(0.7 * volume, time);
-    gain.gain.exponentialRampToValueAtTime(0.01 * volume, time + bodyDecay);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.01 * volume), time + bodyDecay);
 
     osc.connect(gain);
-    gain.connect(audioContext.destination);
+    gain.connect(finalDestination);
 
     // Configure the noise part (the "snap" of the snare)
     const bufferSize = audioContext.sampleRate * 0.2; // 0.2 seconds of noise
@@ -99,7 +105,7 @@ const SoundSynth = {
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
-    noiseGain.connect(audioContext.destination);
+    noiseGain.connect(finalDestination);
 
     osc.start(time);
     noise.start(time);
@@ -114,12 +120,14 @@ const SoundSynth = {
    * A hi-hat is a very short burst of high-frequency filtered noise.
    * @param {AudioContext} audioContext - The global AudioContext.
    * @param {number} time - The time to schedule the sound to play.
-   * @param {number} volume - The master volume level (0.0 to 1.0).
+   * @param {object} settings - The settings for the sound.
+   * @param {AudioNode} destination - The destination node for the sound.
    */
   playHiHat: (
     audioContext,
     time,
-    { volume = 1.0, filterFrequency = 7000, decay = 0.05 } = {}
+    { volume = 1.0, filterFrequency = 7000, decay = 0.05 } = {},
+    destination = null
   ) => {
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
@@ -148,7 +156,7 @@ const SoundSynth = {
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
-    noiseGain.connect(audioContext.destination);
+    noiseGain.connect(destination || audioContext.destination);
 
     noise.start(time);
     noise.stop(time + decay + 0.05);
@@ -159,12 +167,14 @@ const SoundSynth = {
    * Similar to a closed hi-hat but with a longer, sustained decay.
    * @param {AudioContext} audioContext - The global AudioContext.
    * @param {number} time - The time to schedule the sound to play.
-   * @param {number} volume - The master volume level (0.0 to 1.0).
+   * @param {object} settings - The settings for the sound.
+   * @param {AudioNode} destination - The destination node for the sound.
    */
   playOpenHiHat: (
     audioContext,
     time,
-    { volume = 1.0, filterFrequency = 6000, decay = 0.4 } = {}
+    { volume = 1.0, filterFrequency = 6000, decay = 0.4 } = {},
+    destination = null
   ) => {
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
@@ -191,7 +201,7 @@ const SoundSynth = {
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
-    noiseGain.connect(audioContext.destination);
+    noiseGain.connect(destination || audioContext.destination);
 
     noise.start(time);
     noise.stop(time + decay + 0.1);
@@ -201,12 +211,14 @@ const SoundSynth = {
    * Plays a synthesized high tom drum sound.
    * @param {AudioContext} audioContext - The global AudioContext.
    * @param {number} time - The time to schedule the sound to play.
-   * @param {number} volume - The master volume level (0.0 to 1.0).
+   * @param {object} settings - The settings for the sound.
+   * @param {AudioNode} destination - The destination node for the sound.
    */
   playHiTom: (
     audioContext,
     time,
-    { volume = 1.0, startFrequency = 300, endFrequency = 150, decay = 0.3 } = {}
+    { volume = 1.0, startFrequency = 300, endFrequency = 150, decay = 0.3 } = {},
+    destination = null
   ) => {
     const osc = audioContext.createOscillator(); // Tonal part
     const gain = audioContext.createGain(); // Gain for tonal part
@@ -219,7 +231,7 @@ const SoundSynth = {
     gain.gain.exponentialRampToValueAtTime(0.001, time + decay); // Decay quickly
 
     osc.connect(gain);
-    gain.connect(audioContext.destination);
+    gain.connect(destination || audioContext.destination);
 
     osc.start(time);
     osc.stop(time + decay); // Stop after the decay
@@ -229,12 +241,14 @@ const SoundSynth = {
    * Plays a synthesized mid tom drum sound.
    * @param {AudioContext} audioContext - The global AudioContext.
    * @param {number} time - The time to schedule the sound to play.
-   * @param {number} volume - The master volume level (0.0 to 1.0).
+   * @param {object} settings - The settings for the sound.
+   * @param {AudioNode} destination - The destination node for the sound.
    */
   playMidTom: (
     audioContext,
     time,
-    { volume = 1.0, startFrequency = 150, endFrequency = 80, decay = 0.4 } = {}
+    { volume = 1.0, startFrequency = 150, endFrequency = 80, decay = 0.4 } = {},
+    destination = null
   ) => {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
@@ -246,7 +260,7 @@ const SoundSynth = {
     gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
 
     osc.connect(gain);
-    gain.connect(audioContext.destination);
+    gain.connect(destination || audioContext.destination);
 
     osc.start(time);
     osc.stop(time + decay);
@@ -256,12 +270,14 @@ const SoundSynth = {
    * Plays a synthesized low tom drum sound.
    * @param {AudioContext} audioContext - The global AudioContext.
    * @param {number} time - The time to schedule the sound to play.
-   * @param {number} volume - The master volume level (0.0 to 1.0).
+   * @param {object} settings - The settings for the sound.
+   * @param {AudioNode} destination - The destination node for the sound.
    */
   playLowTom: (
     audioContext,
     time,
-    { volume = 1.0, startFrequency = 100, endFrequency = 50, decay = 0.5 } = {}
+    { volume = 1.0, startFrequency = 100, endFrequency = 50, decay = 0.5 } = {},
+    destination = null
   ) => {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
@@ -273,7 +289,7 @@ const SoundSynth = {
     gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
 
     osc.connect(gain);
-    gain.connect(audioContext.destination);
+    gain.connect(destination || audioContext.destination);
 
     osc.start(time);
     osc.stop(time + decay);
@@ -284,12 +300,14 @@ const SoundSynth = {
    * A clap is a short, sharp burst of filtered noise.
    * @param {AudioContext} audioContext - The global AudioContext.
    * @param {number} time - The time to schedule the sound to play.
-   * @param {number} volume - The master volume level (0.0 to 1.0).
+   * @param {object} settings - The settings for the sound.
+   * @param {AudioNode} destination - The destination node for the sound.
    */
   playClap: (
     audioContext,
     time,
-    { volume = 1.0, filterFrequency = 1200, qValue = 15, decay = 0.15 } = {}
+    { volume = 1.0, filterFrequency = 1200, qValue = 15, decay = 0.15 } = {},
+    destination = null
   ) => {
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
@@ -313,12 +331,12 @@ const SoundSynth = {
 
     noiseGain.gain.setValueAtTime(0, time);
     noiseGain.gain.linearRampToValueAtTime(volume, time + 0.01);
-    noiseGain.gain.exponentialRampToValueAtTime(0.3 * volume, time + 0.03);
+    noiseGain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.3 * volume), time + 0.03);
     noiseGain.gain.exponentialRampToValueAtTime(0.001, time + decay);
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
-    noiseGain.connect(audioContext.destination);
+    noiseGain.connect(destination || audioContext.destination);
 
     noise.start(time);
     noise.stop(time + decay + 0.05);
@@ -329,12 +347,14 @@ const SoundSynth = {
    * Claves are a very short, high-pitched, tonal "tick".
    * @param {AudioContext} audioContext - The global AudioContext.
    * @param {number} time - The time to schedule the sound to play.
-   * @param {number} volume - The master volume level (0.0 to 1.0).
+   * @param {object} settings - The settings for the sound.
+   * @param {AudioNode} destination - The destination node for the sound.
    */
   playClaves: (
     audioContext,
     time,
-    { volume = 1.0, frequency = 2500, decay = 0.08 } = {}
+    { volume = 1.0, frequency = 2500, decay = 0.08 } = {},
+    destination = null
   ) => {
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
@@ -346,7 +366,7 @@ const SoundSynth = {
     gain.gain.exponentialRampToValueAtTime(0.001, time + decay);
 
     osc.connect(gain);
-    gain.connect(audioContext.destination);
+    gain.connect(destination || audioContext.destination);
 
     osc.start(time);
     osc.stop(time + decay + 0.02);
@@ -357,12 +377,14 @@ const SoundSynth = {
    * A shaker is a sustained burst of high-frequency noise.
    * @param {AudioContext} audioContext - The global AudioContext.
    * @param {number} time - The time to schedule the sound to play.
-   * @param {number} volume - The master volume level (0.0 to 1.0).
+   * @param {object} settings - The settings for the sound.
+   * @param {AudioNode} destination - The destination node for the sound.
    */
   playShaker: (
     audioContext,
     time,
-    { volume = 1.0, filterFrequency = 6000, qValue = 5, decay = 0.2 } = {}
+    { volume = 1.0, filterFrequency = 6000, qValue = 5, decay = 0.2 } = {},
+    destination = null
   ) => {
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
@@ -390,7 +412,7 @@ const SoundSynth = {
 
     noise.connect(noiseFilter);
     noiseFilter.connect(noiseGain);
-    noiseGain.connect(audioContext.destination);
+    noiseGain.connect(destination || audioContext.destination);
 
     noise.start(time);
     noise.stop(time + decay + 0.1);

@@ -71,16 +71,16 @@ const defaultShaker = {
 };
 
 const defaultSoundSettings = {
-    'Synth Kick': defaultKick,
-    'Synth Snare': defaultSnare,
-    'Synth HiHat': defaultHiHat,
-    'Synth Open HiHat': defaultOpenHiHat,
-    'Synth Hi Tom': defaultHiTom,
-    'Synth Mid Tom': defaultMidTom,
-    'Synth Low Tom': defaultLowTom,
-    'Synth Clap': defaultClap,
-    'Synth Claves': defaultClaves,
-    'Synth Shaker': defaultShaker
+  "Synth Kick": defaultKick,
+  "Synth Snare": defaultSnare,
+  "Synth HiHat": defaultHiHat,
+  "Synth Open HiHat": defaultOpenHiHat,
+  "Synth Hi Tom": defaultHiTom,
+  "Synth Mid Tom": defaultMidTom,
+  "Synth Low Tom": defaultLowTom,
+  "Synth Clap": defaultClap,
+  "Synth Claves": defaultClaves,
+  "Synth Shaker": defaultShaker,
 };
 
 const AppState = (function () {
@@ -96,9 +96,10 @@ const AppState = (function () {
       volume: 1.0,
       currentBar: 0,
       currentBeat: 0,
-      mainBeatSound: { sound: 'Synth Kick', settings: { ...defaultKick } },
-      subdivisionSound: { sound: 'Synth HiHat', settings: { ...defaultHiHat } },
+      mainBeatSound: { sound: "Synth Kick", settings: { ...defaultKick } },
+      subdivisionSound: { sound: "Synth HiHat", settings: { ...defaultHiHat } },
       nextBeatTime: 0,
+      analyserNode: null,
     },
   ];
   let selectedTrackIndex = 0;
@@ -244,17 +245,27 @@ const AppState = (function () {
 
     getTracks: () => Tracks,
     addTrack: () => {
-      Tracks.push({
+      const newTrack = {
         barSettings: [{ beats: 4, subdivision: 1 }],
         muted: false,
         solo: false,
         volume: 1.0,
         currentBar: 0,
         currentBeat: 0,
-        mainBeatSound: { sound: 'Synth Kick', settings: { ...defaultKick } },
-        subdivisionSound: { sound: 'Synth HiHat', settings: { ...defaultHiHat } },
+        mainBeatSound: { sound: "Synth Kick", settings: { ...defaultKick } },
+        subdivisionSound: {
+          sound: "Synth HiHat",
+          settings: { ...defaultHiHat },
+        },
         nextBeatTime: 0,
-      });
+        analyserNode: null,
+      };
+      if (audioContext) {
+        const analyser = audioContext.createAnalyser();
+        analyser.connect(audioContext.destination);
+        newTrack.analyserNode = analyser;
+      }
+      Tracks.push(newTrack);
       publicAPI.setSelectedTrackIndex(Tracks.length - 1);
       publicAPI.setSelectedBarIndexInContainer(0);
       saveState();
@@ -273,9 +284,13 @@ const AppState = (function () {
           volume: 1.0,
           currentBar: 0,
           currentBeat: 0,
-          mainBeatSound: { sound: 'Synth Kick', settings: { ...defaultKick } },
-          subdivisionSound: { sound: 'Synth HiHat', settings: { ...defaultHiHat } },
+          mainBeatSound: { sound: "Synth Kick", settings: { ...defaultKick } },
+          subdivisionSound: {
+            sound: "Synth HiHat",
+            settings: { ...defaultHiHat },
+          },
           nextBeatTime: 0,
+          analyserNode: null,
         };
         publicAPI.setSelectedTrackIndex(0);
         publicAPI.setSelectedBarIndexInContainer(-1);
@@ -469,14 +484,27 @@ const AppState = (function () {
     },
 
     // AudioContext and Buffers
+    getAnalyserNodes: () => Tracks.map((track) => track.analyserNode), 
+
     initializeAudioContext: () => {
       try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        publicAPI.createTrackAnalysers(); // Create analysers for initial tracks
         return audioContext;
       } catch (e) {
         console.warn("Web Audio API not supported.", e);
         return null;
       }
+    },
+    createTrackAnalysers: () => {
+      if (!audioContext) return;
+      Tracks.forEach((track) => {
+        if (!track.analyserNode) {
+          track.analyserNode = audioContext.createAnalyser();
+          // Connect the analyser to the destination to hear the sound
+          track.analyserNode.connect(audioContext.destination);
+        }
+      });
     },
     getAudioContext: () => audioContext,
     loadAudioBuffers: async () => {
@@ -495,56 +523,77 @@ const AppState = (function () {
     },
     getSoundBuffer: (sound) => soundBuffers[sound],
     getDefaultSoundSettings: (sound) => {
-        return defaultSoundSettings[sound];
+      return defaultSoundSettings[sound];
     },
 
-  // Presets & State
-  getCurrentStateForPreset: () => ({
-    tempo: tempo,
-    volume: volume,
-    Tracks: JSON.parse(JSON.stringify(Tracks)),
-    selectedTheme: currentTheme,
-    selectedTrackIndex: selectedTrackIndex,
-    selectedBarIndexInContainer: selectedBarIndexInContainer,
-  }),
-  loadPresetData: (data) => {
-    if (!data) return;
-    tempo = data.tempo || 120;
-    volume = data.volume || 1.0;
-    if (Array.isArray(data.Tracks)) {
-      Tracks = data.Tracks;
-      // Ensure all loaded tracks have the solo and volume properties
-      Tracks.forEach((track) => {
-        if (track.solo === undefined) {
-          track.solo = false;
+    // Presets & State
+    getCurrentStateForPreset: () => ({
+      tempo: tempo,
+      volume: volume,
+      Tracks: JSON.parse(
+        JSON.stringify(
+          Tracks.map((track) => {
+            const { analyserNode, ...remaningTrack } = track;
+            return remaningTrack;
+          })
+        )
+      ),
+      selectedTheme: currentTheme,
+      selectedTrackIndex: selectedTrackIndex,
+      selectedBarIndexInContainer: selectedBarIndexInContainer,
+    }),
+    loadPresetData: (data) => {
+      if (!data) return;
+      tempo = data.tempo || 120;
+      volume = data.volume || 1.0;
+      if (Array.isArray(data.Tracks)) {
+        Tracks = data.Tracks;
+        // Ensure all loaded tracks have the solo and volume properties
+        Tracks.forEach((track) => {
+          if (track.solo === undefined) {
+            track.solo = false;
+          }
+          if (track.volume === undefined) {
+            track.volume = 1.0;
+          }
+          track.analyserNode = null; // Reset analyserNode on load
+        });
+        if (audioContext) {
+          publicAPI.createTrackAnalysers(); // Create new analysers
         }
-        if (track.volume === undefined) {
-          track.volume = 1.0;
-        }
-      });
-    }
-    publicAPI.setCurrentTheme(data.selectedTheme || "default");
+      }
+      publicAPI.setCurrentTheme(data.selectedTheme || "default");
 
-    // Directly set the indices from the preset data to avoid setter side-effects.
-    let newTrackIndex = data.selectedTrackIndex;
-    let newBarIndex = data.selectedBarIndexInContainer;
+      // Directly set the indices from the preset data to avoid setter side-effects.
+      let newTrackIndex = data.selectedTrackIndex;
+      let newBarIndex = data.selectedBarIndexInContainer;
 
-    // Validate the loaded indices to prevent errors.
-    if (newTrackIndex === undefined || newTrackIndex < 0 || newTrackIndex >= Tracks.length) {
-      newTrackIndex = 0;
-    }
+      // Validate the loaded indices to prevent errors.
+      if (
+        newTrackIndex === undefined ||
+        newTrackIndex < 0 ||
+        newTrackIndex >= Tracks.length
+      ) {
+        newTrackIndex = 0;
+      }
 
-    const currentTrack = Tracks[newTrackIndex];
-    if (!currentTrack || newBarIndex === undefined || newBarIndex < 0 || newBarIndex >= currentTrack.barSettings.length) {
-      // If the bar index is invalid, reset it to the first bar if one exists.
-      newBarIndex = currentTrack && currentTrack.barSettings.length > 0 ? 0 : -1;
-    }
+      const currentTrack = Tracks[newTrackIndex];
+      if (
+        !currentTrack ||
+        newBarIndex === undefined ||
+        newBarIndex < 0 ||
+        newBarIndex >= currentTrack.barSettings.length
+      ) {
+        // If the bar index is invalid, reset it to the first bar if one exists.
+        newBarIndex =
+          currentTrack && currentTrack.barSettings.length > 0 ? 0 : -1;
+      }
 
-    selectedTrackIndex = newTrackIndex;
-    selectedBarIndexInContainer = newBarIndex;
+      selectedTrackIndex = newTrackIndex;
+      selectedBarIndexInContainer = newBarIndex;
 
-    isPlaying = false; // Always stop playback when a preset is loaded.
-  },
+      isPlaying = false; // Always stop playback when a preset is loaded.
+    },
 
     // Reset & Initialization
     resetState: () => {
@@ -558,11 +607,18 @@ const AppState = (function () {
           volume: 1.0,
           currentBar: 0,
           currentBeat: 0,
-          mainBeatSound: { sound: 'Synth Kick', settings: { ...defaultKick } },
-          subdivisionSound: { sound: 'Synth HiHat', settings: { ...defaultHiHat } },
+          mainBeatSound: { sound: "Synth Kick", settings: { ...defaultKick } },
+          subdivisionSound: {
+            sound: "Synth HiHat",
+            settings: { ...defaultHiHat },
+          },
           nextBeatTime: 0,
+          analyserNode: null,
         },
       ];
+      if (audioContext) {
+        publicAPI.createTrackAnalysers();
+      }
       selectedTrackIndex = 0;
       selectedBarIndexInContainer = 0;
       isPlaying = false;

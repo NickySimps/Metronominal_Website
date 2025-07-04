@@ -33,6 +33,8 @@ function playBeatSound(track, beatTime) {
     const soundVolume = soundObject.settings && soundObject.settings.volume !== undefined ? soundObject.settings.volume : 1.0;
     const finalVolume = AppState.getVolume() * trackVolume * soundVolume;
 
+    const destination = track.analyserNode || audioContext.destination;
+
     // Check if the sound is a synth sound
     if (soundToPlay && soundToPlay.startsWith('Synth')) {
         const synthFunctionName = `play${soundToPlay.replace('Synth ', '').replace(/ /g, '')}`;
@@ -42,7 +44,7 @@ function playBeatSound(track, beatTime) {
             // The individual sound's volume has been factored in. Now, set the final combined volume for the synth function.
             const settingsWithVolume = { ...soundObject.settings, volume: finalVolume };
             // Pass the entire settings object to the synth function
-            SoundSynth[synthFunctionName](audioContext, beatTime, settingsWithVolume);
+            SoundSynth[synthFunctionName](audioContext, beatTime, settingsWithVolume, destination);
         } else {
             console.warn(`Synth function ${synthFunctionName} not found in SoundSynth.`);
         }
@@ -55,7 +57,7 @@ function playBeatSound(track, beatTime) {
             const gainNode = audioContext.createGain();
             gainNode.gain.setValueAtTime(finalVolume, audioContext.currentTime);
             source.connect(gainNode);
-            gainNode.connect(audioContext.destination);
+            gainNode.connect(destination);
             source.start(beatTime);
         }
     }

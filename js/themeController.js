@@ -83,7 +83,7 @@ const themes = {
         '--text-shadow': '1px 1px 0px var(--Alt2)' // Added text shadow
     },
     helloKitty: {
-        '--Main': '#ffffff', // Hello Kitty Pink
+        '--Main': '#ffcbe5', // Hello Kitty Pink
         '--Background': '#ffffff', // White
         '--Accent': '#ff3366', // Brighter Pink/Red for accents
         '--Highlight': '#66ccff', // Light Blue

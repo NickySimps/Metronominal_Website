@@ -1,4 +1,3 @@
-// js/script.js
 
 import AppState from "./js/appState.js";
 import DOM from "./js/domSelectors.js";
@@ -12,58 +11,79 @@ import PresetController from "./js/presetController.js";
 import VolumeController from "./js/volumeController.js";
 import MetronomeEngine from "./js/metronomeEngine.js";
 import SoundSettingsModal from "./js/soundSettingsModal.js";
+import Oscilloscope from "./js/oscilloscope.js"; // 1. IMPORT a new module
 
 /**
- * Refreshes all relevant UI components to reflect the current AppState.
- */
+ * Refreshes all relevant UI components to reflect the current AppState.
+ */
 function refreshUIFromState() {
-  TempoController.updateTempoDisplay({ animate: true });
-  VolumeController.updateVolumeDisplay({ animate: true });
+  TempoController.updateTempoDisplay({ animate: true });
+  VolumeController.updateVolumeDisplay({ animate: true });
 
-  TrackController.renderTracks();
-  // This single call now handles all bar/beat related display updates for the selected track.
-  BarControlsController.updateBarControlsForSelectedTrack();
-  // The song name display is now updated directly by the preset controller on load.
+  TrackController.renderTracks();
+  BarControlsController.updateBarControlsForSelectedTrack();
 
-  if (
-    AppState.getCurrentTheme() === "3dRoom" &&
-    ThemeController.is3DSceneActive()
-  ) {
-    ThemeController.update3DScenePostStateChange();
-  }
+  if (
+    AppState.getCurrentTheme() === "3dRoom" &&
+    ThemeController.is3DSceneActive()
+  ) {
+    ThemeController.update3DScenePostStateChange();
+  }
 }
 
 /**
- * Initializes the entire application.
- */
+ * Initializes the entire application.
+ */
 async function initialize() {
-  // 1. Initialize the AudioContext first.
+    // 1. Initialize AudioContext and handle its state.
   const audioContext = AppState.initializeAudioContext();
-  if (audioContext) {
-    AppState.loadAudioBuffers();
+
+  if (!audioContext) {
+    console.warn("AudioContext could not be initialized. Sound will be unavailable.");
+  } else if (audioContext.state === 'running') {
+    // Audio is already active, load buffers.
+    await AppState.loadAudioBuffers();
+  } else if (audioContext.state === 'suspended') {
+    // Audio is suspended. Needs a user gesture to start.
+    console.log("AudioContext is suspended. Waiting for user interaction to start audio.");
+    const resumeAudio = async () => {
+      try {
+        await audioContext.resume();
+        console.log("AudioContext resumed successfully.");
+        await AppState.loadAudioBuffers();
+        Oscilloscope.start(); // Start visuals only after context is running
+      } catch (e) {
+        console.error("Error resuming AudioContext:", e);
+      }
+    };
+        document.addEventListener('click', resumeAudio, { once: true });
+    document.addEventListener('keydown', resumeAudio, { once: true });
   }
 
-  // 2. Load state from local storage. If it fails, reset to default.
-  const stateLoaded = AppState.loadStateFromLocalStorage();
-  if (!stateLoaded) {
-    // If no state was loaded, explicitly reset to the default state.
-    // This ensures the app starts correctly on the very first visit.
-    AppState.resetState();
-  }
 
-  // 3. Initialize all controllers.
-  UIController.initializeUIControls(refreshUIFromState);
-  ThemeController.initializeThemeControls();
-  TempoController.initializeTempoControls();
-  PlaybackController.initializePlaybackControls();
-  BarControlsController.initializeBarControls();
-  TrackController.init();
-  PresetController.initializePresetControls(refreshUIFromState);
-  VolumeController.initializeVolumeControls();
-  SoundSettingsModal.init();
-  
-  // 4. Perform the first render of the UI with the correct state.
-  refreshUIFromState();
+  // 3. Load state from local storage or reset.
+  const stateLoaded = AppState.loadStateFromLocalStorage();
+  if (!stateLoaded) {
+    AppState.resetState();
+  }
+
+  // 4. Initialize all controllers.
+  Oscilloscope.init(); // INITIALIZE the oscilloscope
+  UIController.initializeUIControls(refreshUIFromState);
+  ThemeController.initializeThemeControls();
+  TempoController.initializeTempoControls();
+  PlaybackController.initializePlaybackControls();
+  BarControlsController.initializeBarControls();
+  TrackController.init();
+  PresetController.initializePresetControls(refreshUIFromState);
+  VolumeController.initializeVolumeControls();
+  SoundSettingsModal.init();
+
+  // 5. First UI render and start oscilloscope if audio is already active
+  refreshUIFromState();
+   if(AppState.getAudioContext()?.state === 'running') {
+    Oscilloscope.start();
+   }
 
   console.log("Metronominal initialized successfully.");
 }
