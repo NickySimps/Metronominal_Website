@@ -93,33 +93,38 @@ const Oscilloscope = {
       return; // Nothing to draw
     }
 
-    // Get the main color from the CSS variable
-    let mainColor = getComputedStyle(document.documentElement)
-      .getPropertyValue("--Main")
-      .trim();
+    // Get colors from CSS variables
+    const cssMainColor = getComputedStyle(document.documentElement).getPropertyValue('--Main').trim();
+    const cssAccentColor = getComputedStyle(document.documentElement).getPropertyValue('--Accent').trim();
+    const cssHighlightColor = getComputedStyle(document.documentElement).getPropertyValue('--Highlight').trim();
 
     // Expand shorthand hex like #abc to #aabbcc
     const expandHex = (hex) => {
       if (/^#([0-9a-f]{3})$/i.test(hex)) {
         return (
           "#" +
-          hex
-            .slice(1)
-            .split("")
-            .map((c) => c + c)
-            .join("")
-        );
+ hex
+ .slice(1)
+ .split("")
+ .map((c) => c + c)
+ .join("")
+ );
       }
-      return hex;
+ return hex;
     };
 
-    // Validate hex format
-    const isValidHex = /^#([0-9a-f]{6})$/i.test(expandHex(mainColor));
-    if (!isValidHex) {
-      console.warn("Invalid CSS --Main color. Falling back to #00FFFF");
-      mainColor = "#00FFFF";
-    } else {
-      mainColor = expandHex(mainColor);
+    const baseColors = [
+ expandHex(cssMainColor),
+ expandHex(cssAccentColor),
+ expandHex(cssHighlightColor),
+    ];
+
+    // Validate hex format and fallback if invalid
+    for (let i = 0; i < baseColors.length; i++) {
+      if (!/^#([0-9a-f]{6})$/i.test(baseColors[i])) {
+        console.warn(`Invalid CSS color for oscilloscope. Falling back for index ${i}.`);
+        baseColors[i] = ['#00b430', '#ffe0b2', '#a0faa0'][i]; // Fallback to default theme colors
+      }
     }
 
     // Function to adjust lightness of a hex color
@@ -144,15 +149,17 @@ const Oscilloscope = {
     };
 
     const colors = analyserNodes.map((_, index) => {
-      const lightnessAdjustment =
-        (index % 2 === 0 ? 0.1 : -0.1) * Math.ceil((index + 1) / 2); // Alternate lighter/darker
-      return adjustLightness(mainColor, lightnessAdjustment);
+      const baseColor = baseColors[index % baseColors.length];
+      // Apply a slight lightness variation to each color for more visual distinction
+      const lightnessAdjustment = (index % 2 === 0 ? 0.05 : -0.05) * Math.floor(index / baseColors.length);
+      return adjustLightness(baseColor, lightnessAdjustment);
     });
+
     this.canvasCtx.globalCompositeOperation = "lighter"; // Additive blending for nice color mixing (optional, but looks good)
 
     analyserNodes.forEach((analyser, index) => {
       if (analyser) {
-        const color = colors[index % colors.length];
+        const color = colors[index]; // Use the specific color generated for this analyser
         this.drawOscilloscope(this.canvasCtx, analyser, color);
       }
     });
@@ -160,3 +167,4 @@ const Oscilloscope = {
 };
 
 export default Oscilloscope;
+
