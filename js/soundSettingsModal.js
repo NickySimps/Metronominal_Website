@@ -114,10 +114,15 @@ const SoundSettingsModal = {
                 const dataArray = new Uint8Array(bufferLength);
                 analyserNode.getByteTimeDomainData(dataArray);
 
+                // Get color variables from the stylesheet
+                const mainColor = getComputedStyle(document.documentElement).getPropertyValue('--Main').trim();
+                const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--Accent').trim();
+                const highlightColor = getComputedStyle(document.documentElement).getPropertyValue('--Highlight').trim();
+
                 const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
-                gradient.addColorStop(0, '#ff00ff');
-                gradient.addColorStop(0.5, '#00ffff');
-                gradient.addColorStop(1, '#37ff48');
+                gradient.addColorStop(0, mainColor);
+                gradient.addColorStop(0.5, accentColor);
+                gradient.addColorStop(1, highlightColor);
 
                 ctx.lineWidth = 2;
                 ctx.strokeStyle = gradient;
