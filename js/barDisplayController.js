@@ -334,6 +334,135 @@ function hideSubdivisionSelector() {
 }
 
 const BarDisplayController = {
+    addBar: (trackIndex, barIndex) => {
+        const track = AppState.getTracks()[trackIndex];
+        if (!track) return;
+        const barData = track.barSettings[barIndex];
+        if (!barData) return;
+
+        const targetBarDisplayContainer = DOM.trackWrapper.querySelector(
+            `.bar-display-container[data-container-index="${trackIndex}"]`
+        );
+        if (!targetBarDisplayContainer) return;
+
+        const barDiv = document.createElement("div");
+        barDiv.classList.add("bar-visual", "newly-added-bar-animation");
+        barDiv.dataset.containerIndex = trackIndex;
+        barDiv.dataset.barIndex = barIndex;
+
+        barDiv.addEventListener("pointerdown", onBarPointerDown);
+
+        const mainBeatsInBar = barData.beats;
+        const subdivision = barData.subdivision;
+        const totalSubBeatsNeeded = calculateTotalSubBeats(mainBeatsInBar, subdivision);
+
+        for (let i = 0; i < totalSubBeatsNeeded; i++) {
+            const beatSquare = createBeatSquareElement(i, subdivision, mainBeatsInBar);
+            barDiv.appendChild(beatSquare);
+        }
+
+        const allBeatSquares = barDiv.querySelectorAll(".beat-square");
+        const flexBasis = 100 / totalSubBeatsNeeded * 0.9;
+        allBeatSquares.forEach(sq => {
+          sq.style.flexBasis = `${flexBasis}%`;
+        });
+
+        targetBarDisplayContainer.appendChild(barDiv);
+        BarDisplayController.updateSelectionVisuals();
+    },
+
+    removeBar: (trackIndex, barIndex) => {
+        const targetBarDisplayContainer = DOM.trackWrapper.querySelector(
+            `.bar-display-container[data-container-index="${trackIndex}"]`
+        );
+        if (!targetBarDisplayContainer) return;
+
+        const barToRemove = targetBarDisplayContainer.querySelector(`.bar-visual[data-bar-index="${barIndex}"]`);
+        if (barToRemove) {
+            barToRemove.classList.add("removing-bar-animation");
+            barToRemove.addEventListener("animationend", () => barToRemove.remove(), { once: true });
+        }
+        BarDisplayController.updateSelectionVisuals();
+    },
+
+    updateBar: (trackIndex, barIndex) => {
+        const track = AppState.getTracks()[trackIndex];
+        if (!track) return;
+        const barData = track.barSettings[barIndex];
+        if (!barData) return;
+
+        const targetBarDisplayContainer = DOM.trackWrapper.querySelector(
+            `.bar-display-container[data-container-index="${trackIndex}"]`
+        );
+        if (!targetBarDisplayContainer) return;
+
+        const barDiv = targetBarDisplayContainer.querySelector(`.bar-visual[data-bar-index="${barIndex}"]`);
+        if (!barDiv) return;
+
+        const mainBeatsInBar = barData.beats;
+        const subdivision = barData.subdivision;
+        const totalSubBeatsNeeded = calculateTotalSubBeats(mainBeatsInBar, subdivision);
+
+        const existingBeatSquares = Array.from(
+            barDiv.querySelectorAll(".beat-square:not(.removing-beat-animation)")
+        );
+        const currentSubBeatCountInDom = existingBeatSquares.length;
+
+        if (totalSubBeatsNeeded > currentSubBeatCountInDom) {
+            for (let i = currentSubBeatCountInDom; i < totalSubBeatsNeeded; i++) {
+                const beatSquare = createBeatSquareElement(
+                    i,
+                    subdivision,
+                    mainBeatsInBar
+                );
+                barDiv.appendChild(beatSquare);
+            }
+        } else if (totalSubBeatsNeeded < currentSubBeatCountInDom) {
+            const beatsToAnimateOutCount =
+              currentSubBeatCountInDom - totalSubBeatsNeeded;
+            for (let i = 0; i < beatsToAnimateOutCount; i++) {
+              const beatToRemove =
+                existingBeatSquares[currentSubBeatCountInDom - 1 - i];
+              if (beatToRemove) {
+                beatToRemove.classList.add("removing-beat-animation");
+                beatToRemove.addEventListener(
+                  "animationend",
+                  function handleBeatRemoveAnim() {
+                    this.remove();
+                  },
+                  { once: true }
+                );
+              }
+            }
+        }
+        const allBeatSquares = barDiv.querySelectorAll(".beat-square");
+        allBeatSquares.forEach((sq, beatIdx) => {
+            updateBeatSquareClasses(sq, beatIdx, subdivision, mainBeatsInBar);
+        });
+
+        const flexBasis = 100 / totalSubBeatsNeeded * 0.9;
+        allBeatSquares.forEach(sq => {
+          sq.style.flexBasis = `${flexBasis}%`;
+        });
+    },
+
+    updateSelectionVisuals: () => {
+        const selectedTrackIndex = AppState.getSelectedTrackIndex();
+        const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
+
+        document.querySelectorAll('.bar-visual.selected').forEach(bar => {
+            bar.classList.remove('selected');
+        });
+
+        if (selectedTrackIndex !== -1 && selectedBarIndexInContainer !== -1) {
+            const selectedBar = document.querySelector(
+                `.bar-visual[data-container-index="${selectedTrackIndex}"][data-bar-index="${selectedBarIndexInContainer}"]`
+            );
+            if (selectedBar) {
+                selectedBar.classList.add("selected");
+            }
+        }
+    },
   /**
    * Renders or updates the bar and beat visuals in the DOM for all tracks.
    * @param {number} [previousBarCountForAnimation=-1] - Optional. If provided,

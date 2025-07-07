@@ -86,11 +86,14 @@ const BarControlsController = {
     initializeBarControls: () => {
         // Event Listeners for changing beats of the selected bar
         DOM.increaseMeasureLengthBtn.addEventListener('click', () => {
-            if (AppState.getSelectedBarIndexInContainer() !== -1) {
+            const selectedTrackIndex = AppState.getSelectedTrackIndex();
+            const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
+            if (selectedBarIndexInContainer !== -1) {
                 AppState.increaseBeatsForSelectedBar(); // Update state
 
                 const updateAction = () => {
-                    BarDisplayController.renderBarsAndControls(); // Re-render visuals
+                    // Instead of full rerender, just update the single bar
+                    BarDisplayController.updateBar(selectedTrackIndex, selectedBarIndexInContainer);
                     updateBeatControlsDisplay(); // Update beats display
                     updateTotalBeatsDisplay(); // Update total beats
                     // Trigger 3D UI update
@@ -104,11 +107,13 @@ const BarControlsController = {
         });
 
         DOM.decreaseMeasureLengthBtn.addEventListener('click', () => {
-            if (AppState.getSelectedBarIndexInContainer() !== -1 && AppState.getBeatsForSelectedBar() > 1) {
+            const selectedTrackIndex = AppState.getSelectedTrackIndex();
+            const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
+            if (selectedBarIndexInContainer !== -1 && AppState.getBeatsForSelectedBar() > 1) {
                 AppState.decreaseBeatsForSelectedBar(); // Update state
 
                 const updateAction = () => {
-                    BarDisplayController.renderBarsAndControls();
+                    BarDisplayController.updateBar(selectedTrackIndex, selectedBarIndexInContainer);
                     updateBeatControlsDisplay();
                     updateTotalBeatsDisplay();
                     // Trigger 3D UI update
@@ -138,6 +143,7 @@ const BarControlsController = {
 
             // Get the bar count directly from the AppState
             let currentBars = AppState.getBarSettings(selectedTrackIndex).length;
+            const newBarIndex = currentBars;
             currentBars++;
             
             // Update the AppState first
@@ -146,7 +152,14 @@ const BarControlsController = {
             const updateAction = () => {
                 // Then, update the UI to match the new state
                 DOM.barsLengthDisplay.textContent = currentBars;
-                syncBarSettings(); // Re-render the UI
+                // Call the new addBar function
+                BarDisplayController.addBar(selectedTrackIndex, newBarIndex);
+                updateTotalBeatsDisplay();
+                updateBeatControlsDisplay();
+
+                if (ThemeController.is3DSceneActive()) {
+                    ThemeController.update3DScenePostStateChange();
+                }
             };
 
             animateControlUpdate(DOM.barsLengthDisplay, updateAction);
@@ -163,7 +176,7 @@ const BarControlsController = {
                         DOM.metronomeContainer.insertBefore(measuresContainer, DOM.startStopBtn);
                     }
                 }
-            }, 500); // Should match animation duration
+            }, 250); // Should match animation duration
         });
 
         DOM.decreaseBarLengthBtn.addEventListener('click', () => {
@@ -182,14 +195,23 @@ const BarControlsController = {
 
             let currentBars = AppState.getBarSettings(selectedTrackIndex).length;
             if (currentBars > 0) {
-                currentBars--;
-                AppState.updateBarArray(currentBars);
+                const barIndexToRemove = currentBars - 1;
+                
+                if(AppState.getSelectedBarIndexInContainer() === barIndexToRemove) {
+                    AppState.setSelectedBarIndexInContainer(barIndexToRemove - 1);
+                }
+
+                AppState.updateBarArray(currentBars - 1);
 
                 const updateAction = () => {
-                    if (AppState.getTracks()[selectedTrackIndex] && AppState.getTracks()[selectedTrackIndex].barSettings.length > 0) {
-                        DOM.barsLengthDisplay.textContent = currentBars;
+                    DOM.barsLengthDisplay.textContent = currentBars - 1;
+                    BarDisplayController.removeBar(selectedTrackIndex, barIndexToRemove);
+                    updateTotalBeatsDisplay();
+                    updateBeatControlsDisplay();
+
+                    if (ThemeController.is3DSceneActive()) {
+                        ThemeController.update3DScenePostStateChange();
                     }
-                    syncBarSettings();
                 };
 
                 animateControlUpdate(DOM.barsLengthDisplay, updateAction);
@@ -208,7 +230,7 @@ const BarControlsController = {
                             DOM.metronomeContainer.insertBefore(measuresContainer, DOM.startStopBtn);
                         }
                     }
-                }, 500); // Should match animation duration
+                }, 250); // Should match animation duration
             } else {
                  // If no bars to remove, put controls back if they were moved
                  if (controlsWereMoved) {
@@ -224,10 +246,13 @@ const BarControlsController = {
         });
 
         DOM.beatMultiplierSelect.addEventListener('change', async () => { // Make event handler async
+            const selectedTrackIndex = AppState.getSelectedTrackIndex();
+            const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
+
             AppState.setSubdivisionForSelectedBar(DOM.beatMultiplierSelect.value); // Update state
 
             // Re-render visuals based on new multiplier
-            BarDisplayController.renderBarsAndControls();
+            BarDisplayController.updateBar(selectedTrackIndex, selectedBarIndexInContainer);
             // Trigger 3D UI update
             if (ThemeController.is3DSceneActive()) {
                 ThemeController.update3DScenePostStateChange();
