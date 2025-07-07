@@ -139,6 +139,7 @@ const BarControlsController = {
             // 1. If controls are in a track, move to safety
             if (controlsWereMoved) {
                 document.body.appendChild(measuresContainer);
+                measuresContainer.style.display = 'none';
             }
 
             // Get the bar count directly from the AppState
@@ -171,9 +172,11 @@ const BarControlsController = {
                     const newTrackElement = DOM.trackWrapper.querySelector(`.track[data-container-index="${selectedTrackIndex}"]`);
                     if (newTrackElement) {
                         newTrackElement.appendChild(measuresContainer);
+                        measuresContainer.style.display = 'flex';
                     } else {
                         // Fallback if track was somehow removed, move to default position
                         DOM.metronomeContainer.insertBefore(measuresContainer, DOM.startStopBtn);
+                        measuresContainer.style.display = 'flex';
                     }
                 }
             }, 250); // Should match animation duration
@@ -191,6 +194,7 @@ const BarControlsController = {
             // 1. If controls are in a track, move to safety
             if (controlsWereMoved) {
                 document.body.appendChild(measuresContainer);
+                measuresContainer.style.display = 'none';
             }
 
             let currentBars = AppState.getBarSettings(selectedTrackIndex).length;
@@ -224,10 +228,12 @@ const BarControlsController = {
                         if (newTrackElement) {
                             // If the track still exists, append controls to it.
                             newTrackElement.appendChild(measuresContainer);
+                            measuresContainer.style.display = 'flex';
                         } else {
                             // If the track was removed (e.g., last bar deleted),
                             // move the controls back to their default position.
                             DOM.metronomeContainer.insertBefore(measuresContainer, DOM.startStopBtn);
+                            measuresContainer.style.display = 'flex';
                         }
                     }
                 }, 250); // Should match animation duration
