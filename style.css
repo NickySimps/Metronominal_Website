@@ -109,6 +109,9 @@ body * {
   background: rgba(255, 255, 255, 0); /* White card background */
   text-align: center;
   width: 100%; /* Common width */
+  align-self: center;
+  border-radius: var(--BorderRadius);
+
 }
 
 .tempo-container {
@@ -210,9 +213,10 @@ input[type="range"]::-webkit-slider-runnable-track {
   background: var(
     --Accent
   ); /* Was white, now yellow-green for contrast with blue outline */
-  width: 110%;
+  width: 90%;
   padding: var(--s3); /* Standardized padding (8px) */
   margin: var(--s2) 0; /* Standardized margin (4px 0) */
+  border-radius: var(--BorderRadius);
 }
 
 .start-stop-btn {
@@ -245,6 +249,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 .measures-container {
   transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
   transform-origin: top center;
+  display: flex;
 }
 
 .measures-container.moving {
