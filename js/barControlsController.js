@@ -6,7 +6,6 @@
  * It interacts with domSelectors to access control elements.
  */
 import ThemeController from './themeController.js'; // Added for 3D UI updates
-
 import AppState from './appState.js'; // Assuming AppState is a module
 import DOM from './domSelectors.js'; // Assuming domSelectors is a module
 import BarDisplayController from './barDisplayController.js'; // Assuming BarDisplayController is a module
@@ -32,20 +31,21 @@ function updateBeatControlsDisplay() {
     const barSettings = AppState.getBarSettings(selectedTrackIndex); // Get bar settings for the selected container
 
     let beatsToDisplay = '-';
-    let subdivisionToDisplay = '1'; // Default subdivision
+    let subdivisionToDisplay = '1';
 
     if (barSettings.length > 0) {
         const targetBarIndex = (selectedBarIndexInContainer !== -1 && barSettings[selectedBarIndexInContainer] !== undefined)
-                               ? selectedBarIndexInContainer
-                               : 0; // Default to first bar if no bar is explicitly selected
+                              ? selectedBarIndexInContainer
+                              : 0;
         beatsToDisplay = barSettings[targetBarIndex].beats;
         subdivisionToDisplay = barSettings[targetBarIndex].subdivision.toString();
+    }
+
+    if (DOM.beatsPerCurrentMeasureDisplay) {
         DOM.beatsPerCurrentMeasureDisplay.textContent = beatsToDisplay;
+    }
+    if (DOM.beatMultiplierSelect) {
         DOM.beatMultiplierSelect.value = subdivisionToDisplay;
-    } else {
-        // No bars exist in the selected container, display default or empty state
-        DOM.beatsPerCurrentMeasureDisplay.textContent = beatsToDisplay; // Will be '-'
-        DOM.beatMultiplierSelect.value = subdivisionToDisplay; // Will be '1'
     }
 }
 
@@ -126,6 +126,16 @@ const BarControlsController = {
             const selectedTrackIndex = AppState.getSelectedTrackIndex();
             if (selectedTrackIndex === -1) return;
 
+            // --- Protective logic added ---
+            const measuresContainer = DOM.measuresContainer;
+            const originalParent = measuresContainer.parentNode;
+            const controlsWereMoved = originalParent && originalParent.classList.contains('track');
+
+            // 1. If controls are in a track, move to safety
+            if (controlsWereMoved) {
+                document.body.appendChild(measuresContainer);
+            }
+
             // Get the bar count directly from the AppState
             let currentBars = AppState.getBarSettings(selectedTrackIndex).length;
             currentBars++;
@@ -140,11 +150,35 @@ const BarControlsController = {
             };
 
             animateControlUpdate(DOM.barsLengthDisplay, updateAction);
+
+            // 2. After animation, move controls back if they were moved
+            setTimeout(() => {
+                if (controlsWereMoved) {
+                    // After re-render, the original parent is gone. Find the new one.
+                    const newTrackElement = DOM.trackWrapper.querySelector(`.track[data-container-index="${selectedTrackIndex}"]`);
+                    if (newTrackElement) {
+                        newTrackElement.appendChild(measuresContainer);
+                    } else {
+                        // Fallback if track was somehow removed, move to default position
+                        DOM.metronomeContainer.insertBefore(measuresContainer, DOM.startStopBtn);
+                    }
+                }
+            }, 500); // Should match animation duration
         });
 
         DOM.decreaseBarLengthBtn.addEventListener('click', () => {
             const selectedTrackIndex = AppState.getSelectedTrackIndex();
             if (selectedTrackIndex === -1) return;
+            
+            // --- Protective logic added ---
+            const measuresContainer = DOM.measuresContainer;
+            const originalParent = measuresContainer.parentNode;
+            const controlsWereMoved = originalParent && originalParent.classList.contains('track');
+            
+            // 1. If controls are in a track, move to safety
+            if (controlsWereMoved) {
+                document.body.appendChild(measuresContainer);
+            }
 
             let currentBars = AppState.getBarSettings(selectedTrackIndex).length;
             if (currentBars > 0) {
@@ -159,6 +193,27 @@ const BarControlsController = {
                 };
 
                 animateControlUpdate(DOM.barsLengthDisplay, updateAction);
+
+                // 2. After animation, move controls back if they were moved
+                setTimeout(() => {
+                    if (controlsWereMoved) {
+                        // After re-render, the original parent is gone. Find the new one.
+                        const newTrackElement = DOM.trackWrapper.querySelector(`.track[data-container-index="${selectedTrackIndex}"]`);
+                        if (newTrackElement) {
+                            // If the track still exists, append controls to it.
+                            newTrackElement.appendChild(measuresContainer);
+                        } else {
+                            // If the track was removed (e.g., last bar deleted),
+                            // move the controls back to their default position.
+                            DOM.metronomeContainer.insertBefore(measuresContainer, DOM.startStopBtn);
+                        }
+                    }
+                }, 500); // Should match animation duration
+            } else {
+                 // If no bars to remove, put controls back if they were moved
+                 if (controlsWereMoved) {
+                    originalParent.appendChild(measuresContainer);
+                }
             }
         });
 
@@ -187,24 +242,20 @@ const BarControlsController = {
 
     /**
      * Updates the beat count display for the currently selected bar.
-     * Should be called when selectedBarIndex changes or the beat count of the selected bar changes.
      */
     updateBeatControlsDisplay: updateBeatControlsDisplay,
 
     /**
      * Updates the total beats display.
-     * Should be called when the bar structure changes.
      */
     updateTotalBeatsDisplay: updateTotalBeatsDisplay,
 
     /**
      * Synchronizes the bar settings state with the UI display and triggers rendering.
-     * Used when the total number of bars changes.
      */
     syncBarSettings: syncBarSettings,
 
-    // Add other control-related functions here if needed
-        updateBarControlsForSelectedTrack: () => {
+    updateBarControlsForSelectedTrack: () => {
         const selectedTrackIndex = AppState.getSelectedTrackIndex();
         if (selectedTrackIndex === -1) {
             // Handle case where no track is selected (e.g., all tracks deleted)
@@ -223,7 +274,9 @@ const BarControlsController = {
         updateBeatControlsDisplay();
         updateTotalBeatsDisplay();
     },
-     increaseBarLength: () => { // Add this function
+
+    
+    increaseBarLength: () => { // Add this function
         DOM.increaseBarLengthBtn.click();
     },
 

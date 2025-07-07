@@ -241,6 +241,31 @@ input[type="range"]::-webkit-slider-runnable-track {
   align-items: center;
   padding: var(--s2); /* Standardized padding (8px) */
 }
+
+.measures-container {
+  transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+  transform-origin: top center;
+}
+
+.measures-container.moving {
+    opacity: 0;
+    transform: translateY(-20px);
+}
+
+.measures-container.slide-down {
+    animation: slideDown 0.5s ease-out forwards;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 #add-track-btn,
 .track-mute-btn,
 .track-solo-btn,
@@ -1323,8 +1348,8 @@ button:active,
 
 /* Individual Subdivision Option */
 .subdivision-option {
-  padding: 8px 12px;
-  margin: var(--s3);
+  padding: 16px;
+  margin: var(--s1);
   background-color: var(--Highlight);
   color: var(--TextPrimary);
   border-radius: calc(var(--BorderRadius) - 4px);
@@ -1405,6 +1430,9 @@ button:active,
     border-radius: var(--BorderRadius);
     position: relative;
     box-shadow:var(--text-shadow);
+    .h2{
+      text-align: center;
+    }
 }
 
 .close-button {

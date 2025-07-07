@@ -1,4 +1,3 @@
-
 import AppState from "./js/appState.js";
 import DOM from "./js/domSelectors.js";
 import UIController from "./js/uiController.js";
@@ -6,6 +5,7 @@ import ThemeController from "./js/themeController.js";
 import TempoController from "./js/tempoController.js";
 import PlaybackController from "./js/playbackController.js";
 import BarControlsController from "./js/barControlsController.js";
+import BarDisplayController from './js/barDisplayController.js'
 import TrackController from "./js/tracksController.js";
 import PresetController from "./js/presetController.js";
 import VolumeController from "./js/volumeController.js";
@@ -87,6 +87,69 @@ async function initialize() {
 
   console.log("Metronominal initialized successfully.");
 }
+/**
+ * Moves the controls container based on whether a track is selected.
+ * This version is SYNCHRONOUS to prevent race conditions.
+ */
+function updateControlsPosition() {
+    const selectedTrackIndex = AppState.getSelectedTrackIndex();
+    const measuresContainer = DOM.measuresContainer;
+    const metronomeContainer = DOM.metronomeContainer;
+    const startStopBtn = DOM.startStopBtn;
+
+    if (!measuresContainer || !metronomeContainer || !startStopBtn) return;
+
+    // If a track is selected, move the controls to that track
+    if (selectedTrackIndex !== -1 && AppState.getControlsAttachedToTrack()) {
+        const selectedTrackElement = DOM.trackWrapper.querySelector(`.track[data-container-index="${selectedTrackIndex}"]`);
+        // Move the container synchronously if it's not already in the correct track
+        if (selectedTrackElement && measuresContainer.parentNode !== selectedTrackElement) {
+            selectedTrackElement.appendChild(measuresContainer);
+        }
+    }
+    // Otherwise, move it back to the main container's default position
+    else {
+        if (measuresContainer.parentNode !== metronomeContainer) {
+            // Insert it before the start/stop button
+            metronomeContainer.insertBefore(measuresContainer, startStopBtn);
+        }
+    }
+}
+
+/**
+ * Handles all UI updates that need to happen when track selection changes.
+ */
+function handleTrackSelectionChange() {
+    updateControlsPosition();
+    BarControlsController.updateBarControlsForSelectedTrack();
+}
+
+// --- EVENT LISTENERS ---
+
+// Listen for the custom event from tracksController.js
+document.addEventListener('trackselectionchanged', handleTrackSelectionChange);
+
+// Listen for clicks on the whole page to handle "clicking outside"
+document.addEventListener('click', (event) => {
+    const trackWrapper = DOM.trackWrapper;
+    const measuresContainer = DOM.measuresContainer;
+    const addTrackButton = DOM.addTrackButton;
+
+    // If the click is on the "add track" button, do nothing. Its own handler will manage the state.
+    if (addTrackButton && addTrackButton.contains(event.target)) {
+        return;
+    }
+
+    // If the click is outside the track wrapper AND outside the bar controls, deselect the current track.
+    if (trackWrapper && !trackWrapper.contains(event.target) &&
+        measuresContainer && !measuresContainer.contains(event.target)) {
+        if (AppState.getSelectedTrackIndex() !== -1) {
+            AppState.setControlsAttachedToTrack(false);
+            document.dispatchEvent(new CustomEvent('trackselectionchanged')); // Announce change
+            BarDisplayController.renderBarsAndControls(); // Re-render to keep selection visuals
+        }
+    }
+});
 
 // Start the application once the DOM is ready.
 document.addEventListener("DOMContentLoaded", initialize);

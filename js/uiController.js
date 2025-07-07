@@ -41,40 +41,40 @@ const UIController = {
             await MetronomeEngine.togglePlay(); // This will stop the metronome and update its UI
         }
 
-
-
         // 2. Reset core application state
         AppState.resetState();
-        BarControlsController.syncBarSettings();
 
-        // 3. Update UI elements based on reset state
-        TempoController.updateTempoDisplay({ animate: true }); // Use TempoController with animation
-        DOM.beatMultiplierSelect.value = AppState.getSubdivisionForSelectedBar().toString(); // Ensure string for select value
-        // DOM.volumeSlider.value = AppState.getVolume(); // This is handled by updateVolumeDisplay
-        VolumeController.updateVolumeDisplay({ animate: true }); // Corrected: Use VolumeController with animation
-        
-        // Apply default theme. If current theme was 3D, this will trigger disposeThreeJSScene.
-        ThemeController.applyTheme('default'); 
-
-        if (previousTheme === '3dRoom' && ThemeController.clearAll3DVisualHighlights) {
-            // ThemeController.applyTheme('default') would call disposeThreeJSScene which should reset highlights.
+        // 3. Move controls back to default position BEFORE updating UI
+        const measuresContainer = DOM.measuresContainer;
+        const metronomeContainer = DOM.metronomeContainer;
+        const startStopBtn = DOM.startStopBtn;
+        if (measuresContainer && metronomeContainer && startStopBtn && measuresContainer.parentNode !== metronomeContainer) {
+             metronomeContainer.insertBefore(measuresContainer, startStopBtn);
         }
 
-        // Reset Bar Structure UI (AppState handles data, BarControlsController handles UI sync)
-        DOM.barsLengthDisplay.textContent = AppState.getBarSettings(AppState.getSelectedTrackIndex()).length.toString();
-         BarControlsController.syncBarSettings();
-        // syncBarSettings will update beatsPerCurrentMeasureDisplay and totalBeatsDisplay
-        // and re-render bars via BarDisplayController
-        BarControlsController.syncBarSettings();
+        // 4. Update UI elements based on reset state
+        TempoController.updateTempoDisplay({ animate: true });
+        if (DOM.beatMultiplierSelect) {
+            DOM.beatMultiplierSelect.value = AppState.getSubdivisionForSelectedBar().toString();
+        }
+        VolumeController.updateVolumeDisplay({ animate: true });
+        
+        // Apply default theme.
+        ThemeController.applyTheme('default'); 
 
-        // Ensure all highlights are cleared (belt-and-suspenders)
+        // Reset Bar Structure UI
+        if (DOM.barsLengthDisplay) {
+            DOM.barsLengthDisplay.textContent = AppState.getBarSettings(AppState.getSelectedTrackIndex()).length.toString();
+        }
+        BarControlsController.syncBarSettings(); // This handles the rest of the bar/beat UI updates
+
+        // Ensure all highlights are cleared
         BarDisplayController.clearAllHighlights();
-        // BarControlsController.updateTotalBeatsDisplay(); // syncBarSettings handles this
 
-        UIController.updateCurrentPresetDisplay(); // Reset heading to "PRESETS"
+        UIController.updateCurrentPresetDisplay();
         console.log("Metronome reset to defaults.");
     },
-
+    
     initializeUIControls: () => {
         // Tempo controls - REMOVED (handled by TempoController)
         // Start/Stop button - REMOVED (handled by PlaybackController)

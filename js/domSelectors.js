@@ -26,6 +26,10 @@ const DOM = {
     get decreaseBarLengthBtn() { return document.querySelector('.decrease-bar-length'); },
     get totalBeatsDisplayElement() { return document.querySelector('.total-beats-display'); },
     get beatMultiplierSelect() { return document.getElementById('beat-multiplier-select'); },
+    get measuresContainer() { return document.querySelector('.measures-container'); },
+    get metronomeContainer() { return document.querySelector('.metronome-container'); },
+    get measuresContainer() { return document.querySelector('.measures-container'); },
+    get barsContainer() { return document.querySelector('.bars-container'); },
 
     // Volume Control
     get volumeSlider() { return document.querySelector('.volume-slider'); },

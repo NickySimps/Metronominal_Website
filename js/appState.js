@@ -87,7 +87,6 @@ const AppState = (function () {
   // --- Private State ---
   let tempo = 120;
   let volume = 1.0;
-  // Set a default track on initial load
   let Tracks = [
     {
       barSettings: [{ beats: 4, subdivision: 1 }],
@@ -104,12 +103,14 @@ const AppState = (function () {
   ];
   let selectedTrackIndex = 0;
   let selectedBarIndexInContainer = 0;
+  let controlsAttachedToTrack = true; // NEW: Tracks if controls are attached to a track or in default position
   let isPlaying = false;
   let tapTempoTimestamps = [];
   let audioContext = null;
   let soundBuffers = {};
   let currentTheme = "default";
   let audioContextPrimed = false;
+
 
   // --- Constants ---
   const MAX_TAPS_FOR_AVERAGE = 4;
@@ -191,6 +192,11 @@ const AppState = (function () {
     },
 
     // Playback State
+    getControlsAttachedToTrack: () => controlsAttachedToTrack,
+    setControlsAttachedToTrack: (isAttached) => {
+        controlsAttachedToTrack = !!isAttached;
+        saveState();
+    },
     isPlaying: () => isPlaying,
     togglePlay: async () => {
       if (
@@ -268,34 +274,43 @@ const AppState = (function () {
       Tracks.push(newTrack);
       publicAPI.setSelectedTrackIndex(Tracks.length - 1);
       publicAPI.setSelectedBarIndexInContainer(0);
+      publicAPI.setControlsAttachedToTrack(true);
       saveState();
     },
-    removeTrack: (containerIndex) => {
-      if (Tracks.length > 1) {
-        Tracks.splice(containerIndex, 1);
-        if (selectedTrackIndex >= Tracks.length) {
-          publicAPI.setSelectedTrackIndex(Tracks.length - 1);
+    removeTrack: (indexToRemove) => {
+        if (Tracks.length <= 1) {
+            // If it's the last track, just clear its bars instead of removing it.
+            Tracks[0].barSettings = [];
+            publicAPI.setSelectedBarIndexInContainer(-1); // No bar is selected
+            saveState();
+            return;
         }
-      } else {
-        Tracks[0] = {
-          barSettings: [],
-          muted: false,
-          solo: false,
-          volume: 1.0,
-          currentBar: 0,
-          currentBeat: 0,
-          mainBeatSound: { sound: "Synth Kick", settings: { ...defaultKick } },
-          subdivisionSound: {
-            sound: "Synth HiHat",
-            settings: { ...defaultHiHat },
-          },
-          nextBeatTime: 0,
-          analyserNode: null,
-        };
-        publicAPI.setSelectedTrackIndex(0);
-        publicAPI.setSelectedBarIndexInContainer(-1);
-      }
-      saveState();
+
+        const wasSelected = selectedTrackIndex === indexToRemove;
+
+        // Remove the track
+        Tracks.splice(indexToRemove, 1);
+
+        if (wasSelected) {
+            // The selected track was removed. Select the next closest one.
+            // If the removed track was at or after the new end of the array, select the new last track.
+            const newIndex = Math.min(indexToRemove, Tracks.length - 1);
+            publicAPI.setSelectedTrackIndex(newIndex);
+
+            // Select the last measure bar of the new track
+            const newTrack = Tracks[newIndex];
+            if (newTrack && newTrack.barSettings.length > 0) {
+                publicAPI.setSelectedBarIndexInContainer(newTrack.barSettings.length - 1);
+            } else {
+                publicAPI.setSelectedBarIndexInContainer(-1);
+            }
+        } else if (selectedTrackIndex > indexToRemove) {
+            // The selected track was after the removed one, so its index has shifted.
+            publicAPI.setSelectedTrackIndex(selectedTrackIndex - 1);
+        }
+        
+        publicAPI.setControlsAttachedToTrack(true); // Ensure controls re-attach
+        saveState();
     },
     updateTrack: (containerIndex, updatedProperties) => {
       if (Tracks[containerIndex]) {
@@ -307,8 +322,6 @@ const AppState = (function () {
     toggleSolo: (trackIndex) => {
       if (Tracks[trackIndex]) {
         Tracks[trackIndex].solo = !Tracks[trackIndex].solo;
-        // When a track is soloed, its mute state should be overridden, so we can set it to false
-        // for a better user experience, so it's not "soloed and muted".
         if (Tracks[trackIndex].solo) {
           Tracks[trackIndex].muted = false;
         }
@@ -336,33 +349,11 @@ const AppState = (function () {
     },
     getSelectedTrackIndex: () => selectedTrackIndex,
     setSelectedTrackIndex: (index) => {
-      if (Tracks.length === 0 || index === -1) {
-        selectedTrackIndex = -1;
-        selectedBarIndexInContainer = -1;
-      } else if (index >= 0 && index < Tracks.length) {
         selectedTrackIndex = index;
-        const currentContainerBarSettings =
-          Tracks[selectedTrackIndex].barSettings;
-        if (selectedBarIndexInContainer >= currentContainerBarSettings.length) {
-          selectedBarIndexInContainer = Math.max(
-            0,
-            currentContainerBarSettings.length - 1
-          );
-        }
-      }
     },
     getSelectedBarIndexInContainer: () => selectedBarIndexInContainer,
     setSelectedBarIndexInContainer: (index) => {
-      const currentContainer = Tracks[selectedTrackIndex];
-      if (
-        !currentContainer ||
-        currentContainer.barSettings.length === 0 ||
-        index === -1
-      ) {
-        selectedBarIndexInContainer = -1;
-      } else if (index >= 0 && index < currentContainer.barSettings.length) {
         selectedBarIndexInContainer = index;
-      }
     },
     updateBarArray: (
       newTotalBars,
@@ -396,13 +387,17 @@ const AppState = (function () {
         }
       } else if (newTotalBars < previousNumberOfBars) {
         currentContainer.barSettings.length = newTotalBars;
+        if (isPlaying && currentContainer.currentBar >= newTotalBars) {
+            currentContainer.currentBar = 0;
+            currentContainer.currentBeat = 0;
+            if (audioContext) {
+                currentContainer.nextBeatTime = audioContext.currentTime;
+            }
+        }
       }
 
-      if (newTotalBars === 0 && Tracks.length > 1) {
-        publicAPI.removeTrack(selectedTrackIndex);
-      } else if (newTotalBars === 0 && Tracks.length === 1) {
-        currentContainer.barSettings = [];
-        publicAPI.setSelectedBarIndexInContainer(-1);
+      if (newTotalBars === 0 && selectedBarIndexInContainer !== -1) {
+          publicAPI.setSelectedBarIndexInContainer(-1);
       }
 
       saveState();
@@ -489,7 +484,7 @@ const AppState = (function () {
     initializeAudioContext: () => {
       try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        publicAPI.createTrackAnalysers(); // Create analysers for initial tracks
+        publicAPI.createTrackAnalysers();
         return audioContext;
       } catch (e) {
         console.warn("Web Audio API not supported.", e);
@@ -501,7 +496,6 @@ const AppState = (function () {
       Tracks.forEach((track) => {
         if (!track.analyserNode) {
           track.analyserNode = audioContext.createAnalyser();
-          // Connect the analyser to the destination to hear the sound
           track.analyserNode.connect(audioContext.destination);
         }
       });
@@ -541,6 +535,7 @@ const AppState = (function () {
       selectedTheme: currentTheme,
       selectedTrackIndex: selectedTrackIndex,
       selectedBarIndexInContainer: selectedBarIndexInContainer,
+      controlsAttachedToTrack: controlsAttachedToTrack,
     }),
     loadPresetData: (data) => {
       if (!data) return;
@@ -548,51 +543,20 @@ const AppState = (function () {
       volume = data.volume || 1.0;
       if (Array.isArray(data.Tracks)) {
         Tracks = data.Tracks;
-        // Ensure all loaded tracks have the solo and volume properties
         Tracks.forEach((track) => {
-          if (track.solo === undefined) {
-            track.solo = false;
-          }
-          if (track.volume === undefined) {
-            track.volume = 1.0;
-          }
-          track.analyserNode = null; // Reset analyserNode on load
+          if (track.solo === undefined) track.solo = false;
+          if (track.volume === undefined) track.volume = 1.0;
+          track.analyserNode = null;
         });
-        if (audioContext) {
-          publicAPI.createTrackAnalysers(); // Create new analysers
-        }
+        if (audioContext) publicAPI.createTrackAnalysers();
       }
       publicAPI.setCurrentTheme(data.selectedTheme || "default");
+      
+      selectedTrackIndex = data.selectedTrackIndex !== undefined ? data.selectedTrackIndex : 0;
+      selectedBarIndexInContainer = data.selectedBarIndexInContainer !== undefined ? data.selectedBarIndexInContainer : 0;
+      controlsAttachedToTrack = data.controlsAttachedToTrack !== undefined ? data.controlsAttachedToTrack : true;
 
-      // Directly set the indices from the preset data to avoid setter side-effects.
-      let newTrackIndex = data.selectedTrackIndex;
-      let newBarIndex = data.selectedBarIndexInContainer;
-
-      // Validate the loaded indices to prevent errors.
-      if (
-        newTrackIndex === undefined ||
-        newTrackIndex < 0 ||
-        newTrackIndex >= Tracks.length
-      ) {
-        newTrackIndex = 0;
-      }
-
-      const currentTrack = Tracks[newTrackIndex];
-      if (
-        !currentTrack ||
-        newBarIndex === undefined ||
-        newBarIndex < 0 ||
-        newBarIndex >= currentTrack.barSettings.length
-      ) {
-        // If the bar index is invalid, reset it to the first bar if one exists.
-        newBarIndex =
-          currentTrack && currentTrack.barSettings.length > 0 ? 0 : -1;
-      }
-
-      selectedTrackIndex = newTrackIndex;
-      selectedBarIndexInContainer = newBarIndex;
-
-      isPlaying = false; // Always stop playback when a preset is loaded.
+      isPlaying = false;
     },
 
     // Reset & Initialization
@@ -621,6 +585,7 @@ const AppState = (function () {
       }
       selectedTrackIndex = 0;
       selectedBarIndexInContainer = 0;
+      controlsAttachedToTrack = true;
       isPlaying = false;
       currentTheme = "default";
       saveState();

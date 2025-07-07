@@ -347,11 +347,6 @@ const BarDisplayController = {
     const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
     const isPlaying = AppState.isPlaying();
 
-    // Clear all existing bar display containers
-    DOM.trackWrapper.querySelectorAll(".bar-display-container").forEach(container => {
-      container.innerHTML = "";
-    });
-
     allTracks.forEach((track, containerIndex) => {
       const barSettings = track.barSettings;
       const targetBarDisplayContainer = DOM.trackWrapper.querySelector(
@@ -381,7 +376,8 @@ const BarDisplayController = {
             });
           }
         });
-        targetBarDisplayContainer.innerHTML = ""; // Ensure container is empty
+        // This was changed from innerHTML = "" to ensure controls are not deleted
+        targetBarDisplayContainer.querySelectorAll(".bar-visual").forEach(bar => bar.remove());
         return;
       }
 
