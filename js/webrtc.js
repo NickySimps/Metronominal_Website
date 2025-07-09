@@ -86,6 +86,34 @@ function createPeerConnection() {
   };
 }
 
+function refreshUIFromState() {
+  TempoController.updateTempoDisplay({ animate: true });
+  VolumeController.updateVolumeDisplay({ animate: true });
+
+  TrackController.renderTracks();
+  BarControlsController.updateBarControlsForSelectedTrack();
+  // Only the host should send state updates
+  if (window.isHost) {
+    sendState(AppState.getCurrentStateForPreset());
+  }
+
+  if (
+    AppState.getCurrentTheme() === "3dRoom" &&
+    ThemeController.is3DSceneActive()
+  ) {
+    ThemeController.update3DScenePostStateChange();
+  }
+}
+
+function syncPlaybackState() {
+  const isPlaying = AppState.get("isPlaying"); // Assumes AppState holds playback status
+  if (isPlaying && !Metronome.isPlaying()) {
+    Metronome.start();
+  } else if (!isPlaying && Metronome.isPlaying()) {
+    Metronome.stop();
+  }
+}
+
 
 function setupDataChannelEvents() {
   dataChannel.onopen = () => {
