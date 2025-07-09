@@ -9,6 +9,7 @@ import DOM from './domSelectors.js';
 import ThemeController from './themeController.js';
 import BarDisplayController from './barDisplayController.js';
 import SoundSynth from './soundSynth.js';
+import { sendState } from './webrtc.js';
 
 let animationFrameId = null; // Holds the requestAnimationFrame ID for the scheduler loop
 
@@ -164,6 +165,16 @@ const MetronomeEngine = {
         } else {
             performEngineStopActions();
         }
+
+        // Send state update if this is the host
+        if (window.isHost) {
+            console.log('Host sending state update after play/pause toggle');
+            sendState(AppState.getCurrentStateForPreset());
+        }
+    },
+    
+    isPlaying: () => {
+        return AppState.isPlaying();
     }
 };
 

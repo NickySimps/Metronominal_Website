@@ -35,6 +35,7 @@ function sendMessage(message) {
     console.warn('Cannot send message, WebSocket not open:', socket?.readyState);
   }
 }
+
 function updateConnectionStatusUI(state) {
   const shareBtn = document.getElementById("share-btn");
   if (shareBtn) {
@@ -48,6 +49,7 @@ function updateConnectionStatusUI(state) {
     }
   }
 }
+
 function createPeerConnection() {
   console.log('Creating peer connection...');
   peerConnection = new RTCPeerConnection(configuration);
@@ -104,34 +106,35 @@ function refreshUIFromState() {
   }
 }
 
-
 function syncPlaybackState() {
   const isPlaying = AppState.isPlaying();
-  const isEnginePlaying = MetronomeEngine.isPlaying ? MetronomeEngine.isPlaying() : isPlaying; // Defensively check if isPlaying exists
+  const isEnginePlaying = MetronomeEngine.isPlaying ? MetronomeEngine.isPlaying() : false;
+
+  console.log('Syncing playback state:', { isPlaying, isEnginePlaying });
 
   if (isPlaying && !isEnginePlaying) {
-    MetronomeEngine.togglePlay(); 
+    console.log('Starting metronome engine...');
+    MetronomeEngine.togglePlay();
   } else if (!isPlaying && isEnginePlaying) {
+    console.log('Stopping metronome engine...');
     MetronomeEngine.togglePlay();
   }
 }
+
 function sendFullState() {
   if (dataChannel && dataChannel.readyState === 'open') {
-    const state = {
-      type: 'full_state',
-      tempo: AppState.getTempo(),
-      beats: AppState.getBeats(),
-      isPlaying: AppState.isPlaying()
-    };
+    const state = AppState.getCurrentStateForPreset();
+    console.log('Sending full state:', state);
     dataChannel.send(JSON.stringify(state));
   }
 }
 
-
 function setupDataChannelEvents() {
   dataChannel.onopen = () => {
     console.log("Data channel is open!");
-    sendState(AppState.getCurrentStateForPreset());
+    if (window.isHost) {
+      sendState(AppState.getCurrentStateForPreset());
+    }
   };
 
   dataChannel.onclose = () => {
@@ -141,8 +144,15 @@ function setupDataChannelEvents() {
   dataChannel.onmessage = (event) => {
     console.log('Received data channel message');
     const data = JSON.parse(event.data);
+    console.log('Received state data:', data);
+    
+    // Load the state data
     AppState.loadPresetData(data);
+    
+    // Update UI
     refreshUIFromState();
+    
+    // Sync playback state - this is the key fix
     syncPlaybackState();
   };
 
@@ -153,7 +163,7 @@ function setupDataChannelEvents() {
 
 export function sendState(state) {
   if (dataChannel && dataChannel.readyState === "open") {
-    console.log('Sending state via data channel');
+    console.log('Sending state via data channel:', state);
     dataChannel.send(JSON.stringify(state));
   } else {
     console.warn('Data channel not open, cannot send state');
@@ -356,6 +366,9 @@ export function initializeWebRTC() {
     if (ThemeController.is3DSceneActive() && currentTheme !== '3dRoom') {
       ThemeController.applyTheme(currentTheme);
     }
+    
+    // Sync playback state
+    syncPlaybackState();
   });
 
   const urlParams = new URLSearchParams(window.location.search);
