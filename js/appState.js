@@ -113,7 +113,7 @@ const AppState = (function () {
 
 
   // --- Constants ---
-  const MAX_TAPS_FOR_AVERAGE = 4;
+  const MAX_TAPS_FOR_AVERAGE = 2;
   const MAX_TAP_INTERVAL_MS = 3000;
   const SCHEDULE_AHEAD_TIME_INTERNAL = 0.1;
   const POST_RESUME_DELAY_MS = 50;
