@@ -21,19 +21,19 @@ let qrCodeInstance = null;
  * Refreshes all relevant UI components to reflect the current AppState.
  */
 function refreshUIFromState() {
-  TempoController.updateTempoDisplay({ animate: true });
-  VolumeController.updateVolumeDisplay({ animate: true });
+  TempoController.updateTempoDisplay({ animate: true });
+  VolumeController.updateVolumeDisplay({ animate: true });
 
-  TrackController.renderTracks();
-  BarControlsController.updateBarControlsForSelectedTrack();
+  TrackController.renderTracks();
+  BarControlsController.updateBarControlsForSelectedTrack();
   sendState(AppState.getCurrentStateForPreset());
 
-  if (
-    AppState.getCurrentTheme() === "3dRoom" &&
-    ThemeController.is3DSceneActive()
-  ) {
-    ThemeController.update3DScenePostStateChange();
-  }
+  if (
+    AppState.getCurrentTheme() === "3dRoom" &&
+    ThemeController.is3DSceneActive()
+  ) {
+    ThemeController.update3DScenePostStateChange();
+  }
 }
 
 /**
