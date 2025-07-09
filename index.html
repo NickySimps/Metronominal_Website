@@ -209,36 +209,28 @@
 <div id="share-modal" class="modal">
   <div class="modal-content">
     <span class="close-button">&times;</span>
-    <h2>Sync Metronome (Serverless)</h2>
-    
-    <div class="connection-box">
-      <h3>Step 1: Create Session</h3>
-      <p>Your friend will scan this QR code.</p>
+    <h2 id="modal-title">Share Session</h2>
+
+    <div id="host-section">
+      <p>Have your friend scan this QR code.</p>
       <div id="qrcode" style="margin: 15px auto; width: 256px;"></div>
-      <button id="create-offer-btn">1. Create Session Offer</button>
-      <textarea id="offer-sdp" readonly placeholder="Session Offer will appear here..."></textarea>
+      <p>Then, paste the answer they give you below:</p>
+      <textarea id="paste-answer-sdp" placeholder="Paste Answer from friend's phone..."></textarea>
+      <button id="connect-btn">Connect</button>
     </div>
 
-    <div class="connection-box">
-        <h3>Step 2: Paste Offer & Get Answer</h3>
-        <p>Scan the QR code, then paste the 'Session Offer' from your friend's screen here.</p>
-        <textarea id="paste-offer-sdp" placeholder="Paste Offer from other phone here..."></textarea>
-        <button id="create-answer-btn">2. Generate Answer</button>
-        <textarea id="answer-sdp" readonly placeholder="Your Answer will appear here. Copy it back to your friend's phone."></textarea>
+    <div id="joiner-section" style="display:none;">
+      <p>Your phone has generated an answer. Copy this text and give it to your friend.</p>
+      <textarea id="answer-sdp" readonly></textarea>
     </div>
 
-    <div class="connection-box">
-        <h3>Step 3: Finalize Connection</h3>
-        <p>Paste the 'Answer' from your friend's phone here and connect.</p>
-        <textarea id="paste-answer-sdp" placeholder="Paste Answer from other phone here..."></textarea>
-        <button id="connect-btn">3. Connect</button>
-    </div>
+    <p id="connection-status" style="font-weight: bold; margin-top: 15px;"></p>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 <script type="module" src="script.js" defer></script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 <script type="module" src="script.js" defer></script>
 </html>
