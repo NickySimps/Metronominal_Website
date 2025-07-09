@@ -6,6 +6,7 @@
 
 import MetronomeEngine from './metronomeEngine.js';
 import DOM from './domSelectors.js';
+import { sendPlayState } from './webrtc.js';
 
 const PlaybackController = {
     /**
@@ -17,6 +18,9 @@ const PlaybackController = {
             DOM.startStopBtn.addEventListener('click', () => {
                 // When the button is clicked, call the togglePlay function from the engine
                 MetronomeEngine.togglePlay();
+                if (window.isHost) {
+                    sendPlayState();
+                }
             });
         } else {
             console.error("Start/Stop button not found in DOM.");
