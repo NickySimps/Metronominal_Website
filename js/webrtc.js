@@ -106,7 +106,7 @@ function refreshUIFromState() {
 }
 
 function syncPlaybackState() {
-  const isPlaying = AppState.get("isPlaying"); // Assumes AppState holds playback status
+const isPlaying = AppState.isPlaying(); 
   if (isPlaying && !Metronome.isPlaying()) {
     Metronome.start();
   } else if (!isPlaying && Metronome.isPlaying()) {
