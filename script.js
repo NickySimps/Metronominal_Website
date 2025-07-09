@@ -1,4 +1,4 @@
-import { WebRTC, sendState } from "./js/webrtc.js";
+import { WebRTC, sendState, initializeShareControls, initializeWebRTC } from "./js/webrtc.js"; 
 import AppState from "./js/appState.js";
 import DOM from "./js/domSelectors.js";
 import UIController from "./js/uiController.js";
@@ -90,31 +90,8 @@ async function initialize() {
     Oscilloscope.start();
    }
   initializeShareControls();
-  WebRTC.onReceiveState(onStateReceived);
+  initializeWebRTC();
 
-    // Check the URL for an offer when the page loads.
-  const urlParams = new URLSearchParams(window.location.search);
-  const offerFromUrl = urlParams.get('s'); // Using a shorter param 's' for 'session'
-
-  if (offerFromUrl) {
-    // This user is the JOINER.
-    try {
-        // 1. Decode from Base64 to get the binary string
-        const compressedString = atob(offerFromUrl);
-        // 2. Convert the binary string into a Uint8Array
-        const compressed = new Uint8Array(compressedString.length);
-        for (let i = 0; i < compressedString.length; i++) {
-            compressed[i] = compressedString.charCodeAt(i);
-        }
-        // 3. Decompress the data back to the original JSON string
-        const decompressed = pako.inflate(compressed, { to: 'string' });
-        const decodedOffer = JSON.parse(decompressed);
-        handleJoinerFlow(decodedOffer);
-    } catch (e) {
-        console.error("Failed to decode or decompress the offer from URL:", e);
-        alert("The session link appears to be invalid or corrupted.");
-    }
-  }
   console.log("Metronominal initialized successfully.");
 }
 /**
@@ -181,6 +158,9 @@ document.addEventListener('click', (event) => {
     }
 });
 
+// Start the application once the DOM is ready.
+document.addEventListener("DOMContentLoaded", initialize);
+
 // Keyboard shortcut handling
 document.addEventListener("keydown", (event) => {
   if (event.target instanceof HTMLInputElement) return; // Disable shortcuts when typing in input fields
@@ -236,113 +216,3 @@ document.addEventListener("keydown", (event) => {
       break;
   }
 });
-
-/**
- * Sets up the UI and logic for the 'Share' button and modal.
- * This function now lives in script.js where it belongs.
- */
-function initializeShareControls() {
-    const shareBtn = document.getElementById("share-btn");
-    const shareModal = document.getElementById("share-modal");
-    const connectBtn = document.getElementById('connect-btn');
-    const pasteAnswerText = document.getElementById('paste-answer-sdp');
-
-    // HOST: Clicks the "Share" button to start a session.
-    shareBtn.addEventListener('click', async () => {
-        // Set the modal to "Host" mode
-        document.getElementById('modal-title').textContent = 'Share Session (You are the Host)';
-        document.getElementById('host-section').style.display = 'block';
-        document.getElementById('joiner-section').style.display = 'none';
-        pasteAnswerText.value = ''; // Clear previous answer
-
-        // Create the offer and the unique URL
-        const offer = await WebRTC.createOffer();
-        const offerString = JSON.stringify(offer);
-        // 1. Compress the offer string into a Uint8Array
-        const compressed = pako.deflate(offerString);
-        // 2. Convert the binary data to a Base64 string to use in the URL
-        const encodedOffer = btoa(String.fromCharCode.apply(null, compressed));
-
-        const joinUrl = `${window.location.origin}${window.location.pathname}?s=${encodedOffer}`; // Using shorter 's' param
-        // Make the modal visible FIRST, so the QR code container has dimensions.
-        shareModal.style.display = 'block';
-
-        // Generate the QR code
-        const qrcodeContainer = document.getElementById('qrcode');
-        qrcodeContainer.innerHTML = ''; // Clear previous QR code or error message
-        try {
-            // Attempt to generate the QR code
-            new QRCode(qrcodeContainer, { text: joinUrl, width: 256, height: 256 });
-        } catch (e) {
-            // If it fails (likely due to data length), provide a fallback
-            console.error("QR Code generation failed, likely due to data length.", e);
-            qrcodeContainer.innerHTML = `
-                <p style="color: var(--TextPrimary); margin-bottom: 8px;">Could not generate QR Code. The session URL is too long.</p>
-                <p style="color: var(--TextPrimary); margin-bottom: 8px;">Please have the joiner copy this URL manually:</p>
-            `;
-            const urlText = document.createElement('textarea');
-            urlText.value = joinUrl;
-            urlText.readOnly = true;
-            urlText.style.cssText = 'width: 100%; resize: none; height: 120px;';
-            qrcodeContainer.appendChild(urlText);
-        }
-    });
-
-    // HOST: Clicks "Connect" to finalize the session.
-    connectBtn.addEventListener('click', async () => {
-        try {
-            const answer = JSON.parse(pasteAnswerText.value);
-            await WebRTC.acceptAnswer(answer);
-        } catch (e) {
-            alert("The answer format is invalid. Please copy it again.");
-        }
-    });
-
-    // General modal close logic
-    shareModal.querySelector(".close-button").addEventListener("click", () => {
-        shareModal.style.display = 'none';
-    });
-}
-
-/**
- * Handles the logic flow for a user who joins by scanning a QR code.
- * @param {RTCSessionDescriptionInit} offer The decoded offer from the URL.
- */
-async function handleJoinerFlow(offer) {
-    const shareModal = document.getElementById("share-modal");
-
-    // Set the modal to "Joiner" mode
-    document.getElementById('modal-title').textContent = 'Join Session (You are the Joiner)';
-    document.getElementById('host-section').style.display = 'none';
-    document.getElementById('joiner-section').style.display = 'block';
-
-    // Automatically generate the answer and display it for copying
-    const answerSdpText = document.getElementById('answer-sdp');
-    const answer = await WebRTC.createAnswer(offer);
-    answerSdpText.value = JSON.stringify(answer);
-
-    shareModal.style.display = 'block';
-}
-
-/**
- * Callback that runs when a new state is received from the connected peer.
- * @param {object} newState The state object from the other user.
- */
-function onStateReceived(newState) {
-    console.log("Received new state:", newState);
-    AppState.loadPresetData(newState);
-    // You must re-render the UI after loading the new state.
-    // Calling your existing refresh function is a good way to do this,
-    // but without the sendState() call to avoid an infinite loop.
-    TempoController.updateTempoDisplay({ animate: true });
-    VolumeController.updateVolumeDisplay({ animate: true });
-    TrackController.renderTracks();
-    BarControlsController.updateBarControlsForSelectedTrack();
-}
-
-
-// --- Keep the rest of your script.js file as is ---
-// updateControlsPosition(), handleTrackSelectionChange(), event listeners, etc.
-
-// Start the application.
-document.addEventListener("DOMContentLoaded", initialize);

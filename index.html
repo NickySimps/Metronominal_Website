@@ -39,24 +39,16 @@
                     <label for="beat-multiplier-select" class="control-label">Note Subdivision:</label>
                     <select name="beat-multiplier" id="beat-multiplier-select" class="compact-select">
                         <option value="0.25">4/1</option>
-                        <!-- Whole note -->
                         <option value="0.5">2/1</option>
-                        <!-- Half note -->
                         <option value="1" selected>1/4</option>
-                        <!-- Quarter note (1x quarter note) -->
                         <option value="2">1/8</option>
                         <option value="3">1/8T</option>
-                        <!-- Eighth Note Triplet -->
                         <option value="4">1/16</option>
                         <option value="5">1/16 Quin</option>
-                        <!-- Sixteenth Note Quintuplet -->
                         <option value="6">1/16 Sex</option>
-                        <!-- Sixteenth Note Sextuplet / or 1/8T x2 -->
                         <option value="7">1/16 Sep</option>
-                        <!-- Sixteenth Note Septuplet -->
                         <option value="8">1/32</option>
-                        <!-- Thirtysecondth Note -->
-                    </select>
+                        </select>
                 </div>
                 <div class="control-group">
                     <label for="preset-slot-select" class="control-label">Preset Slot:</label>
@@ -189,13 +181,9 @@
                 <button data-theme="colorblind" aria-label="Switch to Colorblind Theme">
                     Colorblind
                 </button>
-                <!-- <button data-theme="3dRoom" aria-label="Switch to 3D Room Theme">3D Room</button> -->
-            </div>
+                </div>
         </div>
-        <!-- End of metronome-container -->
-    </div>
-    <!-- End of main-container -->
-
+        </div>
     <div id="sound-settings-modal" class="modal">
         <div class="modal-content">
             <span class="close-button">&times;</span>
@@ -207,30 +195,15 @@
 </body>
 
 <div id="share-modal" class="modal">
-  <div class="modal-content">
-    <span class="close-button">&times;</span>
-    <h2 id="modal-title">Share Session</h2>
-
-    <div id="host-section">
-      <p>Have your friend scan this QR code.</p>
-      <div id="qrcode" style="margin: 15px auto; width: 256px;"></div>
-      <p>Then, paste the answer they give you below:</p>
-      <textarea id="paste-answer-sdp" placeholder="Paste Answer from friend's phone..."></textarea>
-      <button id="connect-btn">Connect</button>
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <h2>Sync Metronome</h2>
+        <p>Have your friend scan this QR code to sync your metronomes.</p>
+        <div id="qrcode" style="margin: 20px auto; width: 256px;"></div>
     </div>
-
-    <div id="joiner-section" style="display:none;">
-      <p>Your phone has generated an answer. Copy this text and give it to your friend.</p>
-      <textarea id="answer-sdp" readonly></textarea>
-    </div>
-
-    <p id="connection-status" style="font-weight: bold; margin-top: 15px;"></p>
-  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 <script type="module" src="script.js" defer></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
-<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
-<script type="module" src="script.js" defer></script>
+
 </html>
