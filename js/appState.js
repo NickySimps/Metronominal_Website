@@ -536,6 +536,7 @@ const AppState = (function () {
       selectedTrackIndex: selectedTrackIndex,
       selectedBarIndexInContainer: selectedBarIndexInContainer,
       controlsAttachedToTrack: controlsAttachedToTrack,
+      isPlaying: isPlaying,
     }),
     loadPresetData: (data) => {
       if (!data) return;
@@ -556,7 +557,7 @@ const AppState = (function () {
       selectedBarIndexInContainer = data.selectedBarIndexInContainer !== undefined ? data.selectedBarIndexInContainer : 0;
       controlsAttachedToTrack = data.controlsAttachedToTrack !== undefined ? data.controlsAttachedToTrack : true;
 
-      isPlaying = false;
+      isPlaying = data.isPlaying || false;
     },
 
     // Reset & Initialization
