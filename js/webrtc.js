@@ -1,11 +1,10 @@
-// Metronominal_Website/js/webrtc.js
-
 import AppState from "./appState.js";
 import TempoController from "./tempoController.js";
 import VolumeController from "./volumeController.js";
 import TrackController from "./tracksController.js";
 import BarControlsController from "./barControlsController.js";
 import ThemeController from "./themeController.js";
+import MetronomeEngine from "./metronomeEngine.js";
 
 let peerConnection;
 let dataChannel;
@@ -105,12 +104,26 @@ function refreshUIFromState() {
   }
 }
 
+
 function syncPlaybackState() {
-const isPlaying = AppState.isPlaying(); 
-  if (isPlaying && !Metronome.isPlaying()) {
-    Metronome.start();
-  } else if (!isPlaying && Metronome.isPlaying()) {
-    Metronome.stop();
+  const isPlaying = AppState.isPlaying();
+  const isEnginePlaying = MetronomeEngine.isPlaying ? MetronomeEngine.isPlaying() : isPlaying; // Defensively check if isPlaying exists
+
+  if (isPlaying && !isEnginePlaying) {
+    MetronomeEngine.togglePlay(); 
+  } else if (!isPlaying && isEnginePlaying) {
+    MetronomeEngine.togglePlay();
+  }
+}
+function sendFullState() {
+  if (dataChannel && dataChannel.readyState === 'open') {
+    const state = {
+      type: 'full_state',
+      tempo: AppState.getTempo(),
+      beats: AppState.getBeats(),
+      isPlaying: AppState.isPlaying()
+    };
+    dataChannel.send(JSON.stringify(state));
   }
 }
 
