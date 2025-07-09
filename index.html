@@ -1,13 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+
+<head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Metronominal: An interactive mathrock metronome to practice complex rhythms and time signatures. Adjust BPM, beats per measure, and bars."
-    />
+    <meta name="description"
+        content="Metronominal: An interactive mathrock metronome to practice complex rhythms and time signatures. Adjust BPM, beats per measure, and bars." />
     <link rel="stylesheet" href="style.css" />
     <link rel="icon" href="assets/logo.jpg" type="image/jpeg" />
     <title>Metronominal: The Mathrock Metronome</title>
@@ -19,253 +18,227 @@
         }
       }
     </script>
-  </head>
+</head>
 
-  <body>
+<body>
     <canvas id="background-oscilloscope"></canvas>
 
     <div class="main-container">
-      <div class="metronome-container">
-        <div class="top-controls-area">
-          <button class="tap-tempo-btn">TAP TEMPO</button>
-          <button class="reset-btn">RESET</button>
-        </div>
-        <div class="global-app-controls">
-          <div class="control-group">
-            <span class="control-label">Total Beats:</span>
-            <span class="total-beats-display">0</span>
-          </div>
-          <div class="control-group">
-            <label for="beat-multiplier-select" class="control-label"
-              >Note Subdivision:</label
-            >
-            <select
-              name="beat-multiplier"
-              id="beat-multiplier-select"
-              class="compact-select"
-            >
-              <option value="0.25">4/1</option>
-              <!-- Whole note -->
-              <option value="0.5">2/1</option>
-              <!-- Half note -->
-              <option value="1" selected>1/4</option>
-              <!-- Quarter note (1x quarter note) -->
-              <option value="2">1/8</option>
-              <option value="3">1/8T</option>
-              <!-- Eighth Note Triplet -->
-              <option value="4">1/16</option>
-              <option value="5">1/16 Quin</option>
-              <!-- Sixteenth Note Quintuplet -->
-              <option value="6">1/16 Sex</option>
-              <!-- Sixteenth Note Sextuplet / or 1/8T x2 -->
-              <option value="7">1/16 Sep</option>
-              <!-- Sixteenth Note Septuplet -->
-              <option value="8">1/32</option>
-              <!-- Thirtysecondth Note -->
-            </select>
-          </div>
-          <div class="control-group">
-            <label for="preset-slot-select" class="control-label"
-              >Preset Slot:</label
-            >
-            <select
-              id="preset-slot-select"
-              class="compact-select"
-              aria-label="Select preset slot"
-            >
-              <option value="0">1</option>
-              <option value="1">2</option>
-              <option value="2">3</option>
-              <option value="3">4</option>
-              <option value="4">5</option>
-              <option value="5">6</option>
-              <option value="6">7</option>
-              <option value="7">8</option>
-              <option value="8">9</option>
-              <option value="9">10</option>
-              <option value="10">11</option>
-              <option value="11">12</option>
-              <option value="12">13</option>
-              <option value="13">14</option>
-              <option value="14">15</option>
-              <option value="15">16</option>
-            </select>
-          </div>
-          <div class="control-group">
-            <button
-              class="preset-btn save-preset-btn"
-              aria-label="Save current settings to selected preset slot"
-            >
-              Save
-            </button>
-            <button
-              class="preset-btn load-preset-btn"
-              aria-label="Load settings from selected preset slot"
-            >
-              Load
-            </button>
-          </div>
-          <div class="control-group">
-            <label for="preset-name-input" class="control-label"
-              >Song Name:</label
-            >
-            <input
-              type="text"
-              id="preset-name-input"
-              class="compact-input"
-              placeholder="Enter name..."
-              aria-label="Song or Preset Name"
-            />
-          </div>
-        </div>
+        <div class="metronome-container">
+            <div class="top-controls-area">
+                <button class="tap-tempo-btn">TAP TEMPO</button>
+                <button class="reset-btn">RESET</button>
+                <button id="share-btn">SHARE</button>
+            </div>
+            <div class="global-app-controls">
+                <div class="control-group">
+                    <span class="control-label">Total Beats:</span>
+                    <span class="total-beats-display">0</span>
+                </div>
+                <div class="control-group">
+                    <label for="beat-multiplier-select" class="control-label">Note Subdivision:</label>
+                    <select name="beat-multiplier" id="beat-multiplier-select" class="compact-select">
+                        <option value="0.25">4/1</option>
+                        <!-- Whole note -->
+                        <option value="0.5">2/1</option>
+                        <!-- Half note -->
+                        <option value="1" selected>1/4</option>
+                        <!-- Quarter note (1x quarter note) -->
+                        <option value="2">1/8</option>
+                        <option value="3">1/8T</option>
+                        <!-- Eighth Note Triplet -->
+                        <option value="4">1/16</option>
+                        <option value="5">1/16 Quin</option>
+                        <!-- Sixteenth Note Quintuplet -->
+                        <option value="6">1/16 Sex</option>
+                        <!-- Sixteenth Note Sextuplet / or 1/8T x2 -->
+                        <option value="7">1/16 Sep</option>
+                        <!-- Sixteenth Note Septuplet -->
+                        <option value="8">1/32</option>
+                        <!-- Thirtysecondth Note -->
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="preset-slot-select" class="control-label">Preset Slot:</label>
+                    <select id="preset-slot-select" class="compact-select" aria-label="Select preset slot">
+                        <option value="0">1</option>
+                        <option value="1">2</option>
+                        <option value="2">3</option>
+                        <option value="3">4</option>
+                        <option value="4">5</option>
+                        <option value="5">6</option>
+                        <option value="6">7</option>
+                        <option value="7">8</option>
+                        <option value="8">9</option>
+                        <option value="9">10</option>
+                        <option value="10">11</option>
+                        <option value="11">12</option>
+                        <option value="12">13</option>
+                        <option value="13">14</option>
+                        <option value="14">15</option>
+                        <option value="15">16</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <button class="preset-btn save-preset-btn"
+                        aria-label="Save current settings to selected preset slot">
+                        Save
+                    </button>
+                    <button class="preset-btn load-preset-btn" aria-label="Load settings from selected preset slot">
+                        Load
+                    </button>
+                </div>
+                <div class="control-group">
+                    <label for="preset-name-input" class="control-label">Song Name:</label>
+                    <input type="text" id="preset-name-input" class="compact-input" placeholder="Enter name..."
+                        aria-label="Song or Preset Name" />
+                </div>
+            </div>
 
-        <div class="tempo-container">
-          <div class="bpm-display">
-            <span class="tempo">120</span>
-            <span class="bpm-text">BPM</span>
-            <div class="tempo-text-box">
-              <span class="tempo-text">moderate</span>
+            <div class="tempo-container">
+                <div class="bpm-display">
+                    <span class="tempo">120</span>
+                    <span class="bpm-text">BPM</span>
+                    <div class="tempo-text-box">
+                        <span class="tempo-text">moderate</span>
+                    </div>
+                </div>
+                <div class="tempo-settings">
+                    <button class="adjust-tempo decrease-tempo" aria-label="Decrease tempo">
+                        -
+                    </button>
+                    <div class="tempo-slider">
+                        <input type="range" min="20" max="300" value="120" step="1" class="slider" aria-label="Tempo" />
+                    </div>
+                    <button class="adjust-tempo increase-tempo" aria-label="Increase tempo">
+                        +
+                    </button>
+                </div>
             </div>
-          </div>
-          <div class="tempo-settings">
-            <button
-              class="adjust-tempo decrease-tempo"
-              aria-label="Decrease tempo"
-            >
-              -
-            </button>
-            <div class="tempo-slider">
-              <input
-                type="range"
-                min="20"
-                max="300"
-                value="120"
-                step="1"
-                class="slider"
-                aria-label="Tempo"
-              />
+            <button class="start-stop-btn" id="start-stop-btn">START</button>
+            <div class="volume-controls-container">
+                <span class="volume-label">Volume:</span>
+                <input type="range" id="volume-slider-input" class="volume-slider" min="0.01" max="1" step="0.01"
+                    value="0.8" aria-label="Volume" />
+                <span class="volume-value">80%</span>
             </div>
-            <button
-              class="adjust-tempo increase-tempo"
-              aria-label="Increase tempo"
-            >
-              +
-            </button>
-          </div>
-        </div>
-        <button class="start-stop-btn" id="start-stop-btn">START</button>
-        <div class="volume-controls-container">
-          <span class="volume-label">Volume:</span>
-          <input
-            type="range"
-            id="volume-slider-input"
-            class="volume-slider"
-            min="0.01"
-            max="1"
-            step="0.01"
-            value="0.8"
-            aria-label="Volume"
-          />
-          <span class="volume-value">80%</span>
-        </div>
 
-        <div class="measures-container">
-          <div class="measure-settings-container">
-            <div class="beat-settings">
-              <button
-                class="adjust-measure-length decrease-measure-length"
-                aria-label="Decrease beats per measure"
-              >
-                -
-              </button>
-              <span class="beats-per-current-measure">4</span>
-              <button
-                class="adjust-measure-length increase-measure-length"
-                aria-label="Increase beats per measure"
-              >
-                +
-              </button>
+            <div class="measures-container">
+                <div class="measure-settings-container">
+                    <div class="beat-settings">
+                        <button class="adjust-measure-length decrease-measure-length"
+                            aria-label="Decrease beats per measure">
+                            -
+                        </button>
+                        <span class="beats-per-current-measure">4</span>
+                        <button class="adjust-measure-length increase-measure-length"
+                            aria-label="Increase beats per measure">
+                            +
+                        </button>
+                    </div>
+                    <span class="measures-text">BEATS</span>
+                </div>
+                <div class="bar-settings-container">
+                    <div class="bar-settings">
+                        <button class="adjust-bar-length decrease-bar-length" aria-label="Decrease bars">
+                            -
+                        </button>
+                        <span class="bars-length">3</span>
+                        <button class="adjust-bar-length increase-bar-length" aria-label="Increase bars">
+                            +
+                        </button>
+                    </div>
+                    <span class="bars-text">BARS</span>
+                </div>
             </div>
-            <span class="measures-text">BEATS</span>
-          </div>
-          <div class="bar-settings-container">
-            <div class="bar-settings">
-              <button
-                class="adjust-bar-length decrease-bar-length"
-                aria-label="Decrease bars"
-              >
-                -
-              </button>
-              <span class="bars-length">3</span>
-              <button
-                class="adjust-bar-length increase-bar-length"
-                aria-label="Increase bars"
-              >
-                +
-              </button>
+            <div class="bar-display">
+                <div id="all-tracks-wrapper"></div>
             </div>
-            <span class="bars-text">BARS</span>
-          </div>
+            <button id="add-track-btn">+ Track</button>
+            <div class="preset-controls">
+                <h3 id="current-preset-display-heading">Metronominal</h3>
+            </div>
+            <div class="theme-controls">
+                <button data-theme="default" aria-label="Switch to Default Theme">
+                    Default
+                </button>
+                <button data-theme="dark" aria-label="Switch to Dark Theme">
+                    Dark
+                </button>
+                <button data-theme="synthwave" aria-label="Switch to Synthwave Theme">
+                    Synthwave
+                </button>
+                <button data-theme="gundam" aria-label="Switch to Gundam Theme">
+                    Gundam
+                </button>
+                <button data-theme="helloKitty" aria-label="Switch to Hello Kitty Theme">
+                    Hello Kitty
+                </button>
+                <button data-theme="beach" aria-label="Switch to Beach Theme">
+                    Beach
+                </button>
+                <button data-theme="iceCream" aria-label="Switch to Ice Cream Theme">
+                    Ice Cream
+                </button>
+                <button data-theme="tuxedo" aria-label="Switch to Tuxedo Theme">
+                    Tuxedo
+                </button>
+                <button data-theme="pastel" aria-label="Switch to Pastel Theme">
+                    Pastel
+                </button>
+                <button data-theme="colorblind" aria-label="Switch to Colorblind Theme">
+                    Colorblind
+                </button>
+                <!-- <button data-theme="3dRoom" aria-label="Switch to 3D Room Theme">3D Room</button> -->
+            </div>
         </div>
-        <div class="bar-display">
-          <div id="all-tracks-wrapper"></div>
-        </div>
-        <button id="add-track-btn">+ Track</button>
-        <div class="preset-controls">
-          <h3 id="current-preset-display-heading">Metronominal</h3>
-        </div>
-        <div class="theme-controls">
-          <button data-theme="default" aria-label="Switch to Default Theme">
-            Default
-          </button>
-          <button data-theme="dark" aria-label="Switch to Dark Theme">
-            Dark
-          </button>
-          <button data-theme="synthwave" aria-label="Switch to Synthwave Theme">
-            Synthwave
-          </button>
-          <button data-theme="gundam" aria-label="Switch to Gundam Theme">
-            Gundam
-          </button>
-          <button
-            data-theme="helloKitty"
-            aria-label="Switch to Hello Kitty Theme"
-          >
-            Hello Kitty
-          </button>
-          <button data-theme="beach" aria-label="Switch to Beach Theme">
-            Beach
-          </button>
-          <button data-theme="iceCream" aria-label="Switch to Ice Cream Theme">
-            Ice Cream
-          </button>
-          <button data-theme="tuxedo" aria-label="Switch to Tuxedo Theme">
-            Tuxedo
-          </button>
-          <button data-theme="pastel" aria-label="Switch to Pastel Theme">
-            Pastel
-          </button>
-          <button
-            data-theme="colorblind"
-            aria-label="Switch to Colorblind Theme"
-          >
-            Colorblind
-          </button>
-          <!-- <button data-theme="3dRoom" aria-label="Switch to 3D Room Theme">3D Room</button> -->
-        </div>
-      </div>
-      <!-- End of metronome-container -->
+        <!-- End of metronome-container -->
     </div>
     <!-- End of main-container -->
 
     <div id="sound-settings-modal" class="modal">
-      <div class="modal-content">
-        <span class="close-button">&times;</span>
-        <h2>Edit Sound</h2>
-        <canvas class="oscilloscope-canvas" width="400" height="100"></canvas>
-        <div id="sound-sliders-container"></div>
-      </div>
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Edit Sound</h2>
+            <canvas class="oscilloscope-canvas" width="400" height="100"></canvas>
+            <div id="sound-sliders-container"></div>
+        </div>
     </div>
-  </body>
-  <script type="module" src="script.js" defer></script>
+</body>
+
+<div id="share-modal" class="modal">
+  <div class="modal-content">
+    <span class="close-button">&times;</span>
+    <h2>Sync Metronome (Serverless)</h2>
+    
+    <div class="connection-box">
+      <h3>Step 1: Create Session</h3>
+      <p>Your friend will scan this QR code.</p>
+      <div id="qrcode" style="margin: 15px auto; width: 256px;"></div>
+      <button id="create-offer-btn">1. Create Session Offer</button>
+      <textarea id="offer-sdp" readonly placeholder="Session Offer will appear here..."></textarea>
+    </div>
+
+    <div class="connection-box">
+        <h3>Step 2: Paste Offer & Get Answer</h3>
+        <p>Scan the QR code, then paste the 'Session Offer' from your friend's screen here.</p>
+        <textarea id="paste-offer-sdp" placeholder="Paste Offer from other phone here..."></textarea>
+        <button id="create-answer-btn">2. Generate Answer</button>
+        <textarea id="answer-sdp" readonly placeholder="Your Answer will appear here. Copy it back to your friend's phone."></textarea>
+    </div>
+
+    <div class="connection-box">
+        <h3>Step 3: Finalize Connection</h3>
+        <p>Paste the 'Answer' from your friend's phone here and connect.</p>
+        <textarea id="paste-answer-sdp" placeholder="Paste Answer from other phone here..."></textarea>
+        <button id="connect-btn">3. Connect</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+<script type="module" src="script.js" defer></script>
+
+<script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+<script type="module" src="script.js" defer></script>
 </html>

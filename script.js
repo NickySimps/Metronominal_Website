@@ -1,3 +1,4 @@
+import { WebRTC, sendState, initializeShareControls, initializeWebRTC } from "./js/webrtc.js"; 
 import AppState from "./js/appState.js";
 import DOM from "./js/domSelectors.js";
 import UIController from "./js/uiController.js";
@@ -13,6 +14,9 @@ import MetronomeEngine from "./js/metronomeEngine.js";
 import SoundSettingsModal from "./js/soundSettingsModal.js";
 import Oscilloscope from "./js/oscilloscope.js"; // 1. IMPORT a new module
 
+
+let qrCodeInstance = null;
+
 /**
  * Refreshes all relevant UI components to reflect the current AppState.
  */
@@ -22,6 +26,7 @@ function refreshUIFromState() {
 
   TrackController.renderTracks();
   BarControlsController.updateBarControlsForSelectedTrack();
+  sendState(AppState.getCurrentStateForPreset());
 
   if (
     AppState.getCurrentTheme() === "3dRoom" &&
@@ -84,6 +89,8 @@ async function initialize() {
    if(AppState.getAudioContext()?.state === 'running') {
     Oscilloscope.start();
    }
+  initializeShareControls();
+  initializeWebRTC();
 
   console.log("Metronominal initialized successfully.");
 }

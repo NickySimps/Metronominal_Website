@@ -1487,3 +1487,56 @@ button:active,
   justify-self: center;
   align-self: center;
 }
+/* Add to Metronominal_Website/style.css */
+
+#share-btn {
+  /* Basic styling, adjust to match your theme */
+  padding: var(--s3) var(--s3);
+  font-size: var(--font-2);
+  cursor: pointer;
+  border: var(--s0) solid var(--BorderColor, transparent);
+  background-color: var(--Accent, #f0f0f0);
+  color: var(--TextPrimary, #333);
+  border-radius: var(--BorderRadius);
+}
+
+#share-btn:hover {
+  background-color: var(--Highlight, #e0e0e0);
+}
+
+.connection-box {
+  margin-top: 15px;
+  padding: 10px;
+  background-color: var(--Highlight);
+  border-radius: var(--BorderRadius);
+}
+
+.connection-box h3 {
+  margin-top: 0;
+  color: var(--TextPrimary);
+}
+
+.connection-box textarea {
+  width: 95%;
+  min-height: 80px;
+  margin-top: 5px;
+  padding: 5px;
+  background-color: var(--Background);
+  border: 1px solid var(--BorderColor);
+  color: var(--TextPrimary);
+  border-radius: 5px;
+}
+
+.connection-box button {
+  margin-top: 10px;
+  padding: 8px 12px;
+  background-color: var(--Main);
+  color: var(--TextOnMain);
+  border: none;
+  border-radius: var(--BorderRadius);
+  cursor: pointer;
+}
+
+.connection-box button:hover {
+  filter: brightness(1.1);
+}
