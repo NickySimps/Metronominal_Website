@@ -26,7 +26,10 @@ function refreshUIFromState() {
 
   TrackController.renderTracks();
   BarControlsController.updateBarControlsForSelectedTrack();
-  sendState(AppState.getCurrentStateForPreset());
+  // Only the host should send state updates
+  if (window.isHost) {
+    sendState(AppState.getCurrentStateForPreset());
+  }
 
   if (
     AppState.getCurrentTheme() === "3dRoom" &&
@@ -36,6 +39,14 @@ function refreshUIFromState() {
   }
 }
 
+function syncPlaybackState() {
+  const isPlaying = AppState.get("isPlaying"); // Assumes AppState holds playback status
+  if (isPlaying && !Metronome.isPlaying()) {
+    Metronome.start();
+  } else if (!isPlaying && Metronome.isPlaying()) {
+    Metronome.stop();
+  }
+}
 /**
  * Initializes the entire application.
  */

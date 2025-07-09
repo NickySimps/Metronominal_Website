@@ -17,6 +17,8 @@ let connectionAttempts = 0;
 let maxConnectionAttempts = 3;
 let reconnectTimeout = null;
 
+window.isHost = false; // Default to being a client
+
 const configuration = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
@@ -98,9 +100,9 @@ function setupDataChannelEvents() {
   dataChannel.onmessage = (event) => {
     console.log('Received data channel message');
     const data = JSON.parse(event.data);
-    if (receiveCallback) {
-      receiveCallback(data);
-    }
+    AppState.loadPresetData(data);
+    refreshUIFromState();
+    syncPlaybackState();
   };
 
   dataChannel.onerror = (error) => {
@@ -270,6 +272,7 @@ export function initializeShareControls() {
   const qrcodeContainer = document.getElementById("qrcode");
 
   shareBtn.addEventListener("click", () => {
+    window.isHost = true;
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
     console.log('Sharing URL:', shareUrl);
 
