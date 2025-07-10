@@ -93,24 +93,24 @@ const TempoController = {
   initializeTempoControls: () => {
     DOM.increaseTempoBtn.addEventListener("click", () => {
       AppState.increaseTempo();
-      sendState(AppState.getCurrentStateForPreset);
+      sendState(AppState.getCurrentStateForPreset());
       TempoController.updateTempoDisplay();
     });
     DOM.decreaseTempoBtn.addEventListener("click", () => {
       AppState.decreaseTempo();
-      sendState(AppState.getCurrentStateForPreset);
+      sendState(AppState.getCurrentStateForPreset());
       TempoController.updateTempoDisplay();
     });
     DOM.tempoSlider.addEventListener("input", () => {
       AppState.setTempo(DOM.tempoSlider.value); // Update state
-      sendState(AppState.getCurrentStateForPreset);
+      sendState(AppState.getCurrentStateForPreset());
       TempoController.updateTempoDisplay(); // Update UI (slider value already matches, but updates text and description)
     });
     if (DOM.tapTempoBtn) {
       DOM.tapTempoBtn.addEventListener("click", () => {
         AppState.addTapTimestamp(Date.now());
         AppState.calculateTapTempo(); // This updates AppState.tempo
-        sendState(AppState.getCurrentStateForPreset);
+        sendState(AppState.getCurrentStateForPreset());
         TempoController.updateTempoDisplay(); // Reflect change
         if (DOM.tapTempoBtn) DOM.tapTempoBtn.classList.add("tapped");
         setTimeout(() => {
