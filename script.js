@@ -224,19 +224,11 @@ document.addEventListener("keydown", (event) => {
     case "+":
       event.preventDefault();
       DOM.increaseTempoBtn.click();
-      // Send state update if host
-      if (window.isHost) {
-        setTimeout(() => sendState(AppState.getCurrentStateForPreset()), 50);
-      }
       break;
     case "-": // '-' Decrease Tempo
     case "_":
       event.preventDefault();
       DOM.decreaseTempoBtn.click();
-      // Send state update if host
-      if (window.isHost) {
-        setTimeout(() => sendState(AppState.getCurrentStateForPreset()), 50);
-      }
       break;
     case "]": // ']' Increase Bars
       event.preventDefault();
@@ -264,11 +256,17 @@ document.addEventListener("keydown", (event) => {
       event.preventDefault();
       AppState.setVolume(AppState.getVolume() + 0.01);
       VolumeController.updateVolumeDisplay({ animate: true });
+      if (window.isHost) {
+        sendState(AppState.getCurrentStateForPreset());
+      }
       break;
     case "ArrowDown":
       event.preventDefault();
       AppState.setVolume(AppState.getVolume() - 0.01);
       VolumeController.updateVolumeDisplay({ animate: true });
+      if (window.isHost) {
+        sendState(AppState.getCurrentStateForPreset());
+      }
       break;
   }
 });

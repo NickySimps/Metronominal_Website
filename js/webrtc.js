@@ -7,7 +7,10 @@ import ThemeController from "./themeController.js";
 import MetronomeEngine from "./metronomeEngine.js";
 
 let peerConnection;
+let peers = {};
 let dataChannel;
+let dataChannels = {};
+let clientCount = 0;
 let receiveCallback;
 let socket;
 let roomId;
@@ -63,45 +66,57 @@ function updateConnectionStatusUI(state) {
   }
 }
 
-function createPeerConnection() {
-  console.log('Creating peer connection...');
-  peerConnection = new RTCPeerConnection(configuration);
+function createPeerConnection(peerId) {
+  console.log('Creating peer connection for:', peerId);
+  const peerConnection = new RTCPeerConnection(configuration);
 
   peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
-      console.log('Sending ICE candidate');
+      console.log('Sending ICE candidate for peer:', peerId);
       sendMessage({
         type: "candidate",
         candidate: event.candidate,
-        room: roomId
+        room: roomId,
+        peerId: peerId
       });
     }
   };
 
   peerConnection.ondatachannel = (event) => {
-    console.log('Received data channel');
-    dataChannel = event.channel;
-    setupDataChannelEvents();
+    console.log('Received data channel for peer:', peerId);
+    dataChannels[peerId] = event.channel;
+    setupDataChannelEvents(peerId);
   };
 
   peerConnection.onconnectionstatechange = () => {
-    console.log('Connection state:', peerConnection.connectionState);
-    updateConnectionStatusUI(peerConnection.connectionState);
-    const state = peerConnection.connectionState;
-    if (state === 'failed') {
-      console.log('Connection failed, attempting to reconnect...');
-      setTimeout(() => {
-        connectToSignalingServer();
-      }, 2000);
-    } else if (state === 'disconnected' || state === 'closed') {
-      console.log('Peer has disconnected.');
-      resetConnectionState();
+    console.log('Connection state for', peerId, ':', peerConnection.connectionState);
+    
+    if (peerConnection.connectionState === 'connected') {
+      updateClientCount();
+    } else if (peerConnection.connectionState === 'disconnected' || 
+               peerConnection.connectionState === 'closed' ||
+               peerConnection.connectionState === 'failed') {
+      console.log('Peer disconnected:', peerId);
+      delete peers[peerId];
+      delete dataChannels[peerId];
+      updateClientCount();
     }
   };
 
-  peerConnection.oniceconnectionstatechange = () => {
-    console.log('ICE connection state:', peerConnection.iceConnectionState);
-  };
+  peers[peerId] = peerConnection;
+  return peerConnection;
+}
+
+
+function updateClientCount() {
+  const connectedClients = Object.values(dataChannels).filter(channel => 
+    channel && channel.readyState === 'open'
+  ).length;
+  
+  const connectionStatus = document.getElementById('connection-status');
+  if (connectionStatus) {
+    connectionStatus.textContent = connectedClients > 0 ? `(${connectedClients})` : '';
+  }
 }
 
 function refreshUIFromState() {
@@ -146,108 +161,129 @@ function sendFullState() {
   }
 }
 
-function setupDataChannelEvents() {
+function setupDataChannelEvents(peerId) {
+  const dataChannel = dataChannels[peerId];
+  if (!dataChannel) return;
+
   dataChannel.onopen = () => {
-    console.log("Data channel is open!");
+    console.log("Data channel is open for peer:", peerId);
+    updateClientCount();
     if (window.isHost) {
       sendState(AppState.getCurrentStateForPreset());
     }
   };
 
   dataChannel.onclose = () => {
-    console.log("Data channel is closed.");
-    resetConnectionState();
+    console.log("Data channel closed for peer:", peerId);
+    delete dataChannels[peerId];
+    updateClientCount();
   };
 
-dataChannel.onmessage = (event) => {
-    console.log('Received data channel message');
+  dataChannel.onmessage = (event) => {
+    console.log('Received data from peer:', peerId);
     const data = JSON.parse(event.data);
-    console.log('Received state data:', data);
     
-    // Store the correct 'isPlaying' state from the host.
-    const shouldBePlaying = data.isPlaying || false;
-
-    // Load the new state, but temporarily force isPlaying to be false.
-    // This ensures the engine starts from a known 'off' state.
-    AppState.loadPresetData({ ...data, isPlaying: false });
-    
-    // Refresh the UI with all the new settings (tempo, bars, etc.).
-    refreshUIFromState();
-    
-    // If the host was playing, we now toggle the client's engine on.
-    // Since AppState thinks it's 'off', this single toggle will correctly
-    // turn it 'on' and start the scheduler loop without the double-toggle issue.
-    if (shouldBePlaying) {
-        // This will now correctly start the engine and set AppState.isPlaying to true.
-        MetronomeEngine.togglePlay();
+    // Handle host disconnect message
+    if (data.type === 'host-disconnect') {
+      console.log('Host disconnected:', data.message);
+      // Clean up connections
+      Object.values(peers).forEach(peerConnection => {
+        if (peerConnection) peerConnection.close();
+      });
+      peers = {};
+      dataChannels = {};
+      updateClientCount();
+      updateConnectionStatusUI('disconnected');
+      
+      // Optionally show a message to the user
+      alert(data.message || 'The host has disconnected.');
+      return;
     }
-};
-
-  dataChannel.onerror = (error) => {
-    console.error('Data channel error:', error);
+    
+    // Handle normal state updates
+    const shouldBePlaying = data.isPlaying || false;
+    AppState.loadPresetData({ ...data, isPlaying: false });
+    refreshUIFromState();
+    if (shouldBePlaying) {
+      MetronomeEngine.togglePlay();
+    }
   };
 }
 
 export function sendState(state) {
-  if (dataChannel && dataChannel.readyState === "open") {
-    console.log('Sending state via data channel:', state);
-    dataChannel.send(JSON.stringify(state));
-  } else {
-    console.warn('Data channel not open, cannot send state');
+  if (window.isHost) {
+    Object.entries(dataChannels).forEach(([peerId, channel]) => {
+      if (channel && channel.readyState === "open") {
+        console.log('Sending state to peer:', peerId);
+        channel.send(JSON.stringify(state));
+      }
+    });
   }
 }
 
 // Export WebRTC functions
-export async function createOffer() {
+export async function createOffer(peerId = 'default') {
   try {
-    console.log('Creating offer...');
-    createPeerConnection();
-    dataChannel = peerConnection.createDataChannel("metronome-sync");
-    setupDataChannelEvents();
+    console.log('Creating offer for peer:', peerId);
+    const peerConnection = createPeerConnection(peerId);
+    const dataChannel = peerConnection.createDataChannel("metronome-sync");
+    dataChannels[peerId] = dataChannel;
+    setupDataChannelEvents(peerId);
+
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
     sendMessage({
       type: "offer",
       offer: offer,
-      room: roomId
+      room: roomId,
+      peerId: peerId
     });
   } catch (error) {
     console.error('Error creating offer:', error);
   }
 }
 
-export async function createAnswer(offer) {
+export async function createAnswer(offer, peerId = 'default') {
   try {
-    console.log('Creating answer...');
-    createPeerConnection();
+    console.log('Creating answer for peer:',peerId);
+    const peerConnection = createPeerConnection(peerId);
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     sendMessage({
       type: "answer",
       answer: answer,
-      room: roomId
+      room: roomId,
+      peerId: peerId
     });
   } catch (error) {
     console.error('Error creating answer:', error);
   }
 }
 
-export async function acceptAnswer(answer) {
+export async function acceptAnswer(answer, peerId = 'default') {
   try {
-    console.log('Accepting answer...');
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-    console.log("Connection established!");
+    console.log('Accepting answer from peer:', peerId);
+    const peerConnection = peers[peerId];
+    if (peerConnection) {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      console.log("Connection established with peer:", peerId);
+    } else {
+      console.warn('No peer connection found for peer:', peerId);
+    }
   } catch (error) {
     console.error('Error accepting answer:', error);
   }
 }
 
-export async function addIceCandidate(candidate) {
+export async function addIceCandidate(candidate, peerId = 'default') {
   try {
+    const peerConnection = peers[peerId];
     if (peerConnection) {
       await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      console.log('Added ICE candidate');
+      console.log('Added ICE candidate for peer:', peerId);
+    } else {
+      console.warn('No peer connection found for peer:', peerId);
     }
   } catch (error) {
     console.error('Error adding ICE candidate:', error);
@@ -297,32 +333,48 @@ function connectToSignalingServer() {
     });
   };
 
-  socket.onmessage = async (message) => {
-    try {
-      const data = JSON.parse(message.data);
-      console.log('Received message:', data.type);
+socket.onmessage = async (message) => {
+  try {
+    const data = JSON.parse(message.data);
+    console.log('Received message:', data.type, 'from peer:', data.peerId);
 
-      switch (data.type) {
-        case "offer":
-          await createAnswer(data.offer);
-          break;
-        case "answer":
-          await acceptAnswer(data.answer);
-          break;
-        case "candidate":
-          await addIceCandidate(data.candidate);
-          break;
-        case "peer-joined":
-          console.log('Peer joined, creating offer...');
-          await createOffer();
-          break;
-        default:
-          console.log('Unknown message type:', data.type);
-      }
-    } catch (error) {
-      console.error('Error handling message:', error);
+    const peerId = data.peerId || 'default';
+
+    switch (data.type) {
+      case "offer":
+        await createAnswer(data.offer, peerId);
+        break;
+      case "answer":
+        await acceptAnswer(data.answer, peerId);
+        break;
+      case "candidate":
+        await addIceCandidate(data.candidate, peerId);
+        break;
+      case "peer-joined":
+        console.log('Peer joined:', peerId);
+        if (window.isHost) {
+          await createOffer(peerId);
+        }
+        break;
+      case "peer-left":
+        console.log('Peer left:', peerId);
+        if (peers[peerId]) {
+          peers[peerId].close();
+          delete peers[peerId];
+          delete dataChannels[peerId];
+          updateClientCount();
+        }
+        break;
+      case "host-changed":
+        console.log('Host changed to:', data.newHostId);
+        // Handle host migration if needed
+        break;
     }
-  };
+  } catch (error) {
+    console.error('Error handling message:', error);
+  }
+};
+
 
   socket.onclose = (event) => {
     console.log("Disconnected from signaling server.", event.code, event.reason);
@@ -386,10 +438,7 @@ export function initializeShareControls() {
   });
 }
 
-/**
- * Resets connection variables and UI to the disconnected state.
- * This is called when a connection is closed or fails.
- */
+
 function resetConnectionState() {
   // Guard against multiple calls
   if (!peerConnection && !dataChannel) return;
@@ -400,59 +449,44 @@ function resetConnectionState() {
   updateConnectionStatusUI('disconnected');
 }
 
-/**
- * Initiates a disconnection from the current peer.
- */
 export function disconnect() {
   console.log('User initiated disconnect.');
-  if (peerConnection) peerConnection.close();
-  resetConnectionState(); // Also reset state immediately for snappy UI response
+  Object.values(peers).forEach(peerConnection => {
+    if (peerConnection) peerConnection.close();
+  });
+  peers = {};
+  dataChannels = {};
+  updateClientCount();
 }
 
-/**
- * Disconnects all connected peers. This can only be initiated by the host.
- * It sends a 'disconnect' message to clients before closing the connections.
- */
 export function disconnectAllPeers() {
-    if (!window.isHost) {
-        console.warn("Only the host can disconnect all peers.");
-        return;
+  if (!window.isHost) {
+    console.warn("Only the host can disconnect all peers.");
+    return;
+  }
+
+  console.log("Host is disconnecting all peers.");
+  
+  const payload = {
+    type: 'host-disconnect',
+    message: 'The host has closed the session.'
+  };
+
+  Object.values(dataChannels).forEach(channel => {
+    if (channel && channel.readyState === 'open') {
+      channel.send(JSON.stringify(payload));
     }
+  });
 
-    console.log("Host is disconnecting all peers.");
-    
-    // Create a disconnect message payload for clients
-    const payload = {
-        type: 'host-disconnect',
-        message: 'The host has closed the session.'
-    };
-
-    // Iterate over all data channels and send the disconnect message
-    Object.values(WebRTC.dataChannels).forEach(channel => {
-        if (channel && channel.readyState === 'open') {
-            channel.send(JSON.stringify(payload));
-        }
+  setTimeout(() => {
+    Object.values(peers).forEach(peerConnection => {
+      if (peerConnection) peerConnection.close();
     });
-
-    // A short delay to allow the message to be sent before closing connections
-    setTimeout(() => {
-        // Close all peer connections
-        Object.values(WebRTC.peers).forEach(peerConnection => {
-            if (peerConnection) {
-                peerConnection.close();
-            }
-        });
-
-        // Clear the peer and data channel objects
-        WebRTC.peers = {};
-        WebRTC.dataChannels = {};
-
-        console.log("All peer connections closed.");
-
-        // You could also update the UI here to show that no one is connected.
-    }, 250); // 250ms delay
+    peers = {};
+    dataChannels = {};
+    updateClientCount();
+  }, 250);
 }
-
 
 export function initializeWebRTC() {
   onReceiveState((newState) => {
@@ -476,9 +510,11 @@ export function initializeWebRTC() {
 
   if (roomParam) {
     roomId = roomParam;
+    window.isHost = false; // Joining an existing room, so not the host
     console.log('Joining existing room:', roomId);
   } else {
     roomId = Math.random().toString(36).substring(2, 9);
+    window.isHost = true; // Creating a new room, so this is the host
     console.log('Creating new room:', roomId);
     // Update the URL without reloading the page to have a shareable link
     const newUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
