@@ -37,16 +37,29 @@ function sendMessage(message) {
 }
 
 function updateConnectionStatusUI(state) {
-  const shareBtn = document.getElementById("share-btn");
-  if (shareBtn) {
-    shareBtn.classList.remove('connected', 'connecting', 'failed');
-    if (state === 'connected') {
-      shareBtn.classList.add('connected');
-    } else if (state === 'connecting' || state === 'new' || state === 'checking') {
-      shareBtn.classList.add('connecting');
-    } else {
-      shareBtn.classList.add('failed');
-    }
+  const shareBtn = document.getElementById('share-btn');
+  const disconnectBtn = document.getElementById('disconnect-btn');
+  const connectionStatus = document.getElementById('connection-status');
+
+  if (!shareBtn || !disconnectBtn || !connectionStatus) return;
+
+  shareBtn.classList.remove('connected', 'connecting', 'failed');
+
+  if (state === 'connected') {
+    shareBtn.style.display = 'none';
+    disconnectBtn.style.display = '';
+    connectionStatus.textContent = 'Connected';
+  } else if (state === 'connecting' || state === 'new' || state === 'checking') {
+    shareBtn.style.display = '';
+    disconnectBtn.style.display = 'none';
+    connectionStatus.textContent = 'Connecting...';
+    shareBtn.classList.add('connecting');
+  } else { // disconnected, closed, failed
+    shareBtn.style.display = '';
+    disconnectBtn.style.display = 'none';
+    connectionStatus.textContent = '';
+    // Optionally add 'failed' class for visual feedback on failure
+    if (state === 'failed') shareBtn.classList.add('failed');
   }
 }
 
@@ -74,11 +87,15 @@ function createPeerConnection() {
   peerConnection.onconnectionstatechange = () => {
     console.log('Connection state:', peerConnection.connectionState);
     updateConnectionStatusUI(peerConnection.connectionState);
-    if (peerConnection.connectionState === 'failed') {
+    const state = peerConnection.connectionState;
+    if (state === 'failed') {
       console.log('Connection failed, attempting to reconnect...');
       setTimeout(() => {
         connectToSignalingServer();
       }, 2000);
+    } else if (state === 'disconnected' || state === 'closed') {
+      console.log('Peer has disconnected.');
+      resetConnectionState();
     }
   };
 
@@ -139,6 +156,7 @@ function setupDataChannelEvents() {
 
   dataChannel.onclose = () => {
     console.log("Data channel is closed.");
+    resetConnectionState();
   };
 
 dataChannel.onmessage = (event) => {
@@ -328,6 +346,7 @@ function connectToSignalingServer() {
 export function initializeShareControls() {
   const shareBtn = document.getElementById("share-btn");
   const shareModal = document.getElementById("share-modal");
+  const disconnectBtn = document.getElementById('disconnect-btn');
   const closeBtn = shareModal.querySelector(".close-button");
   const qrcodeContainer = document.getElementById("qrcode");
 
@@ -352,6 +371,10 @@ export function initializeShareControls() {
     shareModal.style.display = "block";
   });
 
+  disconnectBtn.addEventListener('click', () => {
+    disconnect();
+  });
+
   closeBtn.addEventListener("click", () => {
     shareModal.style.display = "none";
   });
@@ -362,6 +385,74 @@ export function initializeShareControls() {
     }
   });
 }
+
+/**
+ * Resets connection variables and UI to the disconnected state.
+ * This is called when a connection is closed or fails.
+ */
+function resetConnectionState() {
+  // Guard against multiple calls
+  if (!peerConnection && !dataChannel) return;
+
+  console.log('Cleaning up connection state.');
+  peerConnection = null;
+  dataChannel = null;
+  updateConnectionStatusUI('disconnected');
+}
+
+/**
+ * Initiates a disconnection from the current peer.
+ */
+export function disconnect() {
+  console.log('User initiated disconnect.');
+  if (peerConnection) peerConnection.close();
+  resetConnectionState(); // Also reset state immediately for snappy UI response
+}
+
+/**
+ * Disconnects all connected peers. This can only be initiated by the host.
+ * It sends a 'disconnect' message to clients before closing the connections.
+ */
+export function disconnectAllPeers() {
+    if (!window.isHost) {
+        console.warn("Only the host can disconnect all peers.");
+        return;
+    }
+
+    console.log("Host is disconnecting all peers.");
+    
+    // Create a disconnect message payload for clients
+    const payload = {
+        type: 'host-disconnect',
+        message: 'The host has closed the session.'
+    };
+
+    // Iterate over all data channels and send the disconnect message
+    Object.values(WebRTC.dataChannels).forEach(channel => {
+        if (channel && channel.readyState === 'open') {
+            channel.send(JSON.stringify(payload));
+        }
+    });
+
+    // A short delay to allow the message to be sent before closing connections
+    setTimeout(() => {
+        // Close all peer connections
+        Object.values(WebRTC.peers).forEach(peerConnection => {
+            if (peerConnection) {
+                peerConnection.close();
+            }
+        });
+
+        // Clear the peer and data channel objects
+        WebRTC.peers = {};
+        WebRTC.dataChannels = {};
+
+        console.log("All peer connections closed.");
+
+        // You could also update the UI here to show that no one is connected.
+    }, 250); // 250ms delay
+}
+
 
 export function initializeWebRTC() {
   onReceiveState((newState) => {

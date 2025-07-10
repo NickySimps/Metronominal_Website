@@ -1,4 +1,4 @@
-import { WebRTC, sendState, initializeShareControls, initializeWebRTC } from "./js/webrtc.js"; 
+import { WebRTC, sendState, initializeShareControls, initializeWebRTC, disconnectAllPeers } from "./js/webrtc.js"; 
 import AppState from "./js/appState.js";
 import DOM from "./js/domSelectors.js";
 import UIController from "./js/uiController.js";
@@ -123,6 +123,16 @@ async function initialize() {
   initializeShareControls();
   initializeWebRTC();
 
+  // Make the disconnect button functional for the host.
+  if (DOM.disconnectBtn) {
+    DOM.disconnectBtn.addEventListener('click', () => {
+      // Only the host can disconnect all peers.
+      if (window.isHost) {
+        disconnectAllPeers();
+      }
+    });
+  }
+
   console.log("Metronominal initialized successfully.");
 }
 
@@ -243,6 +253,12 @@ document.addEventListener("keydown", (event) => {
     case ";": // ';' Decrease Beats (Semicolon)
       event.preventDefault();
       DOM.decreaseMeasureLengthBtn.click();
+      break;
+    case "d": // 'd': Disconnect all peers (host only)
+      event.preventDefault();
+      if (window.isHost) {
+        disconnectAllPeers();
+      }
       break;
     case "ArrowUp":
       event.preventDefault();

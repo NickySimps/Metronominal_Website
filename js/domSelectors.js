@@ -44,6 +44,11 @@ const DOM = {
     get presetSlotSelect() { return document.getElementById('preset-slot-select'); },
     get presetNameInput() { return document.getElementById('preset-name-input'); },
 
+    // Sharing/Sync Controls
+    get shareBtn() { return document.getElementById('share-btn'); },
+    get disconnectBtn() { return document.getElementById('disconnect-btn'); },
+    get connectionStatus() { return document.getElementById('connection-status'); },
+
     // Preset Display Heading
     get currentPresetDisplayHeading() { return document.getElementById('current-preset-display-heading'); },
 
