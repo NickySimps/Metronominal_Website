@@ -707,6 +707,7 @@ select {
   top: var(--s3); /* Standardized position (8px) */
   right: var(--s3); /* Standardized position (8px) */
   display: flex; /* Keep as flex */
+  flex-wrap: wrap;
   gap: var(--s3); /* Standardized gap (8px) */
   padding: var(--s3); /* Standardized padding (8px) */
   background-color: color-mix(in srgb, var(--Background) 80%, transparent);
