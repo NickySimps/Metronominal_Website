@@ -25,82 +25,99 @@ const configuration = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:19302" }
+    { urls: "stun:stun2.l.google.com:19302" },
   ],
-  iceCandidatePoolSize: 10
+  iceCandidatePoolSize: 10,
 };
 
 function sendMessage(message) {
   if (socket && socket.readyState === WebSocket.OPEN) {
-    console.log('Sending message:', message.type);
+    console.log("Sending message:", message.type);
     socket.send(JSON.stringify(message));
   } else {
-    console.warn('Cannot send message, WebSocket not open:', socket?.readyState);
+    console.warn(
+      "Cannot send message, WebSocket not open:",
+      socket?.readyState
+    );
   }
 }
 
 function updateConnectionStatusUI(state) {
-  const shareBtn = document.getElementById('share-btn');
-  const disconnectBtn = document.getElementById('disconnect-btn');
-  const connectionStatus = document.getElementById('connection-status');
+  const shareBtn = document.getElementById("share-btn");
+  const disconnectBtn = document.getElementById("disconnect-btn");
+  const connectionStatus = document.getElementById("connection-status");
 
   if (!shareBtn || !disconnectBtn || !connectionStatus) return;
 
-  shareBtn.classList.remove('connected', 'connecting', 'failed');
+  shareBtn.classList.remove("connected", "connecting", "failed");
 
-  if (state === 'connected') {
-    shareBtn.style.display = 'none';
-    disconnectBtn.style.display = '';
-    connectionStatus.textContent = 'Connected';
-    shareBtn.classList.add('connected');
-  } else if (state === 'connecting' || state === 'new' || state === 'checking') {
-    shareBtn.style.display = '';
-    disconnectBtn.style.display = 'none';
-    connectionStatus.textContent = 'Connecting...';
-    shareBtn.classList.add('connecting');
-  } else { // disconnected, closed, failed
-    shareBtn.style.display = '';
-    disconnectBtn.style.display = 'none';
-    connectionStatus.textContent = '';
+  if (state === "connected") {
+    shareBtn.style.display = "none";
+    disconnectBtn.style.display = "";
+    connectionStatus.textContent = "Connected";
+    shareBtn.classList.add("connected");
+  } else if (
+    state === "connecting" ||
+    state === "new" ||
+    state === "checking"
+  ) {
+    shareBtn.style.display = "";
+    disconnectBtn.style.display = "none";
+    connectionStatus.textContent = "Connecting...";
+    shareBtn.classList.add("connecting");
+  } else {
+    // disconnected, closed, failed
+    shareBtn.style.display = "";
+    disconnectBtn.style.display = "none";
+    connectionStatus.textContent = "";
     // Optionally add 'failed' class for visual feedback on failure
-    if (state === 'failed') shareBtn.classList.add('failed');
+    if (state === "failed") shareBtn.classList.add("failed");
   }
 }
 
 function createPeerConnection(peerId) {
-  console.log('Creating peer connection for:', peerId);
+  console.log("Creating peer connection for:", peerId);
   const peerConnection = new RTCPeerConnection(configuration);
 
   peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
-      console.log('Sending ICE candidate for peer:', peerId);
+      console.log("Sending ICE candidate for peer:", peerId);
       sendMessage({
         type: "candidate",
         candidate: event.candidate,
         room: roomId,
-        peerId: peerId
+        peerId: peerId,
       });
     }
   };
 
   peerConnection.ondatachannel = (event) => {
-    console.log('Received data channel for peer:', peerId);
+    console.log("Received data channel for peer:", peerId);
     dataChannels[peerId] = event.channel;
     setupDataChannelEvents(peerId);
   };
 
   peerConnection.onconnectionstatechange = () => {
-    console.log('Connection state for', peerId, ':', peerConnection.connectionState);
-    
-    if (peerConnection.connectionState === 'connected') {
+    console.log(
+      "Connection state for",
+      peerId,
+      ":",
+      peerConnection.connectionState
+    );
+
+    if (peerConnection.connectionState === "connected") {
       updateClientCount();
-    } else if (peerConnection.connectionState === 'disconnected' || 
-               peerConnection.connectionState === 'closed' ||
-               peerConnection.connectionState === 'failed') {
-      console.log('Peer disconnected:', peerId);
+      updateConnectionStatusUI("connected");
+    } else if (
+      peerConnection.connectionState === "disconnected" ||
+      peerConnection.connectionState === "closed" ||
+      peerConnection.connectionState === "failed"
+    ) {
+      console.log("Peer disconnected:", peerId);
       delete peers[peerId];
       delete dataChannels[peerId];
       updateClientCount();
+      updateConnectionStatusUI("disconnected");
     }
   };
 
@@ -108,15 +125,15 @@ function createPeerConnection(peerId) {
   return peerConnection;
 }
 
-
 function updateClientCount() {
-  const connectedClients = Object.values(dataChannels).filter(channel => 
-    channel && channel.readyState === 'open'
+  const connectedClients = Object.values(dataChannels).filter(
+    (channel) => channel && channel.readyState === "open"
   ).length;
-  
-  const connectionCount = document.getElementById('n-of-connections');
+
+  const connectionCount = document.getElementById("n-of-connections");
   if (connectionCount) {
-    connectionCount.textContent = connectedClients > 0 ? `(${connectedClients})` : '';
+    connectionCount.textContent =
+      connectedClients > 0 ? `(${connectedClients})` : "";
   }
 }
 
@@ -141,23 +158,25 @@ function refreshUIFromState() {
 
 function syncPlaybackState() {
   const isPlaying = AppState.isPlaying();
-  const isEnginePlaying = MetronomeEngine.isPlaying ? MetronomeEngine.isPlaying() : false;
+  const isEnginePlaying = MetronomeEngine.isPlaying
+    ? MetronomeEngine.isPlaying()
+    : false;
 
-  console.log('Syncing playback state:', { isPlaying, isEnginePlaying });
+  console.log("Syncing playback state:", { isPlaying, isEnginePlaying });
 
   if (isPlaying && !isEnginePlaying) {
-    console.log('Starting metronome engine...');
+    console.log("Starting metronome engine...");
     MetronomeEngine.togglePlay();
   } else if (!isPlaying && isEnginePlaying) {
-    console.log('Stopping metronome engine...');
+    console.log("Stopping metronome engine...");
     MetronomeEngine.togglePlay();
   }
 }
 
 function sendFullState() {
-  if (dataChannel && dataChannel.readyState === 'open') {
+  if (dataChannel && dataChannel.readyState === "open") {
     const state = AppState.getCurrentStateForPreset();
-    console.log('Sending full state:', state);
+    console.log("Sending full state:", state);
     dataChannel.send(JSON.stringify(state));
   }
 }
@@ -181,26 +200,26 @@ function setupDataChannelEvents(peerId) {
   };
 
   dataChannel.onmessage = (event) => {
-    console.log('Received data from peer:', peerId);
+    console.log("Received data from peer:", peerId);
     const data = JSON.parse(event.data);
-    
+
     // Handle host disconnect message
-    if (data.type === 'host-disconnect') {
-      console.log('Host disconnected:', data.message);
+    if (data.type === "host-disconnect") {
+      console.log("Host disconnected:", data.message);
       // Clean up connections
-      Object.values(peers).forEach(peerConnection => {
+      Object.values(peers).forEach((peerConnection) => {
         if (peerConnection) peerConnection.close();
       });
       peers = {};
       dataChannels = {};
       updateClientCount();
-      updateConnectionStatusUI('disconnected');
-      
+      updateConnectionStatusUI("disconnected");
+
       // Optionally show a message to the user
-      alert(data.message || 'The host has disconnected.');
+      alert(data.message || "The host has disconnected.");
       return;
     }
-    
+
     // Handle normal state updates
     const shouldBePlaying = data.isPlaying || false;
     AppState.loadPresetData({ ...data, isPlaying: false });
@@ -215,7 +234,7 @@ export function sendState(state) {
   if (window.isHost) {
     Object.entries(dataChannels).forEach(([peerId, channel]) => {
       if (channel && channel.readyState === "open") {
-        console.log('Sending state to peer:', peerId);
+        console.log("Sending state to peer:", peerId);
         channel.send(JSON.stringify(state));
       }
     });
@@ -223,9 +242,9 @@ export function sendState(state) {
 }
 
 // Export WebRTC functions
-export async function createOffer(peerId = 'default') {
+export async function createOffer(peerId = "default") {
   try {
-    console.log('Creating offer for peer:', peerId);
+    console.log("Creating offer for peer:", peerId);
     const peerConnection = createPeerConnection(peerId);
     const dataChannel = peerConnection.createDataChannel("metronome-sync");
     dataChannels[peerId] = dataChannel;
@@ -237,16 +256,16 @@ export async function createOffer(peerId = 'default') {
       type: "offer",
       offer: offer,
       room: roomId,
-      peerId: peerId
+      peerId: peerId,
     });
   } catch (error) {
-    console.error('Error creating offer:', error);
+    console.error("Error creating offer:", error);
   }
 }
 
-export async function createAnswer(offer, peerId = 'default') {
+export async function createAnswer(offer, peerId = "default") {
   try {
-    console.log('Creating answer for peer:',peerId);
+    console.log("Creating answer for peer:", peerId);
     const peerConnection = createPeerConnection(peerId);
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
     const answer = await peerConnection.createAnswer();
@@ -255,39 +274,41 @@ export async function createAnswer(offer, peerId = 'default') {
       type: "answer",
       answer: answer,
       room: roomId,
-      peerId: peerId
+      peerId: peerId,
     });
   } catch (error) {
-    console.error('Error creating answer:', error);
+    console.error("Error creating answer:", error);
   }
 }
 
-export async function acceptAnswer(answer, peerId = 'default') {
+export async function acceptAnswer(answer, peerId = "default") {
   try {
-    console.log('Accepting answer from peer:', peerId);
+    console.log("Accepting answer from peer:", peerId);
     const peerConnection = peers[peerId];
     if (peerConnection) {
-      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      await peerConnection.setRemoteDescription(
+        new RTCSessionDescription(answer)
+      );
       console.log("Connection established with peer:", peerId);
     } else {
-      console.warn('No peer connection found for peer:', peerId);
+      console.warn("No peer connection found for peer:", peerId);
     }
   } catch (error) {
-    console.error('Error accepting answer:', error);
+    console.error("Error accepting answer:", error);
   }
 }
 
-export async function addIceCandidate(candidate, peerId = 'default') {
+export async function addIceCandidate(candidate, peerId = "default") {
   try {
     const peerConnection = peers[peerId];
     if (peerConnection) {
       await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      console.log('Added ICE candidate for peer:', peerId);
+      console.log("Added ICE candidate for peer:", peerId);
     } else {
-      console.warn('No peer connection found for peer:', peerId);
+      console.warn("No peer connection found for peer:", peerId);
     }
   } catch (error) {
-    console.error('Error adding ICE candidate:', error);
+    console.error("Error adding ICE candidate:", error);
   }
 }
 
@@ -301,17 +322,20 @@ export const WebRTC = {
   createOffer,
   createAnswer,
   acceptAnswer,
-  addIceCandidate
+  addIceCandidate,
 };
 
 function connectToSignalingServer() {
   if (socket && socket.readyState === WebSocket.OPEN) {
-    console.log('Already connected to signaling server');
+    console.log("Already connected to signaling server");
     return;
   }
 
   connectionAttempts++;
-  console.log(`Connecting to signaling server (attempt ${connectionAttempts}/${maxConnectionAttempts})`);
+  console.log(
+    `Connecting to signaling server (attempt ${connectionAttempts}/${maxConnectionAttempts})`
+  );
+  updateConnectionStatusUI("connecting");
 
   // Clear any existing reconnect timeout
   if (reconnectTimeout) {
@@ -321,7 +345,7 @@ function connectToSignalingServer() {
 
   // Try the deployed server first, then fallback to localhost for development
   const serverUrl = "wss://metronomesignalserver.onrender.com";
-  console.log('Connecting to:', serverUrl);
+  console.log("Connecting to:", serverUrl);
 
   socket = new WebSocket(serverUrl);
 
@@ -330,55 +354,58 @@ function connectToSignalingServer() {
     connectionAttempts = 0; // Reset attempts on successful connection
     sendMessage({
       type: "join",
-      room: roomId
+      room: roomId,
     });
   };
 
-socket.onmessage = async (message) => {
-  try {
-    const data = JSON.parse(message.data);
-    console.log('Received message:', data.type, 'from peer:', data.peerId);
+  socket.onmessage = async (message) => {
+    try {
+      const data = JSON.parse(message.data);
+      console.log("Received message:", data.type, "from peer:", data.peerId);
 
-    const peerId = data.peerId || 'default';
+      const peerId = data.peerId || "default";
 
-    switch (data.type) {
-      case "offer":
-        await createAnswer(data.offer, peerId);
-        break;
-      case "answer":
-        await acceptAnswer(data.answer, peerId);
-        break;
-      case "candidate":
-        await addIceCandidate(data.candidate, peerId);
-        break;
-      case "peer-joined":
-        console.log('Peer joined:', peerId);
-        if (window.isHost) {
-          await createOffer(peerId);
-        }
-        break;
-      case "peer-left":
-        console.log('Peer left:', peerId);
-        if (peers[peerId]) {
-          peers[peerId].close();
-          delete peers[peerId];
-          delete dataChannels[peerId];
-          updateClientCount();
-        }
-        break;
-      case "host-changed":
-        console.log('Host changed to:', data.newHostId);
-        // Handle host migration if needed
-        break;
+      switch (data.type) {
+        case "offer":
+          await createAnswer(data.offer, peerId);
+          break;
+        case "answer":
+          await acceptAnswer(data.answer, peerId);
+          break;
+        case "candidate":
+          await addIceCandidate(data.candidate, peerId);
+          break;
+        case "peer-joined":
+          console.log("Peer joined:", peerId);
+          if (window.isHost) {
+            await createOffer(peerId);
+          }
+          break;
+        case "peer-left":
+          console.log("Peer left:", peerId);
+          if (peers[peerId]) {
+            peers[peerId].close();
+            delete peers[peerId];
+            delete dataChannels[peerId];
+            updateClientCount();
+          }
+          break;
+        case "host-changed":
+          console.log("Host changed to:", data.newHostId);
+          // Handle host migration if needed
+          break;
+      }
+    } catch (error) {
+      console.error("Error handling message:", error);
     }
-  } catch (error) {
-    console.error('Error handling message:', error);
-  }
-};
-
+  };
 
   socket.onclose = (event) => {
-    console.log("Disconnected from signaling server.", event.code, event.reason);
+    console.log(
+      "Disconnected from signaling server.",
+      event.code,
+      event.reason
+    );
 
     // Only attempt to reconnect if we haven't exceeded max attempts
     if (connectionAttempts < maxConnectionAttempts) {
@@ -387,7 +414,9 @@ socket.onmessage = async (message) => {
         connectToSignalingServer();
       }, 2000);
     } else {
-      console.error('Max connection attempts reached. Please refresh the page.');
+      console.error(
+        "Max connection attempts reached. Please refresh the page."
+      );
     }
   };
 
@@ -399,14 +428,14 @@ socket.onmessage = async (message) => {
 export function initializeShareControls() {
   const shareBtn = document.getElementById("share-btn");
   const shareModal = document.getElementById("share-modal");
-  const disconnectBtn = document.getElementById('disconnect-btn');
+  const disconnectBtn = document.getElementById("disconnect-btn");
   const closeBtn = shareModal.querySelector(".close-button");
   const qrcodeContainer = document.getElementById("qrcode");
 
   shareBtn.addEventListener("click", () => {
     window.isHost = true;
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
-    console.log('Sharing URL:', shareUrl);
+    console.log("Sharing URL:", shareUrl);
 
     // Clear previous QR code
     qrcodeContainer.innerHTML = "";
@@ -418,14 +447,10 @@ export function initializeShareControls() {
       height: 256,
       colorDark: "#000000",
       colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.H
+      correctLevel: QRCode.CorrectLevel.H,
     });
 
     shareModal.style.display = "block";
-  });
-
-  disconnectBtn.addEventListener('click', () => {
-    disconnect();
   });
 
   closeBtn.addEventListener("click", () => {
@@ -439,25 +464,15 @@ export function initializeShareControls() {
   });
 }
 
-
-function resetConnectionState() {
-  // Guard against multiple calls
-  if (!peerConnection && !dataChannel) return;
-
-  console.log('Cleaning up connection state.');
-  peerConnection = null;
-  dataChannel = null;
-  updateConnectionStatusUI('disconnected');
-}
-
 export function disconnect() {
-  console.log('User initiated disconnect.');
-  Object.values(peers).forEach(peerConnection => {
+  console.log("User initiated disconnect.");
+  Object.values(peers).forEach((peerConnection) => {
     if (peerConnection) peerConnection.close();
   });
   peers = {};
   dataChannels = {};
   updateClientCount();
+  updateConnectionStatusUI("disconnected");
 }
 
 export function disconnectAllPeers() {
@@ -467,25 +482,26 @@ export function disconnectAllPeers() {
   }
 
   console.log("Host is disconnecting all peers.");
-  
+
   const payload = {
-    type: 'host-disconnect',
-    message: 'The host has closed the session.'
+    type: "host-disconnect",
+    message: "The host has closed the session.",
   };
 
-  Object.values(dataChannels).forEach(channel => {
-    if (channel && channel.readyState === 'open') {
+  Object.values(dataChannels).forEach((channel) => {
+    if (channel && channel.readyState === "open") {
       channel.send(JSON.stringify(payload));
     }
   });
 
   setTimeout(() => {
-    Object.values(peers).forEach(peerConnection => {
+    Object.values(peers).forEach((peerConnection) => {
       if (peerConnection) peerConnection.close();
     });
     peers = {};
     dataChannels = {};
     updateClientCount();
+    updateConnectionStatusUI("disconnected");
   }, 250);
 }
 
@@ -498,10 +514,10 @@ export function initializeWebRTC() {
     TrackController.renderTracks();
     BarControlsController.updateBarControlsForSelectedTrack();
     const currentTheme = AppState.getCurrentTheme();
-    if (ThemeController.is3DSceneActive() && currentTheme !== '3dRoom') {
+    if (ThemeController.is3DSceneActive() && currentTheme !== "3dRoom") {
       ThemeController.applyTheme(currentTheme);
     }
-    
+
     // Sync playback state
     syncPlaybackState();
   });
@@ -512,14 +528,14 @@ export function initializeWebRTC() {
   if (roomParam) {
     roomId = roomParam;
     window.isHost = false; // Joining an existing room, so not the host
-    console.log('Joining existing room:', roomId);
+    console.log("Joining existing room:", roomId);
   } else {
     roomId = Math.random().toString(36).substring(2, 9);
     window.isHost = true; // Creating a new room, so this is the host
-    console.log('Creating new room:', roomId);
+    console.log("Creating new room:", roomId);
     // Update the URL without reloading the page to have a shareable link
     const newUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
-    window.history.pushState({ path: newUrl }, '', newUrl);
+    window.history.pushState({ path: newUrl }, "", newUrl);
   }
 
   connectToSignalingServer();
