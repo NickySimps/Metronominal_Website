@@ -141,20 +141,29 @@ function setupDataChannelEvents() {
     console.log("Data channel is closed.");
   };
 
-  dataChannel.onmessage = (event) => {
+dataChannel.onmessage = (event) => {
     console.log('Received data channel message');
     const data = JSON.parse(event.data);
     console.log('Received state data:', data);
     
-    // Load the state data
-    AppState.loadPresetData(data);
+    // Store the correct 'isPlaying' state from the host.
+    const shouldBePlaying = data.isPlaying || false;
+
+    // Load the new state, but temporarily force isPlaying to be false.
+    // This ensures the engine starts from a known 'off' state.
+    AppState.loadPresetData({ ...data, isPlaying: false });
     
-    // Update UI
+    // Refresh the UI with all the new settings (tempo, bars, etc.).
     refreshUIFromState();
     
-    // Sync playback state - this is the key fix
-    syncPlaybackState();
-  };
+    // If the host was playing, we now toggle the client's engine on.
+    // Since AppState thinks it's 'off', this single toggle will correctly
+    // turn it 'on' and start the scheduler loop without the double-toggle issue.
+    if (shouldBePlaying) {
+        // This will now correctly start the engine and set AppState.isPlaying to true.
+        MetronomeEngine.togglePlay();
+    }
+};
 
   dataChannel.onerror = (error) => {
     console.error('Data channel error:', error);
