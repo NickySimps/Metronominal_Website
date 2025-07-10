@@ -1513,11 +1513,11 @@ button:active,
   background-color: #ff0000; /* Red for disconnected */
 }
 
-#share-btn.connected #connection-status {
+.connected {
   background-color: #00ff00; /* Green for connected */
 }
 
-#share-btn.connecting #connection-status {
+.connecting {
   background-color: #ffff00; /* Yellow for connecting */
 }
 #n-of-connections{
