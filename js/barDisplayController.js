@@ -10,6 +10,7 @@ import AppState from "./appState.js"; // Assuming AppState is a module
 import DOM from "./domSelectors.js"; // Assuming domSelectors is a module
 import BarControlsController from "./barControlsController.js";
 import MetronomeEngine from "./metronomeEngine.js";
+import { sendState } from "./webrtc.js";
 import ThemeController from "./themeController.js";
 
 // State variables related to display highlighting
@@ -189,6 +190,7 @@ async function onWindowPointerUp(event) {
         AppState.setSelectedTrackIndex(containerIndex);
         AppState.setSelectedBarIndexInContainer(barIndex);
         AppState.setSubdivisionForSelectedBar(newSubdivision);
+        sendState(AppState.getCurrentStateForPreset());
         
         BarDisplayController.renderBarsAndControls(-1);
         BarControlsController.updateBeatControlsDisplay();
@@ -212,6 +214,7 @@ async function onWindowPointerUp(event) {
     if (AppState.getSelectedTrackIndex() !== clickedContainerIndex || AppState.getSelectedBarIndexInContainer() !== clickedBarIndex) {
         AppState.setSelectedTrackIndex(clickedContainerIndex);
         AppState.setSelectedBarIndexInContainer(clickedBarIndex);
+        sendState(AppState.getCurrentStateForPreset());
         BarDisplayController.renderBarsAndControls();
         BarControlsController.updateBeatControlsDisplay();
     }

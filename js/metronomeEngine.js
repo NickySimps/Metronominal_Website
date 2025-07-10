@@ -149,6 +149,8 @@ const MetronomeEngine = {
         const wasPlayingBeforeToggle = AppState.isPlaying();
         const isNowPlaying = await AppState.togglePlay();
 
+        sendState(AppState.getCurrentStateForPreset());
+
         if (isNowPlaying) {
             if (DOM.startStopBtn) {
                 DOM.startStopBtn.textContent = "STOP";
@@ -165,16 +167,6 @@ const MetronomeEngine = {
         } else {
             performEngineStopActions();
         }
-
-        // Send state update if this is the host
-        if (window.isHost) {
-            console.log('Host sending state update after play/pause toggle');
-            sendState(AppState.getCurrentStateForPreset());
-        }
-    },
-    
-    isPlaying: () => {
-        return AppState.isPlaying();
     }
 };
 

@@ -1,5 +1,6 @@
 import AppState from "./appState.js";
 import BarControlsController from "./barControlsController.js";
+import { sendState } from "./webrtc.js";
 import BarDisplayController from "./barDisplayController.js";
 import SoundSettingsModal from "./soundSettingsModal.js";
 
@@ -34,8 +35,12 @@ function createTrackElement(track, index) {
       <button class="track-remove-btn">-</button>
       <div class="track-volume-controls">
         <span class="track-volume-label">Vol:</span>
-        <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${track.volume}">
-        <span class="track-volume-value">${(track.volume * 100).toFixed(0)}%</span>
+        <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${
+    track.volume
+  }">
+        <span class="track-volume-value">${(track.volume * 100).toFixed(
+          0
+        )}%</span>
       </div>
     </div>
     <div class="track-sound-controls">
@@ -50,12 +55,20 @@ function createTrackElement(track, index) {
   `;
 
   // Find placeholders and append the actual sound dropdowns
-  const mainSoundSelectorContainer = trackElement.querySelector(".sound-selection:nth-child(1)");
-  const subSoundSelectorContainer = trackElement.querySelector(".sound-selection:nth-child(2)");
+  const mainSoundSelectorContainer = trackElement.querySelector(
+    ".sound-selection:nth-child(1)"
+  );
+  const subSoundSelectorContainer = trackElement.querySelector(
+    ".sound-selection:nth-child(2)"
+  );
 
   if (mainSoundSelectorContainer && subSoundSelectorContainer) {
-    mainSoundSelectorContainer.appendChild(createSoundSelector(track.mainBeatSound, "main-beat-sound-select"));
-    subSoundSelectorContainer.appendChild(createSoundSelector(track.subdivisionSound, "subdivision-sound-select"));
+    mainSoundSelectorContainer.appendChild(
+      createSoundSelector(track.mainBeatSound, "main-beat-sound-select")
+    );
+    subSoundSelectorContainer.appendChild(
+      createSoundSelector(track.subdivisionSound, "subdivision-sound-select")
+    );
   }
 
   return trackElement;
@@ -80,22 +93,32 @@ function updateTrackElement(trackElement, track, index) {
   // Update solo/muted state classes and button text
   trackElement.classList.toggle("soloed", track.solo);
   trackElement.classList.toggle("muted", track.muted);
-  trackElement.querySelector('.track-mute-btn').textContent = track.muted ? "Unmute" : "Mute";
-  trackElement.querySelector('.track-solo-btn').textContent = track.solo ? "Unsolo" : "Solo";
+  trackElement.querySelector(".track-mute-btn").textContent = track.muted
+    ? "Unmute"
+    : "Mute";
+  trackElement.querySelector(".track-solo-btn").textContent = track.solo
+    ? "Unsolo"
+    : "Solo";
 
   // Update track name
-  trackElement.querySelector('.track-name').textContent = `Track ${index + 1}`;
+  trackElement.querySelector(".track-name").textContent = `Track ${index + 1}`;
 
   // Update volume slider and display
-  trackElement.querySelector('.track-volume-slider').value = track.volume;
-  trackElement.querySelector('.track-volume-value').textContent = `${(track.volume * 100).toFixed(0)}%`;
+  trackElement.querySelector(".track-volume-slider").value = track.volume;
+  trackElement.querySelector(".track-volume-value").textContent = `${(
+    track.volume * 100
+  ).toFixed(0)}%`;
 
   // Update sound selectors
-  trackElement.querySelector('.main-beat-sound-select').value = track.mainBeatSound.sound;
-  trackElement.querySelector('.subdivision-sound-select').value = track.subdivisionSound.sound;
+  trackElement.querySelector(".main-beat-sound-select").value =
+    track.mainBeatSound.sound;
+  trackElement.querySelector(".subdivision-sound-select").value =
+    track.subdivisionSound.sound;
 
   // The bar-display-container's data-container-index also needs updating
-  const barDisplayContainer = trackElement.querySelector('.bar-display-container');
+  const barDisplayContainer = trackElement.querySelector(
+    ".bar-display-container"
+  );
   if (barDisplayContainer) barDisplayContainer.dataset.containerIndex = index;
 }
 
@@ -117,9 +140,18 @@ const TrackController = {
     const trackWrapper = document.getElementById("all-tracks-wrapper");
     if (trackWrapper) {
       trackWrapper.addEventListener("click", TrackController.handleTrackClicks);
-      trackWrapper.addEventListener("input", TrackController.handleTrackSliderInput);
-      trackWrapper.addEventListener("change", TrackController.handleTrackSoundChange);
-      trackWrapper.addEventListener("mousedown", TrackController.handleMouseDown);
+      trackWrapper.addEventListener(
+        "input",
+        TrackController.handleTrackSliderInput
+      );
+      trackWrapper.addEventListener(
+        "change",
+        TrackController.handleTrackSoundChange
+      );
+      trackWrapper.addEventListener(
+        "mousedown",
+        TrackController.handleMouseDown
+      );
       trackWrapper.addEventListener("mouseup", TrackController.handleMouseUp);
     }
     TrackController.renderTracks();
@@ -155,13 +187,21 @@ const TrackController = {
       trackElement.innerHTML = `
         <div class="track-controls">
           <span class="track-name">Track ${index + 1}</span>
-          <button class="track-mute-btn">${track.muted ? "Unmute" : "Mute"}</button>
-          <button class="track-solo-btn">${track.solo ? "Unsolo" : "Solo"}</button>
+          <button class="track-mute-btn">${
+            track.muted ? "Unmute" : "Mute"
+          }</button>
+          <button class="track-solo-btn">${
+            track.solo ? "Unsolo" : "Solo"
+          }</button>
           <button class="track-remove-btn">-</button>
           <div class="track-volume-controls">
             <span class="track-volume-label">Vol:</span>
-            <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${track.volume}">
-            <span class="track-volume-value">${(track.volume * 100).toFixed(0)}%</span>
+            <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${
+        track.volume
+      }">
+            <span class="track-volume-value">${(track.volume * 100).toFixed(
+              0
+            )}%</span>
           </div>
         </div>
         <div class="track-sound-controls">
@@ -176,12 +216,23 @@ const TrackController = {
       `;
 
       // Find placeholders and append the actual sound dropdowns
-      const mainSoundSelectorContainer = trackElement.querySelector(".sound-selection:nth-child(1)");
-      const subSoundSelectorContainer = trackElement.querySelector(".sound-selection:nth-child(2)");
+      const mainSoundSelectorContainer = trackElement.querySelector(
+        ".sound-selection:nth-child(1)"
+      );
+      const subSoundSelectorContainer = trackElement.querySelector(
+        ".sound-selection:nth-child(2)"
+      );
 
       if (mainSoundSelectorContainer && subSoundSelectorContainer) {
-        mainSoundSelectorContainer.appendChild(createSoundSelector(track.mainBeatSound, "main-beat-sound-select"));
-        subSoundSelectorContainer.appendChild(createSoundSelector(track.subdivisionSound, "subdivision-sound-select"));
+        mainSoundSelectorContainer.appendChild(
+          createSoundSelector(track.mainBeatSound, "main-beat-sound-select")
+        );
+        subSoundSelectorContainer.appendChild(
+          createSoundSelector(
+            track.subdivisionSound,
+            "subdivision-sound-select"
+          )
+        );
       }
 
       trackWrapper.appendChild(trackElement);
@@ -204,90 +255,108 @@ const TrackController = {
     const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
 
     // Get the measures container once, as it's needed in multiple branches.
-    const measuresContainer = document.querySelector('.measures-container');
+    const measuresContainer = document.querySelector(".measures-container");
 
     if (target.matches(".track-mute-btn")) {
       // --- Protective logic to prevent controls from being deleted during re-render ---
-      const originalParent = measuresContainer ? measuresContainer.parentNode : null;
-      const controlsWereMoved = originalParent && originalParent.classList.contains('track');
+      const originalParent = measuresContainer
+        ? measuresContainer.parentNode
+        : null;
+      const controlsWereMoved =
+        originalParent && originalParent.classList.contains("track");
       if (controlsWereMoved) {
-          document.body.appendChild(measuresContainer);
+        document.body.appendChild(measuresContainer);
       }
 
       const track = AppState.getTracks()[containerIndex];
       AppState.updateTrack(containerIndex, { muted: !track.muted });
+      sendState(AppState.getCurrentStateForPreset());
       TrackController.renderTracks(); // This is destructive
 
       // --- Move controls back to the selected track ---
       // Muting doesn't change selection, so we manually move the controls back
       // to the currently selected track's element.
       if (controlsWereMoved) {
-          const selectedTrackIndex = AppState.getSelectedTrackIndex();
-          const newTrackElement = document.querySelector(`.track[data-container-index="${selectedTrackIndex}"]`);
-          if (newTrackElement) {
-              newTrackElement.appendChild(measuresContainer);
-          }
+        const selectedTrackIndex = AppState.getSelectedTrackIndex();
+        const newTrackElement = document.querySelector(
+          `.track[data-container-index="${selectedTrackIndex}"]`
+        );
+        if (newTrackElement) {
+          newTrackElement.appendChild(measuresContainer);
+        }
       }
     } else if (target.matches(".track-solo-btn")) {
       // --- Protective logic ---
-      const originalParent = measuresContainer ? measuresContainer.parentNode : null;
-      const controlsWereMoved = originalParent && originalParent.classList.contains('track');
+      const originalParent = measuresContainer
+        ? measuresContainer.parentNode
+        : null;
+      const controlsWereMoved =
+        originalParent && originalParent.classList.contains("track");
       if (controlsWereMoved) {
-          document.body.appendChild(measuresContainer);
+        document.body.appendChild(measuresContainer);
       }
 
       AppState.toggleSolo(containerIndex);
+      sendState(AppState.getCurrentStateForPreset());
       TrackController.renderTracks(); // This is destructive
 
       // --- Move controls back ---
       if (controlsWereMoved) {
-          const selectedTrackIndex = AppState.getSelectedTrackIndex();
-          const newTrackElement = document.querySelector(`.track[data-container-index="${selectedTrackIndex}"]`);
-          if (newTrackElement) {
-              newTrackElement.appendChild(measuresContainer);
-          }
+        const selectedTrackIndex = AppState.getSelectedTrackIndex();
+        const newTrackElement = document.querySelector(
+          `.track[data-container-index="${selectedTrackIndex}"]`
+        );
+        if (newTrackElement) {
+          newTrackElement.appendChild(measuresContainer);
+        }
       }
     } else if (target.matches(".track-remove-btn")) {
-        const wasSelected = AppState.getSelectedTrackIndex() === containerIndex;
-        const selectedTrackIndex = AppState.getSelectedTrackIndex();
-        let controlsWereMoved = false;
+      const wasSelected = AppState.getSelectedTrackIndex() === containerIndex;
+      const selectedTrackIndex = AppState.getSelectedTrackIndex();
+      let controlsWereMoved = false;
 
-       
-        if (selectedTrackIndex !== -1 && measuresContainer) {
-            const trackWrapper = event.currentTarget;
-            const selectedTrackElement = trackWrapper.querySelector(`.track[data-container-index="${selectedTrackIndex}"]`);
-            if (selectedTrackElement && measuresContainer.parentNode === selectedTrackElement) {
-                document.body.appendChild(measuresContainer);
-                controlsWereMoved = true;
-            }
+      if (selectedTrackIndex !== -1 && measuresContainer) {
+        const trackWrapper = event.currentTarget;
+        const selectedTrackElement = trackWrapper.querySelector(
+          `.track[data-container-index="${selectedTrackIndex}"]`
+        );
+        if (
+          selectedTrackElement &&
+          measuresContainer.parentNode === selectedTrackElement
+        ) {
+          document.body.appendChild(measuresContainer);
+          controlsWereMoved = true;
         }
+      }
 
-        AppState.removeTrack(containerIndex); 
+      AppState.removeTrack(containerIndex);
+      sendState(AppState.getCurrentStateForPreset());
 
-        // Re-render the tracks first to ensure the DOM is stable.
-        TrackController.renderTracks();
+      // Re-render the tracks first to ensure the DOM is stable.
+      TrackController.renderTracks();
 
-        // Now, if the selection changed, dispatch the event.
-        // The event handler will now find the correct, existing elements.
-        if (wasSelected || controlsWereMoved) {
-            setTimeout(() => {
-                document.dispatchEvent(new CustomEvent('trackselectionchanged'));
-            }, 0);
-        }
+      // Now, if the selection changed, dispatch the event.
+      // The event handler will now find the correct, existing elements.
+      if (wasSelected || controlsWereMoved) {
+        setTimeout(() => {
+          document.dispatchEvent(new CustomEvent("trackselectionchanged"));
+        }, 0);
+      }
     } else {
-
       if (AppState.getSelectedTrackIndex() !== containerIndex) {
         AppState.setSelectedTrackIndex(containerIndex);
       }
-      
+
       const barVisual = target.closest(".bar-visual");
       if (barVisual) {
         const barIndex = parseInt(barVisual.dataset.barIndex, 10);
         AppState.setSelectedBarIndexInContainer(barIndex);
       }
-      
+
+      sendState(AppState.getCurrentStateForPreset());
+
       setTimeout(() => {
-        document.dispatchEvent(new CustomEvent('trackselectionchanged'));
+        document.dispatchEvent(new CustomEvent("trackselectionchanged"));
       }, 0);
     }
   },
@@ -301,10 +370,15 @@ const TrackController = {
     if (target.matches(".sound-selector")) {
       const trackElement = target.closest(".track");
       if (trackElement) {
-        const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
+        const containerIndex = parseInt(
+          trackElement.dataset.containerIndex,
+          10
+        );
         const newSound = target.value;
         const defaultSettings = AppState.getDefaultSoundSettings(newSound);
-        const soundType = target.classList.contains("main-beat-sound-select") ? "mainBeatSound" : "subdivisionSound";
+        const soundType = target.classList.contains("main-beat-sound-select")
+          ? "mainBeatSound"
+          : "subdivisionSound";
 
         AppState.updateTrack(containerIndex, {
           [soundType]: {
@@ -325,10 +399,15 @@ const TrackController = {
     if (target.matches(".track-volume-slider")) {
       const trackElement = target.closest(".track");
       if (trackElement) {
-        const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
+        const containerIndex = parseInt(
+          trackElement.dataset.containerIndex,
+          10
+        );
         const newVolume = parseFloat(target.value);
         AppState.updateTrack(containerIndex, { volume: newVolume });
-        trackElement.querySelector(".track-volume-value").textContent = `${(newVolume * 100).toFixed(0)}%`;
+        trackElement.querySelector(".track-volume-value").textContent = `${(
+          newVolume * 100
+        ).toFixed(0)}%`;
       }
     }
   },
@@ -342,8 +421,13 @@ const TrackController = {
     if (target.matches(".sound-label")) {
       const trackElement = target.closest(".track");
       if (trackElement) {
-        const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
-        const isMainSound = target.nextElementSibling.classList.contains("main-beat-sound-select");
+        const containerIndex = parseInt(
+          trackElement.dataset.containerIndex,
+          10
+        );
+        const isMainSound = target.nextElementSibling.classList.contains(
+          "main-beat-sound-select"
+        );
         const soundType = isMainSound ? "mainBeatSound" : "subdivisionSound";
         SoundSettingsModal.show(containerIndex, soundType);
       }
@@ -363,17 +447,22 @@ const TrackController = {
   addTrack: () => {
     // --- Protective logic to prevent controls from being deleted ---
     const selectedTrackIndex = AppState.getSelectedTrackIndex();
-    const measuresContainer = document.querySelector('.measures-container');
+    const measuresContainer = document.querySelector(".measures-container");
 
     // If a track is selected, the controls might be inside it. Move them to safety before re-rendering.
     if (selectedTrackIndex !== -1 && measuresContainer) {
-        const trackWrapper = document.getElementById('all-tracks-wrapper');
-        if (trackWrapper) {
-            const selectedTrackElement = trackWrapper.querySelector(`.track[data-container-index="${selectedTrackIndex}"]`);
-            if (selectedTrackElement && measuresContainer.parentNode === selectedTrackElement) {
-                document.body.appendChild(measuresContainer);  
-            }
+      const trackWrapper = document.getElementById("all-tracks-wrapper");
+      if (trackWrapper) {
+        const selectedTrackElement = trackWrapper.querySelector(
+          `.track[data-container-index="${selectedTrackIndex}"]`
+        );
+        if (
+          selectedTrackElement &&
+          measuresContainer.parentNode === selectedTrackElement
+        ) {
+          document.body.appendChild(measuresContainer);
         }
+      }
     }
     AppState.addTrack(); // This also implicitly selects the new track in the state.
     TrackController.renderTracks();
@@ -381,7 +470,7 @@ const TrackController = {
     // Announce that the selection has changed. This will trigger UI updates,
     // including moving the protected controls to the newly selected track.
     setTimeout(() => {
-        document.dispatchEvent(new CustomEvent('trackselectionchanged'));
+      document.dispatchEvent(new CustomEvent("trackselectionchanged"));
     }, 0);
   },
 };
@@ -397,10 +486,20 @@ function createSoundSelector(selectedSound, typeClass) {
   select.className = `sound-selector ${typeClass}`;
 
   const soundOptions = [
-    "Synth Kick", "Synth Snare", "Synth Clap", "Synth HiHat",
-    "Synth Open HiHat", "Synth Shaker", "Synth Claves", "Synth Hi Tom",
-    "Synth Mid Tom", "Synth Low Tom", "Click1.mp3", "Click2.mp3",
-    "Crank1.mp3", "Crank2.mp3",
+    "Synth Kick",
+    "Synth Snare",
+    "Synth Clap",
+    "Synth HiHat",
+    "Synth Open HiHat",
+    "Synth Shaker",
+    "Synth Claves",
+    "Synth Hi Tom",
+    "Synth Mid Tom",
+    "Synth Low Tom",
+    "Click1.mp3",
+    "Click2.mp3",
+    "Crank1.mp3",
+    "Crank2.mp3",
   ];
 
   soundOptions.forEach((soundName) => {
