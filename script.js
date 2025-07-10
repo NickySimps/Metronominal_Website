@@ -49,6 +49,25 @@ function syncPlaybackState() {
   }
 }
 
+function primeAudioContext() {
+    const audioContext = AppState.getAudioContext();
+    if (audioContext && audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+            console.log('AudioContext resumed successfully by user gesture.');
+            // Remove the event listener so this only happens once
+            document.removeEventListener('click', primeAudioContext);
+        }).catch(e => {
+            console.error('Error resuming AudioContext:', e);
+        });
+    } else {
+        // If the context is already running, we don't need the listener anymore
+        document.removeEventListener('click', primeAudioContext);
+    }
+}
+
+// Add the event listener to the whole document
+document.addEventListener('click', primeAudioContext);
+
 /**
  * Initializes the entire application.
  */
