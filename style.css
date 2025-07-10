@@ -1520,3 +1520,6 @@ button:active,
 #share-btn.connecting #connection-status {
   background-color: #ffff00; /* Yellow for connecting */
 }
+#n-of-connections{
+  padding-left: var(--s2);
+}

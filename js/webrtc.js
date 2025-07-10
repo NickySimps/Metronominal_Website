@@ -52,6 +52,7 @@ function updateConnectionStatusUI(state) {
     shareBtn.style.display = 'none';
     disconnectBtn.style.display = '';
     connectionStatus.textContent = 'Connected';
+    shareBtn.classList.add('connected');
   } else if (state === 'connecting' || state === 'new' || state === 'checking') {
     shareBtn.style.display = '';
     disconnectBtn.style.display = 'none';
@@ -113,9 +114,9 @@ function updateClientCount() {
     channel && channel.readyState === 'open'
   ).length;
   
-  const connectionStatus = document.getElementById('connection-status');
-  if (connectionStatus) {
-    connectionStatus.textContent = connectedClients > 0 ? `(${connectedClients})` : '';
+  const connectionCount = document.getElementById('n-of-connections');
+  if (connectionCount) {
+    connectionCount.textContent = connectedClients > 0 ? `(${connectedClients})` : '';
   }
 }
 
