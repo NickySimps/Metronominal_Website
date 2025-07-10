@@ -63,7 +63,6 @@ function updateConnectionStatusUI(state) {
   ) {
     shareBtn.style.display = "";
     disconnectBtn.style.display = "none";
-    connectionStatus.textContent = "Connecting...";
     shareBtn.classList.add("connecting");
   } else {
     // disconnected, closed, failed
