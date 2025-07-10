@@ -59,7 +59,7 @@ function updateConnectionStatusUI(state) {
   } else if (state === 'connecting' || state === 'new' || state === 'checking') {
     shareBtn.style.display = '';
     disconnectBtn.style.display = 'none';
-    connectionStatus.textContent = 'Connecting...';
+    //connectionStatus.textContent = 'Connecting...';
     shareBtn.classList.add('connecting');
   } else { // disconnected, closed, failed
     shareBtn.style.display = '';
