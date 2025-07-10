@@ -54,7 +54,7 @@ function updateConnectionStatusUI(state) {
   if (state === 'connected') {
     //shareBtn.style.display = 'none';
     disconnectBtn.style.display = '';
-    connectionStatus.textContent = 'Connected';
+    //connectionStatus.textContent = 'Connected';
     shareBtn.classList.add('connected');
   } else if (state === 'connecting' || state === 'new' || state === 'checking') {
     shareBtn.style.display = '';
@@ -64,7 +64,7 @@ function updateConnectionStatusUI(state) {
   } else { // disconnected, closed, failed
     shareBtn.style.display = '';
     disconnectBtn.style.display = 'none';
-    connectionStatus.textContent = '';
+    //connectionStatus.textContent = '';
     // Optionally add 'failed' class for visual feedback on failure
     if (state === "failed") shareBtn.classList.add("failed");
   }
