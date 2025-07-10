@@ -49,7 +49,7 @@ function updateConnectionStatusUI(state) {
   shareBtn.classList.remove('connected', 'connecting', 'failed');
 
   if (state === 'connected') {
-    shareBtn.style.display = 'none';
+    //shareBtn.style.display = 'none';
     disconnectBtn.style.display = '';
     connectionStatus.textContent = 'Connected';
     shareBtn.classList.add('connected');
