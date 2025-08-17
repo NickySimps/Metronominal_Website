@@ -23,6 +23,12 @@ function playBeatSound(track, beatTime) {
     }
 
     const currentBarData = track.barSettings[track.currentBar];
+
+    // Check for rests
+    if (currentBarData.rests && currentBarData.rests.includes(track.currentBeat)) {
+        return; // Skip playing the sound for rested beats
+    }
+
     const beatMultiplier = parseFloat(currentBarData.subdivision);
     const isAccent = (track.currentBeat === 0) || (beatMultiplier > 1 && track.currentBeat % beatMultiplier === 0);
 

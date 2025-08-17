@@ -89,7 +89,7 @@ const AppState = (function () {
   let volume = 1.0;
   let Tracks = [
     {
-      barSettings: [{ beats: 4, subdivision: 1 }],
+      barSettings: [{ beats: 4, subdivision: 1, rests: [] }],
       muted: false,
       solo: false,
       volume: 1.0,
@@ -110,6 +110,7 @@ const AppState = (function () {
   let soundBuffers = {};
   let currentTheme = "default";
   let audioContextPrimed = false;
+  let isRestMode = false;
 
 
   // --- Constants ---
@@ -197,6 +198,11 @@ const AppState = (function () {
         controlsAttachedToTrack = !!isAttached;
         saveState();
     },
+    isRestMode: () => isRestMode,
+    setRestMode: (mode) => {
+      isRestMode = mode;
+      saveState();
+    },
     isPlaying: () => isPlaying,
     togglePlay: async () => {
       if (
@@ -252,7 +258,7 @@ const AppState = (function () {
     getTracks: () => Tracks,
     addTrack: () => {
       const newTrack = {
-        barSettings: [{ beats: 4, subdivision: 1 }],
+        barSettings: [{ beats: 4, subdivision: 1, rests: [] }],
         muted: false,
         solo: false,
         volume: 1.0,
@@ -383,6 +389,7 @@ const AppState = (function () {
           currentContainer.barSettings.push({
             beats: beats,
             subdivision: subdivision,
+            rests: [],
           });
         }
       } else if (newTotalBars < previousNumberOfBars) {
@@ -537,6 +544,7 @@ const AppState = (function () {
       selectedBarIndexInContainer: selectedBarIndexInContainer,
       controlsAttachedToTrack: controlsAttachedToTrack,
       isPlaying: isPlaying,
+      isRestMode: isRestMode,
     }),
     loadPresetData: (data) => {
       if (!data) return;
@@ -547,6 +555,13 @@ const AppState = (function () {
         Tracks.forEach((track) => {
           if (track.solo === undefined) track.solo = false;
           if (track.volume === undefined) track.volume = 1.0;
+          if (track.barSettings) {
+            track.barSettings.forEach((bar) => {
+              if (bar.rests === undefined) {
+                bar.rests = [];
+              }
+            });
+          }
           track.analyserNode = null;
         });
         if (audioContext) publicAPI.createTrackAnalysers();
@@ -556,8 +571,10 @@ const AppState = (function () {
       selectedTrackIndex = data.selectedTrackIndex !== undefined ? data.selectedTrackIndex : 0;
       selectedBarIndexInContainer = data.selectedBarIndexInContainer !== undefined ? data.selectedBarIndexInContainer : 0;
       controlsAttachedToTrack = data.controlsAttachedToTrack !== undefined ? data.controlsAttachedToTrack : true;
+      isRestMode = data.isRestMode !== undefined ? data.isRestMode : false;
 
       isPlaying = data.isPlaying || false;
+      saveState();
     },
 
     // Reset & Initialization
@@ -566,7 +583,7 @@ const AppState = (function () {
       volume = 1.0;
       Tracks = [
         {
-          barSettings: [{ beats: 4, subdivision: 1 }],
+          barSettings: [{ beats: 4, subdivision: 1, rests: [] }],
           muted: false,
           solo: false,
           volume: 1.0,
@@ -601,6 +618,25 @@ const AppState = (function () {
 
     // Constants
     SCHEDULE_AHEAD_TIME: SCHEDULE_AHEAD_TIME_INTERNAL,
+
+    // Beat Rests
+    toggleBeatRest: (trackIndex, barIndex, beatIndex) => {
+      const track = Tracks[trackIndex];
+      if (!track || !track.barSettings[barIndex]) return;
+
+      const rests = track.barSettings[barIndex].rests;
+      const restIndex = rests.indexOf(beatIndex);
+
+      if (restIndex > -1) {
+        // Beat is currently rested, so un-rest it
+        rests.splice(restIndex, 1);
+      } else {
+        // Beat is not rested, so rest it
+        rests.push(beatIndex);
+        rests.sort((a, b) => a - b); // Keep rests array sorted
+      }
+      saveState();
+    },
   };
   return publicAPI;
 })();

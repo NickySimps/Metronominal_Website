@@ -433,6 +433,12 @@ button {
   border-radius: var(--BorderRadius);
   transition: all 0.2s ease-out; /* Smoother and slightly longer "pop" for liquid feel */
 }
+
+.beat-square.rested,
+.beat-square.subdivision.rested { /* Added .beat-square.subdivision.rested for higher specificity */
+  background-color: color-mix(in srgb, var(--Alt2) 80%, white); /* lighter background */
+  border: var(--s1) double color-mix(in srgb, var(--Alt2) 50%, black);/* Red outline */
+}
 .beat-square.main-beat-marker.highlighted {
   scale: 1 1.8; /* Base highlight scale */
   background: var(--HighlightedBeatColor);
@@ -901,7 +907,7 @@ select {
 }
 .preset-btn:hover {
   background-color: var(--Accent);
-  border-color: transparent; /* Changed from var(--Alt1) */
+  border-color: transparent; /* Changed from var(--Main) */
 }
 .preset-btn:active {
   background-color: color-mix(in srgb, var(--Accent) 80%, white);
@@ -1543,4 +1549,57 @@ button:active,
 
 #connection-modal button:hover {
     background-color: var(--Accent);
+}
+.sound-selection{
+  width: 80%;
+}
+.track-sound-controls {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: center;
+    align-items: center;
+    justify-content: space-between;
+}
+.sound-selector {
+  width: 60%;
+} 
+.rest-button {
+  background: var(--Highlight);
+  border: none;
+  border-radius: var(--BorderRadius);
+  width: 40px;
+  height: 40px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  margin: 0 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* Use a font stack that is likely to include musical symbols */
+  font-family: "Apple Symbols", "Noto Sans Symbols", "Segoe UI Symbol", sans-serif;
+}
+
+.rest-button.active {
+  background-color: var(--Alt2); /* A distinct color when active */
+  box-shadow: 0 0 8px var(--Alt2); /* A subtle glow */
+}
+
+.beat-selectors-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px;
+  background-color: var(--Highlight);
+  border-radius: var(--BorderRadius);
+  margin-top: 10px;
+}
+
+.beat-selector-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.beat-selector {
+  margin-right: 5px;
 }

@@ -47,6 +47,7 @@ function createTrackElement(track, index) {
       <div class="sound-selection">
         <span class="sound-label">Main:</span>
       </div>
+      <button class="rest-button">&#x1D13B;</button>
       <div class="sound-selection">
         <span class="sound-label">Sub:</span>
       </div>
@@ -59,7 +60,7 @@ function createTrackElement(track, index) {
     ".sound-selection:nth-child(1)"
   );
   const subSoundSelectorContainer = trackElement.querySelector(
-    ".sound-selection:nth-child(2)"
+    ".sound-selection:nth-child(3)"
   );
 
   if (mainSoundSelectorContainer && subSoundSelectorContainer) {
@@ -114,6 +115,9 @@ function updateTrackElement(trackElement, track, index) {
     track.mainBeatSound.sound;
   trackElement.querySelector(".subdivision-sound-select").value =
     track.subdivisionSound.sound;
+
+  // Update rest button active state
+  trackElement.querySelector(".rest-button").classList.toggle("active", AppState.isRestMode());
 
   // The bar-display-container's data-container-index also needs updating
   const barDisplayContainer = trackElement.querySelector(
@@ -208,6 +212,7 @@ const TrackController = {
           <div class="sound-selection">
             <span class="sound-label">Main:</span>
           </div>
+          <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}">&#x1D13B;</button>
           <div class="sound-selection">
             <span class="sound-label">Sub:</span>
           </div>
@@ -220,7 +225,7 @@ const TrackController = {
         ".sound-selection:nth-child(1)"
       );
       const subSoundSelectorContainer = trackElement.querySelector(
-        ".sound-selection:nth-child(2)"
+        ".sound-selection:nth-child(3)"
       );
 
       if (mainSoundSelectorContainer && subSoundSelectorContainer) {
@@ -342,6 +347,38 @@ const TrackController = {
           document.dispatchEvent(new CustomEvent("trackselectionchanged"));
         }, 0);
       }
+    } else if (target.matches(".rest-button")) {
+        const newRestModeState = !AppState.isRestMode(); // Determine the new state
+        AppState.setRestMode(newRestModeState); // Update the global state
+
+        // Update all rest buttons to reflect the new global state
+        document.querySelectorAll(".rest-button").forEach(button => {
+            button.classList.toggle("active", newRestModeState);
+        });
+    } else if (target.matches(".beat-square")) {
+        if (AppState.isRestMode()) {
+            const barVisual = target.closest(".bar-visual");
+            if (!barVisual) return;
+
+            const barIndex = parseInt(barVisual.dataset.barIndex, 10);
+            const beatIndex = parseInt(target.dataset.beatIndex, 10);
+            const track = AppState.getTracks()[containerIndex];
+            const newRests = [...(track.barSettings[barIndex].rests || [])];
+
+            if (newRests.includes(beatIndex)) {
+                const indexToRemove = newRests.indexOf(beatIndex);
+                newRests.splice(indexToRemove, 1);
+                target.classList.remove("rested");
+            } else {
+                newRests.push(beatIndex);
+                target.classList.add("rested");
+            }
+            const newBarSettings = [...track.barSettings];
+            newBarSettings[barIndex].rests = newRests;
+            AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
+            BarDisplayController.updateBar(containerIndex, barIndex);
+            sendState(AppState.getCurrentStateForPreset());
+        }
     } else {
       if (AppState.getSelectedTrackIndex() !== containerIndex) {
         AppState.setSelectedTrackIndex(containerIndex);
@@ -425,9 +462,8 @@ const TrackController = {
           trackElement.dataset.containerIndex,
           10
         );
-        const isMainSound = target.nextElementSibling.classList.contains(
-          "main-beat-sound-select"
-        );
+        const soundSelectionDiv = target.closest(".sound-selection");
+        const isMainSound = soundSelectionDiv.querySelector(".main-beat-sound-select");
         const soundType = isMainSound ? "mainBeatSound" : "subdivisionSound";
         SoundSettingsModal.show(containerIndex, soundType);
       }
@@ -516,3 +552,4 @@ function createSoundSelector(selectedSound, typeClass) {
 }
 
 export default TrackController;
+
