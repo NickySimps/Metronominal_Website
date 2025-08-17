@@ -70,6 +70,37 @@ const defaultShaker = {
   decay: 0.2,
 };
 
+const defaultCymbal = {
+  volume: 1.0,
+  filterFrequency: 8000,
+  decay: 1.5,
+};
+
+const defaultCowbell = {
+  volume: 1.0,
+  frequency1: 540,
+  frequency2: 800,
+  decay: 0.2,
+};
+
+const defaultWoodblock = {
+  volume: 1.0,
+  frequency: 1000,
+  decay: 0.1,
+};
+
+const defaultTriangle = {
+  volume: 1.0,
+  frequency: 1200,
+  decay: 0.8,
+};
+
+const defaultMaraca = {
+  volume: 1.0,
+  filterFrequency: 4000,
+  decay: 0.1,
+};
+
 const defaultSoundSettings = {
   "Synth Kick": defaultKick,
   "Synth Snare": defaultSnare,
@@ -81,6 +112,11 @@ const defaultSoundSettings = {
   "Synth Clap": defaultClap,
   "Synth Claves": defaultClaves,
   "Synth Shaker": defaultShaker,
+  "Synth Cymbal": defaultCymbal,
+  "Synth Cowbell": defaultCowbell,
+  "Synth Woodblock": defaultWoodblock,
+  "Synth Triangle": defaultTriangle,
+  "Synth Maraca": defaultMaraca,
 };
 
 const AppState = (function () {
