@@ -75,6 +75,18 @@ const UIController = {
         console.log("Metronome reset to defaults.");
     },
     
+    initializeConnectionModal: () => {
+        const connectionModal = document.getElementById("connection-modal");
+        const dismissBtn = document.getElementById("dismiss-connection-modal-btn");
+
+        if (dismissBtn) {
+            dismissBtn.addEventListener("click", () => {
+                connectionModal.style.display = "none";
+                document.dispatchEvent(new CustomEvent('primeAudio'));
+            });
+        }
+    },
+
     initializeUIControls: () => {
         // Tempo controls - REMOVED (handled by TempoController)
         // Start/Stop button - REMOVED (handled by PlaybackController)

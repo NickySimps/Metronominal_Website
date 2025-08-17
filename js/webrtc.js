@@ -103,6 +103,11 @@ function createPeerConnection(peerId) {
     if (peerConnection.connectionState === "connected") {
       updateClientCount();
       updateConnectionStatusUI("connected");
+
+      if (!window.isHost) {
+        const connectionModal = document.getElementById("connection-modal");
+        connectionModal.style.display = "block";
+      }
     } else if (
       peerConnection.connectionState === "disconnected" ||
       peerConnection.connectionState === "closed" ||

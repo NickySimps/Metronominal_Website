@@ -707,7 +707,7 @@ select {
   top: var(--s3); /* Standardized position (8px) */
   right: var(--s3); /* Standardized position (8px) */
   display: flex; /* Keep as flex */
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--s3); /* Standardized gap (8px) */
   padding: var(--s3); /* Standardized padding (8px) */
   background-color: color-mix(in srgb, var(--Background) 80%, transparent);
@@ -1523,4 +1523,24 @@ button:active,
 }
 #n-of-connections{
   padding-left: var(--s2);
+}
+
+#connection-modal .modal-content {
+    background-color: var(--Background);
+    color: var(--TextPrimary);
+}
+
+#connection-modal button {
+    background-color: var(--Main);
+    color: var(--TextOnMain);
+    border: none;
+    padding: 10px 20px;
+    border-radius: var(--BorderRadius);
+    cursor: pointer;
+    font-size: 1em;
+    margin-top: 10px;
+}
+
+#connection-modal button:hover {
+    background-color: var(--Accent);
 }

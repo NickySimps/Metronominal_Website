@@ -167,6 +167,10 @@ const MetronomeEngine = {
         } else {
             performEngineStopActions();
         }
+    },
+
+    isPlaying: () => {
+        return animationFrameId !== null;
     }
 };
 

@@ -67,6 +67,7 @@ function primeAudioContext() {
 
 // Add the event listener to the whole document
 document.addEventListener('click', primeAudioContext);
+document.addEventListener('primeAudio', primeAudioContext);
 
 /**
  * Initializes the entire application.
@@ -114,6 +115,7 @@ async function initialize() {
   PresetController.initializePresetControls(refreshUIFromState);
   VolumeController.initializeVolumeControls();
   SoundSettingsModal.init();
+  UIController.initializeConnectionModal();
 
   // 5. First UI render and start oscilloscope if audio is already active
   refreshUIFromState();
