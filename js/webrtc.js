@@ -221,11 +221,23 @@ function setupDataChannelEvents(peerId) {
     }
 
     // Handle normal state updates
+    const wasPlayingOnClient = AppState.isPlaying();
     const shouldBePlaying = data.isPlaying || false;
+
+    // Load the state, but temporarily set isPlaying to false in AppState
+    // to prevent MetronomeEngine from immediately starting/stopping based on the loaded state.
+    // We will handle playback synchronization explicitly below.
     AppState.loadPresetData({ ...data, isPlaying: false });
+
     refreshUIFromState();
-    if (shouldBePlaying) {
-      MetronomeEngine.togglePlay();
+
+    // Explicitly synchronize playback state without resetting the metronome's timing.
+    // If the host is playing and the client was not, start the client.
+    // If the host is not playing and the client was, stop the client.
+    if (shouldBePlaying && !wasPlayingOnClient) {
+      MetronomeEngine.togglePlay(); // This will start the metronome
+    } else if (!shouldBePlaying && wasPlayingOnClient) {
+      MetronomeEngine.togglePlay(); // This will stop the metronome
     }
   };
 }

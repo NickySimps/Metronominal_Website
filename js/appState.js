@@ -586,9 +586,23 @@ const AppState = (function () {
       if (!data) return;
       tempo = data.tempo || 120;
       volume = data.volume || 1.0;
+
+      // Store current playback state if playing
+      const wasPlayingBeforeLoad = isPlaying;
+      const currentPlaybackState = {};
+      if (wasPlayingBeforeLoad) {
+        Tracks.forEach((track, index) => {
+          currentPlaybackState[index] = {
+            currentBar: track.currentBar,
+            currentBeat: track.currentBeat,
+            nextBeatTime: track.nextBeatTime,
+          };
+        });
+      }
+
       if (Array.isArray(data.Tracks)) {
         Tracks = data.Tracks;
-        Tracks.forEach((track) => {
+        Tracks.forEach((track, index) => {
           if (track.solo === undefined) track.solo = false;
           if (track.volume === undefined) track.volume = 1.0;
           if (track.barSettings) {
@@ -599,6 +613,13 @@ const AppState = (function () {
             });
           }
           track.analyserNode = null;
+
+          // Restore playback state if playing and track exists in previous state
+          if (wasPlayingBeforeLoad && currentPlaybackState[index]) {
+            track.currentBar = currentPlaybackState[index].currentBar;
+            track.currentBeat = currentPlaybackState[index].currentBeat;
+            track.nextBeatTime = currentPlaybackState[index].nextBeatTime;
+          }
         });
         if (audioContext) publicAPI.createTrackAnalysers();
       }
@@ -609,7 +630,8 @@ const AppState = (function () {
       controlsAttachedToTrack = data.controlsAttachedToTrack !== undefined ? data.controlsAttachedToTrack : true;
       isRestMode = data.isRestMode !== undefined ? data.isRestMode : false;
 
-      isPlaying = data.isPlaying || false;
+      // isPlaying is handled by webrtc.js explicitly to avoid race conditions
+      // isPlaying = data.isPlaying || false;
       saveState();
     },
 
