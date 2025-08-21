@@ -47,7 +47,7 @@ function createTrackElement(track, index) {
       <div class="sound-selection">
         <span class="sound-label">Main:</span>
       </div>
-      <button class="rest-button">&#x1D13B;</button>
+      <button class="rest-button">𝄽</button>
       <div class="sound-selection">
         <span class="sound-label">Sub:</span>
       </div>
@@ -212,7 +212,7 @@ const TrackController = {
           <div class="sound-selection">
             <span class="sound-label">Main:</span>
           </div>
-          <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}">&#x1D13B;</button>
+          <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}">𝄽</button>
           <div class="sound-selection">
             <span class="sound-label">Sub:</span>
           </div>
