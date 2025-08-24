@@ -29,10 +29,12 @@ function animateControlUpdate(
 }
 
 // Function to update the "beats-per-current-measure" display
-function updateBeatControlsDisplay() {
-  const selectedTrackIndex = AppState.getSelectedTrackIndex();
+function updateBeatControlsDisplay(trackElement) {
+  if (!trackElement) return;
+
   const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
-  const barSettings = AppState.getBarSettings(selectedTrackIndex); // Get bar settings for the selected container
+  const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
+  const barSettings = AppState.getBarSettings(containerIndex);
 
   let beatsToDisplay = "-";
   let subdivisionToDisplay = "1";
@@ -47,11 +49,14 @@ function updateBeatControlsDisplay() {
     subdivisionToDisplay = barSettings[targetBarIndex].subdivision.toString();
   }
 
-  if (DOM.beatsPerCurrentMeasureDisplay) {
-    DOM.beatsPerCurrentMeasureDisplay.textContent = beatsToDisplay;
+  const beatsDisplay = trackElement.querySelector('.beats-per-current-measure');
+  if (beatsDisplay) {
+    beatsDisplay.textContent = beatsToDisplay;
   }
-  if (DOM.beatMultiplierSelect) {
-    DOM.beatMultiplierSelect.value = subdivisionToDisplay;
+
+  const subdivisionSelect = trackElement.querySelector('#beat-multiplier-select');
+  if (subdivisionSelect) {
+    subdivisionSelect.value = subdivisionToDisplay;
   }
 }
 
@@ -89,223 +94,98 @@ const BarControlsController = {
    * Initializes the bar and beat control elements and their event listeners.
    */
   initializeBarControls: () => {
-    // Event Listeners for changing beats of the selected bar
-    DOM.increaseMeasureLengthBtn.addEventListener("click", () => {
-      const selectedTrackIndex = AppState.getSelectedTrackIndex();
-      const selectedBarIndexInContainer =
-        AppState.getSelectedBarIndexInContainer();
-      if (selectedBarIndexInContainer !== -1) {
-        AppState.increaseBeatsForSelectedBar(); // Update state
-        sendState(AppState.getCurrentStateForPreset());
+    const trackWrapper = document.getElementById('all-tracks-wrapper');
 
-        const updateAction = () => {
-          // Instead of full rerender, just update the single bar
-          BarDisplayController.updateBar(
-            selectedTrackIndex,
-            selectedBarIndexInContainer
-          );
-          updateBeatControlsDisplay(); // Update beats display
-          updateTotalBeatsDisplay(); // Update total beats
-          // Trigger 3D UI update
-          if (ThemeController.is3DSceneActive()) {
-            ThemeController.update3DScenePostStateChange();
-          }
-        };
+    trackWrapper.addEventListener('click', (event) => {
+      const target = event.target;
+      const trackElement = target.closest('.track');
+      if (!trackElement) return;
 
-        animateControlUpdate(DOM.beatsPerCurrentMeasureDisplay, updateAction);
-      }
-    });
+      const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
+      const measuresContainer = trackElement.querySelector('.measures-container');
 
-    DOM.decreaseMeasureLengthBtn.addEventListener("click", () => {
-      const selectedTrackIndex = AppState.getSelectedTrackIndex();
-      const selectedBarIndexInContainer =
-        AppState.getSelectedBarIndexInContainer();
-      if (
-        selectedBarIndexInContainer !== -1 &&
-        AppState.getBeatsForSelectedBar() > 1
-      ) {
-        AppState.decreaseBeatsForSelectedBar(); // Update state
-        sendState(AppState.getCurrentStateForPreset());
-
-        const updateAction = () => {
-          BarDisplayController.updateBar(
-            selectedTrackIndex,
-            selectedBarIndexInContainer
-          );
+      if (target.matches('.increase-measure-length')) {
+        const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
+        if (selectedBarIndexInContainer !== -1) {
+          AppState.increaseBeatsForSelectedBar();
+          sendState(AppState.getCurrentStateForPreset());
+          BarDisplayController.updateBar(containerIndex, selectedBarIndexInContainer);
           updateBeatControlsDisplay();
           updateTotalBeatsDisplay();
-          // Trigger 3D UI update
           if (ThemeController.is3DSceneActive()) {
             ThemeController.update3DScenePostStateChange();
           }
-        };
-
-        animateControlUpdate(DOM.beatsPerCurrentMeasureDisplay, updateAction);
-      }
-    });
-
-    // Event Listeners for changing total number of bars
-    DOM.increaseBarLengthBtn.addEventListener("click", () => {
-      const selectedTrackIndex = AppState.getSelectedTrackIndex();
-      if (selectedTrackIndex === -1) return;
-
-      // --- Protective logic added ---
-      const measuresContainer = DOM.measuresContainer;
-      const originalParent = measuresContainer.parentNode;
-      const controlsWereMoved =
-        originalParent && originalParent.classList.contains("track");
-
-      // 1. If controls are in a track, move to safety
-      if (controlsWereMoved) {
-        document.body.appendChild(measuresContainer);
-        measuresContainer.style.display = "none";
-      }
-
-      // Get the bar count directly from the AppState
-      let currentBars = AppState.getBarSettings(selectedTrackIndex).length;
-      const newBarIndex = currentBars;
-      currentBars++;
-
-      // Update the AppState first
-      AppState.updateBarArray(currentBars);
-
-      const updateAction = () => {
-        // Then, update the UI to match the new state
-        DOM.barsLengthDisplay.textContent = currentBars;
-        // Call the new addBar function
-        BarDisplayController.addBar(selectedTrackIndex, newBarIndex);
-        updateTotalBeatsDisplay();
-        updateBeatControlsDisplay();
-        sendState(AppState.getCurrentStateForPreset());
-
-        if (ThemeController.is3DSceneActive()) {
-          ThemeController.update3DScenePostStateChange();
         }
-      };
-
-      animateControlUpdate(DOM.barsLengthDisplay, updateAction);
-
-      // 2. After animation, move controls back if they were moved
-      setTimeout(() => {
-        if (controlsWereMoved) {
-          // After re-render, the original parent is gone. Find the new one.
-          const newTrackElement = DOM.trackWrapper.querySelector(
-            `.track[data-container-index="${selectedTrackIndex}"]`
-          );
-          if (newTrackElement) {
-            newTrackElement.appendChild(measuresContainer);
-            measuresContainer.style.display = "flex";
-          } else {
-            // Fallback if track was somehow removed, move to default position
-            DOM.metronomeContainer.insertBefore(
-              measuresContainer,
-              DOM.startStopBtn
-            );
-            measuresContainer.style.display = "flex";
+      } else if (target.matches('.decrease-measure-length')) {
+        const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
+        if (selectedBarIndexInContainer !== -1 && AppState.getBeatsForSelectedBar() > 1) {
+          AppState.decreaseBeatsForSelectedBar();
+          sendState(AppState.getCurrentStateForPreset());
+          BarDisplayController.updateBar(containerIndex, selectedBarIndexInContainer);
+          updateBeatControlsDisplay();
+          updateTotalBeatsDisplay();
+          if (ThemeController.is3DSceneActive()) {
+            ThemeController.update3DScenePostStateChange();
           }
         }
-      }, 250); // Should match animation duration
-    });
-
-    DOM.decreaseBarLengthBtn.addEventListener("click", () => {
-      const selectedTrackIndex = AppState.getSelectedTrackIndex();
-      if (selectedTrackIndex === -1) return;
-
-      // --- Protective logic added ---
-      const measuresContainer = DOM.measuresContainer;
-      const originalParent = measuresContainer.parentNode;
-      const controlsWereMoved =
-        originalParent && originalParent.classList.contains("track");
-
-      // 1. If controls are in a track, move to safety
-      if (controlsWereMoved) {
-        document.body.appendChild(measuresContainer);
-        measuresContainer.style.display = "none";
-      }
-
-      let currentBars = AppState.getBarSettings(selectedTrackIndex).length;
-      if (currentBars > 0) {
-        const barIndexToRemove = currentBars - 1;
-
-        if (AppState.getSelectedBarIndexInContainer() === barIndexToRemove) {
-          AppState.setSelectedBarIndexInContainer(barIndexToRemove - 1);
-        }
-
-        AppState.updateBarArray(currentBars - 1);
-
+      } else if (target.matches('.increase-bar-length')) {
+        let currentBars = AppState.getBarSettings(containerIndex).length;
+        const newBarIndex = currentBars;
+        currentBars++;
+        AppState.updateBarArray(currentBars);
         const updateAction = () => {
-          DOM.barsLengthDisplay.textContent = currentBars - 1;
-          BarDisplayController.removeBar(selectedTrackIndex, barIndexToRemove);
+          measuresContainer.querySelector('.bars-length').textContent = currentBars;
+          BarDisplayController.addBar(containerIndex, newBarIndex);
           updateTotalBeatsDisplay();
           updateBeatControlsDisplay();
           sendState(AppState.getCurrentStateForPreset());
-
           if (ThemeController.is3DSceneActive()) {
             ThemeController.update3DScenePostStateChange();
           }
         };
-
-        animateControlUpdate(DOM.barsLengthDisplay, updateAction);
-
-        // 2. After animation, move controls back if they were moved
-        setTimeout(() => {
-          if (controlsWereMoved) {
-            // After re-render, the original parent is gone. Find the new one.
-            const newTrackElement = DOM.trackWrapper.querySelector(
-              `.track[data-container-index="${selectedTrackIndex}"]`
-            );
-            if (newTrackElement) {
-              // If the track still exists, append controls to it.
-              newTrackElement.appendChild(measuresContainer);
-              measuresContainer.style.display = "flex";
-            } else {
-              // If the track was removed (e.g., last bar deleted),
-              // move the controls back to their default position.
-              DOM.metronomeContainer.insertBefore(
-                measuresContainer,
-                DOM.startStopBtn
-              );
-              measuresContainer.style.display = "flex";
-            }
+        animateControlUpdate(measuresContainer.querySelector('.bars-length'), updateAction);
+      } else if (target.matches('.decrease-bar-length')) {
+        let currentBars = AppState.getBarSettings(containerIndex).length;
+        if (currentBars > 0) {
+          const barIndexToRemove = currentBars - 1;
+          if (AppState.getSelectedBarIndexInContainer() === barIndexToRemove) {
+            AppState.setSelectedBarIndexInContainer(barIndexToRemove - 1);
           }
-        }, 250); // Should match animation duration
-      } else {
-        // If no bars to remove, put controls back if they were moved
-        if (controlsWereMoved) {
-          originalParent.appendChild(measuresContainer);
+          AppState.updateBarArray(currentBars - 1);
+          const updateAction = () => {
+            measuresContainer.querySelector('.bars-length').textContent = currentBars - 1;
+            BarDisplayController.removeBar(containerIndex, barIndexToRemove);
+            updateTotalBeatsDisplay();
+            updateBeatControlsDisplay();
+            sendState(AppState.getCurrentStateForPreset());
+            if (ThemeController.is3DSceneActive()) {
+              ThemeController.update3DScenePostStateChange();
+            }
+          };
+          animateControlUpdate(measuresContainer.querySelector('.bars-length'), updateAction);
         }
       }
     });
 
-    // Event listener for beat multiplier change
     document.addEventListener("barSelected", () => {
       updateBeatControlsDisplay();
     });
 
     DOM.beatMultiplierSelect.addEventListener("change", async () => {
-      // Make event handler async
       const selectedTrackIndex = AppState.getSelectedTrackIndex();
-      const selectedBarIndexInContainer =
-        AppState.getSelectedBarIndexInContainer();
+      const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
 
-      AppState.setSubdivisionForSelectedBar(DOM.beatMultiplierSelect.value); // Update state
+      AppState.setSubdivisionForSelectedBar(DOM.beatMultiplierSelect.value);
       sendState(AppState.getCurrentStateForPreset());
 
-      // Re-render visuals based on new multiplier
-      BarDisplayController.updateBar(
-        selectedTrackIndex,
-        selectedBarIndexInContainer
-      );
-      // Trigger 3D UI update
+      BarDisplayController.updateBar(selectedTrackIndex, selectedBarIndexInContainer);
       if (ThemeController.is3DSceneActive()) {
         ThemeController.update3DScenePostStateChange();
       }
     });
 
-    // Initial display updates
     updateBeatControlsDisplay();
     updateTotalBeatsDisplay();
-    // Note: Initial rendering of bars is handled by the main script's initialize function
   },
 
   /**
@@ -326,20 +206,20 @@ const BarControlsController = {
   updateBarControlsForSelectedTrack: () => {
     const selectedTrackIndex = AppState.getSelectedTrackIndex();
     if (selectedTrackIndex === -1) {
-      // Handle case where no track is selected (e.g., all tracks deleted)
-      DOM.barsLengthDisplay.textContent = "0";
-      DOM.beatsPerCurrentMeasureDisplay.textContent = "-";
-      DOM.beatMultiplierSelect.value = "1";
       return;
     }
 
+    const trackElement = document.querySelector(`.track[data-container-index="${selectedTrackIndex}"]`);
+    if (!trackElement) return;
+
     const selectedTrack = AppState.getTracks()[selectedTrackIndex];
 
-    // Update the "Bars" count display
-    DOM.barsLengthDisplay.textContent = selectedTrack.barSettings.length;
+    const barsLengthDisplay = trackElement.querySelector('.bars-length');
+    if (barsLengthDisplay) {
+        barsLengthDisplay.textContent = selectedTrack.barSettings.length;
+    }
 
-    // Update the "Beats per Measure" and "Subdivision" displays
-    updateBeatControlsDisplay();
+    updateBeatControlsDisplay(trackElement);
     updateTotalBeatsDisplay();
   },
 

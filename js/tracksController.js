@@ -218,6 +218,34 @@ const TrackController = {
           </div>
         </div>
         <div class="bar-display-container" data-container-index="${index}"></div>
+        <div class="measures-container" style="display: none;">
+            <div class="measure-settings-container">
+                <div class="beat-settings">
+                    <button class="adjust-measure-length decrease-measure-length"
+                        aria-label="Decrease beats per measure">
+                        -
+                    </button>
+                    <span class="beats-per-current-measure">4</span>
+                    <button class="adjust-measure-length increase-measure-length"
+                        aria-label="Increase beats per measure">
+                        +
+                    </button>
+                </div>
+                <span class="measures-text">BEATS</span>
+            </div>
+            <div class="bar-settings-container">
+                <div class="bar-settings">
+                    <button class="adjust-bar-length decrease-bar-length" aria-label="Decrease bars">
+                        -
+                    </button>
+                    <span class="bars-length">3</span>
+                    <button class="adjust-bar-length increase-bar-length" aria-label="Increase bars">
+                        +
+                    </button>
+                </div>
+                <span class="bars-text">BARS</span>
+            </div>
+        </div>
       `;
 
       // Find placeholders and append the actual sound dropdowns
@@ -259,108 +287,41 @@ const TrackController = {
 
     const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
 
-    // Get the measures container once, as it's needed in multiple branches.
-    const measuresContainer = document.querySelector(".measures-container");
-
     if (target.matches(".track-mute-btn")) {
-      // --- Protective logic to prevent controls from being deleted during re-render ---
-      const originalParent = measuresContainer
-        ? measuresContainer.parentNode
-        : null;
-      const controlsWereMoved =
-        originalParent && originalParent.classList.contains("track");
-      if (controlsWereMoved) {
-        document.body.appendChild(measuresContainer);
-      }
-
       const track = AppState.getTracks()[containerIndex];
       AppState.updateTrack(containerIndex, { muted: !track.muted });
       sendState(AppState.getCurrentStateForPreset());
-      TrackController.renderTracks(); // This is destructive
-
-      // --- Move controls back to the selected track ---
-      // Muting doesn't change selection, so we manually move the controls back
-      // to the currently selected track's element.
-      if (controlsWereMoved) {
-        const selectedTrackIndex = AppState.getSelectedTrackIndex();
-        const newTrackElement = document.querySelector(
-          `.track[data-container-index="${selectedTrackIndex}"]`
-        );
-        if (newTrackElement) {
-          newTrackElement.appendChild(measuresContainer);
-        }
-      }
+      TrackController.renderTracks();
     } else if (target.matches(".track-solo-btn")) {
-      // --- Protective logic ---
-      const originalParent = measuresContainer
-        ? measuresContainer.parentNode
-        : null;
-      const controlsWereMoved =
-        originalParent && originalParent.classList.contains("track");
-      if (controlsWereMoved) {
-        document.body.appendChild(measuresContainer);
-      }
-
       AppState.toggleSolo(containerIndex);
       sendState(AppState.getCurrentStateForPreset());
-      TrackController.renderTracks(); // This is destructive
-
-      // --- Move controls back ---
-      if (controlsWereMoved) {
-        const selectedTrackIndex = AppState.getSelectedTrackIndex();
-        const newTrackElement = document.querySelector(
-          `.track[data-container-index="${selectedTrackIndex}"]`
-        );
-        if (newTrackElement) {
-          newTrackElement.appendChild(measuresContainer);
-        }
-      }
+      TrackController.renderTracks();
     } else if (target.matches(".track-remove-btn")) {
-      const wasSelected = AppState.getSelectedTrackIndex() === containerIndex;
-      const selectedTrackIndex = AppState.getSelectedTrackIndex();
-      let controlsWereMoved = false;
-
-      if (selectedTrackIndex !== -1 && measuresContainer) {
-        const trackWrapper = event.currentTarget;
-        const selectedTrackElement = trackWrapper.querySelector(
-          `.track[data-container-index="${selectedTrackIndex}"]`
-        );
-        if (
-          selectedTrackElement &&
-          measuresContainer.parentNode === selectedTrackElement
-        ) {
-          document.body.appendChild(measuresContainer);
-          controlsWereMoved = true;
-        }
-      }
-
       AppState.removeTrack(containerIndex);
       sendState(AppState.getCurrentStateForPreset());
-
-      // Re-render the tracks first to ensure the DOM is stable.
       TrackController.renderTracks();
-
-      // Now, if the selection changed, dispatch the event.
-      // The event handler will now find the correct, existing elements.
-      if (wasSelected || controlsWereMoved) {
-        setTimeout(() => {
-          document.dispatchEvent(new CustomEvent("trackselectionchanged"));
-        }, 0);
-      }
+      setTimeout(() => {
+        document.dispatchEvent(new CustomEvent("trackselectionchanged"));
+      }, 0);
     } else if (target.matches(".rest-button")) {
-        const newRestModeState = !AppState.isRestMode(); // Determine the new state
-        AppState.setRestMode(newRestModeState); // Update the global state
-
-        // Update all rest buttons to reflect the new global state
+        const newRestModeState = !AppState.isRestMode();
+        AppState.setRestMode(newRestModeState);
         document.querySelectorAll(".rest-button").forEach(button => {
             button.classList.toggle("active", newRestModeState);
         });
-    } else if (target.matches(".beat-square")) {
-        if (AppState.isRestMode()) {
-            const barVisual = target.closest(".bar-visual");
-            if (!barVisual) return;
+    } else {
+        if (AppState.getSelectedTrackIndex() !== containerIndex) {
+            AppState.setSelectedTrackIndex(containerIndex);
+        }
 
+        const barVisual = target.closest(".bar-visual");
+        if (barVisual) {
             const barIndex = parseInt(barVisual.dataset.barIndex, 10);
+            AppState.setSelectedBarIndexInContainer(barIndex);
+        }
+
+        if (target.matches(".beat-square") && AppState.isRestMode()) {
+            const barIndex = parseInt(target.closest(".bar-visual").dataset.barIndex, 10);
             const beatIndex = parseInt(target.dataset.beatIndex, 10);
             const track = AppState.getTracks()[containerIndex];
             const newRests = [...(track.barSettings[barIndex].rests || [])];
@@ -378,23 +339,28 @@ const TrackController = {
             AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
             BarDisplayController.updateBar(containerIndex, barIndex);
             sendState(AppState.getCurrentStateForPreset());
+        } else {
+            const previouslySelectedTrack = document.querySelector('.track.selected');
+            if (previouslySelectedTrack) {
+                previouslySelectedTrack.classList.remove('selected');
+                const prevMeasuresContainer = previouslySelectedTrack.querySelector('.measures-container');
+                if (prevMeasuresContainer) {
+                    prevMeasuresContainer.style.display = 'none';
+                }
+            }
+
+            trackElement.classList.add('selected');
+            const measuresContainer = trackElement.querySelector('.measures-container');
+            if (measuresContainer) {
+                measuresContainer.style.display = 'flex';
+            }
+
+            sendState(AppState.getCurrentStateForPreset());
+
+            setTimeout(() => {
+                document.dispatchEvent(new CustomEvent("trackselectionchanged"));
+            }, 0);
         }
-    } else {
-      if (AppState.getSelectedTrackIndex() !== containerIndex) {
-        AppState.setSelectedTrackIndex(containerIndex);
-      }
-
-      const barVisual = target.closest(".bar-visual");
-      if (barVisual) {
-        const barIndex = parseInt(barVisual.dataset.barIndex, 10);
-        AppState.setSelectedBarIndexInContainer(barIndex);
-      }
-
-      sendState(AppState.getCurrentStateForPreset());
-
-      setTimeout(() => {
-        document.dispatchEvent(new CustomEvent("trackselectionchanged"));
-      }, 0);
     }
   },
 
@@ -481,30 +447,8 @@ const TrackController = {
    * Adds a new track and then re-renders the UI.
    */
   addTrack: () => {
-    // --- Protective logic to prevent controls from being deleted ---
-    const selectedTrackIndex = AppState.getSelectedTrackIndex();
-    const measuresContainer = document.querySelector(".measures-container");
-
-    // If a track is selected, the controls might be inside it. Move them to safety before re-rendering.
-    if (selectedTrackIndex !== -1 && measuresContainer) {
-      const trackWrapper = document.getElementById("all-tracks-wrapper");
-      if (trackWrapper) {
-        const selectedTrackElement = trackWrapper.querySelector(
-          `.track[data-container-index="${selectedTrackIndex}"]`
-        );
-        if (
-          selectedTrackElement &&
-          measuresContainer.parentNode === selectedTrackElement
-        ) {
-          document.body.appendChild(measuresContainer);
-        }
-      }
-    }
-    AppState.addTrack(); // This also implicitly selects the new track in the state.
+    AppState.addTrack();
     TrackController.renderTracks();
-
-    // Announce that the selection has changed. This will trigger UI updates,
-    // including moving the protected controls to the newly selected track.
     setTimeout(() => {
       document.dispatchEvent(new CustomEvent("trackselectionchanged"));
     }, 0);

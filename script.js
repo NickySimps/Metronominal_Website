@@ -83,6 +83,7 @@ async function initialize() {
   VolumeController.initializeVolumeControls();
   SoundSettingsModal.init();
   UIController.initializeConnectionModal();
+  UIController.createUnlockAudioButton();
 
   // 5. First UI render and start oscilloscope if audio is already active
   refreshUIFromState();
@@ -105,40 +106,12 @@ async function initialize() {
   console.log("Metronominal initialized successfully.");
 }
 
-/**
- * Moves the controls container based on whether a track is selected.
- * This version is SYNCHRONOUS to prevent race conditions.
- */
-function updateControlsPosition() {
-  const selectedTrackIndex = AppState.getSelectedTrackIndex();
-  const measuresContainer = DOM.measuresContainer;
-  const metronomeContainer = DOM.metronomeContainer;
-  const startStopBtn = DOM.startStopBtn;
 
-  if (!measuresContainer || !metronomeContainer || !startStopBtn) return;
-
-  // If a track is selected, move the controls to that track
-  if (selectedTrackIndex !== -1 && AppState.getControlsAttachedToTrack()) {
-    const selectedTrackElement = DOM.trackWrapper.querySelector(`.track[data-container-index="${selectedTrackIndex}"]`);
-    // Move the container synchronously if it's not already in the correct track
-    if (selectedTrackElement && measuresContainer.parentNode !== selectedTrackElement) {
-      selectedTrackElement.appendChild(measuresContainer);
-    }
-  }
-  // Otherwise, move it back to the main container's default position
-  else {
-    if (measuresContainer.parentNode !== metronomeContainer) {
-      // Insert it before the start/stop button
-      metronomeContainer.insertBefore(measuresContainer, startStopBtn);
-    }
-  }
-}
 
 /**
  * Handles all UI updates that need to happen when track selection changes.
  */
 function handleTrackSelectionChange() {
-  updateControlsPosition();
   BarControlsController.updateBarControlsForSelectedTrack();
 }
 

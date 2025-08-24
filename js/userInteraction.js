@@ -6,6 +6,7 @@
  */
 
 import AppState from './appState.js';
+import Oscilloscope from './oscilloscope.js';
 
 const UserInteraction = {
     /**
@@ -31,6 +32,7 @@ const UserInteraction = {
             try {
                 await audioContext.resume();
                 console.log("AudioContext resumed successfully.");
+                Oscilloscope.start();
             } catch (e) {
                 console.error("Error resuming AudioContext:", e);
             }

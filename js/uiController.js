@@ -12,7 +12,21 @@ import BarControlsController from './barControlsController.js';
 import ThemeController from './themeController.js'; // For applying theme on reset
 import MetronomeEngine from './metronomeEngine.js'; // For stopping engine on reset
 import TempoController from './tempoController.js'; // For updating tempo display on reset
-import VolumeController from './volumeController.js'; // For updating volume display on reset
+import VolumeController from './volumeController.js';
+import UserInteraction from './userInteraction.js';
+
+function isIOS() {
+    return [
+        'iPad Simulator',
+        'iPhone Simulator',
+        'iPod Simulator',
+        'iPad',
+        'iPhone',
+        'iPod'
+    ].includes(navigator.platform)
+    // iPad on iOS 13 detection
+    || (navigator.userAgent.includes("Mac") && "ontouchend" in document)
+} // For updating volume display on reset
 
 const UIController = {
     // updateVolumeDisplay method removed (handled by VolumeController)
@@ -73,6 +87,35 @@ const UIController = {
 
         UIController.updateCurrentPresetDisplay();
         console.log("Metronome reset to defaults.");
+    },
+
+    createUnlockAudioButton: () => {
+        if (isIOS()) {
+            const button = document.createElement('button');
+            button.textContent = 'Tap to enable sound';
+            button.id = 'unlock-audio-btn';
+            Object.assign(button.style, {
+                position: 'fixed',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                zIndex: '10000',
+                padding: '20px',
+                fontSize: '20px',
+                backgroundColor: '#333',
+                color: 'white',
+                border: '2px solid white',
+                borderRadius: '10px',
+                cursor: 'pointer'
+            });
+
+            document.body.appendChild(button);
+
+            button.addEventListener('click', async () => {
+                await UserInteraction.handleFirstInteraction();
+                button.style.display = 'none';
+            }, { once: true });
+        }
     },
     
     initializeConnectionModal: () => {

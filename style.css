@@ -1603,3 +1603,11 @@ button:active,
 .beat-selector {
   margin-right: 5px;
 }
+
+.track .measures-container {
+    display: none;
+}
+
+.track.selected .measures-container {
+    display: flex;
+}
