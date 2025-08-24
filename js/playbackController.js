@@ -5,6 +5,7 @@
  */
 
 import MetronomeEngine from './metronomeEngine.js';
+import UserInteraction from './userInteraction.js';
 import DOM from './domSelectors.js';
 
 const PlaybackController = {
@@ -14,7 +15,10 @@ const PlaybackController = {
      */
     initializePlaybackControls: () => {
         if (DOM.startStopBtn) {
-            DOM.startStopBtn.addEventListener('click', () => {
+            DOM.startStopBtn.addEventListener('click', async () => {
+                // Ensure the audio context is running before toggling play
+                await UserInteraction.handleFirstInteraction();
+
                 // When the button is clicked, call the togglePlay function from the engine
                 MetronomeEngine.togglePlay();
             });

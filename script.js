@@ -13,6 +13,7 @@ import VolumeController from "./js/volumeController.js";
 import MetronomeEngine from "./js/metronomeEngine.js";
 import SoundSettingsModal from "./js/soundSettingsModal.js";
 import Oscilloscope from "./js/oscilloscope.js"; // 1. IMPORT a new module
+import UserInteraction from './js/userInteraction.js';
 
 let qrCodeInstance = null;
 
@@ -49,25 +50,7 @@ function syncPlaybackState() {
   }
 }
 
-function primeAudioContext() {
-    const audioContext = AppState.getAudioContext();
-    if (audioContext && audioContext.state === 'suspended') {
-        audioContext.resume().then(() => {
-            console.log('AudioContext resumed successfully by user gesture.');
-            // Remove the event listener so this only happens once
-            document.removeEventListener('click', primeAudioContext);
-        }).catch(e => {
-            console.error('Error resuming AudioContext:', e);
-        });
-    } else {
-        // If the context is already running, we don't need the listener anymore
-        document.removeEventListener('click', primeAudioContext);
-    }
-}
 
-// Add the event listener to the whole document
-document.addEventListener('click', primeAudioContext);
-document.addEventListener('primeAudio', primeAudioContext);
 
 /**
  * Initializes the entire application.
@@ -78,24 +61,8 @@ async function initialize() {
 
   if (!audioContext) {
     console.warn("AudioContext could not be initialized. Sound will be unavailable.");
-  } else if (audioContext.state === 'running') {
-    // Audio is already active, load buffers.
+  } else {
     await AppState.loadAudioBuffers();
-  } else if (audioContext.state === 'suspended') {
-    // Audio is suspended. Needs a user gesture to start.
-    console.log("AudioContext is suspended. Waiting for user interaction to start audio.");
-    const resumeAudio = async () => {
-      try {
-        await audioContext.resume();
-        console.log("AudioContext resumed successfully.");
-        await AppState.loadAudioBuffers();
-        Oscilloscope.start(); // Start visuals only after context is running
-      } catch (e) {
-        console.error("Error resuming AudioContext:", e);
-      }
-    };
-    document.addEventListener('click', resumeAudio, { once: true });
-    document.addEventListener('keydown', resumeAudio, { once: true });
   }
 
   // 3. Load state from local storage or reset.
@@ -179,6 +146,10 @@ function handleTrackSelectionChange() {
 
 // Listen for the custom event from tracksController.js
 document.addEventListener('trackselectionchanged', handleTrackSelectionChange);
+
+document.addEventListener('primeAudio', () => {
+    UserInteraction.handleFirstInteraction();
+});
 
 // Listen for clicks on the whole page to handle "clicking outside"
 document.addEventListener('click', (event) => {

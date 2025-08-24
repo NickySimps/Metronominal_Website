@@ -145,7 +145,6 @@ const AppState = (function () {
   let audioContext = null;
   let soundBuffers = {};
   let currentTheme = "default";
-  let audioContextPrimed = false;
   let isRestMode = false;
 
 
@@ -253,33 +252,6 @@ const AppState = (function () {
 
       if (isPlaying) {
         if (audioContext) {
-          const contextWasSuspended = audioContext.state === "suspended";
-          if (contextWasSuspended) {
-            try {
-              await audioContext.resume();
-              await new Promise((resolve) =>
-                setTimeout(resolve, POST_RESUME_DELAY_MS)
-              );
-            } catch (e) {
-              console.error("Error resuming AudioContext:", e);
-              isPlaying = false;
-              return false;
-            }
-          }
-
-          if (audioContext.state === "running" && !audioContextPrimed) {
-            const primeBuffer = audioContext.createBuffer(
-              1,
-              1,
-              audioContext.sampleRate
-            );
-            const primeSource = audioContext.createBufferSource();
-            primeSource.buffer = primeBuffer;
-            primeSource.connect(audioContext.destination);
-            primeSource.start(audioContext.currentTime);
-            audioContextPrimed = true;
-          }
-
           const currentTime = audioContext.currentTime;
           Tracks.forEach((track) => {
             track.currentBar = 0;
