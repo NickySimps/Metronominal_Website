@@ -4,7 +4,10 @@ const defaultKick = {
   volume: 1.0,
   startFrequency: 150,
   endFrequency: 50,
-  decay: 0.4,
+  attack: 0.01,
+  decay: 0.1,
+  sustain: 0.5,
+  release: 0.2,
   pitchEnvelopeTime: 0.1,
 };
 
@@ -12,93 +15,179 @@ const defaultSnare = {
   volume: 1.0,
   bodyFrequencyStart: 200,
   bodyFrequencyEnd: 100,
-  bodyDecay: 0.2,
+  attack: 0.01,
+  decay: 0.1,
+  sustain: 0.5,
+  release: 0.2,
   noiseFilterFrequency: 1500,
-  noiseDecay: 0.2,
 };
 
 const defaultHiHat = {
   volume: 1.0,
   filterFrequency: 7000,
+  attack: 0.01,
   decay: 0.05,
+  sustain: 0.1,
+  release: 0.05,
 };
 
 const defaultOpenHiHat = {
   volume: 1.0,
   filterFrequency: 6000,
-  decay: 0.4,
+  attack: 0.01,
+  decay: 0.2,
+  sustain: 0.1,
+  release: 0.2,
 };
 
 const defaultHiTom = {
   volume: 1.0,
   startFrequency: 300,
   endFrequency: 150,
-  decay: 0.3,
+  attack: 0.01,
+  decay: 0.2,
+  sustain: 0.1,
+  release: 0.1,
 };
 
 const defaultMidTom = {
   volume: 1.0,
   startFrequency: 150,
   endFrequency: 80,
-  decay: 0.4,
+  attack: 0.01,
+  decay: 0.3,
+  sustain: 0.1,
+  release: 0.1,
 };
 
 const defaultLowTom = {
   volume: 1.0,
   startFrequency: 100,
   endFrequency: 50,
-  decay: 0.5,
+  attack: 0.01,
+  decay: 0.4,
+  sustain: 0.1,
+  release: 0.1,
 };
 
 const defaultClap = {
   volume: 1.0,
   filterFrequency: 1200,
   qValue: 15,
-  decay: 0.15,
+  attack: 0.01,
+  decay: 0.1,
+  sustain: 0.1,
+  release: 0.1,
 };
 
 const defaultClaves = {
   volume: 1.0,
   frequency: 2500,
-  decay: 0.08,
+  attack: 0.01,
+  decay: 0.05,
+  sustain: 0.1,
+  release: 0.05,
 };
 
 const defaultShaker = {
   volume: 1.0,
   filterFrequency: 6000,
   qValue: 5,
-  decay: 0.2,
+  attack: 0.01,
+  decay: 0.1,
+  sustain: 0.1,
+  release: 0.1,
 };
 
 const defaultCymbal = {
   volume: 1.0,
   filterFrequency: 8000,
-  decay: 1.5,
+  attack: 0.01,
+  decay: 0.5,
+  sustain: 0.1,
+  release: 0.5,
 };
 
 const defaultCowbell = {
   volume: 1.0,
   frequency1: 540,
   frequency2: 800,
-  decay: 0.2,
+  attack: 0.01,
+  decay: 0.1,
+  sustain: 0.1,
+  release: 0.1,
 };
 
 const defaultWoodblock = {
   volume: 1.0,
   frequency: 1000,
-  decay: 0.1,
+  attack: 0.01,
+  decay: 0.05,
+  sustain: 0.1,
+  release: 0.05,
 };
 
 const defaultTriangle = {
   volume: 1.0,
   frequency: 1200,
-  decay: 0.8,
+  attack: 0.01,
+  decay: 0.2,
+  sustain: 0.1,
+  release: 0.2,
 };
 
 const defaultMaraca = {
   volume: 1.0,
   filterFrequency: 4000,
+  attack: 0.01,
+  decay: 0.05,
+  sustain: 0.1,
+  release: 0.05,
+};
+
+const defaultSine = {
+  volume: 1.0,
+  frequency: 440,
+  attack: 0.01,
   decay: 0.1,
+  sustain: 0.5,
+  release: 0.2,
+};
+
+const defaultSquare = {
+  volume: 1.0,
+  frequency: 440,
+  attack: 0.01,
+  decay: 0.1,
+  sustain: 0.5,
+  release: 0.2,
+};
+
+const defaultSawtooth = {
+  volume: 1.0,
+  frequency: 440,
+  attack: 0.01,
+  decay: 0.1,
+  sustain: 0.5,
+  release: 0.2,
+};
+
+const defaultUltrasaw = {
+  volume: 1.0,
+  frequency: 440,
+  attack: 0.01,
+  decay: 0.2,
+  sustain: 0.5,
+  release: 0.2,
+  detune: 15,
+};
+
+const defaultNoise = {
+  volume: 1.0,
+  attack: 0.01,
+  decay: 0.1,
+  sustain: 0.1,
+  release: 0.1,
 };
 
 const defaultSoundSettings = {
@@ -117,6 +206,11 @@ const defaultSoundSettings = {
   "Synth Woodblock": defaultWoodblock,
   "Synth Triangle": defaultTriangle,
   "Synth Maraca": defaultMaraca,
+  "Synth Sine": defaultSine,
+  "Synth Square": defaultSquare,
+  "Synth Sawtooth": defaultSawtooth,
+  "Synth Ultrasaw": defaultUltrasaw,
+  "Synth Noise": defaultNoise,
 };
 
 const AppState = (function () {

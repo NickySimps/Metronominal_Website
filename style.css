@@ -1611,3 +1611,12 @@ button:active,
 .track.selected .measures-container {
     display: flex;
 }
+
+.slider-container {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+.slider-container label {
+  margin-bottom: 0.5rem;
+}

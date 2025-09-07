@@ -55,8 +55,7 @@ const SoundSettingsModal = {
     );
     slidersContainer.innerHTML = ""; // Clear previous sliders
 
-    for (const param in soundSettings) {
-      if (typeof soundSettings[param] === "number") {
+    const createSlider = (param, min, max, step, value) => {
         const sliderContainer = document.createElement("div");
         sliderContainer.className = "slider-container";
 
@@ -66,17 +65,10 @@ const SoundSettingsModal = {
 
         const slider = document.createElement("input");
         slider.type = "range";
-        slider.min = 0.01;
-        slider.max = 1;
-        if (param.toLowerCase().includes("frequency")) {
-          slider.min = 20;
-          slider.max = 8000;
-        }
-        slider.step = 0.01;
-        if (param.toLowerCase().includes("frequency")) {
-          slider.step = 1;
-        }
-        slider.value = soundSettings[param];
+        slider.min = min;
+        slider.max = max;
+        slider.step = step;
+        slider.value = value;
         slider.dataset.param = param;
         slider.addEventListener("input", (e) => {
           const newValue = parseFloat(e.target.value);
@@ -85,6 +77,26 @@ const SoundSettingsModal = {
         sliderContainer.appendChild(slider);
 
         slidersContainer.appendChild(sliderContainer);
+    }
+
+    const createADSRSlider = (param, value) => {
+        const min = 0.001;
+        const max = 2;
+        const step = 0.01;
+        createSlider(param, min, max, step, value);
+    }
+
+    createADSRSlider("attack", soundSettings.attack || 0.01);
+    createADSRSlider("decay", soundSettings.decay || 0.1);
+    createADSRSlider("sustain", soundSettings.sustain || 0.5);
+    createADSRSlider("release", soundSettings.release || 0.2);
+
+    for (const param in soundSettings) {
+      if (typeof soundSettings[param] === "number" && !["attack", "decay", "sustain", "release"].includes(param)) {
+        const min = param.toLowerCase().includes("frequency") ? 20 : 0.01;
+        const max = param.toLowerCase().includes("frequency") ? 8000 : 1;
+        const step = param.toLowerCase().includes("frequency") ? 1 : 0.01;
+        createSlider(param, min, max, step, soundSettings[param]);
       }
     }
 
