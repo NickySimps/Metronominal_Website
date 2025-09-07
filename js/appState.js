@@ -285,6 +285,13 @@ const AppState = (function () {
         analyser.connect(audioContext.destination);
         newTrack.analyserNode = analyser;
       }
+      if (isPlaying && Tracks.length > 0) {
+        newTrack.nextBeatTime = Tracks[0].nextBeatTime;
+        newTrack.currentBar = Tracks[0].currentBar;
+        newTrack.currentBeat = Tracks[0].currentBeat;
+      } else if (isPlaying) {
+        newTrack.nextBeatTime = audioContext.currentTime + publicAPI.SCHEDULE_AHEAD_TIME;
+      }
       Tracks.push(newTrack);
       publicAPI.setSelectedTrackIndex(Tracks.length - 1);
       publicAPI.setSelectedBarIndexInContainer(0);
