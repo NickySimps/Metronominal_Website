@@ -210,15 +210,15 @@ const TrackController = {
         </div>
         <div class="track-sound-controls">
           <div class="sound-selection">
-            <span class="sound-label">Main:</span>
+            <span class="sound-label main-sound-label">Main:</span>
           </div>
           <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}">𝄽</button>
           <div class="sound-selection">
-            <span class="sound-label">Sub:</span>
+            <span class="sound-label sub-sound-label">Sub:</span>
           </div>
         </div>
         <div class="bar-display-container" data-container-index="${index}"></div>
-        <div class="measures-container" style="display: none;">
+        <div class="measures-container hidden">
             <div class="measure-settings-container">
                 <div class="beat-settings">
                     <button class="adjust-measure-length decrease-measure-length"
@@ -269,6 +269,20 @@ const TrackController = {
       }
 
       trackWrapper.appendChild(trackElement);
+
+      // Check for modified sounds and apply outline if necessary
+      const mainSoundModified = AppState.isSoundModified(index, 'mainBeatSound');
+      const subSoundModified = AppState.isSoundModified(index, 'subdivisionSound');
+
+      const mainSoundLabel = trackElement.querySelector('.main-sound-label');
+      const subSoundLabel = trackElement.querySelector('.sub-sound-label');
+
+      if (mainSoundLabel) {
+        mainSoundLabel.classList.toggle('modified-sound', mainSoundModified);
+      }
+      if (subSoundLabel) {
+        subSoundLabel.classList.toggle('modified-sound', subSoundModified);
+      }
     });
 
     // Re-render the bar display for all tracks
@@ -341,18 +355,28 @@ const TrackController = {
             sendState(AppState.getCurrentStateForPreset());
         } else {
             const previouslySelectedTrack = document.querySelector('.track.selected');
-            if (previouslySelectedTrack) {
+            if (previouslySelectedTrack && previouslySelectedTrack !== trackElement) {
                 previouslySelectedTrack.classList.remove('selected');
                 const prevMeasuresContainer = previouslySelectedTrack.querySelector('.measures-container');
                 if (prevMeasuresContainer) {
-                    prevMeasuresContainer.style.display = 'none';
+                    prevMeasuresContainer.classList.add('hiding');
+                    prevMeasuresContainer.addEventListener('animationend', () => {
+                        prevMeasuresContainer.classList.remove('hiding');
+                        prevMeasuresContainer.classList.add('hidden');
+                    }, { once: true });
                 }
             }
 
-            trackElement.classList.add('selected');
-            const measuresContainer = trackElement.querySelector('.measures-container');
-            if (measuresContainer) {
-                measuresContainer.style.display = 'flex';
+            if (!trackElement.classList.contains('selected')) {
+                trackElement.classList.add('selected');
+                const measuresContainer = trackElement.querySelector('.measures-container');
+                if (measuresContainer) {
+                    measuresContainer.classList.remove('hidden');
+                    measuresContainer.classList.add('showing');
+                    measuresContainer.addEventListener('animationend', () => {
+                        measuresContainer.classList.remove('showing');
+                    }, { once: true });
+                }
             }
 
             sendState(AppState.getCurrentStateForPreset());

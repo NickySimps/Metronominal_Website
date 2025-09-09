@@ -41,6 +41,14 @@ const SoundSettingsModal = {
 
     // Refresh the modal to show the new settings
     this.show(this.currentTrackIndex, this.currentSoundType);
+
+    const trackElement = document.querySelector(`.track[data-container-index="${this.currentTrackIndex}"]`);
+    if (trackElement) {
+        const soundLabel = trackElement.querySelector(this.currentSoundType === 'mainBeatSound' ? '.main-sound-label' : '.sub-sound-label');
+        if (soundLabel) {
+            soundLabel.classList.remove('modified-sound');
+        }
+    }
   },
   updateSoundSetting(param, value) {
     const track = AppState.getTracks()[this.currentTrackIndex];
@@ -68,6 +76,15 @@ const SoundSettingsModal = {
             valueDisplay.textContent = `${newValue.toFixed(2)} Hz (${frequencyToNote(newValue)})`;
         } else {
             valueDisplay.textContent = newValue;
+        }
+    }
+
+    const isModified = AppState.isSoundModified(this.currentTrackIndex, this.currentSoundType);
+    const trackElement = document.querySelector(`.track[data-container-index="${this.currentTrackIndex}"]`);
+    if (trackElement) {
+        const soundLabel = trackElement.querySelector(this.currentSoundType === 'mainBeatSound' ? '.main-sound-label' : '.sub-sound-label');
+        if (soundLabel) {
+            soundLabel.classList.toggle('modified-sound', isModified);
         }
     }
   },

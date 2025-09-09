@@ -636,6 +636,20 @@ const AppState = (function () {
       return defaultSoundSettings[sound];
     },
 
+    isSoundModified: (trackIndex, soundType) => {
+      const track = Tracks[trackIndex];
+      if (!track) return false;
+
+      const soundInfo = track[soundType];
+      if (!soundInfo || !soundInfo.sound) return false;
+
+      const defaultSettings = defaultSoundSettings[soundInfo.sound];
+      if (!defaultSettings) return false; // No default settings to compare against
+
+      // Deep comparison of settings
+      return JSON.stringify(soundInfo.settings) !== JSON.stringify(defaultSettings);
+    },
+
     // Presets & State
     getCurrentStateForPreset: () => ({
       tempo: tempo,
