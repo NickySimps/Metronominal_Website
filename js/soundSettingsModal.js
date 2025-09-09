@@ -2,7 +2,7 @@ import DOM from "./domSelectors.js";
 import AppState from "./appState.js";
 import { sendState } from "./webrtc.js";
 import Oscilloscope from "./oscilloscope.js";
-import { frequencyToNote, noteToFrequency } from "./utils.js";
+import { frequencyToNote, noteToFrequency, noteStrings } from "./utils.js";
 
 const SoundSettingsModal = {
   isDrawing: false,
@@ -46,12 +46,30 @@ const SoundSettingsModal = {
     const track = AppState.getTracks()[this.currentTrackIndex];
     const soundInfo = track[this.currentSoundType];
 
-    soundInfo.settings[param] = value;
+    let newValue = value;
+    if (this.isNoteSnapping && param.toLowerCase().includes("frequency")) {
+        const note = frequencyToNote(newValue);
+        newValue = noteToFrequency(note);
+    }
+
+    soundInfo.settings[param] = newValue;
 
     AppState.updateTrack(this.currentTrackIndex, {
       [this.currentSoundType]: soundInfo,
     });
     sendState(AppState.getCurrentStateForPreset());
+
+    //-Update UI
+    const slider = DOM.soundSettingsModal.querySelector(`[data-param="${param}"]`);
+    if (slider) {
+        slider.value = newValue;
+        const valueDisplay = slider.nextElementSibling;
+        if (param.toLowerCase().includes("frequency")) {
+            valueDisplay.textContent = `${newValue.toFixed(2)} Hz (${frequencyToNote(newValue)})`;
+        } else {
+            valueDisplay.textContent = newValue;
+        }
+    }
   },
 
   show(trackIndex, soundType) {
@@ -104,33 +122,49 @@ const SoundSettingsModal = {
         }
 
         slider.addEventListener("input", (e) => {
-          let newValue = parseFloat(e.target.value);
-          if (this.isNoteSnapping && param.toLowerCase().includes("frequency")) {
-            const note = frequencyToNote(newValue);
-            newValue = noteToFrequency(note);
-            e.target.value = newValue;
-          }
+          const newValue = parseFloat(e.target.value);
           this.updateSoundSetting(e.target.dataset.param, newValue);
-          if (param.toLowerCase().includes("frequency")) {
-            valueDisplay.textContent = `${newValue.toFixed(2)} Hz (${frequencyToNote(newValue)})`;
-          } else {
-            valueDisplay.textContent = newValue;
-          }
         });
 
         slider.addEventListener("keydown", (e) => {
             if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-                const currentValue = parseFloat(e.target.value);
-                const stepValue = parseFloat(e.target.step);
-                let newValue;
-                if (e.key === "ArrowLeft") {
-                    newValue = currentValue - stepValue;
+                e.preventDefault();
+                let currentValue = parseFloat(e.target.value);
+
+                if (this.isNoteSnapping && param.toLowerCase().includes("frequency")) {
+                    const currentNote = frequencyToNote(currentValue);
+                    let noteName = currentNote.slice(0, -1);
+                    let octave = parseInt(currentNote.slice(-1));
+
+                    let noteIndex = noteStrings.indexOf(noteName);
+
+                    if (e.key === "ArrowRight") {
+                        noteIndex++;
+                        if (noteIndex >= noteStrings.length) {
+                            noteIndex = 0;
+                            octave++;
+                        }
+                    } else {
+                        noteIndex--;
+                        if (noteIndex < 0) {
+                            noteIndex = noteStrings.length - 1;
+                            octave--;
+                        }
+                    }
+                    const newNote = noteStrings[noteIndex] + octave;
+                    currentValue = noteToFrequency(newNote);
+
                 } else {
-                    newValue = currentValue + stepValue;
+                    const stepValue = parseFloat(e.target.step);
+                    if (e.key === "ArrowLeft") {
+                        currentValue -= stepValue;
+                    } else {
+                        currentValue += stepValue;
+                    }
                 }
 
-                if (newValue >= parseFloat(e.target.min) && newValue <= parseFloat(e.target.max)) {
-                    e.target.value = newValue;
+                if (currentValue >= parseFloat(e.target.min) && currentValue <= parseFloat(e.target.max)) {
+                    e.target.value = currentValue;
                     e.target.dispatchEvent(new Event("input"));
                 }
             }

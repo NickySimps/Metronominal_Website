@@ -1,4 +1,4 @@
-const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+export const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 export function frequencyToNote(frequency) {
     const a4 = 440;
@@ -11,7 +11,6 @@ export function frequencyToNote(frequency) {
 
 export function noteToFrequency(note) {
     const a4 = 440;
-    const noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
     let noteName;
     let octave;
