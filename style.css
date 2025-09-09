@@ -1442,9 +1442,57 @@ button:active,
     border-radius: var(--BorderRadius);
     position: relative;
     box-shadow:var(--text-shadow);
-    .h2{
-      text-align: center;
-    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+#reset-sound-btn {
+    background-color: var(--Main); /* Green */
+    color: var(--Background);
+    border: none;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: var(--BorderRadius);
+    transition-duration: 0.4s;
+}
+
+#reset-sound-btn:hover {
+    background-color: var(--Alt2);
+}
+
+#note-snap-btn {
+    background-color: var(--Main); /* Red */
+    color: var(--Background);
+    border: none;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: var(--BorderRadius);
+    transition-duration: 0.4s;
+}
+
+#note-snap-btn:hover {
+    background-color: var(--Accent);
+    color: var(--TextOnMain);
+}
+
+#note-snap-btn.active {
+    background-color: var(--Alt2); 
+
 }
 
 .close-button {
@@ -1476,6 +1524,9 @@ button:active,
 
 .slider-container input[type="range"] {
     width: 100%;
+}
+.slider-container span{
+  padding-top: 20px;
 }
 #background-oscilloscope {
     position: fixed;

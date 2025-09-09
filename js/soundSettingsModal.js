@@ -2,10 +2,12 @@ import DOM from "./domSelectors.js";
 import AppState from "./appState.js";
 import { sendState } from "./webrtc.js";
 import Oscilloscope from "./oscilloscope.js";
+import { frequencyToNote, noteToFrequency } from "./utils.js";
 
 const SoundSettingsModal = {
   isDrawing: false,
   animationFrameId: null,
+  isNoteSnapping: false,
 
   init() {
     DOM.soundSettingsModal
@@ -16,6 +18,29 @@ const SoundSettingsModal = {
         this.hide();
       }
     });
+    DOM.soundSettingsModal.querySelector("#reset-sound-btn").addEventListener("click", () => this.resetSoundSettings());
+    DOM.soundSettingsModal.querySelector("#note-snap-btn").addEventListener("click", (e) => {
+        this.isNoteSnapping = !this.isNoteSnapping;
+        e.target.classList.toggle("active", this.isNoteSnapping);
+    });
+  },
+  resetSoundSettings() {
+    const track = AppState.getTracks()[this.currentTrackIndex];
+    const soundInfo = track[this.currentSoundType];
+    const defaultSettings = AppState.getDefaultSoundSettings(soundInfo.sound);
+
+    // Create a deep copy to avoid modifying the original default settings
+    const newSettings = JSON.parse(JSON.stringify(defaultSettings));
+
+    soundInfo.settings = newSettings;
+
+    AppState.updateTrack(this.currentTrackIndex, {
+      [this.currentSoundType]: soundInfo,
+    });
+    sendState(AppState.getCurrentStateForPreset());
+
+    // Refresh the modal to show the new settings
+    this.show(this.currentTrackIndex, this.currentSoundType);
   },
   updateSoundSetting(param, value) {
     const track = AppState.getTracks()[this.currentTrackIndex];
@@ -38,7 +63,7 @@ const SoundSettingsModal = {
     const soundSettings = soundInfo.settings;
 
     // Update modal title
-    const modalTitle = DOM.soundSettingsModal.querySelector("h2");
+    const modalTitle = DOM.soundSettingsModal.querySelector(".modal-header h2");
     if (modalTitle) {
       // Extracts the sound name like "Kick" from "Synth Kick"
       const soundName = soundInfo.sound.replace("Synth ", "");
@@ -70,11 +95,48 @@ const SoundSettingsModal = {
         slider.step = step;
         slider.value = value;
         slider.dataset.param = param;
+
+        const valueDisplay = document.createElement("span");
+        if (param.toLowerCase().includes("frequency")) {
+            valueDisplay.textContent = `${value} Hz (${frequencyToNote(value)})`;
+        } else {
+            valueDisplay.textContent = value;
+        }
+
         slider.addEventListener("input", (e) => {
-          const newValue = parseFloat(e.target.value);
+          let newValue = parseFloat(e.target.value);
+          if (this.isNoteSnapping && param.toLowerCase().includes("frequency")) {
+            const note = frequencyToNote(newValue);
+            newValue = noteToFrequency(note);
+            e.target.value = newValue;
+          }
           this.updateSoundSetting(e.target.dataset.param, newValue);
+          if (param.toLowerCase().includes("frequency")) {
+            valueDisplay.textContent = `${newValue.toFixed(2)} Hz (${frequencyToNote(newValue)})`;
+          } else {
+            valueDisplay.textContent = newValue;
+          }
+        });
+
+        slider.addEventListener("keydown", (e) => {
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                const currentValue = parseFloat(e.target.value);
+                const stepValue = parseFloat(e.target.step);
+                let newValue;
+                if (e.key === "ArrowLeft") {
+                    newValue = currentValue - stepValue;
+                } else {
+                    newValue = currentValue + stepValue;
+                }
+
+                if (newValue >= parseFloat(e.target.min) && newValue <= parseFloat(e.target.max)) {
+                    e.target.value = newValue;
+                    e.target.dispatchEvent(new Event("input"));
+                }
+            }
         });
         sliderContainer.appendChild(slider);
+        sliderContainer.appendChild(valueDisplay);
 
         slidersContainer.appendChild(sliderContainer);
     }
