@@ -107,10 +107,14 @@ const BarControlsController = {
       if (target.matches('.increase-measure-length')) {
         const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
         if (selectedBarIndexInContainer !== -1) {
-          AppState.increaseBeatsForSelectedBar();
+          if (AppState.isNoteSnapModeActive()) {
+            AppState.snapToNextBeatValue();
+          } else {
+            AppState.increaseBeatsForSelectedBar();
+          }
           sendState(AppState.getCurrentStateForPreset());
           BarDisplayController.updateBar(containerIndex, selectedBarIndexInContainer);
-          updateBeatControlsDisplay();
+          updateBeatControlsDisplay(trackElement);
           updateTotalBeatsDisplay();
           if (ThemeController.is3DSceneActive()) {
             ThemeController.update3DScenePostStateChange();
@@ -119,10 +123,14 @@ const BarControlsController = {
       } else if (target.matches('.decrease-measure-length')) {
         const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
         if (selectedBarIndexInContainer !== -1 && AppState.getBeatsForSelectedBar() > 1) {
-          AppState.decreaseBeatsForSelectedBar();
+            if (AppState.isNoteSnapModeActive()) {
+                AppState.snapToPreviousBeatValue();
+            } else {
+                AppState.decreaseBeatsForSelectedBar();
+            }
           sendState(AppState.getCurrentStateForPreset());
           BarDisplayController.updateBar(containerIndex, selectedBarIndexInContainer);
-          updateBeatControlsDisplay();
+          updateBeatControlsDisplay(trackElement);
           updateTotalBeatsDisplay();
           if (ThemeController.is3DSceneActive()) {
             ThemeController.update3DScenePostStateChange();

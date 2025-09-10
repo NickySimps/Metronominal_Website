@@ -27,3 +27,19 @@ export function noteToFrequency(note) {
 
     return a4 * Math.pow(2, (midiNote - 69) / 12);
 }
+
+export function generateNoteFrequencies(minFreq, maxFreq) {
+    const frequencies = [];
+    let midiNote = 0;
+    let freq = 0;
+
+    while (freq < maxFreq) {
+        freq = 440 * Math.pow(2, (midiNote - 69) / 12);
+        if (freq > minFreq) {
+            frequencies.push(freq);
+        }
+        midiNote++;
+    }
+
+    return frequencies;
+}

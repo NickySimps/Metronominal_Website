@@ -1702,9 +1702,6 @@ button:active,
     transform: scale(1.1);
     opacity: 1;
   }
-  80% {
-    transform: scale(0.9);
-  }
   100% {
     transform: scale(1);
   }
@@ -1738,5 +1735,28 @@ button:active,
 }
 
 .sound-label.modified-sound {
-  outline: 2px solid var(--Accent);
+  outline: 3px double var(--Alt2);
 }
+
+.slider-wrapper {
+    display: flex;
+    align-items: center;
+}
+
+.slider-button-decrement,
+.slider-button-increment {
+    cursor: pointer;
+    padding: 5px;
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--TextOnMain);
+    background-color: var(--Main);
+    border-radius: var(--BorderRadius);
+    margin: 0 5px;
+    height: 30px;
+    width: 30px;
+    text-align-last: center;
+    align-items: center;
+    justify-content: center;
+}
+
