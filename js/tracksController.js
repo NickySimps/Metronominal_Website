@@ -199,7 +199,7 @@ const TrackController = {
           <button class="track-solo-btn">${
             track.solo ? "Unsolo" : "Solo"
           }</button>
-          <button class="track-remove-btn">-</button>
+          <button class="track-remove-btn">✖</button>
           <div class="track-volume-controls">
             <span class="track-volume-label">Vol:</span>
             <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${

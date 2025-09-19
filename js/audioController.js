@@ -30,6 +30,12 @@ const AudioController = {
 
     startRecording: async (trackIndex) => {
         try {
+            const audioContext = AppState.getAudioContext();
+            if (audioContext && audioContext.state === 'suspended') {
+                await audioContext.resume();
+                console.log("AudioContext resumed by startRecording.");
+            }
+
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             AudioController.recordingStream = stream; // Store the stream
 
@@ -40,8 +46,7 @@ const AudioController = {
             DOM.recordingDisplayModal.style.display = 'flex';
             DOM.recordingTimer.textContent = '00:00'; // Reset timer display
 
-            // Setup AnalyserNode for visualization
-            const audioContext = AppState.getAudioContext();
+
             const source = audioContext.createMediaStreamSource(stream);
             AudioController.analyserNode = audioContext.createAnalyser();
             source.connect(AudioController.analyserNode);

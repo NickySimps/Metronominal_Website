@@ -6,27 +6,24 @@ const RecordingVisualizer = (function() {
     let canvasCtx = null;
     let animationFrameId = null;
     let mainColor = 'lime'; // Default fallback color
+    let dataArray = null; // Declare dataArray here
 
     function draw() {
-        if (!analyser || !canvasCtx) return;
+        if (!analyser || !canvasCtx || !dataArray) return; // Check dataArray
 
         animationFrameId = requestAnimationFrame(draw);
 
-        analyser.fftSize = 2048;
-        const bufferLength = analyser.fftSize;
-        const dataArray = new Uint8Array(bufferLength);
-
-        analyser.getByteTimeDomainData(dataArray);
+        analyser.getByteTimeDomainData(dataArray); // Use the pre-allocated dataArray
 
         canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
         canvasCtx.lineWidth = 2;
         canvasCtx.strokeStyle = mainColor; // Use the stored color
         canvasCtx.beginPath();
 
-        const sliceWidth = canvas.width * 1.0 / bufferLength;
+        const sliceWidth = canvas.width * 1.0 / dataArray.length; // Use dataArray.length
         let x = 0;
 
-        for (let i = 0; i < bufferLength; i++) {
+        for (let i = 0; i < dataArray.length; i++) { // Use dataArray.length
             const v = dataArray[i] / 128.0;
             const y = v * canvas.height / 2;
 
@@ -48,6 +45,10 @@ const RecordingVisualizer = (function() {
             analyser = analyserNode;
             canvas = canvasElement;
             canvasCtx = canvas.getContext('2d');
+
+            // Set fftSize and pre-allocate dataArray here
+            analyser.fftSize = 2048;
+            dataArray = new Uint8Array(analyser.fftSize);
 
             // Get the computed value of --Main CSS variable
             const computedStyle = getComputedStyle(document.documentElement);

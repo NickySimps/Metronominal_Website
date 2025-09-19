@@ -28,7 +28,6 @@ const POINTER_MOVE_THRESHOLD = 15; // pixels (Increased for more forgiving long-
 
 // Helper function to calculate total sub-beats needed based on subdivision
 function calculateTotalSubBeats(mainBeatsInBar, subdivision) {
-  console.log("calculateTotalSubBeats inputs: mainBeatsInBar =", mainBeatsInBar, ", subdivision =", subdivision);
   const subdivisionFloat = parseFloat(subdivision);
   let totalSubBeatsNeeded;
   if (subdivisionFloat < 1) {
@@ -38,13 +37,11 @@ function calculateTotalSubBeats(mainBeatsInBar, subdivision) {
     // For subdivisions >= 1, we show more beats
     totalSubBeatsNeeded = mainBeatsInBar * subdivisionFloat;
   }
-  console.log("calculateTotalSubBeats output: totalSubBeatsNeeded =", totalSubBeatsNeeded);
   return totalSubBeatsNeeded;
 }
 
 // Helper function to determine if a beat should be marked as main beat
 function isMainBeat(indexInBar, subdivision, mainBeatsInBar) {
-  console.log("isMainBeat inputs: indexInBar =", indexInBar, ", subdivision =", subdivision, ", mainBeatsInBar =", mainBeatsInBar);
   const subdivisionFloat = parseFloat(subdivision);
   let result;
 
@@ -55,7 +52,6 @@ function isMainBeat(indexInBar, subdivision, mainBeatsInBar) {
     // For subdivisions >= 1, check if it aligns with main beats
     result = indexInBar % subdivisionFloat === 0;
   }
-  console.log("isMainBeat output: result =", result);
   return result;
 }
 
