@@ -41,6 +41,7 @@ const DOM = {
     // Preset Controls
     get savePresetButton() { return document.querySelector('.save-preset-btn'); },
     get loadPresetButton() { return document.querySelector('.load-preset-btn'); },
+    get recordButton() { return document.querySelector('.record-btn'); },
     get presetSlotSelect() { return document.getElementById('preset-slot-select'); },
     get presetNameInput() { return document.getElementById('preset-name-input'); },
 

@@ -1066,7 +1066,10 @@ select {
   .start-stop-btn {
     height: var(--s11); /* Standardized size (112px, approx 110px) */
     width: var(--s11); /* Standardized size (112px, approx 110px) */
-    font-size: var(--font-1); /* Standardized font size */
+    font-size: xx-large; /* Standardized font size */
+  }
+  .adjust-tempo {
+    font-size: xx-large;
   }
 
   .main-container {
@@ -1615,7 +1618,7 @@ button:active,
 .sound-selector {
   width: 60%;
 } 
-.rest-button {
+.rest-button, .record-btn, .recording-item  button  {
   background: var(--Highlight);
   border: none;
   border-radius: var(--BorderRadius);
@@ -1630,8 +1633,13 @@ button:active,
   /* Use a font stack that is likely to include musical symbols */
   font-family: "Apple Symbols", "Noto Sans Symbols", "Segoe UI Symbol", sans-serif;
 }
-
-.rest-button.active {
+.recording-item{
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-around;
+}
+.rest-button.active ,.record-btn.active {
   background-color: var(--Alt2); /* A distinct color when active */
   box-shadow: 0 0 8px var(--Alt2); /* A subtle glow */
 }

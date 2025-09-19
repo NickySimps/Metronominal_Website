@@ -30,6 +30,7 @@
                 <button class="reset-btn">RESET</button>
                 <button id="share-btn">SHARE <span id="connection-status"></span><span id="n-of-connections"></span></button>
                 <button id="disconnect-btn" style="display: none;">DISCONNECT</button>
+                <button id="manage-recordings-btn">✎◯</button>
             </div>
             <div class="global-app-controls">
                 <div class="control-group">
@@ -108,7 +109,7 @@
                     </button>
                 </div>
             </div>
-            <button class="start-stop-btn" id="start-stop-btn">START</button>
+            <button class="start-stop-btn" id="start-stop-btn">▶</button>
             <div class="volume-controls-container">
                 <span class="volume-label">Volume:</span>
                 <input type="range" id="volume-slider-input" class="volume-slider" min="0.01" max="1" step="0.01"
@@ -168,6 +169,13 @@
             </div>
             <canvas class="oscilloscope-canvas" width="400" height="100"></canvas>
             <div id="sound-sliders-container"></div>
+        </div>
+    </div>
+    <div id="manage-recordings-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>Manage Recordings</h2>
+            <div id="recordings-list"></div>
         </div>
     </div>
 </body>

@@ -1,4 +1,4 @@
-// js/appState.js
+import { audioBufferToWav, wavToArrayBuffer } from './audioSerialization.js';
 
 const defaultKick = {
   volume: 1.0,
@@ -190,6 +190,27 @@ const defaultNoise = {
   release: 0.1,
 };
 
+// Helper functions for ArrayBuffer to Base64 and vice-versa
+function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+}
+
+function base64ToArrayBuffer(base64) {
+    const binary_string = window.atob(base64);
+    const len = binary_string.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binary_string.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
+
 const defaultSoundSettings = {
   "Synth Kick": defaultKick,
   "Synth Snare": defaultSnare,
@@ -240,6 +261,8 @@ const AppState = (function () {
   let soundBuffers = {};
   let currentTheme = "default";
   let isRestMode = false;
+  let isRecording = false;
+  let recordings = [];
 
 
   // --- Constants ---
@@ -250,9 +273,9 @@ const AppState = (function () {
   const LOCAL_STORAGE_KEY = "metronominalState";
 
   // --- Private Functions ---
-  const saveState = () => {
+  const saveState = async () => {
     try {
-      const state = publicAPI.getCurrentStateForPreset();
+      const state = await publicAPI.getCurrentStateForPreset();
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
     } catch (e) {
       console.error("Could not save state to localStorage:", e);
@@ -332,6 +355,71 @@ const AppState = (function () {
       isRestMode = mode;
       saveState();
     },
+
+    isRecording: () => isRecording,
+    setRecording: (recording) => {
+        isRecording = recording;
+        saveState();
+    },
+    getRecordings: () => recordings,
+    addRecording: (recordingName) => {
+        recordings.push(recordingName);
+        saveState();
+    },
+
+    deleteRecording: (recordingName) => {
+        const index = recordings.indexOf(recordingName);
+        if (index > -1) {
+            recordings.splice(index, 1);
+        }
+        delete soundBuffers[recordingName];
+
+        // Check if any track is using the deleted sound and reset it
+        Tracks.forEach(track => {
+            if (track.mainBeatSound.sound === recordingName) {
+                track.mainBeatSound.sound = "Synth Kick";
+                track.mainBeatSound.settings = { ...defaultKick };
+            }
+            if (track.subdivisionSound.sound === recordingName) {
+                track.subdivisionSound.sound = "Synth HiHat";
+                track.subdivisionSound.settings = { ...defaultHiHat };
+            }
+        });
+        saveState();
+    },
+
+    renameRecording: (oldName, newName) => {
+        if (oldName === newName) return; // No change
+
+        // Check if newName already exists
+        if (recordings.includes(newName)) {
+            console.warn(`Recording with name "${newName}" already exists. Cannot rename.`);
+            return;
+        }
+
+        const index = recordings.indexOf(oldName);
+        if (index > -1) {
+            recordings[index] = newName; // Update name in recordings array
+        }
+
+        // Update soundBuffers
+        if (soundBuffers[oldName]) {
+            soundBuffers[newName] = soundBuffers[oldName];
+            delete soundBuffers[oldName];
+        }
+
+        // Update any tracks using the old name
+        Tracks.forEach(track => {
+            if (track.mainBeatSound.sound === oldName) {
+                track.mainBeatSound.sound = newName;
+            }
+            if (track.subdivisionSound.sound === oldName) {
+                track.subdivisionSound.sound = newName;
+            }
+        });
+
+        saveState();
+    },
     isPlaying: () => isPlaying,
     togglePlay: async () => {
       if (
@@ -346,6 +434,15 @@ const AppState = (function () {
 
       if (isPlaying) {
         if (audioContext) {
+          // Attempt to resume audio context if suspended
+          if (audioContext.state === 'suspended') {
+            try {
+              await audioContext.resume();
+              console.log("AudioContext resumed by togglePlay.");
+            } catch (e) {
+              console.error("Error resuming AudioContext from togglePlay:", e);
+            }
+          }
           const currentTime = audioContext.currentTime;
           Tracks.forEach((track) => {
             track.currentBar = 0;
@@ -632,6 +729,11 @@ const AppState = (function () {
       return Object.keys(soundBuffers).length > 0;
     },
     getSoundBuffer: (sound) => soundBuffers[sound],
+    getSoundBuffers: () => soundBuffers,
+    setSoundBuffer: (name, buffer) => {
+        soundBuffers[name] = buffer;
+        saveState();
+    },
     getDefaultSoundSettings: (sound) => {
       return defaultSoundSettings[sound];
     },
@@ -651,25 +753,43 @@ const AppState = (function () {
     },
 
     // Presets & State
-    getCurrentStateForPreset: () => ({
-      tempo: tempo,
-      volume: volume,
-      Tracks: JSON.parse(
-        JSON.stringify(
-          Tracks.map((track) => {
-            const { analyserNode, ...remaningTrack } = track;
-            return remaningTrack;
-          })
-        )
-      ),
-      selectedTheme: currentTheme,
-      selectedTrackIndex: selectedTrackIndex,
-      selectedBarIndexInContainer: selectedBarIndexInContainer,
-      controlsAttachedToTrack: controlsAttachedToTrack,
-      isPlaying: isPlaying,
-      isRestMode: isRestMode,
-    }),
-    loadPresetData: (data) => {
+    getCurrentStateForPreset: async () => {
+      const serializedRecordings = {};
+      for (const name of recordings) {
+        const buffer = soundBuffers[name];
+        if (buffer) {
+          try {
+            const wavBuffer = await audioBufferToWav(buffer);
+            serializedRecordings[name] = arrayBufferToBase64(wavBuffer);
+          } catch (e) {
+            console.error(`Error serializing recording ${name}:`, e);
+          }
+        }
+      }
+
+      return {
+        tempo: tempo,
+        volume: volume,
+        Tracks: JSON.parse(
+          JSON.stringify(
+            Tracks.map((track) => {
+              const { analyserNode, ...remaningTrack } = track;
+              return remaningTrack;
+            })
+          )
+        ),
+        selectedTheme: currentTheme,
+        selectedTrackIndex: selectedTrackIndex,
+        selectedBarIndexInContainer: selectedBarIndexInContainer,
+        controlsAttachedToTrack: controlsAttachedToTrack,
+        isPlaying: isPlaying,
+        isRestMode: isRestMode,
+        isRecording: isRecording,
+        recordings: recordings, // This is the array of names
+        serializedRecordings: serializedRecordings, // This is the object with Base64 data
+      };
+    },
+    loadPresetData: async (data) => {
       if (!data) return;
       tempo = data.tempo || 120;
       volume = data.volume || 1.0;
@@ -716,6 +836,24 @@ const AppState = (function () {
       selectedBarIndexInContainer = data.selectedBarIndexInContainer !== undefined ? data.selectedBarIndexInContainer : 0;
       controlsAttachedToTrack = data.controlsAttachedToTrack !== undefined ? data.controlsAttachedToTrack : true;
       isRestMode = data.isRestMode !== undefined ? data.isRestMode : false;
+      
+      // Deserialize recordings
+      if (data.serializedRecordings) {
+        recordings = []; // Clear existing recordings
+        for (const name in data.serializedRecordings) {
+          const base64Wav = data.serializedRecordings[name];
+          try {
+            const wavBuffer = base64ToArrayBuffer(base64Wav);
+            const audioBuffer = await wavToArrayBuffer(wavBuffer, audioContext);
+            soundBuffers[name] = audioBuffer;
+            recordings.push(name); // Add name back to recordings array
+          } catch (e) {
+            console.error(`Error deserializing recording ${name}:`, e);
+          }
+        }
+      } else {
+        recordings = []; // No serialized recordings, so clear them
+      }
 
       // isPlaying is handled by webrtc.js explicitly to avoid race conditions
       // isPlaying = data.isPlaying || false;
@@ -750,7 +888,6 @@ const AppState = (function () {
       selectedBarIndexInContainer = 0;
       controlsAttachedToTrack = true;
       isPlaying = false;
-      currentTheme = "default";
       saveState();
     },
 

@@ -3,6 +3,8 @@ import BarControlsController from "./barControlsController.js";
 import { sendState } from "./webrtc.js";
 import BarDisplayController from "./barDisplayController.js";
 import SoundSettingsModal from "./soundSettingsModal.js";
+import AudioController from "./audioController.js";
+
 
 /**
  * Creates a complete DOM element for a single track.
@@ -216,6 +218,7 @@ const TrackController = {
           <div class="sound-selection">
             <span class="sound-label sub-sound-label">Sub:</span>
           </div>
+          <button class="record-btn ${AppState.isRecording() ? 'active' : ''}">●</button>
         </div>
         <div class="bar-display-container" data-container-index="${index}"></div>
         <div class="measures-container hidden">
@@ -323,6 +326,8 @@ const TrackController = {
         document.querySelectorAll(".rest-button").forEach(button => {
             button.classList.toggle("active", newRestModeState);
         });
+    } else if (target.matches(".record-btn")) {
+        AudioController.toggleRecording(containerIndex);
     } else {
         if (AppState.getSelectedTrackIndex() !== containerIndex) {
             AppState.setSelectedTrackIndex(containerIndex);
@@ -514,6 +519,7 @@ function createSoundSelector(selectedSound, typeClass) {
     "Click2.mp3",
     "Crank1.mp3",
     "Crank2.mp3",
+    ...AppState.getRecordings(),
   ];
 
   soundOptions.forEach((soundName) => {

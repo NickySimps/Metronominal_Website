@@ -72,9 +72,9 @@ const UIController = {
             DOM.beatMultiplierSelect.value = AppState.getSubdivisionForSelectedBar().toString();
         }
         VolumeController.updateVolumeDisplay({ animate: true });
-        
-        // Apply default theme.
-        ThemeController.applyTheme('default'); 
+
+        // Re-apply the theme that was active before the reset.
+        ThemeController.applyTheme(previousTheme);
 
         // Reset Bar Structure UI
         if (DOM.barsLengthDisplay) {
@@ -89,34 +89,7 @@ const UIController = {
         console.log("Metronome reset to defaults.");
     },
 
-    createUnlockAudioButton: () => {
-        if (isIOS()) {
-            const button = document.createElement('button');
-            button.textContent = 'Tap to enable sound';
-            button.id = 'unlock-audio-btn';
-            Object.assign(button.style, {
-                position: 'fixed',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                zIndex: '10000',
-                padding: '20px',
-                fontSize: '20px',
-                backgroundColor: '#333',
-                color: 'white',
-                border: '2px solid white',
-                borderRadius: '10px',
-                cursor: 'pointer'
-            });
 
-            document.body.appendChild(button);
-
-            button.addEventListener('click', async () => {
-                await UserInteraction.handleFirstInteraction();
-                button.style.display = 'none';
-            }, { once: true });
-        }
-    },
     
     initializeConnectionModal: () => {
         const connectionModal = document.getElementById("connection-modal");

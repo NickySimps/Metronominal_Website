@@ -14,6 +14,8 @@ import MetronomeEngine from "./js/metronomeEngine.js";
 import SoundSettingsModal from "./js/soundSettingsModal.js";
 import Oscilloscope from "./js/oscilloscope.js"; // 1. IMPORT a new module
 import UserInteraction from './js/userInteraction.js';
+import AudioController from './js/audioController.js';
+import RecordingManager from './js/recordingManager.js';
 
 let qrCodeInstance = null;
 
@@ -82,8 +84,9 @@ async function initialize() {
   PresetController.initializePresetControls(refreshUIFromState);
   VolumeController.initializeVolumeControls();
   SoundSettingsModal.init();
+  RecordingManager.init();
   UIController.initializeConnectionModal();
-  UIController.createUnlockAudioButton();
+
 
   // 5. First UI render and start oscilloscope if audio is already active
   refreshUIFromState();

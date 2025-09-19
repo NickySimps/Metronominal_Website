@@ -56,7 +56,7 @@ function playBeatSound(track, beatTime) {
             console.warn(`Synth function ${synthFunctionName} not found in SoundSynth.`);
         }
     } else {
-        // Fallback to the original file-based sound logic
+        // Fallback to file-based or recorded sounds
         const soundBuffer = AppState.getSoundBuffer(soundToPlay);
         if (soundBuffer) {
             const source = audioContext.createBufferSource();
