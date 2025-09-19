@@ -59,6 +59,12 @@ const DOM = {
 
     // Sound Settings Modal
     get soundSettingsModal() { return document.getElementById('sound-settings-modal'); },
+
+    // Recording Modal
+    get recordingDisplayModal() { return document.getElementById('recording-display-modal'); },
+    get recordingTimer() { return document.getElementById('recording-timer'); },
+    get recordingWaveformCanvas() { return document.getElementById('recording-waveform-canvas'); },
+    get recordingStopBtn() { return document.getElementById('recording-stop-btn'); },
 };
 
 export default DOM;

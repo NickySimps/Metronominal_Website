@@ -140,7 +140,7 @@ function performEngineStopActions() {
         animationFrameId = null;
     }
     if (DOM.startStopBtn) {
-        DOM.startStopBtn.textContent = "START";
+        DOM.startStopBtn.textContent = "▶";
         DOM.startStopBtn.classList.remove('active');
     }
     BarDisplayController.clearAllHighlights();
@@ -159,7 +159,7 @@ const MetronomeEngine = {
 
         if (isNowPlaying) {
             if (DOM.startStopBtn) {
-                DOM.startStopBtn.textContent = "STOP";
+                DOM.startStopBtn.textContent = "■";
                 DOM.startStopBtn.classList.add('active');
             }
 

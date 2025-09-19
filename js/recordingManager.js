@@ -2,6 +2,12 @@ import AppState from './appState.js';
 import TrackController from './tracksController.js';
 import AudioController from './audioController.js';
 
+function formatDuration(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
+
 const RecordingManager = {
     init: () => {
         const manageRecordingsBtn = document.getElementById('manage-recordings-btn');
@@ -99,6 +105,15 @@ const RecordingManager = {
             nameSpan.textContent = recordingName;
             nameSpan.className = 'recording-name-display';
             recordingItem.appendChild(nameSpan);
+
+            // Get and display duration
+            const audioBuffer = AppState.getSoundBuffer(recordingName);
+            if (audioBuffer) {
+                const durationSpan = document.createElement('span');
+                durationSpan.className = 'recording-duration';
+                durationSpan.textContent = `(${formatDuration(audioBuffer.duration)})`;
+                recordingItem.appendChild(durationSpan);
+            }
 
             // Add Play button
             const playBtn = document.createElement('button');

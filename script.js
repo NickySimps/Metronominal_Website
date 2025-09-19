@@ -86,6 +86,8 @@ async function initialize() {
   SoundSettingsModal.init();
   RecordingManager.init();
   UIController.initializeConnectionModal();
+  console.log('DOM.recordingDisplayModal:', DOM.recordingDisplayModal);
+  AudioController.initialize();
 
 
   // 5. First UI render and start oscilloscope if audio is already active

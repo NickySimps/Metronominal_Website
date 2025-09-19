@@ -194,7 +194,7 @@ const TrackController = {
         <div class="track-controls">
           <span class="track-name">Track ${index + 1}</span>
           <button class="track-mute-btn">${
-            track.muted ? "Unmute" : "Mute"
+            track.muted ? "▶" : "⍉"
           }</button>
           <button class="track-solo-btn">${
             track.solo ? "Unsolo" : "Solo"
