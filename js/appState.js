@@ -263,6 +263,7 @@ const AppState = (function () {
   let isRestMode = false;
   let isRecording = false;
   let recordings = [];
+  let isWakeLockEnabled = false;
 
 
   // --- Constants ---
@@ -359,6 +360,11 @@ const AppState = (function () {
     isRecording: () => isRecording,
     setRecording: (recording) => {
         isRecording = recording;
+        saveState();
+    },
+    isWakeLockEnabled: () => isWakeLockEnabled,
+    setWakeLockEnabled: (enabled) => {
+        isWakeLockEnabled = enabled;
         saveState();
     },
     getRecordings: () => recordings,

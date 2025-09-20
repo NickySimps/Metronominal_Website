@@ -7,6 +7,39 @@
 import MetronomeEngine from './metronomeEngine.js';
 import UserInteraction from './userInteraction.js';
 import DOM from './domSelectors.js';
+import AppState from './appState.js';
+
+let wakeLock = null;
+
+const acquireWakeLock = async () => {
+    if ('wakeLock' in navigator) {
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            wakeLock.addEventListener('release', () => {
+                console.log('Wake Lock was released');
+            });
+            console.log('Wake Lock is active!');
+        } catch (err) {
+            console.error(`${err.name}, ${err.message}`);
+        }
+    }
+};
+
+const handleVisibilityChange = () => {
+    if (AppState.isPlaying() && AppState.isWakeLockEnabled() && document.visibilityState === 'visible') {
+        acquireWakeLock();
+    }
+};
+
+const releaseWakeLock = async () => {
+    if (wakeLock !== null) {
+        await wakeLock.release();
+        wakeLock = null;
+        console.log('Wake Lock is released!');
+    }
+};
+
+document.addEventListener('visibilitychange', handleVisibilityChange);
 
 const PlaybackController = {
     /**
@@ -20,7 +53,13 @@ const PlaybackController = {
                 await UserInteraction.handleFirstInteraction();
 
                 // When the button is clicked, call the togglePlay function from the engine
-                MetronomeEngine.togglePlay();
+                const isPlaying = await MetronomeEngine.togglePlay();
+
+                if (isPlaying && AppState.isWakeLockEnabled()) {
+                    acquireWakeLock();
+                } else {
+                    releaseWakeLock();
+                }
             });
         } else {
             console.error("Start/Stop button not found in DOM.");

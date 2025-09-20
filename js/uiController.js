@@ -112,7 +112,23 @@ const UIController = {
             DOM.resetButton.addEventListener('click', UIController.resetToDefaults);
         }
 
+        if (DOM.screenOffToggleBtn) {
+            DOM.screenOffToggleBtn.addEventListener('click', () => {
+                const isEnabled = !AppState.isWakeLockEnabled();
+                AppState.setWakeLockEnabled(isEnabled);
+                UIController.updateScreenOffToggleBtn();
+            });
+        }
+
         // Volume slider - REMOVED (handled by VolumeController)
+    },
+
+    updateScreenOffToggleBtn: () => {
+        if (DOM.screenOffToggleBtn) {
+            const isEnabled = AppState.isWakeLockEnabled();
+            DOM.screenOffToggleBtn.textContent = isEnabled ?  'Screen 🔒' : 'Screen 🔓';
+            DOM.screenOffToggleBtn.classList.toggle('active', isEnabled);
+        }
     },
 
     // Placeholder for user feedback messages

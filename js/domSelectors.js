@@ -65,6 +65,9 @@ const DOM = {
     get recordingTimer() { return document.getElementById('recording-timer'); },
     get recordingWaveformCanvas() { return document.getElementById('recording-waveform-canvas'); },
     get recordingStopBtn() { return document.getElementById('recording-stop-btn'); },
+
+    // Screen Off Toggle
+    get screenOffToggleBtn() { return document.getElementById('screen-off-toggle-btn'); },
 };
 
 export default DOM;

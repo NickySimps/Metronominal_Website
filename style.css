@@ -930,6 +930,7 @@ select {
   display: flex;
   gap: var(--s3); /* Standardized gap (8px) */
   z-index: 1000; /* Ensure it's on top of other elements */
+  overflow-x: auto;
 }
 
 .top-controls-area button {
@@ -945,6 +946,11 @@ select {
 
 .top-controls-area button:hover {
   background-color: var(--Highlight, #e0e0e0);
+}
+
+#screen-off-toggle-btn.active {
+    background-color: var(--Main);
+    color: var(--TextOnMain);
 }
 
 /* Mobile-specific adjustments */

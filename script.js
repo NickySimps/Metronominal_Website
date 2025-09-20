@@ -25,6 +25,7 @@ let qrCodeInstance = null;
 function refreshUIFromState() {
   TempoController.updateTempoDisplay({ animate: true });
   VolumeController.updateVolumeDisplay({ animate: true });
+  UIController.updateScreenOffToggleBtn();
 
   TrackController.renderTracks();
   BarControlsController.updateBarControlsForSelectedTrack();
