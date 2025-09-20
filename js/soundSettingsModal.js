@@ -1,6 +1,7 @@
 import DOM from "./domSelectors.js";
 import AppState from "./appState.js";
 import { sendState } from "./webrtc.js";
+import RecordingVisualizer from './recordingVisualizer.js';
 import Oscilloscope from "./oscilloscope.js";
 
 
