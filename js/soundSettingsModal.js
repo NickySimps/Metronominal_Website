@@ -2,12 +2,12 @@ import DOM from "./domSelectors.js";
 import AppState from "./appState.js";
 import { sendState } from "./webrtc.js";
 import Oscilloscope from "./oscilloscope.js";
+
+
 import { frequencyToNote, noteToFrequency, noteStrings, generateNoteFrequencies } from "./utils.js";
 import { Slider } from './slider.js';
 
 const SoundSettingsModal = {
-  isDrawing: false,
-  animationFrameId: null,
   isNoteSnapping: false,
   sliders: [],
 
@@ -36,12 +36,12 @@ const SoundSettingsModal = {
         });
     });
   },
+
   resetSoundSettings() {
     const track = AppState.getTracks()[this.currentTrackIndex];
     const soundInfo = track[this.currentSoundType];
     const defaultSettings = AppState.getDefaultSoundSettings(soundInfo.sound);
 
-    // Create a deep copy to avoid modifying the original default settings
     const newSettings = JSON.parse(JSON.stringify(defaultSettings));
 
     soundInfo.settings = newSettings;
@@ -51,7 +51,6 @@ const SoundSettingsModal = {
     });
     sendState(AppState.getCurrentStateForPreset());
 
-    // Refresh the modal to show the new settings
     this.show(this.currentTrackIndex, this.currentSoundType);
 
     const trackElement = document.querySelector(`.track[data-container-index="${this.currentTrackIndex}"]`);
@@ -62,9 +61,10 @@ const SoundSettingsModal = {
         }
     }
   },
+
   updateSoundSetting(param, value) {
     let valueToSave = value;
-    if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime"].includes(param)) {
+    if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd"].includes(param)) {
         valueToSave = value / 1000;
     } else if (param.toLowerCase() === "volume") {
         valueToSave = value / 100;
@@ -85,19 +85,24 @@ const SoundSettingsModal = {
     });
     sendState(AppState.getCurrentStateForPreset());
 
-    //-Update UI
+    if (["trimStart", "trimEnd"].includes(param)) {
+        if (this.drawWaveformAndTrimLines) {
+            this.drawWaveformAndTrimLines();
+        }
+    }
+
     const slider = DOM.soundSettingsModal.querySelector(`[data-param="${param}"]`);
     if (slider) {
         slider.value = value;
         const valueDisplay = slider.parentElement.nextElementSibling;
         if (param.toLowerCase().includes("frequency")) {
-            valueDisplay.textContent = `${value.toFixed(2)} Hz (${frequencyToNote(value)})`;
-        } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime"].includes(param)) {
-            valueDisplay.textContent = `${value.toFixed(0)} ms`;
+            valueDisplay.textContent = `${slider.value} Hz (${frequencyToNote(slider.value)})`;
+        } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd"].includes(param)) {
+            valueDisplay.textContent = `${slider.value} ms`;
         } else if (param.toLowerCase() === "volume") {
-            valueDisplay.textContent = `${value}%`;
+            valueDisplay.textContent = `${slider.value}%`;
         } else {
-            valueDisplay.textContent = value;
+            valueDisplay.textContent = slider.value;
         }
     }
 
@@ -111,113 +116,143 @@ const SoundSettingsModal = {
     }
   },
 
+  createSlider(slidersContainer, param, min, max, step, value) {
+    const sliderContainer = document.createElement("div");
+    sliderContainer.className = "slider-container";
+
+    const label = document.createElement("label");
+    label.textContent = param;
+    sliderContainer.appendChild(label);
+
+    const sliderWrapper = document.createElement("div");
+    sliderWrapper.className = "slider-wrapper";
+
+    const decrementButton = document.createElement("span");
+    decrementButton.className = "slider-button-decrement";
+    decrementButton.textContent = "-";
+    sliderWrapper.appendChild(decrementButton);
+
+    const slider = document.createElement("input");
+    slider.type = "range";
+    slider.min = min;
+    slider.max = max;
+    slider.step = step;
+    slider.value = value;
+    slider.dataset.param = param;
+    sliderWrapper.appendChild(slider);
+
+    const incrementButton = document.createElement("span");
+    incrementButton.className = "slider-button-increment";
+    incrementButton.textContent = "+";
+    sliderWrapper.appendChild(incrementButton);
+
+    sliderContainer.appendChild(sliderWrapper);
+
+    const valueDisplay = document.createElement("span");
+    if (param.toLowerCase().includes("frequency")) {
+        valueDisplay.textContent = `${value.toFixed(2)} Hz (${frequencyToNote(value)})`;
+    } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd"].includes(param)) {
+        valueDisplay.textContent = `${value.toFixed(0)} ms`;
+    } else if (param.toLowerCase() === "volume") {
+        valueDisplay.textContent = `${value}%`;
+    } else {
+        valueDisplay.textContent = value;
+    }    sliderContainer.appendChild(valueDisplay);
+
+    slidersContainer.appendChild(sliderContainer);
+
+    const snapPoints = this.isNoteSnapping && param.toLowerCase().includes("frequency")
+        ? generateNoteFrequencies(min, max)
+        : null;
+
+    const sliderInstance = new Slider(slider, decrementButton, incrementButton, {
+        initialValue: value,
+        snapPoints: snapPoints,
+        onValueChange: (newValue) => {
+            this.updateSoundSetting(param, newValue);
+        }
+    });
+    this.sliders.push(sliderInstance);
+  },
+
   show(trackIndex, soundType) {
     this.currentTrackIndex = trackIndex;
     this.currentSoundType = soundType;
 
     const track = AppState.getTracks()[trackIndex];
-    const soundInfo = track[soundType]; // Correctly get the sound object
+    const soundInfo = track[soundType];
     const soundSettings = soundInfo.settings;
 
-    // Update modal title
+    // Check if it's a recorded sound and retrieve its audioBuffer
+    if (!soundInfo.sound.startsWith("Synth ")) { // Assuming recorded sounds don't start with "Synth "
+        const recordedAudioBuffer = AppState.getSoundBuffer(soundInfo.sound);
+        if (recordedAudioBuffer) {
+            soundInfo.audioBuffer = recordedAudioBuffer; // Temporarily attach audioBuffer for modal's use
+        }
+    }
+
     const modalTitle = DOM.soundSettingsModal.querySelector(".modal-header h2");
     if (modalTitle) {
-      // Extracts the sound name like "Kick" from "Synth Kick"
       const soundName = soundInfo.sound.replace("Synth ", "");
       modalTitle.textContent = `Editing: ${soundName}`;
     }
 
     if (!soundSettings) {
-      console.log("No settings to adjust for this sound.");
       return;
     }
 
     const slidersContainer = DOM.soundSettingsModal.querySelector(
       "#sound-sliders-container"
     );
-    slidersContainer.innerHTML = ""; // Clear previous sliders
+    slidersContainer.innerHTML = "";
+    this.sliders = [];
 
-    const createSlider = (param, min, max, step, value) => {
-        const sliderContainer = document.createElement("div");
-        sliderContainer.className = "slider-container";
+    if (soundInfo.audioBuffer) {
+        const waveformContainer = document.createElement("div");
+        waveformContainer.className = "waveform-container";
+        const waveformCanvas = document.createElement("canvas");
+        waveformCanvas.className = "waveform-canvas";
+        waveformContainer.appendChild(waveformCanvas);
+        slidersContainer.appendChild(waveformContainer);
 
-        const label = document.createElement("label");
-        label.textContent = param;
-        sliderContainer.appendChild(label);
+        const mainColor = getComputedStyle(document.documentElement).getPropertyValue("--Main").trim();
 
-        const sliderWrapper = document.createElement("div");
-        sliderWrapper.className = "slider-wrapper";
+        this.drawWaveformAndTrimLines = () => {
+            RecordingVisualizer.drawWaveform(soundInfo.audioBuffer, waveformCanvas, mainColor);
+            const ctx = waveformCanvas.getContext('2d');
+            const trimStart = (soundSettings.trimStart || 0);
+            const trimEnd = (soundSettings.trimEnd || soundInfo.audioBuffer.duration);
+            const startX = (trimStart / soundInfo.audioBuffer.duration) * waveformCanvas.width;
+            const endX = (trimEnd / soundInfo.audioBuffer.duration) * waveformCanvas.width;
 
-        const decrementButton = document.createElement("span");
-        decrementButton.className = "slider-button-decrement";
-        decrementButton.textContent = "-";
-        sliderWrapper.appendChild(decrementButton);
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(0, 0, startX, waveformCanvas.height);
+            ctx.fillRect(endX, 0, waveformCanvas.width - endX, waveformCanvas.height);
+        };
 
-        const slider = document.createElement("input");
-        slider.type = "range";
-        slider.min = min;
-        slider.max = max;
-        slider.step = step;
-        slider.value = value;
-        slider.dataset.param = param;
-        sliderWrapper.appendChild(slider);
+        this.drawWaveformAndTrimLines();
 
-        const incrementButton = document.createElement("span");
-        incrementButton.className = "slider-button-increment";
-        incrementButton.textContent = "+";
-        sliderWrapper.appendChild(incrementButton);
+        const trimStart = soundSettings.trimStart ? soundSettings.trimStart * 1000 : 0;
+        const trimEnd = soundSettings.trimEnd ? soundSettings.trimEnd * 1000 : soundInfo.audioBuffer.duration * 1000;
 
-        sliderContainer.appendChild(sliderWrapper);
-
-        const valueDisplay = document.createElement("span");
-        if (param.toLowerCase().includes("frequency")) {
-            valueDisplay.textContent = `${value} Hz (${frequencyToNote(value)})`;
-        } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime"].includes(param)) {
-            valueDisplay.textContent = `${(value).toFixed(0)} ms`;
-        } else if (param.toLowerCase() === "volume") {
-            valueDisplay.textContent = `${value}%`;
-        } else {
-            valueDisplay.textContent = value;
-        }
-        sliderContainer.appendChild(valueDisplay);
-
-        slidersContainer.appendChild(sliderContainer);
-
-        const snapPoints = this.isNoteSnapping && param.toLowerCase().includes("frequency")
-            ? generateNoteFrequencies(min, max)
-            : null;
-
-        const sliderInstance = new Slider(slider, decrementButton, incrementButton, {
-            initialValue: value,
-            snapPoints: snapPoints,
-            onValueChange: (newValue) => {
-                this.updateSoundSetting(param, newValue);
-            }
-        });
-        this.sliders.push(sliderInstance);
+        this.createSlider(slidersContainer, "trimStart", 0, soundInfo.audioBuffer.duration * 1000, 1, trimStart);
+        this.createSlider(slidersContainer, "trimEnd", 0, soundInfo.audioBuffer.duration * 1000, 1, trimEnd);
+    } else {
+        this.createSlider(slidersContainer, "attack", 1, 2000, 1, (soundSettings.attack || 0.01) * 1000);
+        this.createSlider(slidersContainer, "decay", 1, 2000, 1, (soundSettings.decay || 0.1) * 1000);
+        this.createSlider(slidersContainer, "sustain", 1, 2000, 1, (soundSettings.sustain || 0.5) * 1000);
+        this.createSlider(slidersContainer, "release", 1, 2000, 1, (soundSettings.release || 0.2) * 1000);
     }
-
-    const createADSRSlider = (param, value) => {
-        const min = 1;
-        const max = 2000;
-        const step = 1;
-        createSlider(param, min, max, step, value * 1000);
-    }
-
-    createADSRSlider("attack", soundSettings.attack || 0.01);
-    createADSRSlider("decay", soundSettings.decay || 0.1);
-    createADSRSlider("sustain", soundSettings.sustain || 0.5);
-    createADSRSlider("release", soundSettings.release || 0.2);
 
     for (const param in soundSettings) {
-      if (typeof soundSettings[param] === "number" && !["attack", "decay", "sustain", "release"].includes(param)) {
+      if (typeof soundSettings[param] === "number" && !["attack", "decay", "sustain", "release", "trimStart", "trimEnd"].includes(param)) {
         const isTimeBased = param === 'pitchEnvelopeTime';
         const isVolume = param.toLowerCase() === 'volume';
         const min = param.toLowerCase().includes("frequency") ? 20 : (isTimeBased ? 1 : (isVolume ? 0 : 0.01));
         const max = param.toLowerCase().includes("frequency") ? 8000 : (isTimeBased ? 2000 : (isVolume ? 100 : 1));
         const step = param.toLowerCase().includes("frequency") ? 1 : (isTimeBased ? 1 : (isVolume ? 1 : 0.01));
         const value = isTimeBased ? soundSettings[param] * 1000 : (isVolume ? soundSettings[param] * 100 : soundSettings[param]);
-        createSlider(param, min, max, step, value);
+        this.createSlider(slidersContainer, param, min, max, step, value);
       }
     }
 

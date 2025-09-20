@@ -69,7 +69,7 @@ async function initialize() {
   }
 
   // 3. Load state from local storage or reset.
-  const stateLoaded = AppState.loadStateFromLocalStorage();
+  const stateLoaded = await AppState.loadStateFromLocalStorage();
   if (!stateLoaded) {
     AppState.resetState();
   }

@@ -97,7 +97,12 @@ function playBeatSound(track, beatTime) {
             gainNode.gain.setValueAtTime(finalVolume, audioContext.currentTime);
             source.connect(gainNode);
             gainNode.connect(destination);
-            source.start(beatTime);
+
+            const { trimStart, trimEnd } = soundObject.settings || {};
+            const offset = trimStart || 0;
+            const duration = (trimEnd || soundBuffer.duration) - offset;
+
+            source.start(beatTime, offset, duration > 0 ? duration : 0);
         }
     }
 }

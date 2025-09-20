@@ -1567,7 +1567,25 @@ button:active,
   justify-self: center;
   align-self: center;
 }
-/* Add to Metronominal_Website/style.css */
+
+
+.waveform-container {
+    position: relative;
+    width: 100%;
+    height: 100px;
+    margin-bottom: 15px;
+    border-radius: var(--BorderRadius);
+}
+
+.waveform-canvas {
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+        border-radius: var(--BorderRadius);
+}
+
+
+
 
 #share-btn {
   /* Basic styling, adjust to match your theme */

@@ -287,12 +287,12 @@ const AppState = (function () {
   const publicAPI = {
     // Persistence
     saveStateToLocalStorage: saveState,
-    loadStateFromLocalStorage: () => {
+    loadStateFromLocalStorage: async () => {
       try {
         const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
         if (savedState) {
           const parsedState = JSON.parse(savedState);
-          publicAPI.loadPresetData(parsedState);
+          await publicAPI.loadPresetData(parsedState);
           return true; // Indicates success
         }
         return false; // No saved state found

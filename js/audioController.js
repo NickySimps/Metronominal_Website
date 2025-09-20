@@ -109,7 +109,7 @@ const AudioController = {
         }
     },
 
-    playRecording: (recordingName) => {
+    playRecording: (recordingName, trimStart = 0, trimEnd = null) => {
         const audioContext = AppState.getAudioContext();
         const audioBuffer = AppState.getSoundBuffer(recordingName);
 
@@ -121,7 +121,11 @@ const AudioController = {
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(audioContext.destination);
-        source.start(0);
+
+        const offset = trimStart || 0;
+        const duration = (trimEnd || audioBuffer.duration) - offset;
+
+        source.start(0, offset, duration > 0 ? duration : 0);
     }
 };
 

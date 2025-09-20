@@ -69,6 +69,41 @@ const RecordingVisualizer = (function() {
             if (canvasCtx) {
                 canvasCtx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
             }
+        },
+        drawWaveform: (buffer, canvasElement, color) => {
+            const canvas = canvasElement;
+            const canvasCtx = canvas.getContext('2d');
+            const data = buffer.getChannelData(0);
+            const sliceWidth = canvas.width * 1.0 / data.length;
+            let x = 0;
+
+            canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+            canvasCtx.lineWidth = 2;
+            canvasCtx.strokeStyle = color || mainColor;
+            canvasCtx.beginPath();
+
+            let max = 0;
+            for (let i = 0; i < data.length; i++) {
+                if (Math.abs(data[i]) > max) {
+                    max = Math.abs(data[i]);
+                }
+            }
+
+            for (let i = 0; i < data.length; i++) {
+                const v = (data[i] / max + 1) / 2; //-Normalize to 0-1 range
+                const y = v * canvas.height;
+
+                if (i === 0) {
+                    canvasCtx.moveTo(x, y);
+                } else {
+                    canvasCtx.lineTo(x, y);
+                }
+
+                x += sliceWidth;
+            }
+
+            canvasCtx.lineTo(canvas.width, canvas.height / 2);
+            canvasCtx.stroke();
         }
     };
 })();
