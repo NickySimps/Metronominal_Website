@@ -27,6 +27,9 @@ const RecordingManager = {
         }
 
         modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
             if (event.target.classList.contains('delete-recording-btn')) {
                 const recordingName = event.target.dataset.recordingName;
                 AppState.deleteRecording(recordingName);

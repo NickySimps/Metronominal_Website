@@ -1064,7 +1064,7 @@ select {
 
   .top-controls-area button,
   .theme-controls button {
-    font-size: var(--font-1); /* Standardized font size */
+    /*font-size: var(--font-1); /* Standardized font size */
     padding: var(--s2) var(--s3); /* Standardized padding (4px 8px) */
     white-space: nowrap; /* Keep text on one line */
     text-align: center;
@@ -1472,6 +1472,7 @@ button:active,
   justify-content: space-between;
   align-items: center;
   margin-bottom: 15px;
+  flex-wrap: wrap;
 }
 
 #reset-sound-btn {
@@ -1533,6 +1534,7 @@ button:active,
 
 #sound-sliders-container {
   margin-top: 20px;
+  width: 95%;
 }
 
 .slider-container {
