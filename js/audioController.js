@@ -109,7 +109,7 @@ const AudioController = {
         }
     },
 
-    playRecording: (recordingName, trimStart = 0, trimEnd = null) => {
+    playRecording: (recordingName, soundSettings, trimStart = 0, trimEnd = null, playTime = 0, volume = 1.0, destination = null) => {
         const audioContext = AppState.getAudioContext();
         const audioBuffer = AppState.getSoundBuffer(recordingName);
 
@@ -120,12 +120,21 @@ const AudioController = {
 
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
+
+        // Apply pitch shift if available in soundSettings
+        if (soundSettings && typeof soundSettings.pitchShift === 'number') {
+            source.playbackRate.value = Math.pow(2, soundSettings.pitchShift / 12);
+        }
+
+        const gainNode = audioContext.createGain();
+        gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+        source.connect(gainNode);
+        gainNode.connect(destination || audioContext.destination);
 
         const offset = trimStart || 0;
         const duration = (trimEnd || audioBuffer.duration) - offset;
 
-        source.start(0, offset, duration > 0 ? duration : 0);
+        source.start(playTime, offset, duration > 0 ? duration : 0);
     }
 };
 

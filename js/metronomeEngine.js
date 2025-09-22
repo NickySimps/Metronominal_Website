@@ -10,6 +10,7 @@ import ThemeController from './themeController.js';
 import BarDisplayController from './barDisplayController.js';
 import SoundSynth from './soundSynth.js';
 import { sendState } from './webrtc.js';
+import AudioController from './audioController.js';
 
 let animationFrameId = null; // Holds the requestAnimationFrame ID for the scheduler loop
 let intervalId = null; // Holds the setInterval ID for the scheduler loop
@@ -88,22 +89,9 @@ function playBeatSound(track, beatTime) {
             console.warn(`Synth function ${synthFunctionName} not found in SoundSynth.`);
         }
     } else {
-        // Fallback to file-based or recorded sounds
-        const soundBuffer = AppState.getSoundBuffer(soundToPlay);
-        if (soundBuffer) {
-            const source = audioContext.createBufferSource();
-            source.buffer = soundBuffer;
-            const gainNode = audioContext.createGain();
-            gainNode.gain.setValueAtTime(finalVolume, audioContext.currentTime);
-            source.connect(gainNode);
-            gainNode.connect(destination);
-
-            const { trimStart, trimEnd } = soundObject.settings || {};
-            const offset = trimStart || 0;
-            const duration = (trimEnd || soundBuffer.duration) - offset;
-
-            source.start(beatTime, offset, duration > 0 ? duration : 0);
-        }
+        // Play file-based or recorded sounds using AudioController
+        const { trimStart, trimEnd, pitchShift } = soundObject.settings || {};
+        AudioController.playRecording(soundToPlay, soundObject.settings, trimStart, trimEnd, beatTime, finalVolume, destination);
     }
 }
 

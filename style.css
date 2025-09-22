@@ -1473,6 +1473,10 @@ button:active,
   align-items: center;
   margin-bottom: 15px;
   flex-wrap: wrap;
+
+  h2{
+    width: 100%;
+  }
 }
 
 #reset-sound-btn {
@@ -1680,6 +1684,11 @@ button:active,
   flex-direction: row;
   align-items: center;
   justify-content: space-around;
+  flex-wrap: wrap;
+}
+.recording-item span{
+  width: 50%;
+  padding-bottom: var(--s3);
 }
 .rest-button.active,
 .record-btn.active {

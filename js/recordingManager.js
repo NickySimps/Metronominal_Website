@@ -37,7 +37,7 @@ const RecordingManager = {
                 TrackController.renderTracks();
             } else if (event.target.classList.contains('play-recording-btn')) {
                 const recordingName = event.target.dataset.recordingName;
-                AudioController.playRecording(recordingName);
+                AudioController.playRecording(recordingName, {});
             } else if (event.target.classList.contains('rename-recording-btn')) {
                 const oldName = event.target.dataset.recordingName;
                 const recordingItem = event.target.closest('.recording-item');

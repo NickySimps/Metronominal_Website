@@ -41,9 +41,21 @@ const SoundSettingsModal = {
   resetSoundSettings() {
     const track = AppState.getTracks()[this.currentTrackIndex];
     const soundInfo = track[this.currentSoundType];
-    const defaultSettings = AppState.getDefaultSoundSettings(soundInfo.sound);
 
-    const newSettings = JSON.parse(JSON.stringify(defaultSettings));
+    let newSettings = {};
+
+    // Check if it's a recorded sound (has audioBuffer attached for modal display)
+    if (soundInfo.audioBuffer) {
+        newSettings = {
+            trimStart: 0,
+            trimEnd: soundInfo.audioBuffer.duration,
+            pitchShift: 0,
+        };
+    } else {
+        // For synth sounds, get default settings from AppState
+        const defaultSettings = AppState.getDefaultSoundSettings(soundInfo.sound);
+        newSettings = JSON.parse(JSON.stringify(defaultSettings));
+    }
 
     soundInfo.settings = newSettings;
 
@@ -69,6 +81,8 @@ const SoundSettingsModal = {
         valueToSave = value / 1000;
     } else if (param.toLowerCase() === "volume") {
         valueToSave = value / 100;
+    } else if (param === "pitchShift") {
+        valueToSave = value;
     }
 
     const track = AppState.getTracks()[this.currentTrackIndex];
@@ -88,7 +102,7 @@ const SoundSettingsModal = {
 
     if (["trimStart", "trimEnd"].includes(param)) {
         if (this.drawWaveformAndTrimLines) {
-            this.drawWaveformAndTrimLines();
+            this.drawWaveformAndTrimLines(soundInfo.audioBuffer);
         }
     }
 
@@ -156,6 +170,8 @@ const SoundSettingsModal = {
         valueDisplay.textContent = `${value.toFixed(0)} ms`;
     } else if (param.toLowerCase() === "volume") {
         valueDisplay.textContent = `${value}%`;
+    } else if (param === "pitchShift") {
+        valueDisplay.textContent = `${value} semitones`;
     } else {
         valueDisplay.textContent = value;
     }    sliderContainer.appendChild(valueDisplay);
@@ -184,10 +200,12 @@ const SoundSettingsModal = {
     const soundInfo = track[soundType];
     const soundSettings = soundInfo.settings;
 
+    const oscilloscopeCanvas = DOM.soundSettingsModal.querySelector(".oscilloscope-canvas");
+
     // Check if it's a recorded sound and retrieve its audioBuffer
     if (!soundInfo.sound.startsWith("Synth ")) { // Assuming recorded sounds don't start with "Synth "
         const recordedAudioBuffer = AppState.getSoundBuffer(soundInfo.sound);
-        if (recordedAudioBuffer) {
+        if (recordedAudioBuffer instanceof AudioBuffer) {
             soundInfo.audioBuffer = recordedAudioBuffer; // Temporarily attach audioBuffer for modal's use
         }
     }
@@ -199,7 +217,8 @@ const SoundSettingsModal = {
     }
 
     if (!soundSettings) {
-      return;
+      soundInfo.settings = {}; // Initialize if null/undefined
+      soundSettings = soundInfo.settings;
     }
 
     const slidersContainer = DOM.soundSettingsModal.querySelector(
@@ -208,7 +227,7 @@ const SoundSettingsModal = {
     slidersContainer.innerHTML = "";
     this.sliders = [];
 
-    if (soundInfo.audioBuffer) {
+    if (soundInfo.audioBuffer instanceof AudioBuffer) {
         const waveformContainer = document.createElement("div");
         waveformContainer.className = "waveform-container";
         const waveformCanvas = document.createElement("canvas");
@@ -218,27 +237,29 @@ const SoundSettingsModal = {
 
         const mainColor = getComputedStyle(document.documentElement).getPropertyValue("--Main").trim();
 
-        this.drawWaveformAndTrimLines = () => {
-            RecordingVisualizer.drawWaveform(soundInfo.audioBuffer, waveformCanvas, mainColor);
+        this.drawWaveformAndTrimLines = (buffer) => {
+            RecordingVisualizer.drawWaveform(buffer, waveformCanvas, mainColor);
             const ctx = waveformCanvas.getContext('2d');
             const trimStart = (soundSettings.trimStart || 0);
-            const trimEnd = (soundSettings.trimEnd || soundInfo.audioBuffer.duration);
-            const startX = (trimStart / soundInfo.audioBuffer.duration) * waveformCanvas.width;
-            const endX = (trimEnd / soundInfo.audioBuffer.duration) * waveformCanvas.width;
+            const trimEnd = (soundSettings.trimEnd || buffer.duration);
+            const startX = (trimStart / buffer.duration) * waveformCanvas.width;
+            const endX = (trimEnd / buffer.duration) * waveformCanvas.width;
 
             ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
             ctx.fillRect(0, 0, startX, waveformCanvas.height);
             ctx.fillRect(endX, 0, waveformCanvas.width - endX, waveformCanvas.height);
         };
 
-        this.drawWaveformAndTrimLines();
+        this.drawWaveformAndTrimLines(soundInfo.audioBuffer);
 
         const trimStart = soundSettings.trimStart ? soundSettings.trimStart * 1000 : 0;
         const trimEnd = soundSettings.trimEnd ? soundSettings.trimEnd * 1000 : soundInfo.audioBuffer.duration * 1000;
 
         this.createSlider(slidersContainer, "trimStart", 0, soundInfo.audioBuffer.duration * 1000, 1, trimStart);
         this.createSlider(slidersContainer, "trimEnd", 0, soundInfo.audioBuffer.duration * 1000, 1, trimEnd);
+        this.createSlider(slidersContainer, "pitchShift", -48, 48, 1, (soundSettings.pitchShift || 0));
     } else {
+        oscilloscopeCanvas.style.display = 'block';
         this.createSlider(slidersContainer, "attack", 1, 2000, 1, (soundSettings.attack || 0.01) * 1000);
         this.createSlider(slidersContainer, "decay", 1, 2000, 1, (soundSettings.decay || 0.1) * 1000);
         this.createSlider(slidersContainer, "sustain", 1, 2000, 1, (soundSettings.sustain || 0.5) * 1000);
@@ -246,7 +267,7 @@ const SoundSettingsModal = {
     }
 
     for (const param in soundSettings) {
-      if (typeof soundSettings[param] === "number" && !["attack", "decay", "sustain", "release", "trimStart", "trimEnd"].includes(param)) {
+      if (typeof soundSettings[param] === "number" && !["attack", "decay", "sustain", "release", "trimStart", "trimEnd", "pitchShift"].includes(param)) {
         const isTimeBased = param === 'pitchEnvelopeTime';
         const isVolume = param.toLowerCase() === 'volume';
         const min = param.toLowerCase().includes("frequency") ? 20 : (isTimeBased ? 1 : (isVolume ? 0 : 0.01));

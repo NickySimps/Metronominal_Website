@@ -79,8 +79,15 @@ async function audioBufferToWav(audioBuffer) {
  * @returns {Promise<AudioBuffer>} A Promise that resolves with the decoded AudioBuffer.
  */
 async function wavToArrayBuffer(wavBuffer, audioContext) {
+    if (!audioContext || audioContext.state === 'closed') {
+        console.error("AudioContext is not valid or closed. Cannot decode audio data.");
+        return null; // Return null or throw an error as appropriate
+    }
     return new Promise((resolve, reject) => {
-        audioContext.decodeAudioData(wavBuffer, resolve, reject);
+        audioContext.decodeAudioData(wavBuffer, resolve, (e) => {
+            console.error("Error decoding audio data:", e);
+            reject(e);
+        });
     });
 }
 
