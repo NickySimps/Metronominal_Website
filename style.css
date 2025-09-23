@@ -1498,7 +1498,7 @@ button:active,
   background-color: var(--Alt2);
 }
 
-#note-snap-btn {
+#note-snap-btn, #quantize-btn {
   background-color: var(--Main); /* Red */
   color: var(--Background);
   border: none;
@@ -1513,12 +1513,12 @@ button:active,
   transition-duration: 0.4s;
 }
 
-#note-snap-btn:hover {
+#note-snap-btn:hover, #quantize-btn:hover {
   background-color: var(--Accent);
   color: var(--TextOnMain);
 }
 
-#note-snap-btn.active {
+#note-snap-btn.active, #quantize-btn.active {
   background-color: var(--Alt2);
 }
 
@@ -1685,6 +1685,9 @@ button:active,
   align-items: center;
   justify-content: space-around;
   flex-wrap: wrap;
+}
+.recording-item button{
+  width: 25%;
 }
 .recording-item span{
   width: 50%;

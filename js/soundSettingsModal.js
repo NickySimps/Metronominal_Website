@@ -5,11 +5,12 @@ import RecordingVisualizer from './recordingVisualizer.js';
 import Oscilloscope from "./oscilloscope.js";
 
 
-import { frequencyToNote, noteToFrequency, noteStrings, generateNoteFrequencies } from "./utils.js";
+import { frequencyToNote, noteToFrequency, noteStrings, generateNoteFrequencies, semitonesToInterval } from "./utils.js";
 import { Slider } from './slider.js';
 
 const SoundSettingsModal = {
   isNoteSnapping: false,
+  isQuantizing: false,
   sliders: [],
 
   init() {
@@ -35,6 +36,10 @@ const SoundSettingsModal = {
                 slider.updateSnapPoints(snapPoints);
             }
         });
+    });
+    DOM.soundSettingsModal.querySelector("#quantize-btn").addEventListener("click", (e) => {
+        this.isQuantizing = !this.isQuantizing;
+        e.target.classList.toggle("active", this.isQuantizing);
     });
   },
 
@@ -117,7 +122,7 @@ const SoundSettingsModal = {
         } else if (param.toLowerCase() === "volume") {
             valueDisplay.textContent = `${slider.value}%`;
         } else {
-            valueDisplay.textContent = slider.value;
+            valueDisplay.textContent = `${slider.value} semitones (${semitonesToInterval(slider.value)})`;
         }
     }
 
@@ -171,7 +176,7 @@ const SoundSettingsModal = {
     } else if (param.toLowerCase() === "volume") {
         valueDisplay.textContent = `${value}%`;
     } else if (param === "pitchShift") {
-        valueDisplay.textContent = `${value} semitones`;
+        valueDisplay.textContent = `${value} semitones (${semitonesToInterval(value)})`;
     } else {
         valueDisplay.textContent = value;
     }    sliderContainer.appendChild(valueDisplay);
@@ -187,6 +192,47 @@ const SoundSettingsModal = {
         snapPoints: snapPoints,
         onValueChange: (newValue) => {
             this.updateSoundSetting(param, newValue);
+        },
+        onIncrement: (currentValue) => {
+            if (this.isQuantizing && param === "pitchShift") {
+                const quantizeSteps = [-48, -43, -36, -31, -24, -19, -12, -7, 0, 7, 12, 19, 24, 31, 36, 43, 48];
+                let nextValue = currentValue;
+                let found = false;
+                for (const step of quantizeSteps) {
+                    if (step > currentValue) {
+                        nextValue = step;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) { // If currentValue is already at or past the max quantized step
+                    nextValue = 48; // Cap at max
+                }
+                return nextValue;
+            } else {
+                return currentValue + step;
+            }
+        },
+        onDecrement: (currentValue) => {
+            if (this.isQuantizing && param === "pitchShift") {
+                const quantizeSteps = [-48, -43, -36, -31, -24, -19, -12, -7, 0, 7, 12, 19, 24, 31, 36, 43, 48];
+                let nextValue = currentValue;
+                let found = false;
+                for (let i = quantizeSteps.length - 1; i >= 0; i--) {
+                    const step = quantizeSteps[i];
+                    if (step < currentValue) {
+                        nextValue = step;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) { // If currentValue is already at or before the min quantized step
+                    nextValue = -48; // Cap at min
+                }
+                return nextValue;
+            } else {
+                return currentValue - step;
+            }
         }
     });
     this.sliders.push(sliderInstance);
@@ -211,6 +257,9 @@ const SoundSettingsModal = {
     }
 
     const modalTitle = DOM.soundSettingsModal.querySelector(".modal-header h2");
+    const noteSnapBtn = DOM.soundSettingsModal.querySelector("#note-snap-btn");
+    const quantizeBtn = DOM.soundSettingsModal.querySelector("#quantize-btn");
+
     if (modalTitle) {
       const soundName = soundInfo.sound.replace("Synth ", "");
       modalTitle.textContent = `Editing: ${soundName}`;
@@ -221,19 +270,23 @@ const SoundSettingsModal = {
       soundSettings = soundInfo.settings;
     }
 
-    const slidersContainer = DOM.soundSettingsModal.querySelector(
-      "#sound-sliders-container"
-    );
+    const slidersContainer = DOM.soundSettingsModal.querySelector("#sound-sliders-container");
     slidersContainer.innerHTML = "";
     this.sliders = [];
 
     if (soundInfo.audioBuffer instanceof AudioBuffer) {
+        // Recorded sound
+        noteSnapBtn.style.display = 'none';
+        quantizeBtn.style.display = 'inline-block';
+        this.isQuantizing = quantizeBtn.classList.contains('active');
+        this.isNoteSnapping = false; // Ensure note snapping is off for recorded sounds
+
         const waveformContainer = document.createElement("div");
         waveformContainer.className = "waveform-container";
         const waveformCanvas = document.createElement("canvas");
         waveformCanvas.className = "waveform-canvas";
         waveformContainer.appendChild(waveformCanvas);
-        slidersContainer.appendChild(waveformContainer);
+        slidersContainer.appendChild(waveformCanvas);
 
         const mainColor = getComputedStyle(document.documentElement).getPropertyValue("--Main").trim();
 
@@ -259,6 +312,12 @@ const SoundSettingsModal = {
         this.createSlider(slidersContainer, "trimEnd", 0, soundInfo.audioBuffer.duration * 1000, 1, trimEnd);
         this.createSlider(slidersContainer, "pitchShift", -48, 48, 1, (soundSettings.pitchShift || 0));
     } else {
+        // Synth sound
+        noteSnapBtn.style.display = 'inline-block';
+        quantizeBtn.style.display = 'none';
+        this.isNoteSnapping = noteSnapBtn.classList.contains('active');
+        this.isQuantizing = false; // Ensure quantization is off for synth sounds
+
         oscilloscopeCanvas.style.display = 'block';
         this.createSlider(slidersContainer, "attack", 1, 2000, 1, (soundSettings.attack || 0.01) * 1000);
         this.createSlider(slidersContainer, "decay", 1, 2000, 1, (soundSettings.decay || 0.1) * 1000);

@@ -1,12 +1,14 @@
 
 export class Slider {
-    constructor(sliderElement, decrementButton, incrementButton, { onValueChange, snapPoints, initialValue }) {
+    constructor(sliderElement, decrementButton, incrementButton, { onValueChange, snapPoints, initialValue, onIncrement, onDecrement }) {
         this.sliderElement = sliderElement;
         this.decrementButton = decrementButton;
         this.incrementButton = incrementButton;
         this.onValueChange = onValueChange;
         this.snapPoints = snapPoints;
         this.value = initialValue;
+        this.onIncrementCallback = onIncrement;
+        this.onDecrementCallback = onDecrement;
 
         this.sliderElement.value = this.value;
 
@@ -34,19 +36,27 @@ export class Slider {
     }
 
     decrement() {
-        if (this.snapPoints && this.snapPoints.length > 0) {
-            this.setValue(this.getPreviousSnapPoint());
+        let newValue;
+        if (this.onDecrementCallback) {
+            newValue = this.onDecrementCallback(this.value);
+        } else if (this.snapPoints && this.snapPoints.length > 0) {
+            newValue = this.getPreviousSnapPoint();
         } else {
-            this.setValue(this.value - 1);
+            newValue = this.value - 1;
         }
+        this.setValue(newValue);
     }
 
     increment() {
-        if (this.snapPoints && this.snapPoints.length > 0) {
-            this.setValue(this.getNextSnapPoint());
+        let newValue;
+        if (this.onIncrementCallback) {
+            newValue = this.onIncrementCallback(this.value);
+        } else if (this.snapPoints && this.snapPoints.length > 0) {
+            newValue = this.getNextSnapPoint();
         } else {
-            this.setValue(this.value + 1);
+            newValue = this.value + 1;
         }
+        this.setValue(newValue);
     }
 
     getNextSnapPoint() {
