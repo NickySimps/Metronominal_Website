@@ -829,7 +829,17 @@ const AppState = (function () {
 
           // Restore playback state if playing and track exists in previous state
           if (wasPlayingBeforeLoad && currentPlaybackState[index]) {
-            track.currentBar = currentPlaybackState[index].currentBar;
+            // Ensure currentBar is within the bounds of the NEW barSettings
+            let restoredBar = currentPlaybackState[index].currentBar;
+            if (track.barSettings.length > 0) {
+                if (restoredBar >= track.barSettings.length) {
+                    restoredBar = 0; // Reset to start if out of bounds (or could clamp to length-1)
+                }
+            } else {
+                restoredBar = 0;
+            }
+            
+            track.currentBar = restoredBar;
             track.currentBeat = currentPlaybackState[index].currentBeat;
             track.nextBeatTime = currentPlaybackState[index].nextBeatTime;
           }

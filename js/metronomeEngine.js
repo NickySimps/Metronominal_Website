@@ -61,6 +61,11 @@ function playBeatSound(track, beatTime) {
 
     const currentBarData = track.barSettings[track.currentBar];
 
+    if (!currentBarData) {
+        // Defensive check: Track state might be invalid (e.g. currentBar out of bounds)
+        return;
+    }
+
     // Check for rests
     if (currentBarData.rests && currentBarData.rests.includes(track.currentBeat)) {
         return; // Skip playing the sound for rested beats
