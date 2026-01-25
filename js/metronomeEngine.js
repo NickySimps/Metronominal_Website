@@ -12,34 +12,38 @@ import SoundSynth from './soundSynth.js';
 import { sendState } from './webrtc.js';
 import AudioController from './audioController.js';
 
-let animationFrameId = null; // Holds the requestAnimationFrame ID for the scheduler loop
-let intervalId = null; // Holds the setInterval ID for the scheduler loop
+let metronomeWorker = new Worker('js/metronomeWorker.js');
+let drawFrameId = null; // Holds the requestAnimationFrame ID for the visual loop
 let isPageVisible = true;
+let visualQueue = []; // Queue for visual events
+
+metronomeWorker.onmessage = function(e) {
+    if (e.data === "tick") {
+        scheduler();
+    }
+};
 
 document.addEventListener('visibilitychange', () => {
     isPageVisible = document.visibilityState === 'visible';
     if (AppState.isPlaying()) {
         if (isPageVisible) {
-            if (intervalId) {
-                clearInterval(intervalId);
-                intervalId = null;
-            }
-            if (!animationFrameId) {
-                scheduler();
+            // Page became visible: Start drawing loop
+            if (!drawFrameId) {
+                draw();
             }
         } else {
             // Page is not visible
             if (!AppState.isWakeLockEnabled()) {
-                // If wake lock is not enabled, stop the metronome
+                // If wake lock is not enabled, stop the metronome completely
                 MetronomeEngine.togglePlay();
             } else {
-                // Otherwise, switch to setInterval
-                if (animationFrameId) {
-                    cancelAnimationFrame(animationFrameId);
-                    animationFrameId = null;
-                }
-                if (!intervalId) {
-                    intervalId = setInterval(scheduler, 25);
+                // If wake lock IS enabled, we do nothing.
+                // The worker keeps ticking, scheduler keeps running (on main thread), audio keeps playing.
+                // We just stop the visual loop (handled below by draw() checking isPageVisible, 
+                // or we can explicitly cancel it here to be cleaner).
+                if (drawFrameId) {
+                    cancelAnimationFrame(drawFrameId);
+                    drawFrameId = null;
                 }
             }
         }
@@ -113,12 +117,13 @@ function advanceTrackBeat(track) {
 }
 
 function scheduler() {
+    // If we managed to get a tick while stopped (race condition), ignore it.
     if (!AppState.isPlaying()) {
-        performEngineStopActions();
         return;
     }
 
-    // If page is not visible and wake lock is not enabled, stop metronome
+    // Double check visibility/wakelock in case the visibility event fired 
+    // but a tick was already queued.
     if (!isPageVisible && !AppState.isWakeLockEnabled()) {
         MetronomeEngine.togglePlay();
         return;
@@ -145,39 +150,52 @@ function scheduler() {
 
             while (track.nextBeatTime < audioContext.currentTime + AppState.SCHEDULE_AHEAD_TIME) {
                 playBeatSound(track, track.nextBeatTime);
-                if (isPageVisible) {
-                    const scheduledBeatInfo = {
-                        trackIndex,
-                        bar: track.currentBar,
-                        beat: track.currentBeat
-                    };
-                    setTimeout(() => {
-                        if(AppState.isPlaying()){
-                            BarDisplayController.updateBeatHighlight(scheduledBeatInfo.trackIndex, scheduledBeatInfo.bar, scheduledBeatInfo.beat, true);
-                        }
-                    }, (track.nextBeatTime - audioContext.currentTime) * 1000);
-                }
+                
+                // Push visual event to queue
+                visualQueue.push({
+                    time: track.nextBeatTime,
+                    trackIndex,
+                    bar: track.currentBar,
+                    beat: track.currentBeat
+                });
                 
                 advanceTrackBeat(track);
                 track.nextBeatTime += secondsPerSubBeat;
             }
         });
     }
+}
 
-    if (isPageVisible) {
-        animationFrameId = requestAnimationFrame(scheduler);
+function draw() {
+    if (!AppState.isPlaying() || !isPageVisible) {
+        drawFrameId = null;
+        return;
     }
+
+    const audioContext = AppState.getAudioContext();
+    const currentTime = audioContext.currentTime;
+
+    while (visualQueue.length && visualQueue[0].time <= currentTime) {
+        const event = visualQueue.shift();
+        
+        // Skip events that are too old (e.g., > 100ms lag) to prevent strobe effect on resume
+        if (currentTime - event.time < 0.1) {
+             BarDisplayController.updateBeatHighlight(event.trackIndex, event.bar, event.beat, true);
+        }
+    }
+
+    drawFrameId = requestAnimationFrame(draw);
 }
 
 function performEngineStopActions() {
-    if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-        animationFrameId = null;
+    metronomeWorker.postMessage("stop");
+    
+    if (drawFrameId) {
+        cancelAnimationFrame(drawFrameId);
+        drawFrameId = null;
     }
-    if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
-    }
+    visualQueue = []; // Clear the visual queue
+
     if (DOM.startStopBtn) {
         DOM.startStopBtn.textContent = "▶";
         DOM.startStopBtn.classList.remove('active');
@@ -206,13 +224,11 @@ const MetronomeEngine = {
                 BarDisplayController.clearAllHighlights();
             }
 
+            metronomeWorker.postMessage("start");
+            
             if (isPageVisible) {
-                if (!animationFrameId) {
-                    scheduler();
-                }
-            } else {
-                if (!intervalId) {
-                    intervalId = setInterval(scheduler, 25);
+                if (!drawFrameId) {
+                    draw();
                 }
             }
         } else {
@@ -222,7 +238,7 @@ const MetronomeEngine = {
     },
 
     isPlaying: () => {
-        return animationFrameId !== null || intervalId !== null;
+        return AppState.isPlaying();
     }
 };
 

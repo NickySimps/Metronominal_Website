@@ -113,10 +113,15 @@ const SoundSettingsModal = {
 
     const slider = DOM.soundSettingsModal.querySelector(`[data-param="${param}"]`);
     if (slider) {
-        slider.value = value;
+        let displayValue = value;
+        if (this.isNoteSnapping && param.toLowerCase().includes("frequency")) {
+            displayValue = valueToSave;
+        }
+        slider.value = displayValue;
+
         const valueDisplay = slider.parentElement.nextElementSibling;
         if (param.toLowerCase().includes("frequency")) {
-            valueDisplay.textContent = `${slider.value} Hz (${frequencyToNote(slider.value)})`;
+            valueDisplay.textContent = `${parseFloat(slider.value).toFixed(2)} Hz (${frequencyToNote(slider.value)})`;
         } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd"].includes(param)) {
             valueDisplay.textContent = `${slider.value} ms`;
         } else if (param.toLowerCase() === "volume") {
