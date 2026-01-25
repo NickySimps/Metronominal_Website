@@ -9,7 +9,7 @@ import DOM from './domSelectors.js';
 import ThemeController from './themeController.js';
 import BarDisplayController from './barDisplayController.js';
 import SoundSynth from './soundSynth.js';
-import { sendState } from './webrtc.js';
+import { sendState, broadcastScheduledPlay, broadcastStop } from './webrtc.js';
 import AudioController from './audioController.js';
 
 let metronomeWorker = new Worker('js/metronomeWorker.js');
@@ -208,9 +208,36 @@ function performEngineStopActions() {
 }
 
 const MetronomeEngine = {
-    togglePlay: async () => {
+    /**
+     * Toggles playback.
+     * @param {boolean} forceStop - If true, ensures playback stops regardless of current state.
+     */
+    togglePlay: async (forceStop = false) => {
         const wasPlayingBeforeToggle = AppState.isPlaying();
+        
+        // Handle Host Scheduling
+        if (window.isHost && !forceStop) {
+            if (!wasPlayingBeforeToggle) {
+                // Starting
+                const scheduledTime = Date.now() + 200; // Schedule 200ms in future
+                broadcastScheduledPlay(scheduledTime);
+                MetronomeEngine.scheduleStart(scheduledTime);
+                return true;
+            } else {
+                // Stopping
+                broadcastStop();
+            }
+        }
+
+        // Standard Toggle Logic (or Client Logic)
         const isNowPlaying = await AppState.togglePlay();
+
+        // If forceStop is true and we are still playing, toggle again to stop
+        if (forceStop && isNowPlaying) {
+             await AppState.togglePlay();
+             performEngineStopActions();
+             return false;
+        }
 
         sendState(AppState.getCurrentStateForPreset());
 
@@ -237,9 +264,52 @@ const MetronomeEngine = {
         return isNowPlaying;
     },
 
+    scheduleStart: async (targetTimestamp) => {
+        const audioContext = AppState.getAudioContext();
+        if (audioContext && audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+
+        if (AppState.isPlaying()) return; // Already playing
+
+        // Manually start AppState logic without toggling (since we are setting specific times)
+        // Or we can use togglePlay logic but override the nextBeatTime.
+        // Let's manually set it to be precise.
+        
+        // 1. Set playing state
+        // We can use a trick: call AppState.togglePlay(), then immediately overwrite nextBeatTime
+        const isPlaying = await AppState.togglePlay();
+        if (!isPlaying) return; // Exit if AppState refused to play (e.g. no tracks)
+
+        // 2. Calculate delay until target time
+        const now = Date.now();
+        const delaySeconds = (targetTimestamp - now) / 1000;
+        const startAudioTime = audioContext.currentTime + Math.max(0, delaySeconds);
+
+        // 3. Overwrite nextBeatTime for all tracks
+        const allTracks = AppState.getTracks();
+        allTracks.forEach(track => {
+            track.currentBar = 0;
+            track.currentBeat = 0;
+            track.nextBeatTime = startAudioTime;
+        });
+
+        // 4. Update UI
+        if (DOM.startStopBtn) {
+            DOM.startStopBtn.textContent = "■";
+            DOM.startStopBtn.classList.add('active');
+        }
+        BarDisplayController.clearAllHighlights();
+
+        // 5. Start Engine
+        metronomeWorker.postMessage("start");
+        if (isPageVisible && !drawFrameId) {
+            draw();
+        }
+    },
+
     isPlaying: () => {
         return AppState.isPlaying();
     }
 };
-
 export default MetronomeEngine;

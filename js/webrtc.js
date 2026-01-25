@@ -181,6 +181,22 @@ function sendFullState() {
   }
 }
 
+let timeOffset = 0; // HostTime - ClientTime
+let syncInterval = null;
+
+function syncTimeWithHost(peerId) {
+    if (window.isHost) return;
+    
+    const t0 = Date.now();
+    const dataChannel = dataChannels[peerId];
+    if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify({
+            type: 'time-sync',
+            t0: t0
+        }));
+    }
+}
+
 function setupDataChannelEvents(peerId) {
   const dataChannel = dataChannels[peerId];
   if (!dataChannel) return;
@@ -190,6 +206,12 @@ function setupDataChannelEvents(peerId) {
     updateClientCount();
     if (window.isHost) {
       sendState(AppState.getCurrentStateForPreset());
+    } else {
+        // Start time sync
+        syncTimeWithHost(peerId);
+        // Periodically re-sync to account for drift
+        if(syncInterval) clearInterval(syncInterval);
+        syncInterval = setInterval(() => syncTimeWithHost(peerId), 5000);
     }
   };
 
@@ -197,10 +219,11 @@ function setupDataChannelEvents(peerId) {
     console.log("Data channel closed for peer:", peerId);
     delete dataChannels[peerId];
     updateClientCount();
+    if (syncInterval) clearInterval(syncInterval);
   };
 
   dataChannel.onmessage = (event) => {
-    console.log("Received data from peer:", peerId);
+    // console.log("Received data from peer:", peerId);
     const data = JSON.parse(event.data);
 
     // Handle host disconnect message
@@ -220,6 +243,60 @@ function setupDataChannelEvents(peerId) {
       return;
     }
 
+    if (data.type === 'time-sync') {
+        // Host responds to ping
+        if (window.isHost) {
+            dataChannel.send(JSON.stringify({
+                type: 'time-sync-response',
+                t0: data.t0,
+                t1: Date.now()
+            }));
+        }
+        return;
+    }
+
+    if (data.type === 'time-sync-response') {
+        // Client receives pong
+        if (!window.isHost) {
+            const t3 = Date.now();
+            const t0 = data.t0;
+            const t1 = data.t1;
+            const rtt = t3 - t0;
+            // NTP offset calculation: offset = ((t1 - t0) + (t1 - t3)) / 2  ... simplified to t1 - t0 - rtt/2 isn't quite right for one-way. 
+            // Standard NTP: offset = ((receiveTime - origTime) + (transmitTime - destTime)) / 2
+            // Here: HostTime ~= ClientTime + offset
+            // t1 is Host Receive Time (approx Transmit Time). 
+            // offset = t1 - (t0 + rtt / 2);
+            const newOffset = t1 - (t0 + rtt / 2);
+            // Simple smoothing could be added here
+            timeOffset = newOffset;
+            // console.log(`Time sync: RTT=${rtt}ms, Offset=${timeOffset}ms`);
+        }
+        return;
+    }
+
+    if (data.type === 'play-scheduled') {
+        // Handle scheduled start
+        if (!window.isHost) {
+            const hostScheduledTime = data.scheduledStartTime;
+            const now = Date.now();
+            const clientTargetTime = hostScheduledTime - timeOffset;
+            const delay = clientTargetTime - now;
+
+            console.log(`Scheduled Start: Host=${hostScheduledTime}, ClientTarget=${clientTargetTime}, Delay=${delay}ms`);
+
+            MetronomeEngine.scheduleStart(clientTargetTime);
+        }
+        return;
+    }
+    
+    if (data.type === 'stop-sync') {
+        if (!window.isHost) {
+             MetronomeEngine.togglePlay(true); // Force stop
+        }
+        return;
+    }
+
     // Handle normal state updates
     const wasPlayingOnClient = AppState.isPlaying();
     const shouldBePlaying = data.isPlaying || false;
@@ -235,12 +312,42 @@ function setupDataChannelEvents(peerId) {
     // If the host is playing and the client was not, start the client.
     // If the host is not playing and the client was, stop the client.
     if (shouldBePlaying && !wasPlayingOnClient) {
-      MetronomeEngine.togglePlay(); // This will start the metronome
+      // MetronomeEngine.togglePlay(); // Replaced by play-scheduled usually, but keep as fallback?
     } else if (!shouldBePlaying && wasPlayingOnClient) {
       MetronomeEngine.togglePlay(); // This will stop the metronome
     }
   };
 }
+
+export function getTimeOffset() {
+    return timeOffset;
+}
+
+export function broadcastScheduledPlay(scheduledStartTime) {
+    if (window.isHost) {
+        Object.values(dataChannels).forEach(channel => {
+            if (channel.readyState === 'open') {
+                channel.send(JSON.stringify({
+                    type: 'play-scheduled',
+                    scheduledStartTime: scheduledStartTime
+                }));
+            }
+        });
+    }
+}
+
+export function broadcastStop() {
+    if (window.isHost) {
+        Object.values(dataChannels).forEach(channel => {
+            if (channel.readyState === 'open') {
+                channel.send(JSON.stringify({
+                    type: 'stop-sync'
+                }));
+            }
+        });
+    }
+}
+
 
 export function sendState(state) {
   if (window.isHost) {
