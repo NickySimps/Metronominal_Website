@@ -9,7 +9,7 @@ import DOM from './domSelectors.js';
 import ThemeController from './themeController.js';
 import BarDisplayController from './barDisplayController.js';
 import SoundSynth from './soundSynth.js';
-import { sendState, broadcastScheduledPlay, broadcastStop } from './webrtc.js';
+import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync } from './webrtc.js';
 import AudioController from './audioController.js';
 
 let metronomeWorker = new Worker('js/metronomeWorker.js');
@@ -232,9 +232,19 @@ const MetronomeEngine = {
                 // Stopping
                 broadcastStop();
             }
+        } else if (!window.isHost && !forceStop && !wasPlayingBeforeToggle) {
+            // Client Starting: Request Sync if connected
+            // Check connection count or similar (checking logic can be delegated to webrtc, but we just call requestSync)
+            // If the request succeeds (host exists), we wait.
+            // If request fails (offline), we proceed? 
+            // For now, assume if !isHost, we try sync.
+            const syncRequested = requestPlaybackSync();
+            if (syncRequested) {
+                return false; // Wait for response
+            }
         }
 
-        // Standard Toggle Logic (or Client Logic)
+        // Standard Toggle Logic (or Client Offline/Stop Logic)
         const isNowPlaying = await AppState.togglePlay();
 
         // If forceStop is true and we are still playing, toggle again to stop
@@ -269,7 +279,7 @@ const MetronomeEngine = {
         return isNowPlaying;
     },
 
-    scheduleStart: async (targetTimestamp) => {
+    scheduleStart: async (targetTimestamp, startBar = 0, startBeat = 0) => {
         const audioContext = AppState.getAudioContext();
         if (audioContext && audioContext.state === 'suspended') {
             await audioContext.resume();
@@ -294,8 +304,8 @@ const MetronomeEngine = {
         // 3. Overwrite nextBeatTime for all tracks
         const allTracks = AppState.getTracks();
         allTracks.forEach(track => {
-            track.currentBar = 0;
-            track.currentBeat = 0;
+            track.currentBar = startBar;
+            track.currentBeat = startBeat;
             track.nextBeatTime = startAudioTime;
         });
 

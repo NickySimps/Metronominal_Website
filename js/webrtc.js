@@ -197,6 +197,22 @@ function syncTimeWithHost(peerId) {
     }
 }
 
+export function requestPlaybackSync() {
+    if (window.isHost) return false;
+    
+    // Find host peer ID (assuming single host for now or broadcast to all)
+    // Actually we iterate channels. Only one should be 'open' if we are a client connected to host.
+    // Or we can just broadcast to all connected peers (which is just the Host)
+    let sent = false;
+    Object.values(dataChannels).forEach(channel => {
+        if (channel.readyState === 'open') {
+            channel.send(JSON.stringify({ type: 'playback-sync-request' }));
+            sent = true;
+        }
+    });
+    return sent;
+}
+
 function setupDataChannelEvents(peerId) {
   const dataChannel = dataChannels[peerId];
   if (!dataChannel) return;
@@ -262,15 +278,56 @@ function setupDataChannelEvents(peerId) {
             const t0 = data.t0;
             const t1 = data.t1;
             const rtt = t3 - t0;
-            // NTP offset calculation: offset = ((t1 - t0) + (t1 - t3)) / 2  ... simplified to t1 - t0 - rtt/2 isn't quite right for one-way. 
-            // Standard NTP: offset = ((receiveTime - origTime) + (transmitTime - destTime)) / 2
-            // Here: HostTime ~= ClientTime + offset
-            // t1 is Host Receive Time (approx Transmit Time). 
-            // offset = t1 - (t0 + rtt / 2);
+            // NTP offset calculation
             const newOffset = t1 - (t0 + rtt / 2);
-            // Simple smoothing could be added here
             timeOffset = newOffset;
-            // console.log(`Time sync: RTT=${rtt}ms, Offset=${timeOffset}ms`);
+        }
+        return;
+    }
+
+    if (data.type === 'playback-sync-request') {
+        if (window.isHost) {
+            const isPlaying = AppState.isPlaying();
+            if (isPlaying) {
+                const audioContext = AppState.getAudioContext();
+                const tracks = AppState.getTracks();
+                // Use the first track as reference
+                if (tracks.length > 0 && audioContext) {
+                    const track = tracks[0];
+                    const timeToNextBeat = track.nextBeatTime - audioContext.currentTime;
+                    // Calculate expected wall clock time for next beat
+                    const nextBeatWallTime = Date.now() + (timeToNextBeat * 1000);
+                    
+                    dataChannel.send(JSON.stringify({
+                        type: 'playback-sync-response',
+                        isPlaying: true,
+                        nextBeatWallTime: nextBeatWallTime,
+                        currentBar: track.currentBar,
+                        currentBeat: track.currentBeat
+                    }));
+                }
+            } else {
+                dataChannel.send(JSON.stringify({
+                    type: 'playback-sync-response',
+                    isPlaying: false
+                }));
+            }
+        }
+        return;
+    }
+
+    if (data.type === 'playback-sync-response') {
+        if (!window.isHost) {
+            if (data.isPlaying) {
+                const clientTargetTime = data.nextBeatWallTime - timeOffset;
+                console.log("Syncing playback to host. Target:", clientTargetTime);
+                MetronomeEngine.scheduleStart(clientTargetTime, data.currentBar, data.currentBeat);
+            } else {
+                // Host is stopped. Ensure we are stopped.
+                if (AppState.isPlaying()) {
+                    MetronomeEngine.togglePlay(true);
+                }
+            }
         }
         return;
     }
