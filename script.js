@@ -126,10 +126,6 @@ function handleTrackSelectionChange() {
 // Listen for the custom event from tracksController.js
 document.addEventListener('trackselectionchanged', handleTrackSelectionChange);
 
-document.addEventListener('primeAudio', () => {
-    UserInteraction.handleFirstInteraction();
-});
-
 // Listen for clicks on the whole page to handle "clicking outside"
 document.addEventListener('click', (event) => {
   const trackWrapper = DOM.trackWrapper;

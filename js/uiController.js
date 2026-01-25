@@ -96,9 +96,9 @@ const UIController = {
         const dismissBtn = document.getElementById("dismiss-connection-modal-btn");
 
         if (dismissBtn) {
-            dismissBtn.addEventListener("click", () => {
+            dismissBtn.addEventListener("click", async () => {
                 connectionModal.style.display = "none";
-                document.dispatchEvent(new CustomEvent('primeAudio'));
+                await UserInteraction.handleFirstInteraction();
             });
         }
     },
