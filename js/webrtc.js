@@ -349,7 +349,8 @@ export function broadcastStop() {
 }
 
 
-export function sendState(state) {
+export async function sendState(statePromise) {
+  const state = await statePromise;
   if (window.isHost) {
     Object.entries(dataChannels).forEach(([peerId, channel]) => {
       if (channel && channel.readyState === "open") {
