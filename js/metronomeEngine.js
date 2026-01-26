@@ -303,10 +303,37 @@ const MetronomeEngine = {
 
         // 3. Overwrite nextBeatTime for all tracks
         const allTracks = AppState.getTracks();
+        const tempo = AppState.getTempo();
+        const secondsPerMainBeat = 60.0 / tempo;
+
         allTracks.forEach(track => {
             track.currentBar = startBar;
             track.currentBeat = startBeat;
-            track.nextBeatTime = startAudioTime;
+            
+            // Fast-forward if we are late
+            let trackStartTime = startAudioTime;
+            
+            // Safety break counter to prevent infinite loops if something goes wrong
+            let loops = 0;
+            while (trackStartTime < audioContext.currentTime + 0.05 && loops < 1000) {
+                if (track.barSettings.length === 0) break;
+                
+                const currentBarData = track.barSettings[track.currentBar];
+                const beatMultiplier = parseFloat(currentBarData ? currentBarData.subdivision : 1);
+                
+                let secondsPerSubBeat = secondsPerMainBeat;
+                if (beatMultiplier >= 1) {
+                    secondsPerSubBeat = secondsPerMainBeat / beatMultiplier;
+                } else {
+                    secondsPerSubBeat = secondsPerMainBeat * (1 / beatMultiplier);
+                }
+                
+                trackStartTime += secondsPerSubBeat;
+                advanceTrackBeat(track);
+                loops++;
+            }
+
+            track.nextBeatTime = trackStartTime;
         });
 
         // 4. Update UI
