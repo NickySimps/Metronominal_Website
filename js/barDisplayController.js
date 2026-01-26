@@ -114,6 +114,27 @@ function updateBeatSquareClasses(
   }
 }
 
+// Helper function to create or update the beat indicator icon
+function updateBeatIndicator(barDiv, beats, subdivision) {
+  let indicator = barDiv.querySelector(".bar-beat-indicator");
+  if (!indicator) {
+    indicator = document.createElement("div");
+    indicator.classList.add("bar-beat-indicator");
+    indicator.title = "Click to change subdivision";
+    
+    // Stop pointerdown from bubbling to avoid bar selection/longpress logic
+    indicator.addEventListener("pointerdown", (e) => e.stopPropagation());
+    
+    indicator.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showSubdivisionSelector(barDiv);
+    });
+    
+    barDiv.appendChild(indicator);
+  }
+  indicator.textContent = `${beats}┃${subdivision}`;
+}
+
 function onBarPointerDown(event) {
   // Don't initiate on right-click
   if (event.button !== 0) return;
@@ -248,7 +269,15 @@ function resetLongPressState() {
 }
 
 function showSubdivisionSelector(barElement) {
+    const isAlreadyVisible = document.querySelector('.subdivision-options-container.visible');
+    const visibleForThisBar = isAlreadyVisible && isAlreadyVisible.dataset.forBar === `${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}`;
+    
     hideSubdivisionSelector(); // Clear previous options first
+    
+    // If it was already visible for THIS bar, we just hide it (toggle off) and return
+    if (visibleForThisBar) {
+        return;
+    }
 
     const barIndex = parseInt(barElement.dataset.barIndex, 10);
     const containerIndex = parseInt(barElement.dataset.containerIndex, 10);
@@ -299,6 +328,7 @@ function showSubdivisionSelector(barElement) {
         }
         const container = document.createElement('div');
         container.className = 'subdivision-options-container';
+        container.dataset.forBar = `${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}`;
         if (position === 'below') {
             container.classList.add('below');
         }
@@ -308,6 +338,36 @@ function showSubdivisionSelector(barElement) {
             element.className = 'subdivision-option';
             element.dataset.value = optionData.value;
             element.textContent = optionData.text;
+            
+            // Handle click for selection (useful when opened via indicator click)
+            element.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const newSubdivision = element.dataset.value;
+                if (newSubdivision) {
+                    const wasPlaying = AppState.isPlaying();
+                    if (wasPlaying) {
+                        await MetronomeEngine.togglePlay();
+                    }
+
+                    AppState.setSelectedTrackIndex(containerIndex);
+                    AppState.setSelectedBarIndexInContainer(barIndex);
+                    AppState.setSubdivisionForSelectedBar(newSubdivision);
+                    sendState(AppState.getCurrentStateForPreset());
+                    
+                    BarDisplayController.renderBarsAndControls(-1);
+                    BarControlsController.updateBeatControlsDisplay();
+
+                    if (wasPlaying && AppState.getBarSettings(containerIndex).length > 0) {
+                        await MetronomeEngine.togglePlay();
+                    }
+
+                    if (ThemeController.is3DSceneActive()) {
+                        ThemeController.update3DScenePostStateChange();
+                    }
+                }
+                hideSubdivisionSelector();
+            });
+
             container.appendChild(element);
         });
 
@@ -327,6 +387,19 @@ function showSubdivisionSelector(barElement) {
             });
         });
         
+        // Hide if clicking outside the container
+        currentHideOnClickOutside = (e) => {
+            if (!container.contains(e.target)) {
+                hideSubdivisionSelector();
+            }
+        };
+        // Use a timeout to avoid immediate closure from the same click that opened it
+        setTimeout(() => {
+            if (currentHideOnClickOutside) {
+                window.addEventListener('click', currentHideOnClickOutside);
+            }
+        }, 10);
+        
         return container;
     };
 
@@ -334,7 +407,13 @@ function showSubdivisionSelector(barElement) {
     createContainer(higherSubdivisions, 'below');
 }
 
+let currentHideOnClickOutside = null;
+
 function hideSubdivisionSelector() {
+    if (currentHideOnClickOutside) {
+        window.removeEventListener('click', currentHideOnClickOutside);
+        currentHideOnClickOutside = null;
+    }
     const containers = document.querySelectorAll('.subdivision-options-container.visible');
     containers.forEach(container => {
         container.classList.remove('visible');
@@ -393,6 +472,9 @@ const BarDisplayController = {
 
         const mainBeatsInBar = barData.beats;
         const subdivision = barData.subdivision;
+        
+        updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
+
         const totalSubBeatsNeeded = calculateTotalSubBeats(mainBeatsInBar, subdivision);
         const rests = barData.rests || [];
 
@@ -442,6 +524,9 @@ const BarDisplayController = {
 
         const mainBeatsInBar = barData.beats;
         const subdivision = barData.subdivision;
+
+        updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
+
         const totalSubBeatsNeeded = calculateTotalSubBeats(mainBeatsInBar, subdivision);
         const rests = barData.rests || [];
 
@@ -588,6 +673,8 @@ const BarDisplayController = {
             barDiv.classList.add("newly-added-bar-animation");
           }
         }
+        
+        updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
         barDiv.addEventListener("pointerdown", onBarPointerDown);
 

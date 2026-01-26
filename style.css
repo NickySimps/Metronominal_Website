@@ -392,7 +392,7 @@ button {
 .bar-visual {
   position: relative; /* For positioning subdivision options relative to the bar itself */
   padding: var(--s3); /* Standardized padding (8px) */
-  margin: var(--s2); /* Standardized margin (4px) */
+  margin: var(--s4); /* Increased margin to accommodate outside indicator */
   border: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
   background-color: var(--Highlight); /* Was #f9f9f9 */
   flex-grow: 1;
@@ -1874,4 +1874,36 @@ environments: Development, Staging,
 
 #recording-stop-btn:hover {
   background-color: color-mix(in srgb, var(--Alt2) 80%, black);
+}
+
+/* Beat Indicator for Bars */
+.bar-beat-indicator {
+    position: absolute;
+    bottom: -16px; /* Sit outside */
+    right: -16px;  /* Sit outside */
+    background-color: var(--Main);
+    color: var(--TextOnMain);
+    font-size: 0.7rem;
+    padding: 2px;
+    border-radius: var(--BorderRadius);
+    min-width: 24px;
+    height: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: auto; /* Enable clicks */
+    cursor: pointer;
+    line-height: 1;
+    opacity: 1; /* More visible */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    z-index: 10;
+    border: 2px solid var(--Background); /* Added border to separate from bar */
+    font-weight: 800;
+    transition: transform 0.1s ease, background-color 0.2s ease;
+}
+
+.bar-beat-indicator:hover {
+    transform: scale(1.1);
+    background-color: var(--Accent);
+    color: var(--TextPrimary);
 }
