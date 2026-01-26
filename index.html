@@ -164,10 +164,17 @@
         <div class="modal-content">
             <span class="close-button">&times;</span>
             <div class="modal-header">
-                <h2>Edit Sound</h2>
-                <button id="note-snap-btn">Note Snap</button>
-                <button id="quantize-btn" style="display: none;">Quantize</button>
-                <button id="reset-sound-btn">Reset</button>
+                <div class="header-left">
+                    <h2>Edit Sound</h2>
+                    <button id="rename-sound-btn" title="Rename Sound">✎</button>
+                    <button id="save-sound-btn" title="Save Sound">💾</button>
+                </div>
+                <div class="header-right">
+                    <button id="note-snap-btn">Note Snap</button>
+                    <button id="quantize-btn" style="display: none;">Quantize</button>
+                    <button id="grid-snap-btn" style="display: none;">Grid</button>
+                    <button id="reset-sound-btn">Reset</button>
+                </div>
             </div>
             <canvas class="oscilloscope-canvas" width="400" height="100"></canvas>
             <div id="sound-sliders-container"></div>

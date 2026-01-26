@@ -11,7 +11,13 @@ import { Slider } from './slider.js';
 const SoundSettingsModal = {
   isNoteSnapping: false,
   isQuantizing: false,
+  isGridSnapping: false,
   sliders: [],
+  currentAudioBuffer: null,
+  currentTrackIndex: null,
+  currentSoundType: null,
+  originalSoundName: "", // The name of the sound when modal opened (e.g., "Synth Kick", "My Preset")
+  displaySoundName: "", // The name currently displayed/edited
 
   init() {
     DOM.soundSettingsModal
@@ -41,6 +47,119 @@ const SoundSettingsModal = {
         this.isQuantizing = !this.isQuantizing;
         e.target.classList.toggle("active", this.isQuantizing);
     });
+    DOM.soundSettingsModal.querySelector("#grid-snap-btn").addEventListener("click", (e) => {
+        this.isGridSnapping = !this.isGridSnapping;
+        e.target.classList.toggle("active", this.isGridSnapping);
+        if (this.currentAudioBuffer && this.drawWaveformAndTrimLines) {
+            this.drawWaveformAndTrimLines(this.currentAudioBuffer);
+        }
+    });
+
+    // Rename Button Logic
+    const renameBtn = DOM.soundSettingsModal.querySelector("#rename-sound-btn");
+    const modalTitle = DOM.soundSettingsModal.querySelector(".modal-header h2");
+    
+    if (renameBtn && modalTitle) {
+        renameBtn.addEventListener("click", () => {
+            const currentText = modalTitle.textContent.replace("Editing: ", "").replace(" (Custom)", "").replace(" (Modified)", "");
+            const input = document.createElement("input");
+            input.type = "text";
+            input.value = currentText;
+            input.className = "compact-input";
+            input.style.fontSize = "1.5rem";
+            input.style.width = "auto";
+            
+            modalTitle.textContent = "";
+            modalTitle.appendChild(input);
+            input.focus();
+
+            const commitChange = () => {
+                if (input.value.trim() !== "") {
+                    this.displaySoundName = input.value.trim();
+                    modalTitle.textContent = `Editing: ${this.displaySoundName}`;
+                } else {
+                    modalTitle.textContent = `Editing: ${currentText}`; // Revert if empty
+                }
+            };
+
+            input.addEventListener("blur", commitChange);
+            input.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                    commitChange();
+                }
+            });
+        });
+    }
+
+    // Save Button Logic
+    const saveBtn = DOM.soundSettingsModal.querySelector("#save-sound-btn");
+    if (saveBtn) {
+        saveBtn.addEventListener("click", () => {
+            this.saveCustomSound();
+        });
+    }
+  },
+
+  saveCustomSound() {
+      // 1. Determine the name to save as
+      let nameToSave = this.displaySoundName;
+      
+      // Remove status suffixes if present (unless user typed them explicitly, but let's assume not)
+      nameToSave = nameToSave.replace(" (Custom)", "").replace(" (Modified)", "");
+
+      if (!nameToSave) {
+          alert("Please provide a name for the custom sound.");
+          return;
+      }
+
+      // 2. Determine base sound
+      // If the *original* sound was a custom sound, get its base. 
+      // If it was a default sound, IT is the base.
+      let baseSound = this.originalSoundName;
+      if (AppState.getCustomSoundData(this.originalSoundName)) {
+          baseSound = AppState.getCustomSoundData(this.originalSoundName).baseSound;
+      } else if (AppState.getRecordings().includes(this.originalSoundName)) {
+           // It's a recording, treat as base sound? 
+           // Currently recordings are handled differently (buffers), not param settings.
+           // You can't really "save as preset" a recording easily unless we support custom recording presets.
+           // For now, let's assume this feature is primarily for SYNTH sounds as per prompt context about parameters.
+           // But if it IS a recording, we might just be saving trim/pitch settings.
+           // AppState.addCustomSound supports { baseSound, settings }.
+           baseSound = this.originalSoundName; 
+      }
+
+      // 3. Get current settings
+      const track = AppState.getTracks()[this.currentTrackIndex];
+      const soundInfo = track[this.currentSoundType];
+      const settings = soundInfo.settings;
+
+      // 4. Save to AppState
+      try {
+        AppState.addCustomSound(nameToSave, baseSound, settings);
+        
+        // 5. Update the track to use this new sound
+        AppState.updateTrack(this.currentTrackIndex, {
+            [this.currentSoundType]: {
+                sound: nameToSave,
+                settings: settings // Keep current settings
+            }
+        });
+
+        // 6. Refresh UI
+        document.dispatchEvent(new CustomEvent("soundSaved"));
+        
+        // 7. Update Modal State
+        this.originalSoundName = nameToSave;
+        this.displaySoundName = nameToSave;
+        const modalTitle = DOM.soundSettingsModal.querySelector(".modal-header h2");
+        if (modalTitle) modalTitle.textContent = `Editing: ${nameToSave}`;
+
+        console.log(`Saved custom sound: ${nameToSave}`);
+
+      } catch (e) {
+          console.error("Error saving sound:", e);
+          alert("Failed to save sound.");
+      }
   },
 
   resetSoundSettings() {
@@ -58,6 +177,10 @@ const SoundSettingsModal = {
         };
     } else {
         // For synth sounds, get default settings from AppState
+        // If it's a custom sound, reset to ITS saved state, not the global default for the base sound.
+        // Wait, "Reset" usually means reset to factory defaults. 
+        // If I'm editing "My Kick", "Reset" should probably go back to "My Kick" original state.
+        
         const defaultSettings = AppState.getDefaultSoundSettings(soundInfo.sound);
         newSettings = JSON.parse(JSON.stringify(defaultSettings));
     }
@@ -121,7 +244,7 @@ const SoundSettingsModal = {
 
         const valueDisplay = slider.parentElement.nextElementSibling;
         if (param.toLowerCase().includes("frequency")) {
-            valueDisplay.textContent = `${parseFloat(slider.value).toFixed(2)} Hz (${frequencyToNote(slider.value)})`;
+            valueDisplay.textContent = `${parseFloat(displayValue).toFixed(2)} Hz (${frequencyToNote(displayValue)})`;
         } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd"].includes(param)) {
             valueDisplay.textContent = `${slider.value} ms`;
         } else if (param.toLowerCase() === "volume") {
@@ -139,6 +262,66 @@ const SoundSettingsModal = {
             soundLabel.classList.toggle('modified-sound', isModified);
         }
     }
+
+    // Update title to show modified status
+    const modalTitle = DOM.soundSettingsModal.querySelector(".modal-header h2");
+    if (modalTitle && isModified) {
+        if (!this.displaySoundName.includes(" (Custom)") && !this.displaySoundName.includes(" (Modified)")) {
+            const suffix = AppState.getCustomSoundData(this.originalSoundName) ? " (Modified)" : " (Custom)";
+            this.displaySoundName = this.originalSoundName + suffix;
+            modalTitle.textContent = `Editing: ${this.displaySoundName}`;
+        }
+    }
+  },
+
+  findNearestZeroCrossing(valueMs) {
+      if (!this.currentAudioBuffer) return valueMs;
+
+      const buffer = this.currentAudioBuffer;
+      // Safety check for channels
+      if (buffer.numberOfChannels === 0) return valueMs;
+
+      const data = buffer.getChannelData(0); 
+      const sampleRate = buffer.sampleRate;
+      const index = Math.floor((valueMs / 1000) * sampleRate);
+      
+      // Search range: +/- 20ms
+      const range = Math.floor(sampleRate * 0.02); 
+      const start = Math.max(0, index - range);
+      const end = Math.min(data.length - 1, index + range);
+
+      let bestIndex = index;
+      let minDiff = Infinity;
+
+      for (let i = start; i < end; i++) {
+          if (i === 0) continue;
+          
+          const val = data[i];
+          const prev = data[i-1];
+          
+          // Zero crossing: sign change or exactly zero
+          if ((val >= 0 && prev < 0) || (val < 0 && prev >= 0) || val === 0) {
+             const diff = Math.abs(i - index);
+             if (diff < minDiff) {
+                 minDiff = diff;
+                 bestIndex = i;
+             }
+          }
+      }
+      
+      return (bestIndex / sampleRate) * 1000;
+  },
+
+  getGridSnap(valueMs) {
+      const bpm = AppState.getTempo();
+      if (!bpm) return valueMs;
+      
+      // 1 beat in ms
+      const beatDuration = 60000 / bpm;
+      // 16th note = 1/4 of a beat
+      const gridInterval = beatDuration / 4;
+      
+      return Math.round(valueMs / gridInterval) * gridInterval;
   },
 
   createSlider(slidersContainer, param, min, max, step, value) {
@@ -192,9 +375,30 @@ const SoundSettingsModal = {
         ? generateNoteFrequencies(min, max)
         : null;
 
+    let snapFn = null;
+    if (param === 'trimStart' || param === 'trimEnd') {
+        snapFn = (val) => {
+            let snappedVal = val;
+            if (this.isGridSnapping) {
+                 snappedVal = this.getGridSnap(snappedVal);
+                 // If both active, snap zero crossing relative to the grid point?
+                 // Or just strictly follow grid?
+                 // Let's make Zero Crossing refine the Grid selection if both are active.
+                 // i.e., find zero crossing NEAREST to the grid point.
+                 if (this.isQuantizing) {
+                     snappedVal = this.findNearestZeroCrossing(snappedVal);
+                 }
+            } else if (this.isQuantizing) {
+                 snappedVal = this.findNearestZeroCrossing(snappedVal);
+            }
+            return snappedVal;
+        };
+    }
+
     const sliderInstance = new Slider(slider, decrementButton, incrementButton, {
         initialValue: value,
         snapPoints: snapPoints,
+        snapFn: snapFn,
         onValueChange: (newValue) => {
             this.updateSoundSetting(param, newValue);
         },
@@ -249,25 +453,49 @@ const SoundSettingsModal = {
 
     const track = AppState.getTracks()[trackIndex];
     const soundInfo = track[soundType];
+    
+    // Auto-repair if sound data is corrupted/missing
+    if (!soundInfo.sound) {
+        console.warn(`Track ${trackIndex} ${soundType} missing sound name. Repairing...`);
+        soundInfo.sound = (soundType === 'mainBeatSound') ? "Synth Kick" : "Synth HiHat";
+        if (!soundInfo.settings) {
+            soundInfo.settings = AppState.getDefaultSoundSettings(soundInfo.sound);
+        }
+    }
+
     const soundSettings = soundInfo.settings;
 
     const oscilloscopeCanvas = DOM.soundSettingsModal.querySelector(".oscilloscope-canvas");
 
+    this.currentAudioBuffer = null;
     // Check if it's a recorded sound and retrieve its audioBuffer
     if (!soundInfo.sound.startsWith("Synth ")) { // Assuming recorded sounds don't start with "Synth "
         const recordedAudioBuffer = AppState.getSoundBuffer(soundInfo.sound);
         if (recordedAudioBuffer instanceof AudioBuffer) {
             soundInfo.audioBuffer = recordedAudioBuffer; // Temporarily attach audioBuffer for modal's use
+            this.currentAudioBuffer = recordedAudioBuffer;
         }
     }
 
     const modalTitle = DOM.soundSettingsModal.querySelector(".modal-header h2");
     const noteSnapBtn = DOM.soundSettingsModal.querySelector("#note-snap-btn");
     const quantizeBtn = DOM.soundSettingsModal.querySelector("#quantize-btn");
+    const gridSnapBtn = DOM.soundSettingsModal.querySelector("#grid-snap-btn");
+
+    // Clean name for display/state
+    const soundName = soundInfo.sound; // E.g. "Synth Kick" or "My Kick"
+    this.originalSoundName = soundName;
+    this.displaySoundName = soundName;
+
+    // Check if currently modified compared to what it SHOULD be
+    const isModified = AppState.isSoundModified(trackIndex, soundType);
+    if (isModified) {
+         const suffix = AppState.getCustomSoundData(soundName) ? " (Modified)" : " (Custom)";
+         this.displaySoundName += suffix;
+    }
 
     if (modalTitle) {
-      const soundName = soundInfo.sound.replace("Synth ", "");
-      modalTitle.textContent = `Editing: ${soundName}`;
+      modalTitle.textContent = `Editing: ${this.displaySoundName}`;
     }
 
     if (!soundSettings) {
@@ -282,8 +510,13 @@ const SoundSettingsModal = {
     if (soundInfo.audioBuffer instanceof AudioBuffer) {
         // Recorded sound
         noteSnapBtn.style.display = 'none';
+        
         quantizeBtn.style.display = 'inline-block';
         this.isQuantizing = quantizeBtn.classList.contains('active');
+        
+        gridSnapBtn.style.display = 'inline-block';
+        this.isGridSnapping = gridSnapBtn.classList.contains('active');
+
         this.isNoteSnapping = false; // Ensure note snapping is off for recorded sounds
 
         const waveformContainer = document.createElement("div");
@@ -298,6 +531,33 @@ const SoundSettingsModal = {
         this.drawWaveformAndTrimLines = (buffer) => {
             RecordingVisualizer.drawWaveform(buffer, waveformCanvas, mainColor);
             const ctx = waveformCanvas.getContext('2d');
+
+            if (this.isGridSnapping) {
+                const bpm = AppState.getTempo();
+                if (bpm > 0) {
+                    const beatDuration = 60000 / bpm;
+                    const gridInterval = beatDuration / 4; // 16th notes
+                    const durationMs = buffer.duration * 1000;
+                    const width = waveformCanvas.width;
+                    
+                    ctx.beginPath();
+                    // Use a color that contrasts but isn't too distracting. 
+                    // Since background is likely dark (from RecordingVisualizer), a light grey with opacity.
+                    ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)'; 
+                    ctx.lineWidth = 1;
+
+                    // Optimize loop: compute x directly
+                    const pixelsPerMs = width / durationMs;
+                    const gridPixels = gridInterval * pixelsPerMs;
+
+                    for (let x = 0; x < width; x += gridPixels) {
+                        ctx.moveTo(x, 0);
+                        ctx.lineTo(x, waveformCanvas.height);
+                    }
+                    ctx.stroke();
+                }
+            }
+
             const trimStart = (soundSettings.trimStart || 0);
             const trimEnd = (soundSettings.trimEnd || buffer.duration);
             const startX = (trimStart / buffer.duration) * waveformCanvas.width;
@@ -320,8 +580,11 @@ const SoundSettingsModal = {
         // Synth sound
         noteSnapBtn.style.display = 'inline-block';
         quantizeBtn.style.display = 'none';
+        gridSnapBtn.style.display = 'none';
+        
         this.isNoteSnapping = noteSnapBtn.classList.contains('active');
-        this.isQuantizing = false; // Ensure quantization is off for synth sounds
+        this.isQuantizing = false; 
+        this.isGridSnapping = false;
 
         oscilloscopeCanvas.style.display = 'block';
         this.createSlider(slidersContainer, "attack", 1, 2000, 1, (soundSettings.attack || 0.01) * 1000);

@@ -75,6 +75,7 @@ function playBeatSound(track, beatTime) {
     const isAccent = (track.currentBeat === 0) || (beatMultiplier > 1 && track.currentBeat % beatMultiplier === 0);
 
     const soundObject = isAccent ? track.mainBeatSound : track.subdivisionSound;
+    if (!soundObject || !soundObject.sound) return; // Safety check
     const soundToPlay = soundObject.sound; // Extract the sound name string
 
     // Calculate final volume by combining global, track, and individual sound volumes
@@ -84,9 +85,17 @@ function playBeatSound(track, beatTime) {
 
     const destination = track.analyserNode || audioContext.destination;
 
+    let baseSoundName = soundToPlay;
+    const customSoundData = AppState.getCustomSoundData(soundToPlay);
+    if (customSoundData) {
+        baseSoundName = customSoundData.baseSound;
+    }
+
+    if (!baseSoundName) return; // Safety check
+
     // Check if the sound is a synth sound
-    if (soundToPlay && soundToPlay.startsWith('Synth')) {
-        const synthFunctionName = `play${soundToPlay.replace('Synth ', '').replace(/ /g, '')}`;
+    if (baseSoundName && baseSoundName.startsWith('Synth')) {
+        const synthFunctionName = `play${baseSoundName.replace('Synth ', '').replace(/ /g, '')}`;
         
         // Dynamically call the synth function if it exists
         if (SoundSynth[synthFunctionName]) {
@@ -99,8 +108,13 @@ function playBeatSound(track, beatTime) {
         }
     } else {
         // Play file-based or recorded sounds using AudioController
+        // If it's a custom sound based on a recording (if we supported that), baseSoundName would be the recording name.
+        // But currently custom sounds are only synth-based in our implementation logic (SoundSettingsModal check).
+        // However, strictly speaking, soundToPlay is the key for recordings in AudioController.
+        // If we allowed renaming recordings via this mechanism, we'd need to map it back.
+        // For now, let's assume recordings are played by their direct name.
         const { trimStart, trimEnd, pitchShift } = soundObject.settings || {};
-        AudioController.playRecording(soundToPlay, soundObject.settings, trimStart, trimEnd, beatTime, finalVolume, destination);
+        AudioController.playRecording(baseSoundName, soundObject.settings, trimStart, trimEnd, beatTime, finalVolume, destination);
     }
 }
 

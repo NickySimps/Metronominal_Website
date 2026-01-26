@@ -263,6 +263,7 @@ const AppState = (function () {
   let isRestMode = false;
   let isRecording = false;
   let recordings = [];
+  let customSounds = {}; // Stores custom user presets: { "My Kick": { baseSound: "Synth Kick", settings: {...} } }
   let isWakeLockEnabled = false;
 
 
@@ -300,6 +301,49 @@ const AppState = (function () {
         console.error("Could not load state from localStorage:", e);
         return false; // Error during loading
       }
+    },
+
+    // Custom Sounds
+    getCustomSounds: () => Object.keys(customSounds),
+    getCustomSoundData: (name) => customSounds[name],
+    addCustomSound: (name, baseSound, settings) => {
+        customSounds[name] = { baseSound, settings: JSON.parse(JSON.stringify(settings)) };
+        saveState();
+    },
+    deleteCustomSound: (name) => {
+        if (customSounds[name]) {
+            delete customSounds[name];
+            // Reset tracks using this sound
+            Tracks.forEach(track => {
+                if (track.mainBeatSound.sound === name) {
+                    track.mainBeatSound.sound = "Synth Kick";
+                    track.mainBeatSound.settings = { ...defaultKick };
+                }
+                if (track.subdivisionSound.sound === name) {
+                    track.subdivisionSound.sound = "Synth HiHat";
+                    track.subdivisionSound.settings = { ...defaultHiHat };
+                }
+            });
+            saveState();
+        }
+    },
+    renameCustomSound: (oldName, newName) => {
+        if (oldName === newName) return;
+        if (customSounds[newName]) {
+             console.warn(`Custom sound "${newName}" already exists.`);
+             return;
+        }
+        if (customSounds[oldName]) {
+            customSounds[newName] = customSounds[oldName];
+            delete customSounds[oldName];
+            
+            // Update tracks
+            Tracks.forEach(track => {
+                if (track.mainBeatSound.sound === oldName) track.mainBeatSound.sound = newName;
+                if (track.subdivisionSound.sound === oldName) track.subdivisionSound.sound = newName;
+            });
+            saveState();
+        }
     },
 
     // Tempo
@@ -741,6 +785,9 @@ const AppState = (function () {
         saveState();
     },
     getDefaultSoundSettings: (sound) => {
+      if (customSounds[sound]) {
+          return customSounds[sound].settings;
+      }
       return defaultSoundSettings[sound];
     },
 
@@ -751,7 +798,11 @@ const AppState = (function () {
       const soundInfo = track[soundType];
       if (!soundInfo || !soundInfo.sound) return false;
 
-      const defaultSettings = defaultSoundSettings[soundInfo.sound];
+      let defaultSettings = defaultSoundSettings[soundInfo.sound];
+      if (customSounds[soundInfo.sound]) {
+          defaultSettings = customSounds[soundInfo.sound].settings;
+      }
+
       if (!defaultSettings) return false; // No default settings to compare against
 
       // Deep comparison of settings
@@ -793,6 +844,7 @@ const AppState = (function () {
         isRecording: isRecording,
         recordings: recordings, // This is the array of names
         serializedRecordings: serializedRecordings, // This is the object with Base64 data
+        customSounds: customSounds,
       };
     },
     loadPresetData: async (data) => {
@@ -843,6 +895,14 @@ const AppState = (function () {
             track.currentBeat = currentPlaybackState[index].currentBeat;
             track.nextBeatTime = currentPlaybackState[index].nextBeatTime;
           }
+
+          // Validate Sound Objects
+          if (!track.mainBeatSound || !track.mainBeatSound.sound) {
+             track.mainBeatSound = { sound: "Synth Kick", settings: { ...defaultKick } };
+          }
+          if (!track.subdivisionSound || !track.subdivisionSound.sound) {
+             track.subdivisionSound = { sound: "Synth HiHat", settings: { ...defaultHiHat } };
+          }
         });
         if (audioContext) publicAPI.createTrackAnalysers();
       }
@@ -853,6 +913,12 @@ const AppState = (function () {
       controlsAttachedToTrack = data.controlsAttachedToTrack !== undefined ? data.controlsAttachedToTrack : true;
       isRestMode = data.isRestMode !== undefined ? data.isRestMode : false;
       
+      if (data.customSounds) {
+          customSounds = data.customSounds;
+      } else {
+          customSounds = {};
+      }
+
       // Deserialize recordings
       if (data.serializedRecordings) {
         recordings = []; // Clear existing recordings

@@ -160,6 +160,9 @@ const TrackController = {
       );
       trackWrapper.addEventListener("mouseup", TrackController.handleMouseUp);
     }
+    document.addEventListener("soundSaved", () => {
+        TrackController.renderTracks();
+    });
     TrackController.renderTracks();
   },
 
@@ -515,6 +518,7 @@ function createSoundSelector(selectedSound, typeClass) {
     "Synth Sawtooth",
     "Synth Ultrasaw",
     "Synth Noise",
+    ...AppState.getCustomSounds(),
     "Click1.mp3",
     "Click2.mp3",
     "Crank1.mp3",

@@ -1474,10 +1474,42 @@ button:active,
   align-items: center;
   margin-bottom: 15px;
   flex-wrap: wrap;
+  width: 100%;
+}
 
-  h2{
-    width: 100%;
-  }
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-grow: 1;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.modal-header h2 {
+    margin: 0;
+}
+
+#rename-sound-btn, #save-sound-btn {
+  background-color: transparent;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: var(--BorderRadius);
+  transition: transform 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#rename-sound-btn:hover, #save-sound-btn:hover {
+  transform: scale(1.1);
+  background-color: var(--Accent);
 }
 
 #reset-sound-btn {
@@ -1499,7 +1531,7 @@ button:active,
   background-color: var(--Alt2);
 }
 
-#note-snap-btn, #quantize-btn {
+#note-snap-btn, #quantize-btn, #grid-snap-btn {
   background-color: var(--Main); /* Red */
   color: var(--Background);
   border: none;
@@ -1514,12 +1546,12 @@ button:active,
   transition-duration: 0.4s;
 }
 
-#note-snap-btn:hover, #quantize-btn:hover {
+#note-snap-btn:hover, #quantize-btn:hover, #grid-snap-btn:hover {
   background-color: var(--Accent);
   color: var(--TextOnMain);
 }
 
-#note-snap-btn.active, #quantize-btn.active {
+#note-snap-btn.active, #quantize-btn.active, #grid-snap-btn.active {
   background-color: var(--Alt2);
 }
 

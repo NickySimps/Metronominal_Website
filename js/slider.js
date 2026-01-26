@@ -1,11 +1,12 @@
 
 export class Slider {
-    constructor(sliderElement, decrementButton, incrementButton, { onValueChange, snapPoints, initialValue, onIncrement, onDecrement }) {
+    constructor(sliderElement, decrementButton, incrementButton, { onValueChange, snapPoints, snapFn, initialValue, onIncrement, onDecrement }) {
         this.sliderElement = sliderElement;
         this.decrementButton = decrementButton;
         this.incrementButton = incrementButton;
         this.onValueChange = onValueChange;
         this.snapPoints = snapPoints;
+        this.snapFn = snapFn;
         this.value = initialValue;
         this.onIncrementCallback = onIncrement;
         this.onDecrementCallback = onDecrement;
@@ -13,7 +14,25 @@ export class Slider {
         this.sliderElement.value = this.value;
 
         this.sliderElement.addEventListener('input', (e) => {
-            this.value = parseInt(e.target.value, 10);
+            let newValue = parseFloat(e.target.value);
+
+            if (this.snapFn) {
+                newValue = this.snapFn(newValue);
+            } else if (this.snapPoints && this.snapPoints.length > 0) {
+                let closest = this.snapPoints[0];
+                let minDiff = Math.abs(newValue - closest);
+
+                for (let i = 1; i < this.snapPoints.length; i++) {
+                    const diff = Math.abs(newValue - this.snapPoints[i]);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closest = this.snapPoints[i];
+                    }
+                }
+                newValue = closest;
+            }
+
+            this.value = newValue;
             if (this.onValueChange) {
                 this.onValueChange(this.value);
             }
@@ -37,10 +56,10 @@ export class Slider {
 
     decrement() {
         let newValue;
-        if (this.onDecrementCallback) {
-            newValue = this.onDecrementCallback(this.value);
-        } else if (this.snapPoints && this.snapPoints.length > 0) {
+        if (this.snapPoints && this.snapPoints.length > 0) {
             newValue = this.getPreviousSnapPoint();
+        } else if (this.onDecrementCallback) {
+            newValue = this.onDecrementCallback(this.value);
         } else {
             newValue = this.value - 1;
         }
@@ -49,10 +68,10 @@ export class Slider {
 
     increment() {
         let newValue;
-        if (this.onIncrementCallback) {
-            newValue = this.onIncrementCallback(this.value);
-        } else if (this.snapPoints && this.snapPoints.length > 0) {
+        if (this.snapPoints && this.snapPoints.length > 0) {
             newValue = this.getNextSnapPoint();
+        } else if (this.onIncrementCallback) {
+            newValue = this.onIncrementCallback(this.value);
         } else {
             newValue = this.value + 1;
         }
