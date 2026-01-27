@@ -193,6 +193,11 @@ const TrackController = {
         trackElement.classList.add("muted");
       }
 
+      const isSelected = index === AppState.getSelectedTrackIndex();
+      if (isSelected) {
+        trackElement.classList.add("selected");
+      }
+
       trackElement.innerHTML = `
         <div class="track-controls">
           <span class="track-name">Track ${index + 1}</span>
@@ -224,7 +229,7 @@ const TrackController = {
           <button class="record-btn ${AppState.isRecording() ? 'active' : ''}">●</button>
         </div>
         <div class="bar-display-container" data-container-index="${index}"></div>
-        <div class="measures-container hidden">
+        <div class="measures-container ${isSelected ? 'showing' : 'hidden'}">
             <div class="measure-settings-container">
                 <div class="beat-settings">
                     <button class="adjust-measure-length decrease-measure-length"
@@ -353,18 +358,21 @@ const TrackController = {
             BarDisplayController.renderBarsAndControls();
             
             // Update Track Selection UI
-            const previouslySelectedTrack = document.querySelector('.track.selected');
-            if (previouslySelectedTrack && previouslySelectedTrack !== trackElement) {
-                previouslySelectedTrack.classList.remove('selected');
-                const prevMeasuresContainer = previouslySelectedTrack.querySelector('.measures-container');
-                if (prevMeasuresContainer) {
-                    prevMeasuresContainer.classList.add('hiding');
-                    prevMeasuresContainer.addEventListener('animationend', () => {
-                        prevMeasuresContainer.classList.remove('hiding');
-                        prevMeasuresContainer.classList.add('hidden');
-                    }, { once: true });
+            const allSelectedTracks = document.querySelectorAll('.track.selected');
+            allSelectedTracks.forEach(prevTrack => {
+                if (prevTrack !== trackElement) {
+                    prevTrack.classList.remove('selected');
+                    const prevMeasuresContainer = prevTrack.querySelector('.measures-container');
+                    if (prevMeasuresContainer) {
+                        prevMeasuresContainer.classList.remove('showing');
+                        prevMeasuresContainer.classList.add('hiding');
+                        prevMeasuresContainer.addEventListener('transitionend', () => {
+                            prevMeasuresContainer.classList.remove('hiding');
+                            prevMeasuresContainer.classList.add('hidden');
+                        }, { once: true });
+                    }
                 }
-            }
+            });
 
             if (!trackElement.classList.contains('selected')) {
                 trackElement.classList.add('selected');
@@ -372,9 +380,6 @@ const TrackController = {
                 if (measuresContainer) {
                     measuresContainer.classList.remove('hidden');
                     measuresContainer.classList.add('showing');
-                    measuresContainer.addEventListener('animationend', () => {
-                        measuresContainer.classList.remove('showing');
-                    }, { once: true });
                 }
             }
 
@@ -420,6 +425,39 @@ const TrackController = {
              BarDisplayController.updateSelectionVisuals();
         }
 
+        const updateSelectionUI = () => {
+            const allSelectedTracks = document.querySelectorAll('.track.selected');
+            allSelectedTracks.forEach(prevTrack => {
+                if (prevTrack !== trackElement) {
+                    prevTrack.classList.remove('selected');
+                    const prevMeasuresContainer = prevTrack.querySelector('.measures-container');
+                    if (prevMeasuresContainer) {
+                        prevMeasuresContainer.classList.remove('showing');
+                        prevMeasuresContainer.classList.add('hiding');
+                        prevMeasuresContainer.addEventListener('transitionend', () => {
+                            prevMeasuresContainer.classList.remove('hiding');
+                            prevMeasuresContainer.classList.add('hidden');
+                        }, { once: true });
+                    }
+                }
+            });
+
+            if (!trackElement.classList.contains('selected')) {
+                trackElement.classList.add('selected');
+                const measuresContainer = trackElement.querySelector('.measures-container');
+                if (measuresContainer) {
+                    measuresContainer.classList.remove('hidden');
+                    measuresContainer.classList.add('showing');
+                }
+            }
+
+            sendState(AppState.getCurrentStateForPreset());
+
+            setTimeout(() => {
+                document.dispatchEvent(new CustomEvent("trackselectionchanged"));
+            }, 0);
+        };
+
         if (target.matches(".beat-square") && AppState.isRestMode()) {
             const barIndex = parseInt(target.closest(".bar-visual").dataset.barIndex, 10);
             const beatIndex = parseInt(target.dataset.beatIndex, 10);
@@ -439,37 +477,10 @@ const TrackController = {
             AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
             BarDisplayController.updateBar(containerIndex, barIndex);
             sendState(AppState.getCurrentStateForPreset());
+            
+            updateSelectionUI();
         } else {
-            const previouslySelectedTrack = document.querySelector('.track.selected');
-            if (previouslySelectedTrack && previouslySelectedTrack !== trackElement) {
-                previouslySelectedTrack.classList.remove('selected');
-                const prevMeasuresContainer = previouslySelectedTrack.querySelector('.measures-container');
-                if (prevMeasuresContainer) {
-                    prevMeasuresContainer.classList.add('hiding');
-                    prevMeasuresContainer.addEventListener('animationend', () => {
-                        prevMeasuresContainer.classList.remove('hiding');
-                        prevMeasuresContainer.classList.add('hidden');
-                    }, { once: true });
-                }
-            }
-
-            if (!trackElement.classList.contains('selected')) {
-                trackElement.classList.add('selected');
-                const measuresContainer = trackElement.querySelector('.measures-container');
-                if (measuresContainer) {
-                    measuresContainer.classList.remove('hidden');
-                    measuresContainer.classList.add('showing');
-                    measuresContainer.addEventListener('animationend', () => {
-                        measuresContainer.classList.remove('showing');
-                    }, { once: true });
-                }
-            }
-
-            sendState(AppState.getCurrentStateForPreset());
-
-            setTimeout(() => {
-                document.dispatchEvent(new CustomEvent("trackselectionchanged"));
-            }, 0);
+            updateSelectionUI();
         }
     }
   },
@@ -562,6 +573,26 @@ const TrackController = {
     setTimeout(() => {
       document.dispatchEvent(new CustomEvent("trackselectionchanged"));
     }, 0);
+  },
+
+  /**
+   * Scrolls the selected track's controls into view.
+   */
+  scrollToSelectedTrack: () => {
+    const selectedTrackIndex = AppState.getSelectedTrackIndex();
+    if (selectedTrackIndex !== -1) {
+      const trackElement = document.querySelector(
+        `.track[data-container-index="${selectedTrackIndex}"]`
+      );
+      if (trackElement) {
+        const trackControls = trackElement.querySelector(".track-controls");
+        if (trackControls) {
+          trackControls.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        } else {
+          trackElement.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      }
+    }
   },
 };
 

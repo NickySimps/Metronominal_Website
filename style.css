@@ -245,30 +245,73 @@ input[type="range"]::-webkit-slider-runnable-track {
   padding: var(--s2); /* Standardized padding (8px) */
 }
 
-.measures-container {
-  transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
-  transform-origin: top center;
-  display: flex;
-}
-
-.measures-container.moving {
-  opacity: 0;
-  transform: translateY(-20px);
-}
-
-.measures-container.slide-down {
-  animation: slideDown 0.5s ease-out forwards;
-}
-
-@keyframes slideDown {
-  from {
+/* Bouncy Animation for Measures Container */
+@keyframes bouncy-pop-in {
+  0% {
+    transform: scale(0.5);
     opacity: 0;
-    transform: translateY(-20px);
   }
-  to {
+  60% {
+    transform: scale(1.1);
     opacity: 1;
-    transform: translateY(0);
   }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes bouncy-pop-out {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  20% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+}
+
+.measures-container {
+  /* Transition setup for layout only */
+  display: flex;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transform: scale(0.95); /* Initial state */
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out; /* Removed transform transition */
+  transform-origin: top center;
+  padding: 0;
+  margin: 0;
+}
+
+.measures-container.hidden {
+  max-height: 0;
+  opacity: 0;
+  padding: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.measures-container.showing {
+  max-height: 500px; /* Increased to ensure fit */
+  opacity: 1;
+  /* transform is handled by animation */
+  padding: var(--s2);
+  margin: var(--s2);
+  pointer-events: auto;
+  animation: bouncy-pop-in 0.3s ease-out forwards; /* Matches max-height duration */
+}
+
+.measures-container.hiding {
+  max-height: 0;
+  opacity: 0;
+  padding: 0;
+  margin: 0;
+  animation: bouncy-pop-out 0.2s ease-in forwards;
 }
 #add-track-btn,
 .track-mute-btn,
@@ -398,8 +441,9 @@ button {
   background-color: var(--Highlight); /* Was #f9f9f9 */
   flex-grow: 1;
   /* text-align: center; Flex properties will handle alignment */
+  max-width: 100%; /* Default max-width to allow transition */
   transition: background-color 0.2s ease, border-color 0.2s ease,
-    box-shadow 0.2s ease, transform 0.2s ease;
+    box-shadow 0.2s ease, transform 0.2s ease, margin 0.2s ease, max-width 0.2s ease;
   flex-basis: 240px; /* Set a base size, allowing flex-grow to fill space */
   display: flex; /* Arrange beat squares horizontally */
   flex-wrap: nowrap; /* Prevent beat squares from wrapping to a new line */
@@ -1809,46 +1853,16 @@ button:active,
   text-align: end;
 }
 
-/* Bouncy Animation for Measures Container */
-@keyframes bouncy-pop-in {
-  0% {
-    transform: scale(0.5);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.1);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-  }
-}
-
-@keyframes bouncy-pop-out {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  20% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(0.5);
-    opacity: 0;
-  }
-}
-
 .measures-container.hidden {
-  display: none;
+  /* Kept for JS toggling logic, but style handled by base class + state classes */
 }
 
 .measures-container.showing {
-  display: flex;
-  animation: bouncy-pop-in 150ms ease-out forwards;
+   /* Kept for JS toggling logic */
 }
 
 .measures-container.hiding {
-  animation: bouncy-pop-out 150ms ease-in forwards;
+   /* Kept for JS toggling logic */
 }
 
 .sound-label.modified-sound {
@@ -1962,9 +1976,9 @@ environments: Development, Staging,
 }
 
 .bar-visual.rest-mode-active .bar-beat-indicator {
-    transform: translate(50%, 50%);
+    transform: translate(50%, 50%) scale(1.3);
 }
 
 .bar-visual.rest-mode-active .bar-beat-indicator:hover {
-    transform: translate(50%, 50%) scale(1.1);
+    transform: translate(50%, 50%) scale(1.5);
 }

@@ -465,6 +465,10 @@ const BarDisplayController = {
 
         const barDiv = document.createElement("div");
         barDiv.classList.add("bar-visual", "newly-added-bar-animation");
+        barDiv.addEventListener("animationend", () => {
+            barDiv.classList.remove("newly-added-bar-animation");
+        }, { once: true });
+
         if (AppState.isRestMode()) {
             barDiv.classList.add("rest-mode-active");
         }
@@ -677,6 +681,9 @@ const BarDisplayController = {
             barIndex >= previousBarCountForAnimation
           ) {
             barDiv.classList.add("newly-added-bar-animation");
+            barDiv.addEventListener("animationend", () => {
+                barDiv.classList.remove("newly-added-bar-animation");
+            }, { once: true });
           }
         }
         

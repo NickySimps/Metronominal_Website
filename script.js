@@ -119,6 +119,7 @@ async function initialize() {
  */
 function handleTrackSelectionChange() {
   BarControlsController.updateBarControlsForSelectedTrack();
+  TrackController.scrollToSelectedTrack();
 }
 
 // --- EVENT LISTENERS ---
