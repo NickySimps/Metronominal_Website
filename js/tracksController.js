@@ -335,17 +335,89 @@ const TrackController = {
         document.querySelectorAll(".bar-visual").forEach(bar => {
             bar.classList.toggle("rest-mode-active", newRestModeState);
         });
+
+        // Ensure the clicked track is selected if it wasn't already (or if no bar was selected)
+        const currentSelectedTrackIndex = AppState.getSelectedTrackIndex();
+        if (currentSelectedTrackIndex !== containerIndex) {
+            AppState.setSelectedTrackIndex(containerIndex);
+            
+            // Check if track has bars before selecting the first one
+            const track = AppState.getTracks()[containerIndex];
+            if (track && track.barSettings && track.barSettings.length > 0) {
+                AppState.setSelectedBarIndexInContainer(0);
+            } else {
+                AppState.setSelectedBarIndexInContainer(-1);
+            }
+
+            // Update Visuals for Bar Selection
+            BarDisplayController.renderBarsAndControls();
+            
+            // Update Track Selection UI
+            const previouslySelectedTrack = document.querySelector('.track.selected');
+            if (previouslySelectedTrack && previouslySelectedTrack !== trackElement) {
+                previouslySelectedTrack.classList.remove('selected');
+                const prevMeasuresContainer = previouslySelectedTrack.querySelector('.measures-container');
+                if (prevMeasuresContainer) {
+                    prevMeasuresContainer.classList.add('hiding');
+                    prevMeasuresContainer.addEventListener('animationend', () => {
+                        prevMeasuresContainer.classList.remove('hiding');
+                        prevMeasuresContainer.classList.add('hidden');
+                    }, { once: true });
+                }
+            }
+
+            if (!trackElement.classList.contains('selected')) {
+                trackElement.classList.add('selected');
+                const measuresContainer = trackElement.querySelector('.measures-container');
+                if (measuresContainer) {
+                    measuresContainer.classList.remove('hidden');
+                    measuresContainer.classList.add('showing');
+                    measuresContainer.addEventListener('animationend', () => {
+                        measuresContainer.classList.remove('showing');
+                    }, { once: true });
+                }
+            }
+
+            // Sync other controls
+            if (BarControlsController && typeof BarControlsController.updateBeatControlsDisplay === 'function') {
+                BarControlsController.updateBeatControlsDisplay();
+            }
+
+            setTimeout(() => {
+                document.dispatchEvent(new CustomEvent("trackselectionchanged"));
+            }, 0);
+        }
     } else if (target.matches(".record-btn")) {
         AudioController.toggleRecording(containerIndex);
     } else {
+        let selectionChanged = false;
         if (AppState.getSelectedTrackIndex() !== containerIndex) {
             AppState.setSelectedTrackIndex(containerIndex);
+            
+            // Validate bar index for the new track
+            const track = AppState.getTracks()[containerIndex];
+            if (track && track.barSettings) {
+                const currentBarIndex = AppState.getSelectedBarIndexInContainer();
+                const maxIndex = track.barSettings.length - 1;
+                if (currentBarIndex > maxIndex) {
+                    AppState.setSelectedBarIndexInContainer(maxIndex);
+                }
+            }
+            
+            selectionChanged = true;
         }
 
         const barVisual = target.closest(".bar-visual");
         if (barVisual) {
             const barIndex = parseInt(barVisual.dataset.barIndex, 10);
-            AppState.setSelectedBarIndexInContainer(barIndex);
+            if (AppState.getSelectedBarIndexInContainer() !== barIndex) {
+                AppState.setSelectedBarIndexInContainer(barIndex);
+                selectionChanged = true;
+            }
+        }
+
+        if (selectionChanged) {
+             BarDisplayController.updateSelectionVisuals();
         }
 
         if (target.matches(".beat-square") && AppState.isRestMode()) {
