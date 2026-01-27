@@ -349,7 +349,22 @@ const AppState = (function () {
     // Tempo
     getTempo: () => tempo,
     setTempo: (newTempo) => {
-      tempo = Math.max(20, Math.min(parseInt(newTempo, 10) || 120, 300));
+      const oldTempo = tempo;
+      const parsedTempo = Math.max(20, Math.min(parseInt(newTempo, 10) || 120, 300));
+      tempo = parsedTempo;
+      
+      if (isPlaying && audioContext && oldTempo !== parsedTempo) {
+          const currentTime = audioContext.currentTime;
+          const ratio = oldTempo / parsedTempo;
+          
+          Tracks.forEach(track => {
+             const timeRemaining = track.nextBeatTime - currentTime;
+             // Scale the remaining time to match the new tempo
+             if (timeRemaining > 0) {
+                 track.nextBeatTime = currentTime + (timeRemaining * ratio);
+             }
+          });
+      }
       saveState();
     },
     increaseTempo: () => publicAPI.setTempo(tempo + 1),
@@ -527,9 +542,55 @@ const AppState = (function () {
         newTrack.analyserNode = analyser;
       }
       if (isPlaying && Tracks.length > 0) {
-        newTrack.nextBeatTime = Tracks[0].nextBeatTime;
-        newTrack.currentBar = Tracks[0].currentBar;
-        newTrack.currentBeat = Tracks[0].currentBeat;
+        const referenceTrack = Tracks.find(t => t.barSettings && t.barSettings.length > 0) || Tracks[0];
+        const referenceBarSetting = referenceTrack.barSettings[referenceTrack.currentBar];
+        
+        // Default to alignment with start if something is wrong with reference
+        if (!referenceBarSetting) {
+             newTrack.nextBeatTime = audioContext.currentTime + publicAPI.SCHEDULE_AHEAD_TIME;
+        } else {
+            const refSubdivision = referenceBarSetting.subdivision || 1;
+            const secondsPerMainBeat = 60.0 / tempo;
+            
+            // Calculate time per sub-beat for the reference track
+            let secondsPerRefSubBeat;
+            if (refSubdivision >= 1) {
+                secondsPerRefSubBeat = secondsPerMainBeat / refSubdivision;
+            } else {
+                secondsPerRefSubBeat = secondsPerMainBeat * (1 / refSubdivision);
+            }
+
+            // Calculate how many sub-beats are left in the current main beat of the reference track
+            const subBeatIndex = referenceTrack.currentBeat % refSubdivision;
+            
+            if (subBeatIndex === 0) {
+                // On Main Beat: Sync directly
+                newTrack.nextBeatTime = referenceTrack.nextBeatTime;
+                newTrack.currentBar = referenceTrack.currentBar;
+                const mainBeatIndex = Math.floor(referenceTrack.currentBeat / refSubdivision);
+                newTrack.currentBeat = mainBeatIndex;
+            } else {
+                // Between Main Beats: Schedule for the NEXT main beat
+                const subBeatsRemaining = refSubdivision - subBeatIndex;
+                const timeToNextMainBeat = subBeatsRemaining * secondsPerRefSubBeat;
+                
+                newTrack.nextBeatTime = referenceTrack.nextBeatTime + timeToNextMainBeat;
+                newTrack.currentBar = referenceTrack.currentBar;
+                
+                // Start at the next main beat
+                const currentMainBeatIndex = Math.floor(referenceTrack.currentBeat / refSubdivision);
+                newTrack.currentBeat = currentMainBeatIndex + 1;
+                
+                // Handle bar wrapping
+                if (newTrack.currentBeat >= 4) { 
+                    newTrack.currentBeat = 0;
+                    newTrack.currentBar++; 
+                    if (newTrack.currentBar >= newTrack.barSettings.length) {
+                        newTrack.currentBar = 0;
+                    }
+                }
+            }
+        }
       } else if (isPlaying) {
         newTrack.nextBeatTime = audioContext.currentTime + publicAPI.SCHEDULE_AHEAD_TIME;
       }
@@ -651,10 +712,18 @@ const AppState = (function () {
       } else if (newTotalBars < previousNumberOfBars) {
         currentContainer.barSettings.length = newTotalBars;
         if (isPlaying && currentContainer.currentBar >= newTotalBars) {
-            currentContainer.currentBar = 0;
-            currentContainer.currentBeat = 0;
-            if (audioContext) {
-                currentContainer.nextBeatTime = audioContext.currentTime;
+            // Align to reference track instead of hard reset
+            const referenceTrack = Tracks.find(t => t !== currentContainer && t.barSettings && t.barSettings.length > 0) || Tracks[0];
+            
+            if (referenceTrack && referenceTrack !== currentContainer && referenceTrack.barSettings.length > 0) {
+                 // Sync to reference
+                 currentContainer.nextBeatTime = referenceTrack.nextBeatTime;
+                 currentContainer.currentBar = 0;
+                 currentContainer.currentBeat = 0; 
+            } else {
+                 // No reference, wrap to start
+                 currentContainer.currentBar = 0;
+                 currentContainer.currentBeat = 0;
             }
         }
       }
@@ -709,6 +778,20 @@ const AppState = (function () {
           currentContainer.barSettings[selectedBarIndexInContainer].beats > 1
         ) {
           currentContainer.barSettings[selectedBarIndexInContainer].beats--;
+          
+          // Handle case where currentBeat is now out of bounds
+          if (isPlaying && currentContainer.currentBar === selectedBarIndexInContainer) {
+              const barData = currentContainer.barSettings[selectedBarIndexInContainer];
+              const totalSubBeats = barData.beats * barData.subdivision;
+              if (currentContainer.currentBeat >= totalSubBeats) {
+                  // Wrap to next bar immediately
+                  currentContainer.currentBeat = 0;
+                  currentContainer.currentBar++;
+                  if (currentContainer.currentBar >= currentContainer.barSettings.length) {
+                      currentContainer.currentBar = 0;
+                  }
+              }
+          }
           saveState();
         }
       }
@@ -735,8 +818,37 @@ const AppState = (function () {
     setSubdivisionForSelectedBar: (multiplier) => {
       const currentContainer = Tracks[selectedTrackIndex];
       if (currentContainer && selectedBarIndexInContainer !== -1) {
-        currentContainer.barSettings[selectedBarIndexInContainer].subdivision =
-          parseFloat(multiplier) || 1;
+        
+        const oldSubdivision = currentContainer.barSettings[selectedBarIndexInContainer].subdivision;
+        const newSubdivision = parseFloat(multiplier) || 1;
+
+        if (isPlaying && currentContainer.currentBar === selectedBarIndexInContainer) {
+             const secondsPerMainBeat = 60.0 / tempo;
+             const phase = currentContainer.currentBeat / oldSubdivision;
+             
+             // Calculate the next beat index in the new subdivision that is >= current phase
+             const newBeatIndex = Math.ceil(phase * newSubdivision);
+             
+             // Check for wrap around (end of main beat)
+             if (newBeatIndex >= newSubdivision) {
+                 const timeDelay = (1.0 - phase) * secondsPerMainBeat;
+                 currentContainer.nextBeatTime += timeDelay;
+                 currentContainer.currentBeat = 0;
+                 
+                 currentContainer.currentBar++;
+                 if (currentContainer.currentBar >= currentContainer.barSettings.length) {
+                     currentContainer.currentBar = 0;
+                 }
+             } else {
+                 const newPhase = newBeatIndex / newSubdivision;
+                 const timeDelay = (newPhase - phase) * secondsPerMainBeat;
+                 
+                 currentContainer.nextBeatTime += timeDelay;
+                 currentContainer.currentBeat = newBeatIndex;
+             }
+        }
+
+        currentContainer.barSettings[selectedBarIndexInContainer].subdivision = newSubdivision;
         saveState();
       }
     },
@@ -849,24 +961,51 @@ const AppState = (function () {
     },
     loadPresetData: async (data) => {
       if (!data) return;
-      tempo = data.tempo || 120;
+      
+      const oldTempo = tempo;
+      const newTempo = data.tempo || 120;
+      tempo = newTempo;
+      
       volume = data.volume || 1.0;
 
       // Store current playback state if playing
       const wasPlayingBeforeLoad = isPlaying;
       const currentPlaybackState = {};
+      const previousBarSettings = {}; // Store previous bar settings to detect changes
+      
       if (wasPlayingBeforeLoad) {
+        const currentTime = audioContext ? audioContext.currentTime : 0;
+        const tempoRatio = oldTempo / newTempo;
+
         Tracks.forEach((track, index) => {
+          let adjustedNextBeatTime = track.nextBeatTime;
+          
+          // Apply tempo scaling to local state before restoring
+          if (oldTempo !== newTempo) {
+              const timeRemaining = track.nextBeatTime - currentTime;
+              if (timeRemaining > 0) {
+                  adjustedNextBeatTime = currentTime + (timeRemaining * tempoRatio);
+              }
+          }
+
           currentPlaybackState[index] = {
             currentBar: track.currentBar,
             currentBeat: track.currentBeat,
-            nextBeatTime: track.nextBeatTime,
+            nextBeatTime: adjustedNextBeatTime, // Use scaled time
           };
+          // Store the subdivision of the CURRENT bar for change detection
+          if (track.barSettings && track.barSettings[track.currentBar]) {
+              previousBarSettings[index] = track.barSettings[track.currentBar].subdivision;
+          }
         });
       }
 
       if (Array.isArray(data.Tracks)) {
+        // We capture the "Previous" Tracks count before overwriting
+        const previousTrackCount = Tracks.length;
+        
         Tracks = data.Tracks;
+        
         Tracks.forEach((track, index) => {
           if (track.solo === undefined) track.solo = false;
           if (track.volume === undefined) track.volume = 1.0;
@@ -879,21 +1018,104 @@ const AppState = (function () {
           }
           track.analyserNode = null;
 
-          // Restore playback state if playing and track exists in previous state
-          if (wasPlayingBeforeLoad && currentPlaybackState[index]) {
-            // Ensure currentBar is within the bounds of the NEW barSettings
-            let restoredBar = currentPlaybackState[index].currentBar;
-            if (track.barSettings.length > 0) {
-                if (restoredBar >= track.barSettings.length) {
-                    restoredBar = 0; // Reset to start if out of bounds (or could clamp to length-1)
-                }
-            } else {
-                restoredBar = 0;
-            }
-            
-            track.currentBar = restoredBar;
-            track.currentBeat = currentPlaybackState[index].currentBeat;
-            track.nextBeatTime = currentPlaybackState[index].nextBeatTime;
+          if (wasPlayingBeforeLoad) {
+             // Handle state restoration for existing tracks
+             if (index < previousTrackCount && currentPlaybackState[index]) {
+                 const oldSubdivision = previousBarSettings[index];
+                 const restoredBarIndex = currentPlaybackState[index].currentBar;
+                 
+                 // Ensure the restored bar index is valid in the new track data
+                 const targetBarIndex = (track.barSettings && restoredBarIndex < track.barSettings.length) ? restoredBarIndex : 0;
+                 
+                 const newSubdivision = (track.barSettings && track.barSettings[targetBarIndex]) ? track.barSettings[targetBarIndex].subdivision : 1;
+
+                 if (oldSubdivision !== undefined && oldSubdivision !== newSubdivision) {
+                     // Recalculate phase when subdivision changes to prevent drift
+                     const oldState = currentPlaybackState[index];
+                     const secondsPerMainBeat = 60.0 / tempo;
+                     
+                     const phase = oldState.currentBeat / oldSubdivision;
+                     const newBeatIndex = Math.ceil(phase * newSubdivision);
+                     
+                     // Restore basic state first
+                     track.currentBar = targetBarIndex;
+                     track.nextBeatTime = oldState.nextBeatTime; 
+
+                     // Apply phase correction
+                     if (newBeatIndex >= newSubdivision) {
+                         const timeDelay = (1.0 - phase) * secondsPerMainBeat;
+                         track.nextBeatTime += timeDelay;
+                         track.currentBeat = 0;
+                         // Handle bar wrap
+                         track.currentBar++;
+                         if (track.currentBar >= track.barSettings.length) track.currentBar = 0;
+                     } else {
+                         const newPhase = newBeatIndex / newSubdivision;
+                         const timeDelay = (newPhase - phase) * secondsPerMainBeat;
+                         track.nextBeatTime += timeDelay;
+                         track.currentBeat = newBeatIndex;
+                     }
+                 } else {
+                     // Restore state directly if no structural changes
+                     let restoredBar = currentPlaybackState[index].currentBar;
+                     if (track.barSettings.length > 0) {
+                        if (restoredBar >= track.barSettings.length) {
+                            restoredBar = 0; 
+                        }
+                     } else {
+                        restoredBar = 0;
+                     }
+                    
+                    track.currentBar = restoredBar;
+                    track.currentBeat = currentPlaybackState[index].currentBeat;
+                    track.nextBeatTime = currentPlaybackState[index].nextBeatTime;
+                 }
+             } 
+             // Handle new tracks by aligning them to the reference track
+             else {
+                 const referenceTrack = Tracks.find((t, i) => i < index && t.barSettings && t.barSettings.length > 0) || Tracks[0];
+                 
+                 // If reference track is also new/invalid, fallback to audioContext
+                 if (!referenceTrack || !referenceTrack.barSettings || referenceTrack.barSettings.length === 0) {
+                      track.nextBeatTime = (audioContext ? audioContext.currentTime : 0) + publicAPI.SCHEDULE_AHEAD_TIME;
+                      track.currentBar = 0;
+                      track.currentBeat = 0;
+                 } else {
+                     // Align to the reference track's timing
+                     const refBarData = referenceTrack.barSettings[referenceTrack.currentBar];
+                     const refSubdivision = refBarData ? refBarData.subdivision : 1;
+                     const secondsPerMainBeat = 60.0 / tempo;
+                     
+                     let secondsPerRefSubBeat = (refSubdivision >= 1) ? secondsPerMainBeat / refSubdivision : secondsPerMainBeat * (1 / refSubdivision);
+                     
+                     const subBeatIndex = referenceTrack.currentBeat % refSubdivision;
+
+                     if (subBeatIndex === 0) {
+                        // On Main Beat
+                        track.nextBeatTime = referenceTrack.nextBeatTime;
+                        track.currentBar = referenceTrack.currentBar;
+                        track.currentBeat = Math.floor(referenceTrack.currentBeat / refSubdivision);
+                     } else {
+                        // Between Main Beats -> Align to NEXT Main Beat
+                        const subBeatsRemaining = refSubdivision - subBeatIndex;
+                        const timeToNextMainBeat = subBeatsRemaining * secondsPerRefSubBeat;
+
+                        track.nextBeatTime = referenceTrack.nextBeatTime + timeToNextMainBeat;
+                        track.currentBar = referenceTrack.currentBar;
+                        track.currentBeat = Math.floor(referenceTrack.currentBeat / refSubdivision) + 1;
+                     }
+                     
+                     // Reset wrap for new track
+                     const myCurrentBarData = track.barSettings[track.currentBar];
+                     const myBeatsPerBar = myCurrentBarData ? myCurrentBarData.beats : 4;
+                     
+                     if (track.currentBeat >= myBeatsPerBar) {
+                         track.currentBeat = 0;
+                         track.currentBar++;
+                         if (track.currentBar >= track.barSettings.length) track.currentBar = 0;
+                     }
+                 }
+             }
           }
 
           // Validate Sound Objects
