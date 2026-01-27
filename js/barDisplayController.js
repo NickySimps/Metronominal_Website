@@ -465,6 +465,9 @@ const BarDisplayController = {
 
         const barDiv = document.createElement("div");
         barDiv.classList.add("bar-visual", "newly-added-bar-animation");
+        if (AppState.isRestMode()) {
+            barDiv.classList.add("rest-mode-active");
+        }
         barDiv.dataset.containerIndex = trackIndex;
         barDiv.dataset.barIndex = barIndex;
 
@@ -663,6 +666,9 @@ const BarDisplayController = {
           isNewBarInstance = true;
           barDiv = document.createElement("div");
           barDiv.classList.add("bar-visual");
+          if (AppState.isRestMode()) {
+            barDiv.classList.add("rest-mode-active");
+          }
           barDiv.dataset.containerIndex = containerIndex; // Add container index
           barDiv.dataset.barIndex = barIndex; // Use barIndex for individual bar
           

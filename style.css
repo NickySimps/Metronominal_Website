@@ -387,6 +387,7 @@ button {
   position: relative; /* For positioning subdivision options within this container */
 
   min-height: 0; /* If needed, ensure it has a purpose */
+  overflow: visible;
 }
 
 .bar-visual {
@@ -398,7 +399,7 @@ button {
   flex-grow: 1;
   /* text-align: center; Flex properties will handle alignment */
   transition: background-color 0.2s ease, border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease, transform 0.2s ease;
   flex-basis: 240px; /* Set a base size, allowing flex-grow to fill space */
   display: flex; /* Arrange beat squares horizontally */
   flex-wrap: nowrap; /* Prevent beat squares from wrapping to a new line */
@@ -423,6 +424,26 @@ button {
   /* background-color: var(--Main); */ /* Optional: change background on selection */
   outline: var(--s1) solid var(--Alt2); /* Standardized outline (2px) */
   box-shadow: 0 0 var(--s3) var(--Alt1); /* Standardized shadow (0 0 8px) */
+}
+
+.bar-visual.selected.rest-mode-active {
+  --bar-scale-x: 1.2;
+  --bar-scale-y: 2.2;
+  transform: scale(var(--bar-scale-x), var(--bar-scale-y));
+  z-index: 100;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+  max-width: calc((100vw - 20px) / var(--bar-scale-x)); /* Constrain width to fit viewport when scaled */
+  margin: var(--s7); /* Add margin (48px) to accommodate scaling and indicator */
+}
+
+.bar-visual.selected.rest-mode-active .bar-beat-indicator {
+  /* Counteract parent scale while maintaining the rest-mode translation */
+  transform: translate(50%, 50%) scale(calc(1 / var(--bar-scale-x)), calc(1 / var(--bar-scale-y)));
+}
+
+.bar-visual.selected.rest-mode-active .bar-beat-indicator:hover {
+  /* Maintain hover scale independently of parent scale */
+  transform: translate(50%, 50%) scale(calc(1.1 / var(--bar-scale-x)), calc(1.1 / var(--bar-scale-y)));
 }
 .beat-square {
   flex: 0 1 auto; /* Allow shrinking and growing from flex-basis */
@@ -1938,4 +1959,12 @@ environments: Development, Staging,
     transform: scale(1.1);
     background-color: var(--Accent);
     color: var(--TextPrimary);
+}
+
+.bar-visual.rest-mode-active .bar-beat-indicator {
+    transform: translate(50%, 50%);
+}
+
+.bar-visual.rest-mode-active .bar-beat-indicator:hover {
+    transform: translate(50%, 50%) scale(1.1);
 }

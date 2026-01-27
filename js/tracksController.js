@@ -329,6 +329,12 @@ const TrackController = {
         document.querySelectorAll(".rest-button").forEach(button => {
             button.classList.toggle("active", newRestModeState);
         });
+        document.querySelectorAll(".sub-sound-label").forEach(label => {
+            label.classList.toggle("rest-mode-active", newRestModeState);
+        });
+        document.querySelectorAll(".bar-visual").forEach(bar => {
+            bar.classList.toggle("rest-mode-active", newRestModeState);
+        });
     } else if (target.matches(".record-btn")) {
         AudioController.toggleRecording(containerIndex);
     } else {
