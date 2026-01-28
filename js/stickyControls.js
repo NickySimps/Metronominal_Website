@@ -11,18 +11,20 @@ import DOM from "./domSelectors.js";
 import { sendState } from "./webrtc.js";
 
 const StickyControls = {
-  elements: {
-    container: document.getElementById("sticky-mobile-controls"),
-    tempoDecrease: document.getElementById("sticky-tempo-decrease"),
-    tempoIncrease: document.getElementById("sticky-tempo-increase"),
-    bpmDisplay: document.getElementById("sticky-bpm-display"),
-    playPauseBtn: document.getElementById("sticky-play-pause-btn"),
-    volumeDecrease: document.getElementById("sticky-volume-decrease"),
-    volumeIncrease: document.getElementById("sticky-volume-increase"),
-    volumeValue: document.getElementById("sticky-volume-value"),
-  },
+  elements: {},
 
   init: () => {
+    StickyControls.elements = {
+      container: document.getElementById("sticky-mobile-controls"),
+      tempoDecrease: document.getElementById("sticky-tempo-decrease"),
+      tempoIncrease: document.getElementById("sticky-tempo-increase"),
+      bpmDisplay: document.getElementById("sticky-bpm-display"),
+      playPauseBtn: document.getElementById("sticky-play-pause-btn"),
+      volumeDecrease: document.getElementById("sticky-volume-decrease"),
+      volumeIncrease: document.getElementById("sticky-volume-increase"),
+      volumeValue: document.getElementById("sticky-volume-value"),
+    };
+
     if (!StickyControls.elements.container) return;
 
     StickyControls.setupEventListeners();
@@ -87,9 +89,9 @@ const StickyControls = {
       if (!startStopBtn) return;
 
       const rect = startStopBtn.getBoundingClientRect();
-      const triggerPoint = startStopBtn.offsetTop + startStopBtn.offsetHeight;
 
-      if (window.scrollY > triggerPoint) {
+      // Show sticky controls when the main play button is scrolled out of view (above viewport)
+      if (rect.bottom < 0) {
         StickyControls.elements.container.classList.add("sticky-active");
       } else {
         StickyControls.elements.container.classList.remove("sticky-active");
