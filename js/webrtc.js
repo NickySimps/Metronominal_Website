@@ -21,12 +21,17 @@ let reconnectTimeout = null;
 
 window.isHost = false; // Default to being a client
 
+let candidateQueues = {}; // Queue for ICE candidates arriving before remote description
+
 const configuration = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
     { urls: "stun:stun.services.mozilla.com" },
+    { urls: "stun:global.stun.twilio.com:3478" }
   ],
   iceCandidatePoolSize: 10,
 };
@@ -50,23 +55,24 @@ function updateConnectionStatusUI(state) {
 
   if (!shareBtn || !disconnectBtn || !connectionStatus) return;
 
-  shareBtn.classList.remove("connected", "connecting", "failed");
+  shareBtn.classList.remove("connected", "connecting", "failed", "disconnected");
 
   if (state === 'connected') {
-    //shareBtn.style.display = 'none';
     disconnectBtn.style.display = '';
-    //connectionStatus.textContent = 'Connected';
     shareBtn.classList.add('connected');
   } else if (state === 'connecting' || state === 'new' || state === 'checking') {
     shareBtn.style.display = '';
     disconnectBtn.style.display = 'none';
-    //connectionStatus.textContent = 'Connecting...';
     shareBtn.classList.add('connecting');
-  } else { // disconnected, closed, failed
+  } else if (state === 'disconnected') {
+      // Keep UI active but show warning state if needed, or just stay "connected" visually 
+      // if we want to hide brief blips. For now, let's show it's problematic.
+      shareBtn.style.display = '';
+      disconnectBtn.style.display = ''; // Allow disconnect even if technically disconnected
+      shareBtn.classList.add('connecting'); // Re-use connecting yellow for disconnected/reconnecting
+  } else { // closed, failed
     shareBtn.style.display = '';
     disconnectBtn.style.display = 'none';
-    //connectionStatus.textContent = '';
-    // Optionally add 'failed' class for visual feedback on failure
     if (state === "failed") shareBtn.classList.add("failed");
   }
 }
@@ -74,6 +80,9 @@ function updateConnectionStatusUI(state) {
 function createPeerConnection(peerId) {
   console.log("Creating peer connection for:", peerId);
   const peerConnection = new RTCPeerConnection(configuration);
+
+  // Initialize queue for this peer
+  candidateQueues[peerId] = [];
 
   peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
@@ -116,16 +125,21 @@ function createPeerConnection(peerId) {
             connectionModal.style.display = "block";
         }
       }
+    } else if (peerConnection.connectionState === "disconnected") {
+       // Temporary disconnect (e.g. switching wifi). Do NOT close immediately.
+       console.warn(`Peer ${peerId} disconnected temporarily. Waiting for recovery...`);
+       updateConnectionStatusUI("disconnected");
+       // We can optionally set a timeout here to force close if it stays disconnected too long
     } else if (
-      peerConnection.connectionState === "disconnected" ||
       peerConnection.connectionState === "closed" ||
       peerConnection.connectionState === "failed"
     ) {
-      console.log("Peer disconnected:", peerId);
+      console.log("Peer connection failed/closed:", peerId);
       delete peers[peerId];
       delete dataChannels[peerId];
+      delete candidateQueues[peerId]; // Clean up queue
       updateClientCount();
-      updateConnectionStatusUI("disconnected");
+      updateConnectionStatusUI("failed");
     }
   };
 
@@ -191,6 +205,8 @@ function sendFullState() {
 
 let timeOffset = 0; // HostTime - ClientTime
 let syncInterval = null;
+const offsetSamples = [];
+const MAX_OFFSET_SAMPLES = 10;
 
 function syncTimeWithHost(peerId) {
     if (window.isHost) return;
@@ -203,6 +219,19 @@ function syncTimeWithHost(peerId) {
             t0: t0
         }));
     }
+}
+
+function updateTimeOffset(newOffset) {
+    offsetSamples.push(newOffset);
+    if (offsetSamples.length > MAX_OFFSET_SAMPLES) {
+        offsetSamples.shift();
+    }
+    
+    // Simple median filter to remove outliers
+    const sorted = [...offsetSamples].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    timeOffset = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    // console.log("Updated time offset:", timeOffset, "Samples:", offsetSamples);
 }
 
 export function requestPlaybackSync() {
@@ -221,6 +250,21 @@ export function requestPlaybackSync() {
     return sent;
 }
 
+export function broadcastSyncPulse(nextBeatWallTime, currentBar, currentBeat) {
+    if (window.isHost) {
+         Object.values(dataChannels).forEach(channel => {
+            if (channel.readyState === 'open') {
+                channel.send(JSON.stringify({
+                    type: 'playback-sync-pulse',
+                    nextBeatWallTime: nextBeatWallTime,
+                    currentBar: currentBar,
+                    currentBeat: currentBeat
+                }));
+            }
+        });
+    }
+}
+
 function setupDataChannelEvents(peerId) {
   const dataChannel = dataChannels[peerId];
   if (!dataChannel) return;
@@ -237,7 +281,7 @@ function setupDataChannelEvents(peerId) {
         requestPlaybackSync();
         // Periodically re-sync to account for drift
         if(syncInterval) clearInterval(syncInterval);
-        syncInterval = setInterval(() => syncTimeWithHost(peerId), 5000);
+        syncInterval = setInterval(() => syncTimeWithHost(peerId), 2000); // More frequent sync (2s)
     }
   };
 
@@ -290,7 +334,7 @@ function setupDataChannelEvents(peerId) {
             const rtt = t3 - t0;
             // NTP offset calculation
             const newOffset = t1 - (t0 + rtt / 2);
-            timeOffset = newOffset;
+            updateTimeOffset(newOffset);
         }
         return;
     }
@@ -338,6 +382,20 @@ function setupDataChannelEvents(peerId) {
                     MetronomeEngine.togglePlay(true);
                 }
             }
+        }
+        return;
+    }
+
+    if (data.type === 'playback-sync-pulse') {
+        if (!window.isHost && AppState.isPlaying()) {
+             const hostNextBeatTime = data.nextBeatWallTime;
+             const clientNow = Date.now();
+             const expectedClientTime = hostNextBeatTime - timeOffset;
+             
+             // We need to compare this expectedClientTime with the ENGINE'S internal nextBeatTime.
+             // But we don't have direct access to that variable here without exposing it or calling a method.
+             // We'll pass the *target* time to the engine, and let it decide if it needs to nudge.
+             MetronomeEngine.handleSyncPulse(expectedClientTime, data.currentBar, data.currentBeat);
         }
         return;
     }
@@ -417,6 +475,25 @@ export function broadcastStop() {
 }
 
 
+// Helper to process queued candidates
+async function processCandidateQueue(peerId) {
+    const queue = candidateQueues[peerId];
+    if (queue && queue.length > 0) {
+        console.log(`Processing ${queue.length} buffered ICE candidates for peer: ${peerId}`);
+        for (const candidate of queue) {
+            try {
+                const peerConnection = peers[peerId];
+                if(peerConnection) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                }
+            } catch (e) {
+                console.error("Error processing buffered candidate:", e);
+            }
+        }
+        candidateQueues[peerId] = []; // Clear queue
+    }
+}
+
 export async function sendState(statePromise) {
   const state = await statePromise;
   if (window.isHost) {
@@ -456,6 +533,10 @@ export async function createAnswer(offer, peerId = "default") {
     console.log("Creating answer for peer:", peerId);
     const peerConnection = createPeerConnection(peerId);
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    
+    // Process any candidates that arrived before the offer was set
+    await processCandidateQueue(peerId);
+
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
     sendMessage({
@@ -477,6 +558,9 @@ export async function acceptAnswer(answer, peerId = "default") {
       await peerConnection.setRemoteDescription(
         new RTCSessionDescription(answer)
       );
+      // Process any candidates that arrived before the answer was set
+      await processCandidateQueue(peerId);
+      
       console.log("Connection established with peer:", peerId);
     } else {
       console.warn("No peer connection found for peer:", peerId);
@@ -490,8 +574,14 @@ export async function addIceCandidate(candidate, peerId = "default") {
   try {
     const peerConnection = peers[peerId];
     if (peerConnection) {
-      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      console.log("Added ICE candidate for peer:", peerId);
+        if (peerConnection.remoteDescription) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            console.log("Added ICE candidate for peer:", peerId);
+        } else {
+             console.log("Buffering ICE candidate for peer (remote description not set):", peerId);
+             if (!candidateQueues[peerId]) candidateQueues[peerId] = [];
+             candidateQueues[peerId].push(candidate);
+        }
     } else {
       console.warn("No peer connection found for peer:", peerId);
     }
@@ -512,6 +602,8 @@ export const WebRTC = {
   acceptAnswer,
   addIceCandidate,
 };
+
+let heartbeatInterval;
 
 function connectToSignalingServer() {
   if (socket && socket.readyState === WebSocket.OPEN) {
@@ -544,11 +636,21 @@ function connectToSignalingServer() {
       type: "join",
       room: roomId,
     });
+    
+    // Start heartbeat
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'ping' }));
+        }
+    }, 30000); // 30 second heartbeat
   };
 
   socket.onmessage = async (message) => {
     try {
       const data = JSON.parse(message.data);
+      if (data.type === 'pong') return; // Ignore heartbeat responses
+      
       console.log("Received message:", data.type, "from peer:", data.peerId);
 
       const peerId = data.peerId || "default";
@@ -575,6 +677,7 @@ function connectToSignalingServer() {
             peers[peerId].close();
             delete peers[peerId];
             delete dataChannels[peerId];
+            delete candidateQueues[peerId];
             updateClientCount();
           }
           break;
@@ -595,6 +698,8 @@ function connectToSignalingServer() {
       event.reason
     );
     
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+
     updateConnectionStatusUI("disconnected");
 
     // Only attempt to reconnect if we haven't exceeded max attempts
@@ -610,6 +715,7 @@ function connectToSignalingServer() {
       alert("Unable to connect to the signaling server. Real-time features may be unavailable. Please try refreshing the page.");
     }
   };
+
 
   socket.onerror = (error) => {
     console.error("WebSocket error:", error);

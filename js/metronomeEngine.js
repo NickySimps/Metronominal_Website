@@ -9,13 +9,15 @@ import DOM from './domSelectors.js';
 import ThemeController from './themeController.js';
 import BarDisplayController from './barDisplayController.js';
 import SoundSynth from './soundSynth.js';
-import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync } from './webrtc.js';
+import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, broadcastSyncPulse } from './webrtc.js';
 import AudioController from './audioController.js';
 
 let metronomeWorker = new Worker('js/metronomeWorker.js');
 let drawFrameId = null; // Holds the requestAnimationFrame ID for the visual loop
 let isPageVisible = true;
 let visualQueue = []; // Queue for visual events
+let lastSyncPulseTime = 0;
+const SYNC_PULSE_INTERVAL = 2000; // Broadcast sync pulse every 2 seconds
 
 metronomeWorker.onmessage = function(e) {
     if (e.data === "tick") {
@@ -177,6 +179,16 @@ function scheduler() {
                     bar: track.currentBar,
                     beat: track.currentBeat
                 });
+
+                // Host Sync Pulse: Broadcast expected wall time for this beat
+                if (window.isHost && trackIndex === 0 && (Date.now() - lastSyncPulseTime > SYNC_PULSE_INTERVAL)) {
+                    // We calculate what wall time corresponds to track.nextBeatTime
+                    // Relation: WallTime = Date.now() + (AudioTime - AudioCtx.currentTime)*1000
+                    const timeToBeat = track.nextBeatTime - audioContext.currentTime;
+                    const wallTime = Date.now() + (timeToBeat * 1000);
+                    broadcastSyncPulse(wallTime, track.currentBar, track.currentBeat);
+                    lastSyncPulseTime = Date.now();
+                }
                 
                 advanceTrackBeat(track);
                 track.nextBeatTime += secondsPerSubBeat;
@@ -376,6 +388,38 @@ const MetronomeEngine = {
         }
         if (MetronomeEngine.onPlayStateChange) {
             MetronomeEngine.onPlayStateChange(true);
+        }
+    },
+
+    handleSyncPulse: (targetWallTime, bar, beat) => {
+        const audioContext = AppState.getAudioContext();
+        if (!AppState.isPlaying() || !audioContext) return;
+
+        // Calculate when the NEXT beat should happen in AudioContext time
+        const now = Date.now();
+        const timeToTarget = (targetWallTime - now) / 1000;
+        const targetAudioTime = audioContext.currentTime + timeToTarget;
+
+        const tracks = AppState.getTracks();
+        // Use first track as reference
+        if (tracks.length > 0) {
+            const track = tracks[0];
+            const currentAudioNextBeat = track.nextBeatTime;
+            
+            const drift = targetAudioTime - currentAudioNextBeat;
+            
+            // If drift is significant (> 20ms) but not massive (< 500ms), nudge.
+            // If massive, we might need a hard reset (or just let it be to avoid skipping around wildy).
+            if (Math.abs(drift) > 0.02 && Math.abs(drift) < 0.5) {
+                console.log(`Sync Drift detected: ${Math.round(drift * 1000)}ms. Nudging...`);
+                
+                // Nudge all tracks
+                tracks.forEach(t => {
+                    t.nextBeatTime += drift;
+                });
+            } else if (Math.abs(drift) >= 0.5) {
+                console.warn(`Massive drift detected: ${Math.round(drift * 1000)}ms. Ignoring nudge to prevent jumpiness.`);
+            }
         }
     },
 
