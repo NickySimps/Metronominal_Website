@@ -227,7 +227,7 @@ function sendFullState() {
 let timeOffset = 0; // HostTime - ClientTime
 let syncInterval = null;
 const offsetSamples = [];
-const MAX_OFFSET_SAMPLES = 10;
+const MAX_OFFSET_SAMPLES = 20;
 
 function syncTimeWithHost(peerId) {
     if (window.isHost) return;
@@ -242,17 +242,26 @@ function syncTimeWithHost(peerId) {
     }
 }
 
-function updateTimeOffset(newOffset) {
-    offsetSamples.push(newOffset);
+function updateTimeOffset(newOffset, rtt) {
+    offsetSamples.push({ offset: newOffset, rtt: rtt });
     if (offsetSamples.length > MAX_OFFSET_SAMPLES) {
         offsetSamples.shift();
     }
     
-    // Simple median filter to remove outliers
-    const sorted = [...offsetSamples].sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    timeOffset = sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
-    // console.log("Updated time offset:", timeOffset, "Samples:", offsetSamples);
+    // "Cristian's Algorithm" Optimization:
+    // The sample with the lowest RTT is the most accurate because it experienced 
+    // the least network buffering/jitter. We prioritize this sample.
+    
+    // Find sample with minimum RTT
+    let bestSample = offsetSamples[0];
+    for (let i = 1; i < offsetSamples.length; i++) {
+        if (offsetSamples[i].rtt < bestSample.rtt) {
+            bestSample = offsetSamples[i];
+        }
+    }
+    
+    timeOffset = bestSample.offset;
+    // console.log(`Updated time offset: ${timeOffset}ms (Best RTT: ${bestSample.rtt}ms)`);
 }
 
 export function requestPlaybackSync() {
@@ -296,13 +305,30 @@ function setupDataChannelEvents(peerId) {
     if (window.isHost) {
       sendState(AppState.getCurrentStateForPreset());
     } else {
-        // Start time sync
+        // Start time sync with a rapid burst to quickly converge on an accurate offset
+        console.log("Starting burst sync...");
+        let burstCount = 0;
+        const burstLimit = 10;
+        
+        // Initial ping
         syncTimeWithHost(peerId);
+        
+        const burstInterval = setInterval(() => {
+            burstCount++;
+            if (burstCount >= burstLimit) {
+                clearInterval(burstInterval);
+                console.log("Burst sync complete. Switching to steady-state sync.");
+                
+                // Switch to steady-state sync (every 2 seconds)
+                if(syncInterval) clearInterval(syncInterval);
+                syncInterval = setInterval(() => syncTimeWithHost(peerId), 2000);
+            } else {
+                syncTimeWithHost(peerId);
+            }
+        }, 200); // Ping every 200ms during burst
+        
         // Request playback sync immediately upon connection
         requestPlaybackSync();
-        // Periodically re-sync to account for drift
-        if(syncInterval) clearInterval(syncInterval);
-        syncInterval = setInterval(() => syncTimeWithHost(peerId), 2000); // More frequent sync (2s)
     }
   };
 
@@ -356,7 +382,7 @@ function setupDataChannelEvents(peerId) {
             // NTP offset calculation
             const newOffset = t1 - (t0 + rtt / 2);
             console.log(`Time sync: RTT=${rtt}ms, Offset=${newOffset}ms`);
-            updateTimeOffset(newOffset);
+            updateTimeOffset(newOffset, rtt);
         }
         return;
     }

@@ -170,16 +170,20 @@ function scheduler() {
             }
 
             while (track.nextBeatTime < audioContext.currentTime + AppState.SCHEDULE_AHEAD_TIME) {
-                playBeatSound(track, track.nextBeatTime);
+                // Only play sound and schedule visuals if the beat is within a reasonable window (not >100ms in the past)
+                // This prevents "machine gun" bursts when syncing catches up from a late start or large drift.
+                if (track.nextBeatTime > audioContext.currentTime - 0.1) {
+                    playBeatSound(track, track.nextBeatTime);
+                    
+                    // Push visual event to queue
+                    visualQueue.push({
+                        time: track.nextBeatTime,
+                        trackIndex,
+                        bar: track.currentBar,
+                        beat: track.currentBeat
+                    });
+                }
                 
-                // Push visual event to queue
-                visualQueue.push({
-                    time: track.nextBeatTime,
-                    trackIndex,
-                    bar: track.currentBar,
-                    beat: track.currentBeat
-                });
-
                 // Host Sync Pulse: Broadcast expected wall time for this beat
                 if (window.isHost && trackIndex === 0 && (Date.now() - lastSyncPulseTime > SYNC_PULSE_INTERVAL)) {
                     // We calculate what wall time corresponds to track.nextBeatTime
