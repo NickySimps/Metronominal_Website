@@ -110,6 +110,7 @@ const SoundSettingsModal = {
                     `Are you sure you want to delete "${soundName}"?`,
                     () => {
                         AppState.deleteCustomSound(soundName);
+                        document.dispatchEvent(new CustomEvent("soundSaved"));
                         // Refresh modal to show updated state (defaults or fallback sound)
                         this.show(this.currentTrackIndex, this.currentSoundType);
                     }
@@ -534,13 +535,17 @@ const SoundSettingsModal = {
     const oscilloscopeCanvas = DOM.soundSettingsModal.querySelector(".oscilloscope-canvas");
 
     this.currentAudioBuffer = null;
-    // Check if it's a recorded sound and retrieve its audioBuffer
-    if (!soundInfo.sound.startsWith("Synth ")) { // Assuming recorded sounds don't start with "Synth "
-        const recordedAudioBuffer = AppState.getSoundBuffer(soundInfo.sound);
-        if (recordedAudioBuffer instanceof AudioBuffer) {
-            soundInfo.audioBuffer = recordedAudioBuffer; // Temporarily attach audioBuffer for modal's use
-            this.currentAudioBuffer = recordedAudioBuffer;
-        }
+    // Check if it's a recorded sound (or custom sound based on one) and retrieve its audioBuffer
+    let soundNameForBuffer = soundInfo.sound;
+    const customSoundData = AppState.getCustomSoundData(soundInfo.sound);
+    if (customSoundData) {
+        soundNameForBuffer = customSoundData.baseSound;
+    }
+
+    const recordedAudioBuffer = AppState.getSoundBuffer(soundNameForBuffer);
+    if (recordedAudioBuffer instanceof AudioBuffer) {
+        soundInfo.audioBuffer = recordedAudioBuffer; // Temporarily attach audioBuffer for modal's use
+        this.currentAudioBuffer = recordedAudioBuffer;
     }
 
     const modalTitle = DOM.soundSettingsModal.querySelector(".modal-header h2");
