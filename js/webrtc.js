@@ -31,7 +31,23 @@ const configuration = {
     { urls: "stun:stun3.l.google.com:19302" },
     { urls: "stun:stun4.l.google.com:19302" },
     { urls: "stun:stun.services.mozilla.com" },
-    { urls: "stun:global.stun.twilio.com:3478" }
+    { urls: "stun:global.stun.twilio.com:3478" },
+    // OpenRelay (Free Tier) - Solves Symmetric NAT issues
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    }
   ],
   iceCandidatePoolSize: 10,
 };
@@ -561,7 +577,7 @@ export async function acceptAnswer(answer, peerId = "default") {
       // Process any candidates that arrived before the answer was set
       await processCandidateQueue(peerId);
       
-      console.log("Connection established with peer:", peerId);
+      console.log("Signaling complete (SDP set) for peer:", peerId);
     } else {
       console.warn("No peer connection found for peer:", peerId);
     }
