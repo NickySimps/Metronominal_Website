@@ -220,11 +220,11 @@ const TrackController = {
         </div>
         <div class="track-sound-controls">
           <div class="sound-selection">
-            <span class="sound-label main-sound-label">Main:✎</span>
+            <span class="sound-label main-sound-label">✎ Main</span>
           </div>
           <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}">𝄽</button>
           <div class="sound-selection">
-            <span class="sound-label sub-sound-label">Sub:✎</span>
+            <span class="sound-label sub-sound-label">✎ Sub</span>
           </div>
           <button class="record-btn ${AppState.isRecording() ? 'active' : ''}">●</button>
         </div>

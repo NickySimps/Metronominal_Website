@@ -1560,7 +1560,7 @@ button:active,
 }
 
 #rename-sound-btn, #save-sound-btn {
-  background-color: transparent;
+  background-color: var(--ActiveBarBackground);
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
@@ -1622,9 +1622,20 @@ button:active,
 
 .close-button {
   color: var(--TextOnMain);
+    background-color: var(--Alt2);
   float: right;
   font-size: 28px;
   font-weight: bold;
+    padding: 10px 10px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+   margin: 4px 2px;
+  cursor: pointer;
+  border-radius: var(--BorderRadius);
+  transition-duration: 0.4s;
+  align-self: self-end;
+  width: 10%;
 }
 
 .close-button:hover,
