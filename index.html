@@ -198,8 +198,29 @@
     </div>
 </body>
 
-<div id="share-modal" class="modal">
-    <div class="modal-content">
+    <div id="sticky-mobile-controls" class="sticky-mobile-controls">
+        <div class="sticky-group sticky-tempo">
+            <button id="sticky-tempo-decrease" class="sticky-btn">-</button>
+            <div class="sticky-tempo-display">
+                <span id="sticky-bpm-display">120</span>
+                <span class="sticky-label">BPM</span>
+            </div>
+            <button id="sticky-tempo-increase" class="sticky-btn">+</button>
+        </div>
+
+        <button id="sticky-play-pause-btn" class="sticky-play-btn">▶</button>
+
+        <div class="sticky-group sticky-volume">
+            <button id="sticky-volume-decrease" class="sticky-btn">-</button>
+            <div class="sticky-volume-display">
+                <span id="sticky-volume-value">80%</span>
+                <span class="sticky-label">Vol</span>
+            </div>
+            <button id="sticky-volume-increase" class="sticky-btn">+</button>
+        </div>
+    </div>
+
+    <div id="share-modal" class="modal">    <div class="modal-content">
         <span class="close-button">&times;</span>
         <h2>Sync Metronome</h2>
         <p>Have your friend scan this QR code to sync your metronomes.</p>

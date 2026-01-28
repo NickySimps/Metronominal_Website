@@ -16,6 +16,7 @@ import Oscilloscope from "./js/oscilloscope.js"; // 1. IMPORT a new module
 import UserInteraction from './js/userInteraction.js';
 import AudioController from './js/audioController.js';
 import RecordingManager from './js/recordingManager.js';
+import StickyControls from './js/stickyControls.js';
 
 let qrCodeInstance = null;
 
@@ -26,6 +27,7 @@ function refreshUIFromState() {
   TempoController.updateTempoDisplay({ animate: true });
   VolumeController.updateVolumeDisplay({ animate: true });
   UIController.updateScreenOffToggleBtn();
+  StickyControls.updateDisplay();
 
   TrackController.renderTracks();
   BarControlsController.updateBarControlsForSelectedTrack();
@@ -89,6 +91,7 @@ async function initialize() {
   UIController.initializeConnectionModal();
   console.log('DOM.recordingDisplayModal:', DOM.recordingDisplayModal);
   AudioController.initialize();
+  StickyControls.init();
 
 
   // 5. First UI render and start oscilloscope if audio is already active

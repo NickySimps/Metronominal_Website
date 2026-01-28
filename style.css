@@ -1998,41 +1998,104 @@ environments: Development, Staging,
 #confirmation-modal .confirmation-modal-content {
     background-color: var(--Background);
     color: var(--TextPrimary);
-    text-align: center;
-    max-width: 400px;
 }
 
-.confirmation-actions {
+/* STICKY MOBILE CONTROLS */
+.sticky-mobile-controls {
+    position: fixed;
+    top: 55px; /* Sit below the top header */
+    left: 0;
+    width: 100%;
+    background-color: color-mix(in srgb, var(--Alt2) 95%, black);
+    padding: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    z-index: 900; /* Below the top header (z-index 1000) but above content */
+    display: none; /* Flex on mobile */
+    justify-content: space-around;
+    align-items: center;
+    transform: translateY(-150%); /* Slide down from further up */
+    transition: transform 0.3s ease-out;
+    border-bottom: 1px solid var(--BorderColor);
+    height: 70px;
+    box-sizing: border-box;
+}
+
+.sticky-mobile-controls.sticky-active {
+    transform: translateY(0);
+}
+
+.sticky-group {
     display: flex;
-    justify-content: center;
-    gap: 20px;
-    margin-top: 20px;
+    align-items: center;
+    gap: 5px;
 }
 
-#confirmation-modal-confirm-btn {
-    background-color: var(--Alt2);
-    color: white;
-    padding: 10px 20px;
-    border: none;
+.sticky-btn {
+    width: 40px;
+    height: 40px;
     border-radius: var(--BorderRadius);
-    cursor: pointer;
-    font-size: 1rem;
-}
-
-#confirmation-modal-cancel-btn {
+    border: none;
     background-color: var(--Highlight);
     color: var(--TextPrimary);
-    padding: 10px 20px;
-    border: none;
-    border-radius: var(--BorderRadius);
+    font-size: 1.2rem;
+    font-weight: bold;
     cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: background-color 0.2s;
+}
+
+.sticky-btn:active {
+    background-color: var(--Main);
+    color: var(--TextOnMain);
+    transform: scale(0.95);
+}
+
+.sticky-play-btn {
+    width: 55px;
+    height: 55px;
+    border-radius: var(--BorderRadius);
+    border: none;
+    background-color: var(--Highlight);
+    color: var(--TextOnMain); /* Make text contrast */
+    font-size: 1.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
+}
+
+.sticky-play-btn.active {
+    background-color: var(--Alt2);
+    box-shadow: 0 0 10px var(--Alt2);
+    animation: pulse-glow 1.2s infinite;
+}
+
+.sticky-tempo-display,
+.sticky-volume-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 45px;
+}
+
+.sticky-tempo-display span:first-child,
+.sticky-volume-display span:first-child {
+    font-weight: bold;
     font-size: 1rem;
 }
 
-#confirmation-modal-confirm-btn:hover {
-    background-color: color-mix(in srgb, var(--Alt2) 80%, black);
+.sticky-label {
+    font-size: 0.6rem;
+    color: var(--TextSecondary);
 }
 
-#confirmation-modal-cancel-btn:hover {
-    background-color: var(--Accent);
+@media (max-width: 768px) {
+    .sticky-mobile-controls {
+        display: flex; /* Activate flex layout on mobile */
+    }
 }
