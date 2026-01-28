@@ -102,7 +102,7 @@ function createPeerConnection(peerId) {
 
   peerConnection.onicecandidate = (event) => {
     if (event.candidate) {
-      console.log("Sending ICE candidate for peer:", peerId);
+      console.log(`Sending ICE candidate for peer ${peerId}: ${event.candidate.type} (${event.candidate.protocol})`);
       sendMessage({
         type: "candidate",
         candidate: event.candidate,
@@ -116,6 +116,10 @@ function createPeerConnection(peerId) {
     console.log("Received data channel for peer:", peerId);
     dataChannels[peerId] = event.channel;
     setupDataChannelEvents(peerId);
+  };
+
+  peerConnection.onicecandidateerror = (event) => {
+      console.error("ICE Candidate Error for peer:", peerId, event);
   };
 
   peerConnection.onconnectionstatechange = () => {
@@ -592,9 +596,9 @@ export async function addIceCandidate(candidate, peerId = "default") {
     if (peerConnection) {
         if (peerConnection.remoteDescription) {
             await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            console.log("Added ICE candidate for peer:", peerId);
+            console.log(`Added ICE candidate for peer ${peerId}: ${candidate.type}`);
         } else {
-             console.log("Buffering ICE candidate for peer (remote description not set):", peerId);
+             console.log(`Buffering ICE candidate for peer ${peerId} (remote description not set): ${candidate.type}`);
              if (!candidateQueues[peerId]) candidateQueues[peerId] = [];
              candidateQueues[peerId].push(candidate);
         }
