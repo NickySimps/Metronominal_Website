@@ -1502,6 +1502,18 @@ button:active,
   background-color: var(--Main);
 }
 
+.share-actions {
+  display: flex;
+  gap: var(--s3);
+  justify-content: center;
+  margin-top: var(--s5);
+  width: 100%;
+}
+
+#mobile-share-btn {
+  display: none; /* Shown via JS if Web Share API is available */
+}
+
 /* Modal Styles */
 .modal {
   position: fixed;

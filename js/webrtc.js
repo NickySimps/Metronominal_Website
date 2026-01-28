@@ -623,6 +623,13 @@ export function initializeShareControls() {
   const disconnectBtn = document.getElementById("disconnect-btn");
   const closeBtn = shareModal.querySelector(".close-button");
   const qrcodeContainer = document.getElementById("qrcode");
+  const copyLinkBtn = document.getElementById("copy-link-btn");
+  const mobileShareBtn = document.getElementById("mobile-share-btn");
+
+  // Check if Web Share API is supported
+  if (navigator.share && mobileShareBtn) {
+    mobileShareBtn.style.display = "flex";
+  }
 
   shareBtn.addEventListener("click", () => {
     window.isHost = true;
@@ -641,6 +648,50 @@ export function initializeShareControls() {
       colorLight: "#ffffff",
       correctLevel: QRCode.CorrectLevel.H,
     });
+
+    // Re-query buttons to ensure we have the current DOM elements
+    const currentCopyLinkBtn = document.getElementById("copy-link-btn");
+    const currentMobileShareBtn = document.getElementById("mobile-share-btn");
+
+    // Setup Copy Link button
+    if (currentCopyLinkBtn) {
+        // Remove old listeners to prevent duplicates if function called multiple times
+        const newCopyBtn = currentCopyLinkBtn.cloneNode(true);
+        currentCopyLinkBtn.parentNode.replaceChild(newCopyBtn, currentCopyLinkBtn);
+        
+        newCopyBtn.addEventListener("click", async () => {
+            try {
+                await navigator.clipboard.writeText(shareUrl);
+                const originalText = newCopyBtn.textContent;
+                newCopyBtn.textContent = "Copied!";
+                setTimeout(() => {
+                    newCopyBtn.textContent = originalText;
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy: ', err);
+                alert("Failed to copy link. Please copy it manually from the address bar.");
+            }
+        });
+    }
+
+    // Setup Mobile Share button
+    if (currentMobileShareBtn) {
+        // Remove old listeners
+        const newShareBtn = currentMobileShareBtn.cloneNode(true);
+        currentMobileShareBtn.parentNode.replaceChild(newShareBtn, currentMobileShareBtn);
+
+        newShareBtn.addEventListener("click", async () => {
+            try {
+                await navigator.share({
+                    title: 'Sync Metronominal',
+                    text: 'Join my Metronominal session!',
+                    url: shareUrl
+                });
+            } catch (err) {
+                console.error('Error sharing:', err);
+            }
+        });
+    }
 
     shareModal.style.display = "block";
   });
