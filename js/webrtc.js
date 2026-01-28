@@ -119,7 +119,7 @@ function createPeerConnection(peerId) {
   };
 
   peerConnection.onicecandidateerror = (event) => {
-      console.error("ICE Candidate Error for peer:", peerId, event);
+      console.warn("ICE Candidate Error for peer (non-fatal):", peerId, event);
   };
 
   peerConnection.onconnectionstatechange = () => {
@@ -445,13 +445,18 @@ function setupDataChannelEvents(peerId) {
     // Handle normal state updates
     const wasPlayingOnClient = AppState.isPlaying();
     const shouldBePlaying = data.isPlaying || false;
+    console.log("Received state update. Host playing:", shouldBePlaying);
 
     // Load the state, but temporarily set isPlaying to false in AppState
     // to prevent MetronomeEngine from immediately starting/stopping based on the loaded state.
     // We will handle playback synchronization explicitly below.
     AppState.loadPresetData({ ...data, isPlaying: false });
 
-    refreshUIFromState();
+    if (receiveCallback) {
+        receiveCallback(data);
+    } else {
+        refreshUIFromState();
+    }
 
     // Explicitly synchronize playback state without resetting the metronome's timing.
     // If the host is playing and the client was not, start the client.
@@ -516,6 +521,7 @@ async function processCandidateQueue(peerId) {
 
 export async function sendState(statePromise) {
   const state = await statePromise;
+  state.isPlaying = AppState.isPlaying(); // Ensure playback state is included
   if (window.isHost) {
     Object.entries(dataChannels).forEach(([peerId, channel]) => {
       if (channel && channel.readyState === "open") {
@@ -898,7 +904,7 @@ function generateRoomId() {
 export function initializeWebRTC() {
   onReceiveState((newState) => {
     console.log("Received new state:", newState);
-    AppState.loadPresetData(newState);
+    // AppState.loadPresetData is handled in onmessage
     TempoController.updateTempoDisplay({ animate: true });
     VolumeController.updateVolumeDisplay({ animate: true });
     TrackController.renderTracks();
@@ -907,9 +913,6 @@ export function initializeWebRTC() {
     if (ThemeController.is3DSceneActive() && currentTheme !== "3dRoom") {
       ThemeController.applyTheme(currentTheme);
     }
-
-    // Sync playback state
-    syncPlaybackState();
   });
 
   const urlParams = new URLSearchParams(window.location.search);
