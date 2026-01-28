@@ -856,6 +856,25 @@ export function disconnectAllPeers() {
   }, 250);
 }
 
+const COLORS = [
+  "Red", "Orange", "Yellow", "Green", "Blue", "Indigo", "Violet", "Pink", "Crimson", "Scarlet",
+  "Coral", "Gold", "Amber", "Lime", "Emerald", "Teal", "Cyan", "Azure", "Cobalt", "Navy",
+  "Lavender", "Plum", "Magenta", "Maroon", "Silver", "Jade", "Ruby", "Onyx", "Pearl", "Ivory"
+];
+
+const ANIMALS = [
+  "Lion", "Tiger", "Bear", "Wolf", "Fox", "Eagle", "Hawk", "Owl", "Shark", "Whale",
+  "Dolphin", "Panda", "Koala", "Otter", "Seal", "Falcon", "Raven", "Swan", "Crane", "Heron",
+  "Parrot", "Macaw", "Gecko", "Iguana", "Turtle", "Rabbit", "Deer", "Moose", "Bison", "Horse"
+];
+
+function generateRoomId() {
+  const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+  const animal = ANIMALS[Math.floor(Math.random() * ANIMALS.length)];
+  const number = Math.floor(Math.random() * 90) + 10; // 10-99
+  return `${color}_${animal}_${number}`;
+}
+
 export function initializeWebRTC() {
   onReceiveState((newState) => {
     console.log("Received new state:", newState);
@@ -891,7 +910,7 @@ export function initializeWebRTC() {
         console.log("Joining existing room:", roomId);
     }
   } else {
-    roomId = Math.random().toString(36).substring(2, 9);
+    roomId = generateRoomId();
     window.isHost = true; // Creating a new room, so this is the host
     console.log("Creating new room:", roomId);
     
