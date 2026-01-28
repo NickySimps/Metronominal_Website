@@ -27,7 +27,6 @@ function refreshUIFromState() {
   TempoController.updateTempoDisplay({ animate: true });
   VolumeController.updateVolumeDisplay({ animate: true });
   UIController.updateScreenOffToggleBtn();
-  StickyControls.updateDisplay();
 
   TrackController.renderTracks();
   BarControlsController.updateBarControlsForSelectedTrack();
@@ -92,6 +91,11 @@ async function initialize() {
   console.log('DOM.recordingDisplayModal:', DOM.recordingDisplayModal);
   AudioController.initialize();
   StickyControls.init();
+  
+  // Register Sticky Controls listeners
+  TempoController.registerTempoChangeListener(() => StickyControls.updateDisplay());
+  VolumeController.registerVolumeChangeListener(() => StickyControls.updateDisplay());
+  MetronomeEngine.registerPlayStateChangeListener(() => StickyControls.updatePlayButtonState());
 
 
   // 5. First UI render and start oscilloscope if audio is already active

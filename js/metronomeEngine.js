@@ -224,9 +224,18 @@ function performEngineStopActions() {
     if (ThemeController.is3DSceneActive()) {
         ThemeController.clearAll3DVisualHighlights();
     }
+    
+    if (MetronomeEngine.onPlayStateChange) {
+        MetronomeEngine.onPlayStateChange(false);
+    }
 }
 
 const MetronomeEngine = {
+    onPlayStateChange: null,
+    registerPlayStateChangeListener: (callback) => {
+        MetronomeEngine.onPlayStateChange = callback;
+    },
+
     /**
      * Toggles playback.
      * @param {boolean} forceStop - If true, ensures playback stops regardless of current state.
@@ -286,6 +295,9 @@ const MetronomeEngine = {
                 if (!drawFrameId) {
                     draw();
                 }
+            }
+            if (MetronomeEngine.onPlayStateChange) {
+                MetronomeEngine.onPlayStateChange(true);
             }
         } else {
             performEngineStopActions();
@@ -361,6 +373,9 @@ const MetronomeEngine = {
         metronomeWorker.postMessage("start");
         if (isPageVisible && !drawFrameId) {
             draw();
+        }
+        if (MetronomeEngine.onPlayStateChange) {
+            MetronomeEngine.onPlayStateChange(true);
         }
     },
 

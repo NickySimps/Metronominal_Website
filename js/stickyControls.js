@@ -45,20 +45,17 @@ const StickyControls = {
       AppState.decreaseTempo();
       sendState(AppState.getCurrentStateForPreset());
       TempoController.updateTempoDisplay(); // Updates main UI
-      StickyControls.updateDisplay(); // Updates sticky UI
     });
 
     els.tempoIncrease.addEventListener("click", () => {
       AppState.increaseTempo();
       sendState(AppState.getCurrentStateForPreset());
       TempoController.updateTempoDisplay();
-      StickyControls.updateDisplay();
     });
 
     // Play/Pause
     els.playPauseBtn.addEventListener("click", async () => {
       await MetronomeEngine.togglePlay();
-      StickyControls.updatePlayButtonState();
     });
 
     // Volume
@@ -67,7 +64,6 @@ const StickyControls = {
       let newVol = Math.max(0, currentVol - 0.05); // 5% step
       AppState.setVolume(newVol);
       VolumeController.updateVolumeDisplay();
-      StickyControls.updateDisplay();
       if (window.isHost) {
         sendState(AppState.getCurrentStateForPreset());
       }
@@ -78,7 +74,6 @@ const StickyControls = {
       let newVol = Math.min(1, currentVol + 0.05); // 5% step
       AppState.setVolume(newVol);
       VolumeController.updateVolumeDisplay();
-      StickyControls.updateDisplay();
       if (window.isHost) {
         sendState(AppState.getCurrentStateForPreset());
       }

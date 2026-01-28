@@ -51,6 +51,14 @@ const VolumeController = {
       if (slider) slider.value = targetVolume;
       // Text display already updated at the beginning of the function
     }
+
+    if (VolumeController.onVolumeChange) {
+      VolumeController.onVolumeChange();
+    }
+  },
+
+  registerVolumeChangeListener: (callback) => {
+    VolumeController.onVolumeChange = callback;
   },
 
   initializeVolumeControls: () => {

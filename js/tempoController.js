@@ -88,6 +88,14 @@ const TempoController = {
       if (slider) slider.value = targetTempo;
       _updateTempoDescriptionDOM(currentTempoDescription);
     }
+
+    if (TempoController.onTempoChange) {
+      TempoController.onTempoChange();
+    }
+  },
+
+  registerTempoChangeListener: (callback) => {
+    TempoController.onTempoChange = callback;
   },
 
   initializeTempoControls: () => {
