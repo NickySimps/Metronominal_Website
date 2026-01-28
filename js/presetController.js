@@ -53,6 +53,13 @@ const PresetController = {
             result.slotIndex + 1
           }`
         );
+        
+        // Update the dropdown option text to reflect the new name
+        const option = DOM.presetSlotSelect.querySelector(`option[value="${result.slotIndex}"]`);
+        if (option) {
+            option.textContent = result.savedSongName;
+        }
+
         refreshUIFromState(); // Refresh UI to show new preset name
       }
     });

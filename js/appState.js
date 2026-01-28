@@ -928,6 +928,25 @@ const AppState = (function () {
           defaultSettings = customSounds[soundInfo.sound].settings;
       }
 
+      if (!defaultSettings) {
+          // Check if it's a recorded sound
+          // We need to resolve base sound for custom recording aliases
+          let soundNameForBuffer = soundInfo.sound;
+          const customSoundData = customSounds[soundInfo.sound];
+          if (customSoundData) {
+              soundNameForBuffer = customSoundData.baseSound;
+          }
+
+          const buffer = soundBuffers[soundNameForBuffer];
+          if (buffer) {
+              defaultSettings = {
+                  trimStart: 0,
+                  trimEnd: buffer.duration,
+                  pitchShift: 0
+              };
+          }
+      }
+
       if (!defaultSettings) return false; // No default settings to compare against
 
       // Deep comparison of settings
