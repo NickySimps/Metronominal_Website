@@ -658,6 +658,8 @@ export function initializeShareControls() {
 
 export function disconnect() {
   console.log("User initiated disconnect.");
+  sessionStorage.removeItem('host_room_id');
+  sessionStorage.removeItem('is_host');
   Object.values(peers).forEach((peerConnection) => {
     if (peerConnection) peerConnection.close();
   });
@@ -717,14 +719,29 @@ export function initializeWebRTC() {
   const urlParams = new URLSearchParams(window.location.search);
   const roomParam = urlParams.get("room");
 
+  const storedHostRoomId = sessionStorage.getItem('host_room_id');
+  const storedIsHost = sessionStorage.getItem('is_host') === 'true';
+
   if (roomParam) {
     roomId = roomParam;
-    window.isHost = false; // Joining an existing room, so not the host
-    console.log("Joining existing room:", roomId);
+    
+    // Check if we were the host of this room (persisted session)
+    if (storedHostRoomId === roomId && storedIsHost) {
+        window.isHost = true;
+        console.log("Re-joining room as Host (persisted session):", roomId);
+    } else {
+        window.isHost = false; // Joining an existing room, so not the host
+        console.log("Joining existing room:", roomId);
+    }
   } else {
     roomId = Math.random().toString(36).substring(2, 9);
     window.isHost = true; // Creating a new room, so this is the host
     console.log("Creating new room:", roomId);
+    
+    // Persist host status
+    sessionStorage.setItem('host_room_id', roomId);
+    sessionStorage.setItem('is_host', 'true');
+
     // Update the URL without reloading the page to have a shareable link
     const newUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
     window.history.pushState({ path: newUrl }, "", newUrl);
