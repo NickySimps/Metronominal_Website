@@ -2013,7 +2013,7 @@ environments: Development, Staging,
     display: none; /* Flex on mobile */
     justify-content: space-around;
     align-items: center;
-    transform: translateY(-150%); /* Slide down from further up */
+    transform: translateY(-250%); /* Start completely offscreen */
     transition: transform 0.3s ease-out;
     border-bottom: 1px solid var(--BorderColor);
     height: 70px;

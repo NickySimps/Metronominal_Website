@@ -120,8 +120,12 @@ async function initialize() {
 /**
  * Handles all UI updates that need to happen when track selection changes.
  */
-function handleTrackSelectionChange() {
+function handleTrackSelectionChange(event) {
   BarControlsController.updateBarControlsForSelectedTrack();
+  // Only scroll if shouldScroll is not explicitly false
+  if (event.detail && event.detail.shouldScroll === false) {
+    return;
+  }
   TrackController.scrollToSelectedTrack();
 }
 
@@ -141,14 +145,9 @@ document.addEventListener('click', (event) => {
     return;
   }
 
-  // If the click is outside the track wrapper AND outside the bar controls, deselect the current track.
-  if (trackWrapper && !trackWrapper.contains(event.target) &&
-      measuresContainer && !measuresContainer.contains(event.target)) {
-    if (AppState.getSelectedTrackIndex() !== -1) {
-      AppState.setControlsAttachedToTrack(false);
-      document.dispatchEvent(new CustomEvent('trackselectionchanged')); // Announce change
-      BarDisplayController.renderBarsAndControls(); // Re-render to keep selection visuals
-    }
+  // If the click is on a track or its controls, don't do anything here (handled by TrackController)
+  if (event.target.closest('.track') || (measuresContainer && measuresContainer.contains(event.target))) {
+    return;
   }
 });
 

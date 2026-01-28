@@ -326,7 +326,7 @@ const TrackController = {
       sendState(AppState.getCurrentStateForPreset());
       TrackController.renderTracks();
       setTimeout(() => {
-        document.dispatchEvent(new CustomEvent("trackselectionchanged"));
+        document.dispatchEvent(new CustomEvent("trackselectionchanged", { detail: { shouldScroll: false } }));
       }, 0);
     } else if (target.matches(".rest-button")) {
         const newRestModeState = !AppState.isRestMode();
@@ -357,40 +357,7 @@ const TrackController = {
             // Update Visuals for Bar Selection
             BarDisplayController.renderBarsAndControls();
             
-            // Update Track Selection UI
-            const allSelectedTracks = document.querySelectorAll('.track.selected');
-            allSelectedTracks.forEach(prevTrack => {
-                if (prevTrack !== trackElement) {
-                    prevTrack.classList.remove('selected');
-                    const prevMeasuresContainer = prevTrack.querySelector('.measures-container');
-                    if (prevMeasuresContainer) {
-                        prevMeasuresContainer.classList.remove('showing');
-                        prevMeasuresContainer.classList.add('hiding');
-                        prevMeasuresContainer.addEventListener('transitionend', () => {
-                            prevMeasuresContainer.classList.remove('hiding');
-                            prevMeasuresContainer.classList.add('hidden');
-                        }, { once: true });
-                    }
-                }
-            });
-
-            if (!trackElement.classList.contains('selected')) {
-                trackElement.classList.add('selected');
-                const measuresContainer = trackElement.querySelector('.measures-container');
-                if (measuresContainer) {
-                    measuresContainer.classList.remove('hidden');
-                    measuresContainer.classList.add('showing');
-                }
-            }
-
-            // Sync other controls
-            if (BarControlsController && typeof BarControlsController.updateBeatControlsDisplay === 'function') {
-                BarControlsController.updateBeatControlsDisplay();
-            }
-
-            setTimeout(() => {
-                document.dispatchEvent(new CustomEvent("trackselectionchanged"));
-            }, 0);
+            updateSelectionUI();
         }
     } else if (target.matches(".record-btn")) {
         AudioController.toggleRecording(containerIndex);
@@ -425,7 +392,7 @@ const TrackController = {
              BarDisplayController.updateSelectionVisuals();
         }
 
-        const updateSelectionUI = () => {
+        const updateSelectionUI = (shouldScroll = true) => {
             const allSelectedTracks = document.querySelectorAll('.track.selected');
             allSelectedTracks.forEach(prevTrack => {
                 if (prevTrack !== trackElement) {
@@ -454,7 +421,8 @@ const TrackController = {
             sendState(AppState.getCurrentStateForPreset());
 
             setTimeout(() => {
-                document.dispatchEvent(new CustomEvent("trackselectionchanged"));
+                // Dispatch event, but only scroll if requested
+                document.dispatchEvent(new CustomEvent("trackselectionchanged", { detail: { shouldScroll } }));
             }, 0);
         };
 
@@ -571,7 +539,7 @@ const TrackController = {
     AppState.addTrack();
     TrackController.renderTracks();
     setTimeout(() => {
-      document.dispatchEvent(new CustomEvent("trackselectionchanged"));
+      document.dispatchEvent(new CustomEvent("trackselectionchanged", { detail: { shouldScroll: true } }));
     }, 0);
   },
 

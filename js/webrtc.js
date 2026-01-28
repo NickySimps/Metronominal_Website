@@ -26,6 +26,7 @@ const configuration = {
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun.services.mozilla.com" },
   ],
   iceCandidatePoolSize: 10,
 };
@@ -99,6 +100,11 @@ function createPeerConnection(peerId) {
       ":",
       peerConnection.connectionState
     );
+    
+    // Debug log for modal logic
+    if (peerConnection.connectionState === "connected") {
+        console.log("Connection established. isHost:", window.isHost);
+    }
 
     if (peerConnection.connectionState === "connected") {
       updateClientCount();
@@ -106,7 +112,9 @@ function createPeerConnection(peerId) {
 
       if (!window.isHost) {
         const connectionModal = document.getElementById("connection-modal");
-        connectionModal.style.display = "block";
+        if (connectionModal) {
+            connectionModal.style.display = "block";
+        }
       }
     } else if (
       peerConnection.connectionState === "disconnected" ||
@@ -583,6 +591,8 @@ function connectToSignalingServer() {
       event.code,
       event.reason
     );
+    
+    updateConnectionStatusUI("disconnected");
 
     // Only attempt to reconnect if we haven't exceeded max attempts
     if (connectionAttempts < maxConnectionAttempts) {
@@ -594,11 +604,13 @@ function connectToSignalingServer() {
       console.error(
         "Max connection attempts reached. Please refresh the page."
       );
+      alert("Unable to connect to the signaling server. Real-time features may be unavailable. Please try refreshing the page.");
     }
   };
 
   socket.onerror = (error) => {
     console.error("WebSocket error:", error);
+    // Don't alert here immediately, let onclose handle the persistent failure
   };
 }
 
