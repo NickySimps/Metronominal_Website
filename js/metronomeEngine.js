@@ -337,7 +337,8 @@ const MetronomeEngine = {
         // 2. Calculate delay until target time
         const now = Date.now();
         const delaySeconds = (targetTimestamp - now) / 1000;
-        const startAudioTime = audioContext.currentTime + Math.max(0, delaySeconds);
+        // Allow startAudioTime to be in the past (negative delay) to preserve grid alignment
+        const startAudioTime = audioContext.currentTime + delaySeconds;
 
         // 3. Overwrite nextBeatTime for all tracks
         const allTracks = AppState.getTracks();
@@ -408,16 +409,16 @@ const MetronomeEngine = {
             
             const drift = targetAudioTime - currentAudioNextBeat;
             
-            // If drift is significant (> 20ms) but not massive (< 500ms), nudge.
-            // If massive, we might need a hard reset (or just let it be to avoid skipping around wildy).
-            if (Math.abs(drift) > 0.02 && Math.abs(drift) < 0.5) {
+            // If drift is significant (> 5ms) but not massive (< 1000ms), nudge.
+            // Lowered threshold to 5ms for tighter sync.
+            if (Math.abs(drift) > 0.005 && Math.abs(drift) < 1.0) {
                 console.log(`Sync Drift detected: ${Math.round(drift * 1000)}ms. Nudging...`);
                 
                 // Nudge all tracks
                 tracks.forEach(t => {
                     t.nextBeatTime += drift;
                 });
-            } else if (Math.abs(drift) >= 0.5) {
+            } else if (Math.abs(drift) >= 1.0) {
                 console.warn(`Massive drift detected: ${Math.round(drift * 1000)}ms. Ignoring nudge to prevent jumpiness.`);
             }
         }

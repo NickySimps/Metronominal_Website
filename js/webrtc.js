@@ -61,6 +61,7 @@ function sendMessage(message) {
       "Cannot send message, WebSocket not open:",
       socket?.readyState
     );
+    
   }
 }
 
@@ -354,6 +355,7 @@ function setupDataChannelEvents(peerId) {
             const rtt = t3 - t0;
             // NTP offset calculation
             const newOffset = t1 - (t0 + rtt / 2);
+            console.log(`Time sync: RTT=${rtt}ms, Offset=${newOffset}ms`);
             updateTimeOffset(newOffset);
         }
         return;
