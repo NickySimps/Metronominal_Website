@@ -1559,7 +1559,7 @@ button:active,
     margin: 0;
 }
 
-#rename-sound-btn, #save-sound-btn {
+#rename-sound-btn, #save-sound-btn, #delete-sound-btn {
   background-color: var(--ActiveBarBackground);
   border: none;
   font-size: 1.5rem;
@@ -1992,4 +1992,47 @@ environments: Development, Staging,
 
 .bar-visual.rest-mode-active .bar-beat-indicator:hover {
     transform: translate(50%, 50%) scale(1.5);
+}
+
+/* Confirmation Modal Styling */
+#confirmation-modal .confirmation-modal-content {
+    background-color: var(--Background);
+    color: var(--TextPrimary);
+    text-align: center;
+    max-width: 400px;
+}
+
+.confirmation-actions {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+#confirmation-modal-confirm-btn {
+    background-color: var(--Alt2);
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--BorderRadius);
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+#confirmation-modal-cancel-btn {
+    background-color: var(--Highlight);
+    color: var(--TextPrimary);
+    padding: 10px 20px;
+    border: none;
+    border-radius: var(--BorderRadius);
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+#confirmation-modal-confirm-btn:hover {
+    background-color: color-mix(in srgb, var(--Alt2) 80%, black);
+}
+
+#confirmation-modal-cancel-btn:hover {
+    background-color: var(--Accent);
 }

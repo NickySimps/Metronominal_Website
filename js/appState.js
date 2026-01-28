@@ -315,13 +315,26 @@ const AppState = (function () {
             delete customSounds[name];
             // Reset tracks using this sound
             Tracks.forEach(track => {
+                // Check if the deleted sound is a default sound name
+                const isDefaultSound = !!defaultSoundSettings[name];
+
                 if (track.mainBeatSound.sound === name) {
-                    track.mainBeatSound.sound = "Synth Kick";
-                    track.mainBeatSound.settings = { ...defaultKick };
+                    if (isDefaultSound) {
+                         // Revert settings but keep name
+                         track.mainBeatSound.settings = { ...defaultSoundSettings[name] };
+                    } else {
+                         // Fallback to default Kick
+                        track.mainBeatSound.sound = "Synth Kick";
+                        track.mainBeatSound.settings = { ...defaultKick };
+                    }
                 }
                 if (track.subdivisionSound.sound === name) {
-                    track.subdivisionSound.sound = "Synth HiHat";
-                    track.subdivisionSound.settings = { ...defaultHiHat };
+                    if (isDefaultSound) {
+                        track.subdivisionSound.settings = { ...defaultSoundSettings[name] };
+                    } else {
+                        track.subdivisionSound.sound = "Synth HiHat";
+                        track.subdivisionSound.settings = { ...defaultHiHat };
+                    }
                 }
             });
             saveState();

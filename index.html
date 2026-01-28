@@ -175,6 +175,7 @@
                     <button id="reset-sound-btn">Reset</button>
                     <button id="rename-sound-btn" title="Rename Sound">✎</button>
                     <button id="save-sound-btn" title="Save Sound">💾</button>
+                    <button id="delete-sound-btn" title="Delete Sound" style="display: none;">🗑️</button>
                 </div>
             </div>
             <canvas class="oscilloscope-canvas" width="400" height="100"></canvas>
@@ -209,11 +210,22 @@
 <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
 <script type="module" src="script.js" defer></script>
 
-<div id="connection-modal" class="modal">
+    <div id="connection-modal" class="modal">
     <div class="modal-content">
         <h2>You're connected!</h2>
         <p>Click the button below to start.</p>
         <button id="dismiss-connection-modal-btn">Let's Go!</button>
+    </div>
+</div>
+
+<div id="confirmation-modal" class="modal">
+    <div class="modal-content confirmation-modal-content">
+        <h2 id="confirmation-modal-title">Confirm</h2>
+        <p id="confirmation-modal-message">Are you sure?</p>
+        <div class="confirmation-actions">
+            <button id="confirmation-modal-cancel-btn">Cancel</button>
+            <button id="confirmation-modal-confirm-btn">Confirm</button>
+        </div>
     </div>
 </div>
 

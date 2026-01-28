@@ -50,7 +50,7 @@ const AudioController = {
             const source = audioContext.createMediaStreamSource(stream);
             AudioController.analyserNode = audioContext.createAnalyser();
             source.connect(AudioController.analyserNode);
-            AudioController.analyserNode.connect(audioContext.destination);
+            // AudioController.analyserNode.connect(audioContext.destination); // Removed to prevent feedback
             RecordingVisualizer.init(AudioController.analyserNode, DOM.recordingWaveformCanvas);
             RecordingVisualizer.start();
 
@@ -75,11 +75,27 @@ const AudioController = {
                 const audioBlob = new Blob(AudioController.audioChunks, { type: 'audio/wav' });
                 const arrayBuffer = await audioBlob.arrayBuffer();
                 // audioContext is already defined above
-                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                const audioBufferDecoded = await audioContext.decodeAudioData(arrayBuffer);
 
                 const recordingName = `Recording ${AppState.getRecordings().length + 1}`;
                 AppState.addRecording(recordingName);
-                AppState.setSoundBuffer(recordingName, audioBuffer);
+                AppState.setSoundBuffer(recordingName, audioBufferDecoded);
+
+                // Set the new recording to the track that initiated it (Main Beat Sound)
+                if (typeof trackIndex === 'number') {
+                    const newSettings = {
+                        trimStart: 0,
+                        trimEnd: audioBufferDecoded.duration,
+                        pitchShift: 0,
+                    };
+                    
+                    AppState.updateTrack(trackIndex, {
+                        mainBeatSound: {
+                            sound: recordingName,
+                            settings: newSettings
+                        }
+                    });
+                }
 
                 AudioController.audioChunks = [];
                 AppState.setRecording(false);
@@ -94,6 +110,7 @@ const AudioController = {
             AudioController.mediaRecorder.start();
         } catch (err) {
             console.error("Error accessing microphone:", err);
+            alert("Could not access microphone. Please ensure a microphone is connected and permissions are granted.");
             // Optionally, show a message to the user
             // Hide modal if there was an error starting
             DOM.recordingDisplayModal.style.display = 'none';

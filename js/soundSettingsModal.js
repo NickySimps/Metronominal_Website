@@ -98,6 +98,67 @@ const SoundSettingsModal = {
             this.saveCustomSound();
         });
     }
+
+    // Delete Button Logic
+    const deleteBtn = DOM.soundSettingsModal.querySelector("#delete-sound-btn");
+    if (deleteBtn) {
+        deleteBtn.addEventListener("click", () => {
+            const soundName = this.originalSoundName;
+            if (AppState.getCustomSoundData(soundName)) {
+                this.showConfirmationModal(
+                    "Delete Sound",
+                    `Are you sure you want to delete "${soundName}"?`,
+                    () => {
+                        AppState.deleteCustomSound(soundName);
+                        // Refresh modal to show updated state (defaults or fallback sound)
+                        this.show(this.currentTrackIndex, this.currentSoundType);
+                    }
+                );
+            }
+        });
+    }
+  },
+
+  showConfirmationModal(title, message, onConfirm) {
+      const modal = document.getElementById("confirmation-modal");
+      const titleEl = document.getElementById("confirmation-modal-title");
+      const messageEl = document.getElementById("confirmation-modal-message");
+      const confirmBtn = document.getElementById("confirmation-modal-confirm-btn");
+      const cancelBtn = document.getElementById("confirmation-modal-cancel-btn");
+
+      if (!modal || !titleEl || !messageEl || !confirmBtn || !cancelBtn) return;
+
+      titleEl.textContent = title;
+      messageEl.textContent = message;
+
+      const closeModal = () => {
+          modal.style.display = "none";
+          // Remove event listeners to prevent duplicates/memory leaks
+          confirmBtn.removeEventListener("click", handleConfirm);
+          cancelBtn.removeEventListener("click", handleCancel);
+          window.removeEventListener("click", handleOutsideClick);
+      };
+
+      const handleConfirm = () => {
+          onConfirm();
+          closeModal();
+      };
+
+      const handleCancel = () => {
+          closeModal();
+      };
+
+      const handleOutsideClick = (event) => {
+          if (event.target === modal) {
+              closeModal();
+          }
+      };
+
+      confirmBtn.addEventListener("click", handleConfirm);
+      cancelBtn.addEventListener("click", handleCancel);
+      window.addEventListener("click", handleOutsideClick);
+
+      modal.style.display = "block";
   },
 
   saveCustomSound() {
@@ -153,6 +214,11 @@ const SoundSettingsModal = {
         this.displaySoundName = nameToSave;
         const modalTitle = DOM.soundSettingsModal.querySelector(".modal-header h2");
         if (modalTitle) modalTitle.textContent = `Editing: ${nameToSave}`;
+
+        const deleteBtn = DOM.soundSettingsModal.querySelector("#delete-sound-btn");
+        if (deleteBtn) {
+            deleteBtn.style.display = "inline-block";
+        }
 
         console.log(`Saved custom sound: ${nameToSave}`);
 
@@ -481,11 +547,21 @@ const SoundSettingsModal = {
     const noteSnapBtn = DOM.soundSettingsModal.querySelector("#note-snap-btn");
     const quantizeBtn = DOM.soundSettingsModal.querySelector("#quantize-btn");
     const gridSnapBtn = DOM.soundSettingsModal.querySelector("#grid-snap-btn");
+    const deleteBtn = DOM.soundSettingsModal.querySelector("#delete-sound-btn");
 
     // Clean name for display/state
     const soundName = soundInfo.sound; // E.g. "Synth Kick" or "My Kick"
     this.originalSoundName = soundName;
     this.displaySoundName = soundName;
+
+    // Toggle Delete Button Visibility
+    if (deleteBtn) {
+        if (AppState.getCustomSoundData(soundName)) {
+            deleteBtn.style.display = "inline-block";
+        } else {
+            deleteBtn.style.display = "none";
+        }
+    }
 
     // Check if currently modified compared to what it SHOULD be
     const isModified = AppState.isSoundModified(trackIndex, soundType);
