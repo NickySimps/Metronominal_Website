@@ -1319,7 +1319,7 @@ button:active,
   width: 8%;
   text-align: center;
   margin: var(s1);
-  color: var(--track-background);
+  color: var(--Alt1);
   background-color: var(--track-text);
   padding: var(--s1) var(--s2);
   border-radius: var(--BorderRadius);
