@@ -233,6 +233,8 @@ function setupDataChannelEvents(peerId) {
     } else {
         // Start time sync
         syncTimeWithHost(peerId);
+        // Request playback sync immediately upon connection
+        requestPlaybackSync();
         // Periodically re-sync to account for drift
         if(syncInterval) clearInterval(syncInterval);
         syncInterval = setInterval(() => syncTimeWithHost(peerId), 5000);
@@ -377,7 +379,8 @@ function setupDataChannelEvents(peerId) {
     // If the host is playing and the client was not, start the client.
     // If the host is not playing and the client was, stop the client.
     if (shouldBePlaying && !wasPlayingOnClient) {
-      // MetronomeEngine.togglePlay(); // Replaced by play-scheduled usually, but keep as fallback?
+      console.log("Client should be playing but is not. Requesting sync.");
+      requestPlaybackSync();
     } else if (!shouldBePlaying && wasPlayingOnClient) {
       MetronomeEngine.togglePlay(); // This will stop the metronome
     }
