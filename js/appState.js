@@ -579,7 +579,8 @@ const AppState = (function () {
             if (subBeatIndex === 0) {
                 // On Main Beat: Sync directly
                 newTrack.nextBeatTime = referenceTrack.nextBeatTime;
-                newTrack.currentBar = referenceTrack.currentBar;
+                // Align bar index, wrapping if necessary
+                newTrack.currentBar = referenceTrack.currentBar % newTrack.barSettings.length;
                 const mainBeatIndex = Math.floor(referenceTrack.currentBeat / refSubdivision);
                 newTrack.currentBeat = mainBeatIndex;
             } else {
@@ -588,14 +589,16 @@ const AppState = (function () {
                 const timeToNextMainBeat = subBeatsRemaining * secondsPerRefSubBeat;
                 
                 newTrack.nextBeatTime = referenceTrack.nextBeatTime + timeToNextMainBeat;
-                newTrack.currentBar = referenceTrack.currentBar;
+                // Align bar index, wrapping if necessary
+                newTrack.currentBar = referenceTrack.currentBar % newTrack.barSettings.length;
                 
                 // Start at the next main beat
                 const currentMainBeatIndex = Math.floor(referenceTrack.currentBeat / refSubdivision);
                 newTrack.currentBeat = currentMainBeatIndex + 1;
                 
-                // Handle bar wrapping
-                if (newTrack.currentBeat >= 4) { 
+                // Handle bar wrapping logic (if the NEXT beat pushes us to next bar)
+                const myBeatsPerBar = newTrack.barSettings[newTrack.currentBar].beats;
+                if (newTrack.currentBeat >= myBeatsPerBar) { 
                     newTrack.currentBeat = 0;
                     newTrack.currentBar++; 
                     if (newTrack.currentBar >= newTrack.barSettings.length) {
@@ -1125,7 +1128,7 @@ const AppState = (function () {
                      if (subBeatIndex === 0) {
                         // On Main Beat
                         track.nextBeatTime = referenceTrack.nextBeatTime;
-                        track.currentBar = referenceTrack.currentBar;
+                        track.currentBar = referenceTrack.currentBar % track.barSettings.length;
                         track.currentBeat = Math.floor(referenceTrack.currentBeat / refSubdivision);
                      } else {
                         // Between Main Beats -> Align to NEXT Main Beat
@@ -1133,11 +1136,14 @@ const AppState = (function () {
                         const timeToNextMainBeat = subBeatsRemaining * secondsPerRefSubBeat;
 
                         track.nextBeatTime = referenceTrack.nextBeatTime + timeToNextMainBeat;
-                        track.currentBar = referenceTrack.currentBar;
+                        track.currentBar = referenceTrack.currentBar % track.barSettings.length;
                         track.currentBeat = Math.floor(referenceTrack.currentBeat / refSubdivision) + 1;
                      }
                      
                      // Reset wrap for new track
+                     // Ensure currentBar is valid before accessing
+                     if (track.currentBar >= track.barSettings.length) track.currentBar = 0;
+
                      const myCurrentBarData = track.barSettings[track.currentBar];
                      const myBeatsPerBar = myCurrentBarData ? myCurrentBarData.beats : 4;
                      
