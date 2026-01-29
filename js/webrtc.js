@@ -60,7 +60,7 @@ const configuration = {
 function sendMessage(message) {
   if (socket && socket.readyState === WebSocket.OPEN) {
     console.log("Sending message:", message.type);
-    if (!window.isHost) logToScreen(`-> Sent: ${message.type}`);
+    logToScreen(`-> ${message.type} (Room: ${message.room})`);
     socket.send(JSON.stringify(message));
   } else {
     console.warn(
@@ -707,9 +707,9 @@ let heartbeatInterval;
 
 function logToScreen(msg) {
     console.log(msg);
-    // Only show on-screen log if ?debug=true or if we are a client (likely mobile/troubleshooting)
-    // For now, enabled for all clients to help diagnose the "won't connect" issue.
-    if (window.isHost) return; 
+    // Show on-screen log for both host and client during debugging
+    const showLog = true; 
+    if (!showLog) return; 
 
     if (!document.getElementById('debug-log-box')) {
         const d = document.createElement('div');
@@ -753,7 +753,7 @@ function connectToSignalingServer() {
 
   socket.onopen = () => {
     console.log("Connected to signaling server.");
-    logToScreen("Connected to Signaling Server.");
+    logToScreen(`Connected. Joining Room: ${roomId}`);
     connectionAttempts = 0; // Reset attempts on successful connection
     sendMessage({
       type: "join",
@@ -775,7 +775,7 @@ function connectToSignalingServer() {
       if (data.type === 'pong') return; // Ignore heartbeat responses
       
       console.log("Received message:", data.type, "from peer:", data.peerId);
-      if (!window.isHost) logToScreen(`<- Recv: ${data.type}`);
+      logToScreen(`<- ${data.type} from ${data.peerId || 'server'}`);
 
       const peerId = data.peerId || "default";
 
