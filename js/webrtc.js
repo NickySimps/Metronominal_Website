@@ -25,14 +25,7 @@ let candidateQueues = {}; // Queue for ICE candidates arriving before remote des
 
 const configuration = {
   iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:19302" },
-    { urls: "stun:stun3.l.google.com:19302" },
-    { urls: "stun:stun4.l.google.com:19302" },
-    { urls: "stun:stun.services.mozilla.com" },
-    { urls: "stun:global.stun.twilio.com:3478" },
-    // OpenRelay (Free Tier) - Solves Symmetric NAT issues
+    // Prioritize OpenRelay (TURN) for reliable mobile/NAT traversal
     {
       urls: "turn:openrelay.metered.ca:80",
       username: "openrelayproject",
@@ -47,7 +40,15 @@ const configuration = {
       urls: "turn:openrelay.metered.ca:443?transport=tcp",
       username: "openrelayproject",
       credential: "openrelayproject",
-    }
+    },
+    // Fallback to Google/Mozilla STUN
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
+    { urls: "stun:stun.services.mozilla.com" },
+    { urls: "stun:global.stun.twilio.com:3478" }
   ],
   iceCandidatePoolSize: 10,
 };
@@ -102,15 +103,17 @@ function createPeerConnection(peerId) {
   candidateQueues[peerId] = [];
 
   peerConnection.onicecandidate = (event) => {
-    if (event.candidate) {
-      console.log(`Sending ICE candidate for peer ${peerId}: ${event.candidate.type} (${event.candidate.protocol})`);
+      // Send candidate or null (end of candidates)
+      const type = event.candidate ? event.candidate.type : 'End of candidates';
+      const protocol = event.candidate ? event.candidate.protocol : '';
+      console.log(`Sending ICE candidate for peer ${peerId}: ${type} ${protocol}`);
+      
       sendMessage({
         type: "candidate",
         candidate: event.candidate,
         room: roomId,
         peerId: peerId,
       });
-    }
   };
 
   peerConnection.ondatachannel = (event) => {
@@ -537,7 +540,13 @@ async function processCandidateQueue(peerId) {
             try {
                 const peerConnection = peers[peerId];
                 if(peerConnection) {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                    if (candidate) {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                    } else {
+                        try {
+                             await peerConnection.addIceCandidate(null);
+                        } catch (e) {}
+                    }
                 }
             } catch (e) {
                 console.error("Error processing buffered candidate:", e);
@@ -629,10 +638,19 @@ export async function addIceCandidate(candidate, peerId = "default") {
     const peerConnection = peers[peerId];
     if (peerConnection) {
         if (peerConnection.remoteDescription) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-            console.log(`Added ICE candidate for peer ${peerId}: ${candidate.type}`);
+            if (candidate) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log(`Added ICE candidate for peer ${peerId}: ${candidate.type}`);
+            } else {
+                try {
+                    await peerConnection.addIceCandidate(null);
+                    console.log(`Added End-of-Candidates signal for peer: ${peerId}`);
+                } catch (e) {
+                    console.log("Browser ignored End-of-Candidates signal (safe to ignore).");
+                }
+            }
         } else {
-             console.log(`Buffering ICE candidate for peer ${peerId} (remote description not set): ${candidate.type}`);
+             console.log(`Buffering ICE candidate for peer ${peerId} (remote description not set)`);
              if (!candidateQueues[peerId]) candidateQueues[peerId] = [];
              candidateQueues[peerId].push(candidate);
         }
