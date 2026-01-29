@@ -20,6 +20,7 @@ let maxConnectionAttempts = 3;
 let reconnectTimeout = null;
 
 window.isHost = false; // Default to being a client
+let isReadyToPlay = false;
 
 let candidateQueues = {}; // Queue for ICE candidates arriving before remote description
 
@@ -48,7 +49,10 @@ const configuration = {
     { urls: "stun:stun3.l.google.com:19302" },
     { urls: "stun:stun4.l.google.com:19302" },
     { urls: "stun:stun.services.mozilla.com" },
-    { urls: "stun:global.stun.twilio.com:3478" }
+    { urls: "stun:global.stun.twilio.com:3478" },
+    { urls: "stun:stun.l.google.com:19305" },
+    { urls: "stun:stun1.l.google.com:19305" },
+    { urls: "stun:stun.framasoft.org" }
   ],
   iceCandidatePoolSize: 10,
 };
@@ -56,6 +60,7 @@ const configuration = {
 function sendMessage(message) {
   if (socket && socket.readyState === WebSocket.OPEN) {
     console.log("Sending message:", message.type);
+    if (!window.isHost) logToScreen(`-> Sent: ${message.type}`);
     socket.send(JSON.stringify(message));
   } else {
     console.warn(
@@ -132,6 +137,10 @@ function createPeerConnection(peerId) {
 
   peerConnection.onicecandidateerror = (event) => {
       console.warn("ICE Candidate Error for peer (non-fatal):", peerId, event);
+  };
+
+  peerConnection.onicegatheringstatechange = () => {
+      logToScreen(`ICE Gathering: ${peerConnection.iceGatheringState}`);
   };
 
   peerConnection.onconnectionstatechange = () => {
@@ -339,8 +348,10 @@ function setupDataChannelEvents(peerId) {
             }
         }, 200); // Ping every 200ms during burst
         
-        // Request playback sync immediately upon connection
-        requestPlaybackSync();
+        // Request playback sync immediately upon connection if ready
+        if (isReadyToPlay) {
+            requestPlaybackSync();
+        }
     }
   };
 
@@ -432,6 +443,10 @@ function setupDataChannelEvents(peerId) {
 
     if (data.type === 'playback-sync-response') {
         if (!window.isHost) {
+            if (!isReadyToPlay) {
+                console.log("Ignoring playback-sync-response because playback is not enabled yet.");
+                return;
+            }
             if (data.isPlaying) {
                 const clientTargetTime = data.nextBeatWallTime - timeOffset;
                 console.log("Syncing playback to host. Target:", clientTargetTime);
@@ -463,6 +478,10 @@ function setupDataChannelEvents(peerId) {
     if (data.type === 'play-scheduled') {
         // Handle scheduled start
         if (!window.isHost) {
+            if (!isReadyToPlay) {
+                console.log("Ignoring play-scheduled because playback is not enabled yet.");
+                return;
+            }
             const hostScheduledTime = data.scheduledStartTime;
             const now = Date.now();
             const clientTargetTime = hostScheduledTime - timeOffset;
@@ -756,6 +775,7 @@ function connectToSignalingServer() {
       if (data.type === 'pong') return; // Ignore heartbeat responses
       
       console.log("Received message:", data.type, "from peer:", data.peerId);
+      if (!window.isHost) logToScreen(`<- Recv: ${data.type}`);
 
       const peerId = data.peerId || "default";
 
@@ -981,6 +1001,12 @@ function generateRoomId() {
   return `${color}_${animal}_${number}`;
 }
 
+export function enablePlayback() {
+    console.log("Playback enabled by user interaction.");
+    isReadyToPlay = true;
+    requestPlaybackSync();
+}
+
 export function initializeWebRTC() {
   onReceiveState((newState) => {
     console.log("Received new state:", newState);
@@ -994,7 +1020,9 @@ export function initializeWebRTC() {
       ThemeController.applyTheme(currentTheme);
     }
     // Sync playback state
-    syncPlaybackState();
+    if (isReadyToPlay) {
+      syncPlaybackState();
+    }
   });
 
   // Check for Secure Context / MediaDevices support (Critical for Mobile)

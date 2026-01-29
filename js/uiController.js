@@ -14,6 +14,7 @@ import MetronomeEngine from './metronomeEngine.js'; // For stopping engine on re
 import TempoController from './tempoController.js'; // For updating tempo display on reset
 import VolumeController from './volumeController.js';
 import UserInteraction from './userInteraction.js';
+import { enablePlayback } from './webrtc.js';
 
 function isIOS() {
     return [
@@ -99,6 +100,7 @@ const UIController = {
             dismissBtn.addEventListener("click", async () => {
                 connectionModal.style.display = "none";
                 await UserInteraction.handleFirstInteraction();
+                enablePlayback();
             });
         }
     },

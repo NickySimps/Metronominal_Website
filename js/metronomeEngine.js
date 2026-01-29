@@ -170,9 +170,9 @@ function scheduler() {
             }
 
             while (track.nextBeatTime < audioContext.currentTime + AppState.SCHEDULE_AHEAD_TIME) {
-                // Only play sound and schedule visuals if the beat is within a reasonable window (not >100ms in the past)
+                // Only play sound and schedule visuals if the beat is within a reasonable window (not >250ms in the past)
                 // This prevents "machine gun" bursts when syncing catches up from a late start or large drift.
-                if (track.nextBeatTime > audioContext.currentTime - 0.1) {
+                if (track.nextBeatTime > audioContext.currentTime - 0.25) {
                     playBeatSound(track, track.nextBeatTime);
                     
                     // Push visual event to queue
@@ -213,8 +213,8 @@ function draw() {
     while (visualQueue.length && visualQueue[0].time <= currentTime) {
         const event = visualQueue.shift();
         
-        // Skip events that are too old (e.g., > 100ms lag) to prevent strobe effect on resume
-        if (currentTime - event.time < 0.1) {
+        // Skip events that are too old (e.g., > 250ms lag) to prevent strobe effect on resume
+        if (currentTime - event.time < 0.25) {
              BarDisplayController.updateBeatHighlight(event.trackIndex, event.bar, event.beat, true);
         }
     }
