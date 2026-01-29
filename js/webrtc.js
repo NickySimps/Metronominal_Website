@@ -97,7 +97,15 @@ function updateConnectionStatusUI(state) {
 
 function createPeerConnection(peerId) {
   console.log("Creating peer connection for:", peerId);
-  const peerConnection = new RTCPeerConnection(configuration);
+  logToScreen(`Creating RTCPeerConnection for ${peerId}`);
+  
+  let peerConnection;
+  try {
+      peerConnection = new RTCPeerConnection(configuration);
+  } catch (e) {
+      logToScreen(`CRITICAL: Failed to create RTCPeerConnection: ${e.message}`);
+      return null;
+  }
 
   // Initialize queue for this peer
   candidateQueues[peerId] = [];
@@ -127,6 +135,7 @@ function createPeerConnection(peerId) {
   };
 
   peerConnection.onconnectionstatechange = () => {
+    logToScreen(`Connection state for ${peerId}: ${peerConnection.connectionState}`);
     console.log(
       "Connection state for",
       peerId,
@@ -677,6 +686,28 @@ export const WebRTC = {
 
 let heartbeatInterval;
 
+function logToScreen(msg) {
+    console.log(msg);
+    // Only show on-screen log if ?debug=true or if we are a client (likely mobile/troubleshooting)
+    // For now, enabled for all clients to help diagnose the "won't connect" issue.
+    if (window.isHost) return; 
+
+    if (!document.getElementById('debug-log-box')) {
+        const d = document.createElement('div');
+        d.id = 'debug-log-box';
+        Object.assign(d.style, {
+            position: 'fixed', bottom: '0', left: '0', width: '100%', height: '150px',
+            overflowY: 'scroll', background: 'rgba(0,0,0,0.8)', color: '#0f0',
+            fontSize: '10px', zIndex: '10000', pointerEvents: 'none', padding: '5px',
+            fontFamily: 'monospace'
+        });
+        document.body.appendChild(d);
+    }
+    const l = document.createElement('div');
+    l.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    document.getElementById('debug-log-box').prepend(l);
+}
+
 function connectToSignalingServer() {
   if (socket && socket.readyState === WebSocket.OPEN) {
     console.log("Already connected to signaling server");
@@ -703,6 +734,7 @@ function connectToSignalingServer() {
 
   socket.onopen = () => {
     console.log("Connected to signaling server.");
+    logToScreen("Connected to Signaling Server.");
     connectionAttempts = 0; // Reset attempts on successful connection
     sendMessage({
       type: "join",
@@ -769,6 +801,7 @@ function connectToSignalingServer() {
       event.code,
       event.reason
     );
+    logToScreen(`Disconnected from Signaling: ${event.code} ${event.reason}`);
     
     if (heartbeatInterval) clearInterval(heartbeatInterval);
 
@@ -791,6 +824,7 @@ function connectToSignalingServer() {
 
   socket.onerror = (error) => {
     console.error("WebSocket error:", error);
+    logToScreen("WebSocket Error.");
     // Don't alert here immediately, let onclose handle the persistent failure
   };
 }
