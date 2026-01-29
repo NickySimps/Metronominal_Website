@@ -409,12 +409,38 @@ const MetronomeEngine = {
         // Use first track as reference
         if (tracks.length > 0) {
             const track = tracks[0];
-            const currentAudioNextBeat = track.nextBeatTime;
             
+            // Structural Check: Are we on the same beat?
+            // Note: 'bar' and 'beat' from Host are the indices of the NEXT beat (targetAudioTime).
+            // 'track.currentBar' and 'track.currentBeat' are the indices of OUR next beat.
+            
+            if (track.currentBar !== bar || track.currentBeat !== beat) {
+                console.warn(`Sync Mismatch! Client: ${track.currentBar}:${track.currentBeat}, Host: ${bar}:${beat}. Snapping structure...`);
+                
+                // Hard snap indices
+                track.currentBar = bar;
+                track.currentBeat = beat;
+                
+                // Hard snap time (force alignment to host's target time)
+                const correction = targetAudioTime - track.nextBeatTime;
+                
+                // Apply to all tracks to keep them aligned relative to Track 0
+                tracks.forEach(t => {
+                   // For other tracks, we can't easily snap indices (might have different meters),
+                   // but we MUST apply the time correction so they don't drift relative to Track 0.
+                   t.nextBeatTime += correction;
+                   
+                   if (t === track) {
+                       t.nextBeatTime = targetAudioTime; // Ensure exact match for reference
+                   }
+                });
+                return;
+            }
+
+            const currentAudioNextBeat = track.nextBeatTime;
             const drift = targetAudioTime - currentAudioNextBeat;
             
             // If drift is significant (> 5ms) but not massive (< 1000ms), nudge.
-            // Lowered threshold to 5ms for tighter sync.
             if (Math.abs(drift) > 0.005 && Math.abs(drift) < 1.0) {
                 console.log(`Sync Drift detected: ${Math.round(drift * 1000)}ms. Nudging...`);
                 
