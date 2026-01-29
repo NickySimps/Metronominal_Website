@@ -103,6 +103,21 @@ async function initialize() {
   if(AppState.getAudioContext()?.state === 'running') {
     Oscilloscope.start();
   }
+  
+  // Unlock AudioContext on first user interaction (Crucial for Mobile)
+  const unlockAudio = () => {
+      UserInteraction.handleFirstInteraction();
+      // Remove listeners after first successful interaction
+      if (UserInteraction.audioContextInitialized) {
+          document.removeEventListener('click', unlockAudio);
+          document.removeEventListener('keydown', unlockAudio);
+          document.removeEventListener('touchstart', unlockAudio);
+      }
+  };
+  document.addEventListener('click', unlockAudio);
+  document.addEventListener('keydown', unlockAudio);
+  document.addEventListener('touchstart', unlockAudio);
+
   initializeShareControls();
   initializeWebRTC();
 

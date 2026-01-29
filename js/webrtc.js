@@ -941,7 +941,19 @@ export function initializeWebRTC() {
     if (ThemeController.is3DSceneActive() && currentTheme !== "3dRoom") {
       ThemeController.applyTheme(currentTheme);
     }
+    // Sync playback state
+    syncPlaybackState();
   });
+
+  // Check for Secure Context / MediaDevices support (Critical for Mobile)
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (!isLocal && window.location.protocol !== 'https:') {
+           const warning = "Mobile devices require a secure HTTPS connection for WebRTC. Your current connection (HTTP) blocks the metronome from connecting. Please use a secure tunnel (like ngrok) or use localhost.";
+           console.warn(warning);
+           setTimeout(() => alert(warning), 1000);
+      }
+  }
 
   const urlParams = new URLSearchParams(window.location.search);
   const roomParam = urlParams.get("room");
