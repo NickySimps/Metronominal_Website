@@ -26,7 +26,11 @@ let candidateQueues = {}; // Queue for ICE candidates arriving before remote des
 
 const configuration = {
   iceServers: [
-    // Prioritize OpenRelay (TURN) for reliable mobile/NAT traversal
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun3.l.google.com:19302" },
+    { urls: "stun:stun4.l.google.com:19302" },
     {
       urls: "turn:openrelay.metered.ca:80",
       username: "openrelayproject",
@@ -41,20 +45,10 @@ const configuration = {
       urls: "turn:openrelay.metered.ca:443?transport=tcp",
       username: "openrelayproject",
       credential: "openrelayproject",
-    },
-    // Fallback to Google/Mozilla STUN
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun2.l.google.com:19302" },
-    { urls: "stun:stun3.l.google.com:19302" },
-    { urls: "stun:stun4.l.google.com:19302" },
-    { urls: "stun:stun.services.mozilla.com" },
-    { urls: "stun:global.stun.twilio.com:3478" },
-    { urls: "stun:stun.l.google.com:19305" },
-    { urls: "stun:stun1.l.google.com:19305" },
-    { urls: "stun:stun.framasoft.org" }
+    }
   ],
-  iceCandidatePoolSize: 10,
+  iceCandidatePoolSize: 0,
+  iceTransportPolicy: 'all'
 };
 
 function sendMessage(message) {
@@ -116,17 +110,26 @@ function createPeerConnection(peerId) {
   candidateQueues[peerId] = [];
 
   peerConnection.onicecandidate = (event) => {
-      // Send candidate or null (end of candidates)
-      const type = event.candidate ? event.candidate.type : 'End of candidates';
-      const protocol = event.candidate ? event.candidate.protocol : '';
-      console.log(`Sending ICE candidate for peer ${peerId}: ${type} ${protocol}`);
-      
-      sendMessage({
-        type: "candidate",
-        candidate: event.candidate,
-        room: roomId,
-        peerId: peerId,
-      });
+      if (event.candidate) {
+          const type = event.candidate.type || 'unknown';
+          const protocol = event.candidate.protocol || 'unknown';
+          console.log(`Sending ICE candidate for peer ${peerId}: ${type} ${protocol}`);
+          
+          sendMessage({
+            type: "candidate",
+            candidate: event.candidate.toJSON(),
+            room: roomId,
+            peerId: peerId,
+          });
+      } else {
+          console.log(`End of ICE candidates for peer: ${peerId}`);
+          sendMessage({
+            type: "candidate",
+            candidate: null,
+            room: roomId,
+            peerId: peerId,
+          });
+      }
   };
 
   peerConnection.ondatachannel = (event) => {
@@ -683,8 +686,9 @@ export async function addIceCandidate(candidate, peerId = "default") {
     if (peerConnection) {
         if (peerConnection.remoteDescription) {
             if (candidate) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-                console.log(`Added ICE candidate for peer ${peerId}: ${candidate.type}`);
+                const iceCandidate = new RTCIceCandidate(candidate);
+                await peerConnection.addIceCandidate(iceCandidate);
+                console.log(`Added ICE candidate for peer ${peerId}: ${iceCandidate.type || 'unknown'}`);
             } else {
                 try {
                     await peerConnection.addIceCandidate(null);
