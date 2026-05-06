@@ -266,6 +266,8 @@ const MetronomeEngine = {
                 const scheduledTime = Date.now() + 200; // Schedule 200ms in future
                 broadcastScheduledPlay(scheduledTime);
                 MetronomeEngine.scheduleStart(scheduledTime);
+                // Also broadcast current state to ensure all clients have latest settings (tempo, bars, etc.)
+                sendState(AppState.getCurrentStateForPreset(true)); 
                 return true;
             } else {
                 // Stopping

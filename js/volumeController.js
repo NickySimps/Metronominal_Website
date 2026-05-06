@@ -5,6 +5,7 @@
 
 import AppState from "./appState.js";
 import DOM from "./domSelectors.js";
+import { sendState } from "./webrtc.js";
 
 const VolumeController = {
   updateVolumeDisplay: (options = { animate: false }) => {
@@ -65,6 +66,7 @@ const VolumeController = {
     if (DOM.volumeSlider) {
       DOM.volumeSlider.addEventListener("input", () => {
         AppState.setVolume(DOM.volumeSlider.value); // Update state
+        sendState(AppState.getCurrentStateForPreset(true)); // Lightweight sync
         VolumeController.updateVolumeDisplay(); // Update UI
       });
     }

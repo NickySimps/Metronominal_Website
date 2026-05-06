@@ -315,15 +315,15 @@ const TrackController = {
     if (target.matches(".track-mute-btn")) {
       const track = AppState.getTracks()[containerIndex];
       AppState.updateTrack(containerIndex, { muted: !track.muted });
-      sendState(AppState.getCurrentStateForPreset());
+      sendState(AppState.getCurrentStateForPreset(true));
       TrackController.renderTracks();
     } else if (target.matches(".track-solo-btn")) {
       AppState.toggleSolo(containerIndex);
-      sendState(AppState.getCurrentStateForPreset());
+      sendState(AppState.getCurrentStateForPreset(true));
       TrackController.renderTracks();
     } else if (target.matches(".track-remove-btn")) {
       AppState.removeTrack(containerIndex);
-      sendState(AppState.getCurrentStateForPreset());
+      sendState(AppState.getCurrentStateForPreset(true));
       TrackController.renderTracks();
       setTimeout(() => {
         document.dispatchEvent(new CustomEvent("trackselectionchanged", { detail: { shouldScroll: false } }));
@@ -418,7 +418,7 @@ const TrackController = {
                 }
             }
 
-            sendState(AppState.getCurrentStateForPreset());
+            sendState(AppState.getCurrentStateForPreset(true));
 
             setTimeout(() => {
                 // Dispatch event, but only scroll if requested
@@ -444,7 +444,7 @@ const TrackController = {
             newBarSettings[barIndex].rests = newRests;
             AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
             BarDisplayController.updateBar(containerIndex, barIndex);
-            sendState(AppState.getCurrentStateForPreset());
+            sendState(AppState.getCurrentStateForPreset(true));
             
             updateSelectionUI();
         } else {
@@ -478,6 +478,7 @@ const TrackController = {
             settings: defaultSettings ? { ...defaultSettings } : {},
           },
         });
+        sendState(AppState.getCurrentStateForPreset(true)); // Lightweight sync
       }
     }
   },
@@ -497,6 +498,7 @@ const TrackController = {
         );
         const newVolume = parseFloat(target.value);
         AppState.updateTrack(containerIndex, { volume: newVolume });
+        sendState(AppState.getCurrentStateForPreset(true)); // Lightweight sync
         trackElement.querySelector(".track-volume-value").textContent = `${(
           newVolume * 100
         ).toFixed(0)}%`;
@@ -537,9 +539,12 @@ const TrackController = {
    */
   addTrack: () => {
     AppState.addTrack();
+    sendState(AppState.getCurrentStateForPreset(true)); // Lightweight sync
     TrackController.renderTracks();
     setTimeout(() => {
-      document.dispatchEvent(new CustomEvent("trackselectionchanged", { detail: { shouldScroll: true } }));
+      document.dispatchEvent(
+        new CustomEvent("trackselectionchanged", { detail: { shouldScroll: true } })
+      );
     }, 0);
   },
 

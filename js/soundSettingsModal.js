@@ -257,7 +257,7 @@ const SoundSettingsModal = {
     AppState.updateTrack(this.currentTrackIndex, {
       [this.currentSoundType]: soundInfo,
     });
-    sendState(AppState.getCurrentStateForPreset());
+    sendState(AppState.getCurrentStateForPreset(true));
 
     this.show(this.currentTrackIndex, this.currentSoundType);
 
@@ -293,7 +293,7 @@ const SoundSettingsModal = {
     AppState.updateTrack(this.currentTrackIndex, {
       [this.currentSoundType]: soundInfo,
     });
-    sendState(AppState.getCurrentStateForPreset());
+    sendState(AppState.getCurrentStateForPreset(true));
 
     if (["trimStart", "trimEnd"].includes(param)) {
         if (this.drawWaveformAndTrimLines) {

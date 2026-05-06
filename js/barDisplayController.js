@@ -221,7 +221,7 @@ async function onWindowPointerUp(event) {
         AppState.setSelectedTrackIndex(containerIndex);
         AppState.setSelectedBarIndexInContainer(barIndex);
         AppState.setSubdivisionForSelectedBar(newSubdivision);
-        sendState(AppState.getCurrentStateForPreset());
+        sendState(AppState.getCurrentStateForPreset(true));
         
         BarDisplayController.renderBarsAndControls(-1);
         BarControlsController.updateBeatControlsDisplay();
@@ -245,7 +245,7 @@ async function onWindowPointerUp(event) {
     if (AppState.getSelectedTrackIndex() !== clickedContainerIndex || AppState.getSelectedBarIndexInContainer() !== clickedBarIndex) {
         AppState.setSelectedTrackIndex(clickedContainerIndex);
         AppState.setSelectedBarIndexInContainer(clickedBarIndex);
-        sendState(AppState.getCurrentStateForPreset());
+        sendState(AppState.getCurrentStateForPreset(true));
         BarDisplayController.renderBarsAndControls();
         BarControlsController.updateBeatControlsDisplay();
     }
@@ -352,7 +352,7 @@ function showSubdivisionSelector(barElement) {
                     AppState.setSelectedTrackIndex(containerIndex);
                     AppState.setSelectedBarIndexInContainer(barIndex);
                     AppState.setSubdivisionForSelectedBar(newSubdivision);
-                    sendState(AppState.getCurrentStateForPreset());
+                    sendState(AppState.getCurrentStateForPreset(true));
                     
                     BarDisplayController.renderBarsAndControls(-1);
                     BarControlsController.updateBeatControlsDisplay();
@@ -448,7 +448,7 @@ function handleBeatSquareClick(event) {
 
   AppState.toggleBeatRest(trackIndex, barIndex, beatIndex);
   BarDisplayController.updateBar(trackIndex, barIndex); // Re-render the bar to update visuals
-  sendState(AppState.getCurrentStateForPreset()); // Sync state via WebRTC
+  sendState(AppState.getCurrentStateForPreset(true)); // Sync state via WebRTC
 }
 
 const BarDisplayController = {

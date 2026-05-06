@@ -108,7 +108,7 @@ const BarControlsController = {
         const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
         if (selectedBarIndexInContainer !== -1) {
           AppState.increaseBeatsForSelectedBar();
-          sendState(AppState.getCurrentStateForPreset());
+          sendState(AppState.getCurrentStateForPreset(true));
           BarDisplayController.updateBar(containerIndex, selectedBarIndexInContainer);
           updateBeatControlsDisplay();
           updateTotalBeatsDisplay();
@@ -120,7 +120,7 @@ const BarControlsController = {
         const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
         if (selectedBarIndexInContainer !== -1 && AppState.getBeatsForSelectedBar() > 1) {
           AppState.decreaseBeatsForSelectedBar();
-          sendState(AppState.getCurrentStateForPreset());
+          sendState(AppState.getCurrentStateForPreset(true));
           BarDisplayController.updateBar(containerIndex, selectedBarIndexInContainer);
           updateBeatControlsDisplay();
           updateTotalBeatsDisplay();
@@ -138,7 +138,7 @@ const BarControlsController = {
           BarDisplayController.addBar(containerIndex, newBarIndex);
           updateTotalBeatsDisplay();
           updateBeatControlsDisplay();
-          sendState(AppState.getCurrentStateForPreset());
+          sendState(AppState.getCurrentStateForPreset(true));
           if (ThemeController.is3DSceneActive()) {
             ThemeController.update3DScenePostStateChange();
           }
@@ -157,7 +157,7 @@ const BarControlsController = {
             BarDisplayController.removeBar(containerIndex, barIndexToRemove);
             updateTotalBeatsDisplay();
             updateBeatControlsDisplay();
-            sendState(AppState.getCurrentStateForPreset());
+            sendState(AppState.getCurrentStateForPreset(true));
             if (ThemeController.is3DSceneActive()) {
               ThemeController.update3DScenePostStateChange();
             }
@@ -176,7 +176,7 @@ const BarControlsController = {
       const selectedBarIndexInContainer = AppState.getSelectedBarIndexInContainer();
 
       AppState.setSubdivisionForSelectedBar(DOM.beatMultiplierSelect.value);
-      sendState(AppState.getCurrentStateForPreset());
+      sendState(AppState.getCurrentStateForPreset(true));
 
       BarDisplayController.updateBar(selectedTrackIndex, selectedBarIndexInContainer);
       if (ThemeController.is3DSceneActive()) {

@@ -957,21 +957,23 @@ const AppState = (function () {
     },
 
     // Presets & State
-    getCurrentStateForPreset: async () => {
+    getCurrentStateForPreset: async (excludeHeavyData = false) => {
       const serializedRecordings = {};
-      for (const name of recordings) {
-        const buffer = soundBuffers[name];
-        if (buffer) {
-          try {
-            const wavBuffer = await audioBufferToWav(buffer);
-            serializedRecordings[name] = arrayBufferToBase64(wavBuffer);
-          } catch (e) {
-            console.error(`Error serializing recording ${name}:`, e);
+      if (!excludeHeavyData) {
+          for (const name of recordings) {
+            const buffer = soundBuffers[name];
+            if (buffer) {
+              try {
+                const wavBuffer = await audioBufferToWav(buffer);
+                serializedRecordings[name] = arrayBufferToBase64(wavBuffer);
+              } catch (e) {
+                console.error(`Error serializing recording ${name}:`, e);
+              }
+            }
           }
-        }
       }
 
-      return {
+      const state = {
         tempo: tempo,
         volume: volume,
         Tracks: JSON.parse(
@@ -982,17 +984,22 @@ const AppState = (function () {
             })
           )
         ),
-        selectedTheme: currentTheme,
         selectedTrackIndex: selectedTrackIndex,
         selectedBarIndexInContainer: selectedBarIndexInContainer,
         controlsAttachedToTrack: controlsAttachedToTrack,
         isPlaying: isPlaying,
         isRestMode: isRestMode,
         isRecording: isRecording,
-        recordings: recordings, // This is the array of names
-        serializedRecordings: serializedRecordings, // This is the object with Base64 data
         customSounds: customSounds,
       };
+
+      if (!excludeHeavyData) {
+          state.selectedTheme = currentTheme;
+          state.recordings = recordings; // This is the array of names
+          state.serializedRecordings = serializedRecordings; // This is the object with Base64 data
+      }
+
+      return state;
     },
     loadPresetData: async (data) => {
       if (!data) return;

@@ -45,13 +45,13 @@ const StickyControls = {
     // Tempo
     els.tempoDecrease.addEventListener("click", () => {
       AppState.decreaseTempo();
-      sendState(AppState.getCurrentStateForPreset());
+      sendState(AppState.getCurrentStateForPreset(true));
       TempoController.updateTempoDisplay(); // Updates main UI
     });
 
     els.tempoIncrease.addEventListener("click", () => {
       AppState.increaseTempo();
-      sendState(AppState.getCurrentStateForPreset());
+      sendState(AppState.getCurrentStateForPreset(true));
       TempoController.updateTempoDisplay();
     });
 
@@ -67,7 +67,7 @@ const StickyControls = {
       AppState.setVolume(newVol);
       VolumeController.updateVolumeDisplay();
       if (window.isHost) {
-        sendState(AppState.getCurrentStateForPreset());
+        sendState(AppState.getCurrentStateForPreset(true));
       }
     });
 
@@ -77,7 +77,7 @@ const StickyControls = {
       AppState.setVolume(newVol);
       VolumeController.updateVolumeDisplay();
       if (window.isHost) {
-        sendState(AppState.getCurrentStateForPreset());
+        sendState(AppState.getCurrentStateForPreset(true));
       }
     });
   },

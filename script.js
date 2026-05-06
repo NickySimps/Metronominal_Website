@@ -34,7 +34,7 @@ function refreshUIFromState() {
   // Only the host should send state updates
   if (window.isHost) {
     console.log('Host sending state update from refreshUIFromState');
-    sendState(AppState.getCurrentStateForPreset());
+    sendState(AppState.getCurrentStateForPreset(true));
   }
 
   if (
@@ -227,7 +227,7 @@ document.addEventListener("keydown", (event) => {
       AppState.setVolume(AppState.getVolume() + 0.01);
       VolumeController.updateVolumeDisplay({ animate: true });
       if (window.isHost) {
-        sendState(AppState.getCurrentStateForPreset());
+        sendState(AppState.getCurrentStateForPreset(true));
       }
       break;
     case "ArrowDown":
@@ -235,7 +235,7 @@ document.addEventListener("keydown", (event) => {
       AppState.setVolume(AppState.getVolume() - 0.01);
       VolumeController.updateVolumeDisplay({ animate: true });
       if (window.isHost) {
-        sendState(AppState.getCurrentStateForPreset());
+        sendState(AppState.getCurrentStateForPreset(true));
       }
       break;
   }

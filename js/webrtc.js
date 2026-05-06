@@ -209,7 +209,7 @@ function refreshUIFromState() {
   BarControlsController.updateBarControlsForSelectedTrack();
   // Only the host should send state updates
   if (window.isHost) {
-    sendState(AppState.getCurrentStateForPreset());
+    sendState(AppState.getCurrentStateForPreset(true));
   }
 
   if (
@@ -585,15 +585,22 @@ async function processCandidateQueue(peerId) {
 }
 
 export async function sendState(statePromise) {
-  const state = await statePromise;
-  state.isPlaying = AppState.isPlaying(); // Ensure playback state is included
-  if (window.isHost) {
-    Object.entries(dataChannels).forEach(([peerId, channel]) => {
-      if (channel && channel.readyState === "open") {
-        console.log("Sending state to peer:", peerId);
-        channel.send(JSON.stringify(state));
-      }
-    });
+  try {
+    const state = await statePromise;
+    state.isPlaying = AppState.isPlaying(); // Ensure playback state is included
+    if (window.isHost) {
+      Object.entries(dataChannels).forEach(([peerId, channel]) => {
+        if (channel && channel.readyState === "open") {
+          try {
+              channel.send(JSON.stringify(state));
+          } catch (sendError) {
+              console.error(`Failed to send state to peer ${peerId}:`, sendError);
+          }
+        }
+      });
+    }
+  } catch (error) {
+    console.error("Error in sendState:", error);
   }
 }
 
@@ -1015,10 +1022,7 @@ export function initializeWebRTC() {
     VolumeController.updateVolumeDisplay({ animate: true });
     TrackController.renderTracks();
     BarControlsController.updateBarControlsForSelectedTrack();
-    const currentTheme = AppState.getCurrentTheme();
-    if (ThemeController.is3DSceneActive() && currentTheme !== "3dRoom") {
-      ThemeController.applyTheme(currentTheme);
-    }
+
     // Sync playback state
     if (isReadyToPlay) {
       syncPlaybackState();
