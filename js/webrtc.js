@@ -588,14 +588,23 @@ export async function sendState(statePromise) {
   try {
     const state = await statePromise;
     state.isPlaying = AppState.isPlaying(); // Ensure playback state is included
+    
     if (window.isHost) {
-      Object.entries(dataChannels).forEach(([peerId, channel]) => {
-        if (channel && channel.readyState === "open") {
-          try {
-              channel.send(JSON.stringify(state));
-          } catch (sendError) {
-              console.error(`Failed to send state to peer ${peerId}:`, sendError);
-          }
+      const openChannels = Object.entries(dataChannels).filter(([_, ch]) => ch && ch.readyState === "open");
+      
+      if (openChannels.length === 0) {
+          // Only log this occasionally to avoid spamming the console
+          if (Math.random() < 0.05) console.log("sendState: No open data channels. State not broadcast.");
+          return;
+      }
+
+      console.log(`Broadcasting state to ${openChannels.length} peer(s)`);
+      
+      openChannels.forEach(([peerId, channel]) => {
+        try {
+            channel.send(JSON.stringify(state));
+        } catch (sendError) {
+            console.error(`Failed to send state to peer ${peerId}:`, sendError);
         }
       });
     }

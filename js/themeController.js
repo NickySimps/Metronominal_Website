@@ -256,6 +256,11 @@ function handleThemeSelection(themeName) {
 
     localStorage.setItem('selectedTheme', themeName);
     AppState.setCurrentTheme(themeName); // Update AppState's current theme
+    
+    if (window.isHost) {
+        sendState(AppState.getCurrentStateForPreset());
+    }
+
     console.log(`Theme applied by ThemeController: ${themeName}`);
 }
 

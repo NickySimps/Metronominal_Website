@@ -1005,10 +1005,13 @@ const AppState = (function () {
       if (!data) return;
       
       const oldTempo = tempo;
-      const newTempo = data.tempo || 120;
-      tempo = newTempo;
+      if (data.tempo !== undefined) {
+        tempo = data.tempo;
+      }
       
-      volume = data.volume || 1.0;
+      if (data.volume !== undefined) {
+        volume = data.volume;
+      }
 
       // Store current playback state if playing
       const wasPlayingBeforeLoad = isPlaying;
@@ -1017,13 +1020,13 @@ const AppState = (function () {
       
       if (wasPlayingBeforeLoad) {
         const currentTime = audioContext ? audioContext.currentTime : 0;
-        const tempoRatio = oldTempo / newTempo;
+        const tempoRatio = oldTempo / tempo;
 
         Tracks.forEach((track, index) => {
           let adjustedNextBeatTime = track.nextBeatTime;
           
           // Apply tempo scaling to local state before restoring
-          if (oldTempo !== newTempo) {
+          if (oldTempo !== tempo) {
               const timeRemaining = track.nextBeatTime - currentTime;
               if (timeRemaining > 0) {
                   adjustedNextBeatTime = currentTime + (timeRemaining * tempoRatio);
@@ -1173,17 +1176,18 @@ const AppState = (function () {
         });
         if (audioContext) publicAPI.createTrackAnalysers();
       }
-      publicAPI.setCurrentTheme(data.selectedTheme || "default");
       
-      selectedTrackIndex = data.selectedTrackIndex !== undefined ? data.selectedTrackIndex : 0;
-      selectedBarIndexInContainer = data.selectedBarIndexInContainer !== undefined ? data.selectedBarIndexInContainer : 0;
-      controlsAttachedToTrack = data.controlsAttachedToTrack !== undefined ? data.controlsAttachedToTrack : true;
-      isRestMode = data.isRestMode !== undefined ? data.isRestMode : false;
+      if (data.selectedTheme !== undefined) {
+        publicAPI.setCurrentTheme(data.selectedTheme);
+      }
+      
+      selectedTrackIndex = data.selectedTrackIndex !== undefined ? data.selectedTrackIndex : selectedTrackIndex;
+      selectedBarIndexInContainer = data.selectedBarIndexInContainer !== undefined ? data.selectedBarIndexInContainer : selectedBarIndexInContainer;
+      controlsAttachedToTrack = data.controlsAttachedToTrack !== undefined ? data.controlsAttachedToTrack : controlsAttachedToTrack;
+      isRestMode = data.isRestMode !== undefined ? data.isRestMode : isRestMode;
       
       if (data.customSounds) {
           customSounds = data.customSounds;
-      } else {
-          customSounds = {};
       }
 
       // Deserialize recordings
@@ -1200,8 +1204,6 @@ const AppState = (function () {
             console.error(`Error deserializing recording ${name}:`, e);
           }
         }
-      } else {
-        recordings = []; // No serialized recordings, so clear them
       }
 
       // isPlaying is handled by webrtc.js explicitly to avoid race conditions

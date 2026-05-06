@@ -14,7 +14,7 @@ import MetronomeEngine from './metronomeEngine.js'; // For stopping engine on re
 import TempoController from './tempoController.js'; // For updating tempo display on reset
 import VolumeController from './volumeController.js';
 import UserInteraction from './userInteraction.js';
-import { enablePlayback } from './webrtc.js';
+import { enablePlayback, sendState } from './webrtc.js';
 
 function isIOS() {
     return [
@@ -85,6 +85,10 @@ const UIController = {
 
         // Ensure all highlights are cleared
         BarDisplayController.clearAllHighlights();
+
+        if (window.isHost) {
+            sendState(AppState.getCurrentStateForPreset());
+        }
 
         UIController.updateCurrentPresetDisplay();
         console.log("Metronome reset to defaults.");
