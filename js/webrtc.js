@@ -23,6 +23,7 @@ let stateSendTimer = null;
 let pendingStatePromise = null;
 let acceptingReplacementReplay = false;
 let resumePlaybackOnReconnect = false;
+let desiredHostPlaybackState = null;
 let connectionGeneration = 0;
 let lastStateRevision = -1;
 let lastTransportRevision = -1;
@@ -129,11 +130,27 @@ function updateConnectionStatusUI(state) {
 function updateClientCount(count = 0) {
   const connectionCount = document.getElementById("n-of-connections");
   if (!connectionCount) return;
+  const shareBtn = document.getElementById("share-btn");
   connectionCount.textContent = `(${count})`;
   connectionCount.setAttribute(
     "aria-label",
-    `${count} connected ${count === 1 ? "client" : "clients"}`
+    `${count} connected ${count === 1 ? "peer" : "peers"}`
   );
+  if (shareBtn) {
+    shareBtn.classList.toggle("has-peers", count > 0);
+    shareBtn.setAttribute("aria-label", `Share room; ${count} connected ${count === 1 ? "peer" : "peers"}`);
+  }
+}
+
+function clearDesiredHostPlaybackState() {
+  desiredHostPlaybackState = null;
+  const playButton = document.getElementById("start-stop-btn");
+  if (playButton) {
+    const isPlaying = AppState.isPlaying();
+    playButton.textContent = isPlaying ? "■" : "▶";
+    playButton.classList.remove("pending");
+    playButton.classList.toggle("active", isPlaying);
+  }
 }
 
 function refreshUIFromState() {
@@ -207,6 +224,11 @@ function applyTransport(message) {
     || message.currentBar < 0 || message.currentBar > 4095
     || message.currentBeat < 0 || message.currentBeat > 4095) return;
   if (message.revision < lastTransportRevision) return;
+  if (window.isHost && desiredHostPlaybackState !== null && !acceptingReplacementReplay) {
+    lastTransportRevision = message.revision;
+    if (message.playing !== desiredHostPlaybackState) return;
+    clearDesiredHostPlaybackState();
+  }
   pendingTransport = message;
   if (!isReadyToPlay || !hasTimeSync) return;
 
@@ -266,6 +288,7 @@ async function handleSocketMessage(event, generation) {
       updateConnectionStatusUI("connected");
       if (window.isHost) {
         const wasPlaying = AppState.isPlaying() || resumePlaybackOnReconnect;
+        const queuedPlay = desiredHostPlaybackState === true;
         resumePlaybackOnReconnect = false;
         isReadyToPlay = true;
         sessionStorage.setItem("host_room_id", roomId);
@@ -277,9 +300,11 @@ async function handleSocketMessage(event, generation) {
           pendingStatePromise = AppState.getCurrentStateForPreset(true);
           clearTimeout(stateSendTimer);
           await flushState();
-          if (wasPlaying) broadcastScheduledPlay();
+          if (queuedPlay) publishDesiredHostPlaybackState();
+          else if (wasPlaying) broadcastScheduledPlay();
         }
       } else {
+        clearDesiredHostPlaybackState();
         sessionStorage.removeItem("host_room_id");
         sessionStorage.removeItem("host_credential");
         sessionStorage.removeItem("is_host");
@@ -331,6 +356,8 @@ async function handleSocketMessage(event, generation) {
 
     case "room-closed":
       joined = false;
+      acceptingReplacementReplay = false;
+      clearDesiredHostPlaybackState();
       invalidatePendingTransport();
       stopTimeSync();
       updateClientCount(0);
@@ -343,6 +370,8 @@ async function handleSocketMessage(event, generation) {
     case "host-replaced":
       intentionallyDisconnected = true;
       joined = false;
+      acceptingReplacementReplay = false;
+      clearDesiredHostPlaybackState();
       invalidatePendingTransport();
       stopTimeSync();
       window.isHost = false;
@@ -356,6 +385,14 @@ async function handleSocketMessage(event, generation) {
 
     case "replacement-replay-complete":
       acceptingReplacementReplay = false;
+      if (desiredHostPlaybackState !== null) {
+        const desiredPlayback = desiredHostPlaybackState;
+        if (desiredPlayback === AppState.isPlaying()) {
+          clearDesiredHostPlaybackState();
+        } else {
+          publishDesiredHostPlaybackState();
+        }
+      }
       break;
 
     case "error":
@@ -419,6 +456,7 @@ function connectToSynchronizationServer() {
     connectionGeneration += 1;
     resumePlaybackOnReconnect = !intentionallyDisconnected && window.isHost && AppState.isPlaying();
     joined = false;
+    clearDesiredHostPlaybackState();
     invalidatePendingTransport();
     if (AppState.isPlaying()) MetronomeEngine.togglePlay(true);
     clearInterval(heartbeatTimer);
@@ -561,15 +599,30 @@ export async function sendState(statePromise) {
   return true;
 }
 
-export function broadcastScheduledPlay() {
-  if (!joined || !window.isHost) return false;
+export function getDesiredHostPlaybackState() {
+  return desiredHostPlaybackState ?? AppState.isPlaying();
+}
+
+function broadcastTransportCommand(playing, forcePublication = false) {
+  if (!window.isHost) return false;
+  if (desiredHostPlaybackState === playing && !forcePublication) return true;
+
+  desiredHostPlaybackState = playing;
+  const playButton = document.getElementById("start-stop-btn");
+  if (playButton) {
+    playButton.textContent = "…";
+    playButton.classList.add("pending");
+  }
+
+  if (!joined || acceptingReplacementReplay) return true;
+
   const referenceTrack = AppState.getTracks()[0];
   const publish = () => sendMessage({
-      type: "transport-command",
-      playing: true,
-      currentBar: referenceTrack?.currentBar || 0,
-      currentBeat: referenceTrack?.currentBeat || 0,
-    });
+    type: "transport-command",
+    playing,
+    currentBar: referenceTrack?.currentBar || 0,
+    currentBeat: referenceTrack?.currentBeat || 0,
+  });
   if (pendingStatePromise) {
     clearTimeout(stateSendTimer);
     flushState().then(publish);
@@ -579,22 +632,17 @@ export function broadcastScheduledPlay() {
   return true;
 }
 
+function publishDesiredHostPlaybackState() {
+  if (desiredHostPlaybackState === null) return false;
+  return broadcastTransportCommand(desiredHostPlaybackState, true);
+}
+
+export function broadcastScheduledPlay() {
+  return broadcastTransportCommand(true);
+}
+
 export function broadcastStop() {
-  if (!joined || !window.isHost) return false;
-  const referenceTrack = AppState.getTracks()[0];
-  const publish = () => sendMessage({
-      type: "transport-command",
-      playing: false,
-      currentBar: referenceTrack?.currentBar || 0,
-      currentBeat: referenceTrack?.currentBeat || 0,
-    });
-  if (pendingStatePromise) {
-    clearTimeout(stateSendTimer);
-    flushState().then(publish);
-  } else {
-    publish();
-  }
-  return true;
+  return broadcastTransportCommand(false);
 }
 
 export function broadcastSyncPulse(nextBeatWallTime, currentBar, currentBeat) {
@@ -637,6 +685,8 @@ export function disconnect() {
   const socketToClose = socket;
   socket = null;
   joined = false;
+  acceptingReplacementReplay = false;
+  clearDesiredHostPlaybackState();
   resumePlaybackOnReconnect = false;
   invalidatePendingTransport();
   if (AppState.isPlaying()) MetronomeEngine.togglePlay(true);
@@ -657,6 +707,7 @@ export async function disconnectAllPeers() {
   if (!sent) return false;
   joined = false;
   acceptingReplacementReplay = false;
+  clearDesiredHostPlaybackState();
   stopTimeSync();
   resumePlaybackOnReconnect = false;
   invalidatePendingTransport();

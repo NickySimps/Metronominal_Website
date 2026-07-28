@@ -9,7 +9,7 @@ import DOM from './domSelectors.js';
 import ThemeController from './themeController.js';
 import BarDisplayController from './barDisplayController.js';
 import SoundSynth from './soundSynth.js';
-import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, broadcastSyncPulse } from './webrtc.js';
+import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, broadcastSyncPulse, getDesiredHostPlaybackState } from './webrtc.js';
 import AudioController from './audioController.js';
 
 let metronomeWorker = new Worker('js/metronomeWorker.js');
@@ -233,7 +233,7 @@ function performEngineStopActions() {
 
     if (DOM.startStopBtn) {
         DOM.startStopBtn.textContent = "▶";
-        DOM.startStopBtn.classList.remove('active');
+        DOM.startStopBtn.classList.remove('active', 'pending');
     }
     BarDisplayController.clearAllHighlights();
 
@@ -262,7 +262,8 @@ const MetronomeEngine = {
         // The synchronization server assigns one timestamp and echoes it to every peer,
         // including the host. Do not start or stop locally before that authoritative message.
         if (window.isHost && !forceStop) {
-            if (!wasPlayingBeforeToggle) {
+            const desiredPlaybackState = !getDesiredHostPlaybackState();
+            if (desiredPlaybackState) {
                 const commandSent = broadcastScheduledPlay();
                 if (commandSent) {
                     sendState(AppState.getCurrentStateForPreset(true));
@@ -292,6 +293,7 @@ const MetronomeEngine = {
         if (isNowPlaying) {
             if (DOM.startStopBtn) {
                 DOM.startStopBtn.textContent = "■";
+                DOM.startStopBtn.classList.remove('pending');
                 DOM.startStopBtn.classList.add('active');
             }
 
@@ -384,6 +386,7 @@ const MetronomeEngine = {
         // 4. Update UI
         if (DOM.startStopBtn) {
             DOM.startStopBtn.textContent = "■";
+            DOM.startStopBtn.classList.remove('pending');
             DOM.startStopBtn.classList.add('active');
         }
         BarDisplayController.clearAllHighlights();

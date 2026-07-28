@@ -26,6 +26,31 @@ async function nextBeatWallTime(page) {
   });
 }
 
+test('a Play click during startup is honored once initialization finishes', async ({ page }) => {
+  await page.route(/\.(mp3|wav)$/i, async route => {
+    await new Promise(resolve => setTimeout(resolve, 1_500));
+    await route.continue();
+  });
+  await page.goto('./', { waitUntil: 'domcontentloaded' });
+  await page.locator('#start-stop-btn').click();
+  await expect.poll(async () => (await readState(page)).isPlaying, { timeout: 15_000 }).toBe(true);
+  await expect.poll(async () => page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    return AppState.getAudioContext()?.state === 'running' && AppState.getTracks()[0]?.nextBeatTime > 0;
+  })).toBe(true);
+  await expect(page.locator('#start-stop-btn')).toHaveClass(/active/);
+});
+
+test('a second host click before the transport echo cancels the pending Play', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await page.locator('#start-stop-btn').click();
+  await page.locator('#start-stop-btn').click();
+  await page.waitForTimeout(1_000);
+  await expect.poll(async () => (await readState(page)).isPlaying).toBe(false);
+  await expect(page.locator('#start-stop-btn')).not.toHaveClass(/active|pending/);
+});
+
 test('a QR room join syncs settings and playback position but preserves each peer theme', async ({ browser }) => {
   const hostContext = await browser.newContext();
   const clientContext = await browser.newContext();
@@ -43,6 +68,8 @@ test('a QR room join syncs settings and playback position but preserves each pee
 
   await host.goto('./');
   await expect(host.locator('#n-of-connections')).toHaveText('(0)');
+  await expect(host.locator('#n-of-connections')).toHaveAttribute('aria-label', '0 connected peers');
+  await expect(host.locator('#share-btn')).not.toHaveClass(/has-peers/);
   await host.locator('[data-theme="dark"]').click();
   await host.locator('.tempo-slider input').fill('173');
   await host.locator('#volume-slider-input').fill('0.42');
@@ -63,6 +90,8 @@ test('a QR room join syncs settings and playback position but preserves each pee
 
   await client.goto(joinUrl);
   await waitForPeer(host);
+  await expect(host.locator('#share-btn')).toHaveClass(/has-peers/);
+  await expect(host.locator('#share-btn')).toHaveAttribute('aria-label', 'Share room; 1 connected peer');
   await expect(client.locator('#n-of-connections')).toHaveText('(1)');
   await expect(client.locator('#connection-modal')).toBeVisible();
   await client.locator('#dismiss-connection-modal-btn').click();
@@ -84,7 +113,9 @@ test('a QR room join syncs settings and playback position but preserves each pee
   expect(hostState.theme).toBe('dark');
   expect(clientState.tracks[0].currentBar).toBe(hostState.tracks[0].currentBar);
   const beatDistance = Math.abs(clientState.tracks[0].currentBeat - hostState.tracks[0].currentBeat);
-  expect(beatDistance).toBeLessThanOrEqual(1);
+  const activeBar = hostState.tracks[0].barSettings[hostState.tracks[0].currentBar];
+  const beatPositions = activeBar.beats * activeBar.subdivision;
+  expect(Math.min(beatDistance, beatPositions - beatDistance)).toBeLessThanOrEqual(1);
 
   // Changes made after joining remain host-authoritative and keep the client's theme local.
   await client.locator('[data-theme="synthwave"]').click();

@@ -1746,7 +1746,25 @@ button:active,
   background-color: #ffff00; /* Yellow for connecting */
 }
 #n-of-connections {
-  padding-left: var(--s2);
+  display: inline-block;
+  min-width: 2.2em;
+  margin-left: var(--s2);
+  padding: 0.1em 0.45em;
+  border-radius: 999px;
+  opacity: 0.7;
+  transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+#share-btn.has-peers #n-of-connections {
+  background-color: #00c853;
+  color: #071b0f;
+  font-weight: 700;
+  opacity: 1;
+}
+
+#start-stop-btn.pending {
+  opacity: 0.7;
+  cursor: progress;
 }
 
 #connection-modal .modal-content {

@@ -19,6 +19,28 @@ import RecordingManager from './js/recordingManager.js';
 import StickyControls from './js/stickyControls.js';
 
 let qrCodeInstance = null;
+let appInitialized = false;
+let pendingStartupPlay = false;
+
+// The audio files finish loading asynchronously. Capture a Play request made
+// during that window instead of silently losing it before the controllers attach.
+function queueStartupPlay() {
+  pendingStartupPlay = !pendingStartupPlay;
+  if (DOM.startStopBtn) {
+    DOM.startStopBtn.textContent = pendingStartupPlay ? '…' : '▶';
+    DOM.startStopBtn.classList.toggle('pending', pendingStartupPlay);
+  }
+  if (pendingStartupPlay) AppState.getAudioContext()?.resume().catch(() => {});
+}
+
+for (const playButton of [DOM.startStopBtn, document.getElementById('sticky-play-pause-btn')]) {
+  playButton?.addEventListener('click', event => {
+    if (appInitialized) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    queueStartupPlay();
+  }, true);
+}
 
 /**
  * Refreshes all relevant UI components to reflect the current AppState.
@@ -119,7 +141,17 @@ async function initialize() {
   document.addEventListener('touchstart', unlockAudio);
 
   initializeShareControls();
-  initializeWebRTC();
+  await initializeWebRTC();
+
+  appInitialized = true;
+  if (pendingStartupPlay) {
+    pendingStartupPlay = false;
+    if (DOM.startStopBtn) {
+      DOM.startStopBtn.textContent = '▶';
+      DOM.startStopBtn.classList.remove('pending');
+    }
+    await MetronomeEngine.togglePlay();
+  }
 
   // Make the disconnect button functional for the host.
   if (DOM.disconnectBtn) {
@@ -179,7 +211,8 @@ document.addEventListener("keydown", (event) => {
   switch (event.key) {
     case " ": // Spacebar: Toggle play/pause
       event.preventDefault();
-      MetronomeEngine.togglePlay();
+      if (appInitialized) MetronomeEngine.togglePlay();
+      else queueStartupPlay();
       break;
     case "t": // 't': Tap tempo
       event.preventDefault();
