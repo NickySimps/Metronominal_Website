@@ -259,33 +259,25 @@ const MetronomeEngine = {
     togglePlay: async (forceStop = false) => {
         const wasPlayingBeforeToggle = AppState.isPlaying();
         
-        // Handle Host Scheduling
+        // The synchronization server assigns one timestamp and echoes it to every peer,
+        // including the host. Do not start or stop locally before that authoritative message.
         if (window.isHost && !forceStop) {
             if (!wasPlayingBeforeToggle) {
-                // Starting
-                const scheduledTime = Date.now() + 200; // Schedule 200ms in future
-                broadcastScheduledPlay(scheduledTime);
-                MetronomeEngine.scheduleStart(scheduledTime);
-                // Also broadcast current state to ensure all clients have latest settings (tempo, bars, etc.)
-                sendState(AppState.getCurrentStateForPreset(true)); 
-                return true;
-            } else {
-                // Stopping
-                broadcastStop();
+                const commandSent = broadcastScheduledPlay();
+                if (commandSent) {
+                    sendState(AppState.getCurrentStateForPreset(true));
+                    return true;
+                }
+            } else if (broadcastStop()) {
+                return false;
             }
-        } else if (!window.isHost && !forceStop && !wasPlayingBeforeToggle) {
-            // Client Starting: Request Sync if connected
-            // Check connection count or similar (checking logic can be delegated to webrtc, but we just call requestSync)
-            // If the request succeeds (host exists), we wait.
-            // If request fails (offline), we proceed? 
-            // For now, assume if !isHost, we try sync.
-            const syncRequested = requestPlaybackSync();
-            if (syncRequested) {
-                return false; // Wait for response
-            }
+        } else if (!window.isHost && !forceStop) {
+            // Joined clients follow the host and cannot create a divergent local transport state.
+            requestPlaybackSync();
+            return wasPlayingBeforeToggle;
         }
 
-        // Standard Toggle Logic (or Client Offline/Stop Logic)
+        // Standard Toggle Logic (offline host fallback or an authoritative forced stop).
         const isNowPlaying = await AppState.togglePlay();
 
         // If forceStop is true and we are still playing, toggle again to stop
@@ -295,7 +287,7 @@ const MetronomeEngine = {
              return false;
         }
 
-        sendState(AppState.getCurrentStateForPreset());
+        sendState(AppState.getCurrentStateForPreset(true));
 
         if (isNowPlaying) {
             if (DOM.startStopBtn) {
@@ -323,13 +315,13 @@ const MetronomeEngine = {
         return isNowPlaying;
     },
 
-    scheduleStart: async (targetTimestamp, startBar = 0, startBeat = 0) => {
+    scheduleStart: async (targetTimestamp, startBar = 0, startBeat = 0, shouldStart = () => true) => {
         const audioContext = AppState.getAudioContext();
         if (audioContext && audioContext.state === 'suspended') {
             await audioContext.resume();
         }
 
-        if (AppState.isPlaying()) return; // Already playing
+        if (!shouldStart()) return;
 
         // Manually start AppState logic without toggling (since we are setting specific times)
         // Or we can use togglePlay logic but override the nextBeatTime.
@@ -337,8 +329,13 @@ const MetronomeEngine = {
         
         // 1. Set playing state
         // We can use a trick: call AppState.togglePlay(), then immediately overwrite nextBeatTime
-        const isPlaying = await AppState.togglePlay();
-        if (!isPlaying) return; // Exit if AppState refused to play (e.g. no tracks)
+        if (!AppState.isPlaying()) {
+            const isPlaying = await AppState.togglePlay();
+            if (!shouldStart()) return;
+            if (!isPlaying) return; // Exit if AppState refused to play (e.g. no tracks)
+        }
+
+        if (!shouldStart()) return;
 
         // 2. Calculate delay until target time
         const now = Date.now();
@@ -352,8 +349,11 @@ const MetronomeEngine = {
         const secondsPerMainBeat = 60.0 / tempo;
 
         allTracks.forEach(track => {
-            track.currentBar = startBar;
-            track.currentBeat = startBeat;
+            if (!track.barSettings.length) return;
+            track.currentBar = startBar % track.barSettings.length;
+            const startBarData = track.barSettings[track.currentBar];
+            const beatsInBar = Math.max(1, Math.ceil(startBarData.beats * startBarData.subdivision));
+            track.currentBeat = startBeat % beatsInBar;
             
             // Fast-forward if we are late
             let trackStartTime = startAudioTime;

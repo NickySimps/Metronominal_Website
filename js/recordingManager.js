@@ -39,7 +39,7 @@ const RecordingManager = {
         const recordingName = event.target.dataset.recordingName;
         AppState.deleteRecording(recordingName);
         if (window.isHost) {
-          sendState(AppState.getCurrentStateForPreset());
+          sendState(AppState.getCurrentStateForPreset(true));
         }
         RecordingManager.populateModal();
         TrackController.renderTracks();
@@ -68,7 +68,7 @@ const RecordingManager = {
             if (newName && newName !== oldName) {
               AppState.renameRecording(oldName, newName);
               if (window.isHost) {
-                sendState(AppState.getCurrentStateForPreset());
+                sendState(AppState.getCurrentStateForPreset(true));
               }
               RecordingManager.populateModal(); // Re-populate to show new name and update data-attributes
               TrackController.renderTracks(); // Update sound selectors
