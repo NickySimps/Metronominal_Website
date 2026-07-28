@@ -15,6 +15,7 @@ let reconnectAttempt = 0;
 let joinRetryTimer = null;
 let joinRetryAttempt = 0;
 let heartbeatTimer = null;
+let timeSyncBurstTimer = null;
 let steadyTimeSyncTimer = null;
 let pendingTransport = null;
 let scheduledStopTimer = null;
@@ -154,15 +155,23 @@ function requestTimeSync() {
   sendMessage({ type: "time-sync", t0 });
 }
 
+function stopTimeSync() {
+  clearInterval(timeSyncBurstTimer);
+  clearInterval(steadyTimeSyncTimer);
+  timeSyncBurstTimer = null;
+  steadyTimeSyncTimer = null;
+}
+
 function startTimeSync() {
+  stopTimeSync();
   let samplesSent = 0;
-  const burst = setInterval(() => {
+  timeSyncBurstTimer = setInterval(() => {
     requestTimeSync();
     samplesSent += 1;
     if (samplesSent >= 10) {
-      clearInterval(burst);
-      clearInterval(steadyTimeSyncTimer);
-      steadyTimeSyncTimer = setInterval(requestTimeSync, 5000);
+      clearInterval(timeSyncBurstTimer);
+      timeSyncBurstTimer = null;
+      if (joined) steadyTimeSyncTimer = setInterval(requestTimeSync, 5000);
     }
   }, 100);
   requestTimeSync();
@@ -323,6 +332,7 @@ async function handleSocketMessage(event, generation) {
     case "room-closed":
       joined = false;
       invalidatePendingTransport();
+      stopTimeSync();
       updateClientCount(0);
       updateConnectionStatusUI("disconnected");
       if (AppState.isPlaying()) MetronomeEngine.togglePlay(true);
@@ -334,6 +344,7 @@ async function handleSocketMessage(event, generation) {
       intentionallyDisconnected = true;
       joined = false;
       invalidatePendingTransport();
+      stopTimeSync();
       window.isHost = false;
       sessionStorage.removeItem("host_room_id");
       sessionStorage.removeItem("host_credential");
@@ -411,7 +422,7 @@ function connectToSynchronizationServer() {
     invalidatePendingTransport();
     if (AppState.isPlaying()) MetronomeEngine.togglePlay(true);
     clearInterval(heartbeatTimer);
-    clearInterval(steadyTimeSyncTimer);
+    stopTimeSync();
     clearTimeout(joinRetryTimer);
     joinRetryTimer = null;
     updateClientCount(0);
@@ -632,7 +643,7 @@ export function disconnect() {
   clearTimeout(reconnectTimer);
   clearTimeout(joinRetryTimer);
   clearInterval(heartbeatTimer);
-  clearInterval(steadyTimeSyncTimer);
+  stopTimeSync();
   clearTimeout(stateSendTimer);
   clearTimeout(scheduledStopTimer);
   if (socketToClose) socketToClose.close();
@@ -646,6 +657,7 @@ export async function disconnectAllPeers() {
   if (!sent) return false;
   joined = false;
   acceptingReplacementReplay = false;
+  stopTimeSync();
   resumePlaybackOnReconnect = false;
   invalidatePendingTransport();
   if (AppState.isPlaying()) await MetronomeEngine.togglePlay(true);
