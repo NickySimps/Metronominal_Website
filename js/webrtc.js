@@ -644,6 +644,8 @@ export async function disconnectAllPeers() {
   if (!window.isHost) return false;
   const sent = sendMessage({ type: "close-room" });
   if (!sent) return false;
+  joined = false;
+  acceptingReplacementReplay = false;
   resumePlaybackOnReconnect = false;
   invalidatePendingTransport();
   if (AppState.isPlaying()) await MetronomeEngine.togglePlay(true);

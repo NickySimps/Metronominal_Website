@@ -181,6 +181,19 @@ test('a QR room join syncs settings and playback position but preserves each pee
   expect(await host.evaluate(() => window.isHost)).toBe(false);
   await expect.poll(async () => (await readState(host)).isPlaying).toBe(false);
 
+  // Closing a room revokes the old room before asynchronous replacement-room setup.
+  await replacementHost.evaluate(async () => {
+    const { disconnectAllPeers } = await import(new URL('js/webrtc.js', document.baseURI).href);
+    await disconnectAllPeers();
+  });
+  await expect.poll(async () => (await readState(replacementHost)).isPlaying).toBe(false);
+  await expect.poll(async () => (await readState(client)).isPlaying).toBe(false);
+  await expect(replacementHost.locator('#n-of-connections')).toHaveText('(0)');
+  await expect.poll(async () => replacementHost.evaluate(
+    previousRoom => sessionStorage.getItem('host_room_id') !== previousRoom,
+    hostIdentity.roomId,
+  )).toBe(true);
+
   expect(hostErrors).toEqual([]);
   expect(clientErrors).toEqual([]);
   expect(secondClientErrors).toEqual([]);
