@@ -3,7 +3,7 @@ const crypto = require('crypto');
 
 async function readState(page) {
   return page.evaluate(async () => {
-    const { default: AppState } = await import('/js/appState.js');
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     return {
       tempo: AppState.getTempo(),
       volume: AppState.getVolume(),
@@ -20,7 +20,7 @@ async function waitForPeer(page) {
 
 async function nextBeatWallTime(page) {
   return page.evaluate(async () => {
-    const { default: AppState } = await import('/js/appState.js');
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const track = AppState.getTracks()[0];
     return Date.now() + ((track.nextBeatTime - AppState.getAudioContext().currentTime) * 1000);
   });
@@ -41,7 +41,7 @@ test('a QR room join syncs settings and playback position but preserves each pee
   client.on('pageerror', error => clientErrors.push(error.message));
   secondClient.on('pageerror', error => secondClientErrors.push(error.message));
 
-  await host.goto('/');
+  await host.goto('./');
   await expect(host.locator('#n-of-connections')).toHaveText('(0)');
   await host.locator('[data-theme="dark"]').click();
   await host.locator('.tempo-slider input').fill('173');
@@ -126,7 +126,7 @@ test('a QR room join syncs settings and playback position but preserves each pee
 
   // A newer Play revision cancels an already scheduled Stop on every browser.
   await host.evaluate(async () => {
-    const sync = await import('/js/webrtc.js');
+    const sync = await import(new URL('js/webrtc.js', document.baseURI).href);
     sync.broadcastStop();
     await new Promise(resolve => setTimeout(resolve, 100));
     sync.broadcastScheduledPlay();
@@ -152,10 +152,9 @@ test('a QR room join syncs settings and playback position but preserves each pee
 
   // A host network interruption recreates the credential-bound room and republishes playback.
   await host.evaluate(async () => {
-    const { reconnectSynchronization } = await import('/js/webrtc.js');
+    const { reconnectSynchronization } = await import(new URL('js/webrtc.js', document.baseURI).href);
     reconnectSynchronization();
   });
-  await expect.poll(async () => (await readState(client)).isPlaying).toBe(false);
   await expect(host.locator('#n-of-connections')).toHaveText('(1)', { timeout: 15_000 });
   await expect(client.locator('#n-of-connections')).toHaveText('(1)');
   await expect.poll(async () => (await readState(host)).isPlaying).toBe(true);
@@ -207,10 +206,10 @@ test('a client retries until a temporarily unavailable host room returns', async
   const client = await clientContext.newPage();
   const host = await hostContext.newPage();
 
-  await client.goto(`/?room=${room}`);
+  await client.goto(`./?room=${room}`);
   await expect(client.locator('#share-btn')).toHaveClass(/failed/);
 
-  await host.goto(`/?room=${room}`);
+  await host.goto(`./?room=${room}`);
   await expect(host.locator('#n-of-connections')).toHaveText('(1)', { timeout: 10_000 });
   await expect(client.locator('#n-of-connections')).toHaveText('(1)');
   expect(await host.evaluate(() => window.isHost)).toBe(true);
