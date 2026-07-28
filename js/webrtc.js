@@ -383,17 +383,30 @@ async function handleSocketMessage(event, generation) {
       if (AppState.isPlaying()) MetronomeEngine.togglePlay(true);
       break;
 
-    case "replacement-replay-complete":
+    case "replacement-replay-complete": {
+      if (!acceptingReplacementReplay) break;
+      if (!window.isHost || !joined) {
+        acceptingReplacementReplay = false;
+        break;
+      }
+
+      pendingStatePromise = AppState.getCurrentStateForPreset(true);
+      await flushState();
+      if (!window.isHost || !joined) break;
+
+      // Keep outbound settings and transport gated until the retained replay
+      // has been consumed and the replacement's authoritative snapshot flushed.
       acceptingReplacementReplay = false;
-      if (desiredHostPlaybackState !== null) {
-        const desiredPlayback = desiredHostPlaybackState;
-        if (desiredPlayback === AppState.isPlaying()) {
-          clearDesiredHostPlaybackState();
-        } else {
-          publishDesiredHostPlaybackState();
-        }
+      const desiredPlayback = desiredHostPlaybackState;
+      if (desiredPlayback === false && !AppState.isPlaying()) {
+        clearDesiredHostPlaybackState();
+      } else if (desiredPlayback !== null) {
+        publishDesiredHostPlaybackState();
+      } else if (AppState.isPlaying()) {
+        broadcastScheduledPlay();
       }
       break;
+    }
 
     case "error":
       console.error(`Synchronization server error (${message.code}): ${message.message}`);
