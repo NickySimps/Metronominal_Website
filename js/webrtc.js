@@ -365,7 +365,7 @@ function setupDataChannelEvents(peerId) {
     if (syncInterval) clearInterval(syncInterval);
   };
 
-  dataChannel.onmessage = (event) => {
+  dataChannel.onmessage = async (event) => {
     // console.log("Received data from peer:", peerId);
     const data = JSON.parse(event.data);
 
@@ -504,18 +504,19 @@ function setupDataChannelEvents(peerId) {
         return;
     }
 
-    // Handle normal state updates
+    // Handle normal state updates. Themes are intentionally local to each peer.
+    const { selectedTheme: _ignoredTheme, ...syncedState } = data;
     const wasPlayingOnClient = AppState.isPlaying();
-    const shouldBePlaying = data.isPlaying || false;
+    const shouldBePlaying = syncedState.isPlaying || false;
     console.log("Received state update. Host playing:", shouldBePlaying);
 
     // Load the state, but temporarily set isPlaying to false in AppState
     // to prevent MetronomeEngine from immediately starting/stopping based on the loaded state.
     // We will handle playback synchronization explicitly below.
-    AppState.loadPresetData({ ...data, isPlaying: false });
+    await AppState.loadPresetData({ ...syncedState, isPlaying: false });
 
     if (receiveCallback) {
-        receiveCallback(data);
+        receiveCallback(syncedState);
     } else {
         refreshUIFromState();
     }
@@ -590,6 +591,8 @@ async function processCandidateQueue(peerId) {
 export async function sendState(statePromise) {
   try {
     const state = await statePromise;
+    // A room owns metronome settings and playback, but never a peer's theme.
+    delete state.selectedTheme;
     state.isPlaying = AppState.isPlaying(); // Ensure playback state is included
     
     if (window.isHost) {
@@ -884,7 +887,6 @@ export function initializeShareControls() {
   }
 
   shareBtn.addEventListener("click", () => {
-    window.isHost = true;
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
     console.log("Sharing URL:", shareUrl);
 
