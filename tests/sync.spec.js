@@ -58,6 +58,7 @@ test('a client can disconnect from a shared room into a new solo session', async
   const client = await clientContext.newPage();
 
   await host.goto('./');
+  await expect(host.locator('#share-btn')).toHaveClass(/connected/, { timeout: 30_000 });
   await host.locator('#share-btn').click();
   const joinUrl = await host.evaluate(() => window.location.href);
   const sharedRoomId = new URL(joinUrl).searchParams.get('room');
