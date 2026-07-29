@@ -182,6 +182,7 @@ function stopTimeSync() {
   clearInterval(steadyTimeSyncTimer);
   timeSyncBurstTimer = null;
   steadyTimeSyncTimer = null;
+  offsetSamples.length = 0;
 }
 
 function startTimeSync() {

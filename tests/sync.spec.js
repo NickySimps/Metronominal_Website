@@ -51,6 +51,42 @@ test('a second host click before the transport echo cancels the pending Play', a
   await expect(page.locator('#start-stop-btn')).not.toHaveClass(/active|pending/);
 });
 
+test('Play begins with a low-latency authoritative start', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__scheduledAudioStarts = [];
+    for (const method of ['createBufferSource', 'createOscillator']) {
+      const originalCreateSource = BaseAudioContext.prototype[method];
+      BaseAudioContext.prototype[method] = function(...args) {
+        const source = originalCreateSource.apply(this, args);
+        const originalStart = source.start;
+        source.start = (...startArgs) => {
+          window.__scheduledAudioStarts.push({
+            scheduledAt: Date.now(),
+            audioNow: this.currentTime,
+            startAt: startArgs[0] ?? 0
+          });
+          return originalStart.apply(source, startArgs);
+        };
+        return source;
+      };
+    }
+  });
+  await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await page.waitForTimeout(1_200);
+
+  const startedAt = await page.evaluate(() => {
+    window.__scheduledAudioStarts = [];
+    return Date.now();
+  });
+  await page.locator('#start-stop-btn').click();
+  await expect.poll(() => page.evaluate(() => window.__scheduledAudioStarts.length)).toBeGreaterThan(0);
+  const audibleAt = await page.evaluate(() => Math.min(...window.__scheduledAudioStarts.map(audio => (
+    audio.scheduledAt + Math.max(0, audio.startAt - audio.audioNow) * 1000
+  ))));
+  expect(audibleAt - startedAt).toBeLessThan(400);
+});
+
 test('a client can disconnect from a shared room into a new solo session', async ({ browser }) => {
   const hostContext = await browser.newContext();
   const clientContext = await browser.newContext();
