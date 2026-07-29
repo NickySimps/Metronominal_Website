@@ -17,6 +17,7 @@ import UserInteraction from './js/userInteraction.js';
 import AudioController from './js/audioController.js';
 import RecordingManager from './js/recordingManager.js';
 import StickyControls from './js/stickyControls.js';
+import SongController from './js/songController.js';
 
 let qrCodeInstance = null;
 let appInitialized = false;
@@ -50,6 +51,7 @@ function refreshUIFromState() {
   VolumeController.updateVolumeDisplay({ animate: true });
   UIController.updateScreenOffToggleBtn();
   if (DOM.countInBarsSelect) DOM.countInBarsSelect.value = String(AppState.getCountInBars());
+  SongController.render();
 
   TrackController.renderTracks();
   BarControlsController.updateBarControlsForSelectedTrack();
@@ -119,6 +121,7 @@ async function initialize() {
   console.log('DOM.recordingDisplayModal:', DOM.recordingDisplayModal);
   AudioController.initialize();
   StickyControls.init();
+  await SongController.initialize(refreshUIFromState);
   
   // Register Sticky Controls listeners
   TempoController.registerTempoChangeListener(() => StickyControls.updateDisplay());

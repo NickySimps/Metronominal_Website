@@ -107,6 +107,29 @@
                 </div>
             </div>
 
+            <section id="song-mode-panel" class="song-mode-panel" aria-labelledby="song-mode-title">
+                <div class="song-mode-heading">
+                    <div>
+                        <h2 id="song-mode-title">Song Mode</h2>
+                        <p>Label your bars and automate BPM at section changes. The arrangement loops for rehearsal.</p>
+                    </div>
+                    <label class="song-mode-toggle"><input id="song-mode-enabled" type="checkbox"> Enable timeline</label>
+                </div>
+                <div class="song-mode-meta">
+                    <label>Song name <input id="song-name-input" maxlength="80" value="Untitled Song"></label>
+                    <strong id="song-now-playing" aria-live="polite">Song mode off</strong>
+                </div>
+                <div id="song-sections-list" class="song-sections-list"></div>
+                <div class="song-mode-actions">
+                    <button id="add-song-section-btn" type="button">Add Section</button>
+                    <button id="copy-song-link-btn" type="button">Copy Song Link</button>
+                    <button id="share-song-btn" type="button">Share Song</button>
+                    <button id="export-song-btn" type="button">Export Song</button>
+                    <label class="song-import-button">Import Song<input id="import-song-input" type="file" accept=".json,.metronominal.json,application/json"></label>
+                </div>
+                <p id="song-share-status" class="song-share-status" aria-live="polite"></p>
+            </section>
+
             <div class="tempo-container">
                 <div class="bpm-display">
                     <span class="tempo">120</span>

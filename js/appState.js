@@ -234,11 +234,43 @@ const defaultSoundSettings = {
   "Synth Noise": defaultNoise,
 };
 
+const defaultSong = (tempo = 120) => ({
+  version: 1,
+  enabled: false,
+  name: "Untitled Song",
+  sections: [{ name: "Section 1", startBar: 0, tempo }],
+});
+
+function normalizeSong(value, barCount, fallbackTempo = 120) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : defaultSong(fallbackTempo);
+  const safeBarCount = Math.max(1, Math.min(Number.parseInt(barCount, 10) || 1, 64));
+  const sections = Array.isArray(source.sections) ? source.sections : [];
+  const normalizedSections = sections
+    .slice(0, 32)
+    .map((section, index) => ({
+      name: String(section?.name || `Section ${index + 1}`).trim().slice(0, 48) || `Section ${index + 1}`,
+      startBar: Math.max(0, Math.min(Number.parseInt(section?.startBar, 10) || 0, safeBarCount - 1)),
+      tempo: Math.max(20, Math.min(Number.parseInt(section?.tempo, 10) || fallbackTempo, 300)),
+    }))
+    .sort((a, b) => a.startBar - b.startBar)
+    .filter((section, index, all) => index === 0 || section.startBar !== all[index - 1].startBar);
+  if (!normalizedSections.length || normalizedSections[0].startBar !== 0) {
+    normalizedSections.unshift({ name: "Section 1", startBar: 0, tempo: fallbackTempo });
+  }
+  return {
+    version: 1,
+    enabled: source.enabled === true,
+    name: String(source.name || "Untitled Song").trim().slice(0, 80) || "Untitled Song",
+    sections: normalizedSections,
+  };
+}
+
 const AppState = (function () {
   // --- Private State ---
   let tempo = 120;
   let volume = 1.0;
   let countInBars = 0;
+  let song = defaultSong(tempo);
   let Tracks = [
     {
       barSettings: [{ beats: 4, subdivision: 1, rests: [] }],
@@ -389,6 +421,31 @@ const AppState = (function () {
       countInBars = Number.isInteger(parsed) ? Math.max(0, Math.min(parsed, 8)) : 0;
       saveState();
     },
+    getSong: () => {
+      song = normalizeSong(song, Tracks[0]?.barSettings?.length, tempo);
+      return JSON.parse(JSON.stringify(song));
+    },
+    setSong: (nextSong) => {
+      song = normalizeSong(nextSong, Tracks[0]?.barSettings?.length, tempo);
+      saveState();
+    },
+    getPlaybackTempo: (barIndex = 0) => {
+      if (!song.enabled) return tempo;
+      let activeSection = song.sections[0];
+      for (const section of song.sections) {
+        if (section.startBar > barIndex) break;
+        activeSection = section;
+      }
+      return activeSection?.tempo || tempo;
+    },
+    getSongSectionForBar: (barIndex = 0) => {
+      let activeIndex = 0;
+      for (let index = 0; index < song.sections.length; index += 1) {
+        if (song.sections[index].startBar > barIndex) break;
+        activeIndex = index;
+      }
+      return { index: activeIndex, ...song.sections[activeIndex] };
+    },
     addTapTimestamp: (timestamp) => {
       if (
         tapTempoTimestamps.length > 0 &&
@@ -516,6 +573,7 @@ const AppState = (function () {
       }
 
       isPlaying = !isPlaying;
+      document.dispatchEvent(new CustomEvent("playbackstatechange", { detail: { playing: isPlaying } }));
 
       if (isPlaying) {
         if (audioContext) {
@@ -680,6 +738,7 @@ const AppState = (function () {
         container.currentBeat = 0;
       });
       isPlaying = false;
+      document.dispatchEvent(new CustomEvent("playbackstatechange", { detail: { playing: false } }));
     },
 
     // Bar Settings
@@ -980,10 +1039,12 @@ const AppState = (function () {
           }
       }
 
+      song = normalizeSong(song, Tracks[0]?.barSettings?.length, tempo);
       const state = {
         tempo: tempo,
         volume: volume,
         countInBars: countInBars,
+        song: JSON.parse(JSON.stringify(song)),
         Tracks: JSON.parse(
           JSON.stringify(
             Tracks.map((track) => {
@@ -1187,6 +1248,7 @@ const AppState = (function () {
         });
         if (audioContext) publicAPI.createTrackAnalysers();
       }
+      song = normalizeSong(data.song, Tracks[0]?.barSettings?.length, tempo);
       
       if (data.selectedTheme !== undefined) {
         publicAPI.setCurrentTheme(data.selectedTheme);
@@ -1220,6 +1282,7 @@ const AppState = (function () {
       // isPlaying is handled by webrtc.js explicitly to avoid race conditions
       // isPlaying = data.isPlaying || false;
       saveState();
+      document.dispatchEvent(new CustomEvent("appstatechange"));
     },
 
     // Reset & Initialization
@@ -1227,6 +1290,7 @@ const AppState = (function () {
       tempo = 120;
       volume = 1.0;
       countInBars = 0;
+      song = defaultSong();
       Tracks = [
         {
           barSettings: [{ beats: 4, subdivision: 1, rests: [] }],

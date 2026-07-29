@@ -2179,3 +2179,63 @@ environments: Development, Staging,
         display: flex; /* Activate flex layout on mobile */
     }
 }
+
+.song-mode-panel {
+    width: min(920px, calc(100% - 24px));
+    margin: 18px auto;
+    padding: 16px;
+    box-sizing: border-box;
+    border: 1px solid color-mix(in srgb, var(--Text) 25%, transparent);
+    border-radius: var(--BorderRadius);
+    background: color-mix(in srgb, var(--Background) 88%, var(--Main));
+}
+
+.song-mode-heading, .song-mode-meta, .song-mode-actions, .song-section-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.song-mode-heading { justify-content: space-between; }
+.song-mode-heading h2, .song-mode-heading p { margin: 0 0 4px; }
+.song-mode-toggle { font-weight: bold; }
+.song-mode-meta { justify-content: space-between; margin: 12px 0; }
+.song-mode-meta input { min-width: 220px; }
+.song-sections-list { display: grid; gap: 8px; }
+.song-section-row {
+    padding: 10px;
+    border-radius: var(--BorderRadius);
+    background: color-mix(in srgb, var(--Main) 14%, transparent);
+}
+.song-section-row label { display: grid; gap: 3px; font-size: 0.78rem; }
+.song-section-row input { width: 130px; max-width: 100%; }
+.song-section-number { font-size: 1.15rem; font-weight: bold; min-width: 24px; }
+.song-mode-actions { margin-top: 12px; }
+.song-mode-actions button, .song-import-button {
+    padding: 8px 12px;
+    border-radius: var(--BorderRadius);
+    cursor: pointer;
+}
+.song-import-button { border: 1px solid currentColor; }
+.song-import-button input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+.song-import-button:focus-within { outline: 3px solid var(--Highlight); outline-offset: 2px; }
+.song-share-status { min-height: 1.3em; margin: 8px 0 0; }
+.song-share-status.error { color: #d33; }
+
+@media (max-width: 640px) {
+    .song-mode-panel { width: calc(100% - 12px); padding: 10px; }
+    .song-section-row { align-items: stretch; }
+    .song-section-row label { flex: 1 1 120px; }
+    .song-section-row input { width: 100%; box-sizing: border-box; }
+}

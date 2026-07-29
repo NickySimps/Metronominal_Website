@@ -161,22 +161,31 @@ function scheduler() {
     const allTracks = AppState.getTracks();
 
     if (audioContext && audioContext.state === 'running') {
+        const primaryTrack = allTracks[0];
+        const tempoSegments = [{ time: Number.NEGATIVE_INFINITY, tempo: AppState.getPlaybackTempo(primaryTrack?.currentBar || 0) }];
         allTracks.forEach((track, trackIndex) => {
             if (track.barSettings.length === 0) return;
 
-            const tempo = AppState.getTempo();
-            const secondsPerMainBeat = 60.0 / tempo;
-            const currentBarData = track.barSettings[track.currentBar];
-            const beatMultiplier = parseFloat(currentBarData ? currentBarData.subdivision : 1);
-            
-            let secondsPerSubBeat = secondsPerMainBeat;
-            if (beatMultiplier >= 1) {
-                secondsPerSubBeat = secondsPerMainBeat / beatMultiplier;
-            } else {
-                secondsPerSubBeat = secondsPerMainBeat * (1 / beatMultiplier);
-            }
-
             while (track.nextBeatTime < audioContext.currentTime + AppState.SCHEDULE_AHEAD_TIME) {
+                let tempo;
+                if (trackIndex === 0) {
+                    tempo = AppState.getPlaybackTempo(track.currentBar);
+                    if (tempoSegments[tempoSegments.length - 1].tempo !== tempo) {
+                        tempoSegments.push({ time: track.nextBeatTime, tempo });
+                    }
+                } else {
+                    tempo = tempoSegments[0].tempo;
+                    for (const segment of tempoSegments) {
+                        if (segment.time > track.nextBeatTime) break;
+                        tempo = segment.tempo;
+                    }
+                }
+                const secondsPerMainBeat = 60.0 / tempo;
+                const currentBarData = track.barSettings[track.currentBar];
+                const beatMultiplier = parseFloat(currentBarData ? currentBarData.subdivision : 1);
+                const secondsPerSubBeat = beatMultiplier >= 1
+                    ? secondsPerMainBeat / beatMultiplier
+                    : secondsPerMainBeat * (1 / beatMultiplier);
                 // Only play sound and schedule visuals if the beat is within a reasonable window (not >250ms in the past)
                 // This prevents "machine gun" bursts when syncing catches up from a late start or large drift.
                 if (track.nextBeatTime > audioContext.currentTime - 0.25) {
@@ -223,6 +232,9 @@ function draw() {
         // Skip events that are too old (e.g., > 250ms lag) to prevent strobe effect on resume
         if (currentTime - event.time < 0.25) {
              BarDisplayController.updateBeatHighlight(event.trackIndex, event.bar, event.beat, true);
+             if (event.trackIndex === 0 && event.beat === 0) {
+                 document.dispatchEvent(new CustomEvent('songpositionchange', { detail: { bar: event.bar } }));
+             }
         }
     }
 
@@ -388,9 +400,6 @@ const MetronomeEngine = {
 
         // 3. Overwrite nextBeatTime for all tracks
         const allTracks = AppState.getTracks();
-        const tempo = AppState.getTempo();
-        const secondsPerMainBeat = 60.0 / tempo;
-
         allTracks.forEach(track => {
             if (!track.barSettings.length) return;
             track.currentBar = startBar % track.barSettings.length;
@@ -408,6 +417,7 @@ const MetronomeEngine = {
                 
                 const currentBarData = track.barSettings[track.currentBar];
                 const beatMultiplier = parseFloat(currentBarData ? currentBarData.subdivision : 1);
+                const secondsPerMainBeat = 60.0 / AppState.getPlaybackTempo(track.currentBar);
                 
                 let secondsPerSubBeat = secondsPerMainBeat;
                 if (beatMultiplier >= 1) {

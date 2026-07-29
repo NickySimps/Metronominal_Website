@@ -173,6 +173,7 @@ function sendJoinRequest() {
     type: "join",
     room: roomId,
     requestedRole: window.isHost ? "host" : "client",
+    capabilities: ["song-v1"],
     ...(window.isHost ? { hostCredential } : {})
   });
 }
@@ -218,6 +219,9 @@ function updateConnectionStatusUI(state) {
   }
   const countInSelect = document.getElementById("count-in-bars-select");
   if (countInSelect) countInSelect.disabled = state !== "connected" || !window.isHost;
+  document.dispatchEvent(new CustomEvent("syncrolechange", {
+    detail: { state, isHost: window.isHost === true }
+  }));
   updateDiagnosticsUI();
 }
 
@@ -389,7 +393,8 @@ function applyTransport(message) {
 }
 
 async function handleStateMessage(message, generation) {
-  if ((window.isHost && !acceptingReplacementReplay) || !message.payload || !Number.isInteger(message.revision)) return;
+  if ((window.isHost && !acceptingReplacementReplay && !message.authoritativeRefresh)
+    || !message.payload || !Number.isInteger(message.revision)) return;
   if (message.revision <= lastStateRevision && !message.authoritativeRefresh) return;
   lastStateRevision = message.revision;
   const { selectedTheme: _ignoredTheme, ...state } = message.payload;

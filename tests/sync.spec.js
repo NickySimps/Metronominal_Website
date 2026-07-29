@@ -8,6 +8,7 @@ async function readState(page) {
       tempo: AppState.getTempo(),
       volume: AppState.getVolume(),
       countInBars: AppState.getCountInBars(),
+      song: AppState.getSong(),
       theme: AppState.getCurrentTheme(),
       isPlaying: AppState.isPlaying(),
       tracks: AppState.getTracks().map(({ analyserNode, ...track }) => track),
@@ -167,6 +168,314 @@ test('host count-in is synchronized and locally scheduled on every peer', async 
 
   await hostContext.close();
   await clientContext.close();
+});
+
+test('song mode synchronizes sections and creates a credential-free song link', async ({ browser }) => {
+  const hostContext = await browser.newContext();
+  const clientContext = await browser.newContext();
+  const lateClientContext = await browser.newContext();
+  const importContext = await browser.newContext();
+  const host = await hostContext.newPage();
+  const client = await clientContext.newPage();
+
+  await host.goto('./');
+  await expect(host.locator('#share-btn')).toHaveClass(/connected/);
+  await host.locator('#song-mode-enabled').check();
+  await host.locator('#song-name-input').fill('Band Rehearsal');
+  await host.locator('[data-song-section-name="0"]').fill('Intro');
+  await host.locator('[data-song-section-tempo="0"]').fill('180');
+  await host.locator('[data-song-section-tempo="0"]').blur();
+  await expect(host.locator('#add-song-section-btn')).toBeEnabled();
+  await host.locator('#add-song-section-btn').click();
+  await expect(host.locator('.bar-visual')).toHaveCount(2);
+  await host.locator('[data-song-section-name="1"]').fill('Chorus');
+  await host.locator('[data-song-section-tempo="1"]').fill('150');
+  await host.locator('[data-song-section-tempo="1"]').blur();
+
+  await expect.poll(async () => (await readState(host)).song).toMatchObject({
+    version: 1,
+    enabled: true,
+    name: 'Band Rehearsal',
+    sections: [
+      { name: 'Intro', startBar: 0, tempo: 180 },
+      { name: 'Chorus', startBar: 1, tempo: 150 }
+    ]
+  });
+
+  await client.goto(host.url());
+  await waitForPeer(host);
+  await client.locator('#dismiss-connection-modal-btn').click();
+  await expect.poll(async () => (await readState(client)).song).toMatchObject({
+    enabled: true,
+    name: 'Band Rehearsal',
+    sections: [
+      { name: 'Intro', startBar: 0, tempo: 180 },
+      { name: 'Chorus', startBar: 1, tempo: 150 }
+    ]
+  });
+  await expect(client.locator('#song-name-input')).toBeDisabled();
+  await expect(client.locator('#import-song-input')).toBeDisabled();
+  const clientImport = await client.evaluate(async () => {
+    const { default: SongController } = await import(new URL('js/songController.js', document.baseURI).href);
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const payload = await SongController.createPayload();
+    payload.state.song.name = 'Unauthorized client song';
+    let rejected = false;
+    try { await SongController.applyPayload(payload); } catch { rejected = true; }
+    return { rejected, name: AppState.getSong().name };
+  });
+  expect(clientImport).toEqual({ rejected: true, name: 'Band Rehearsal' });
+
+  await host.locator('[data-go-song-section="1"]').click();
+  await expect(host.locator('#song-now-playing')).toContainText('Chorus');
+  await host.locator('#start-stop-btn').click();
+  await expect(client.locator('#song-now-playing')).toContainText('Chorus');
+  const lateClient = await lateClientContext.newPage();
+  await lateClient.goto(host.url());
+  await lateClient.locator('#dismiss-connection-modal-btn').click();
+  await expect.poll(async () => (await readState(lateClient)).isPlaying).toBe(true);
+  await expect(lateClient.locator('#song-now-playing')).toContainText('Chorus');
+  await host.locator('#start-stop-btn').click();
+
+  await hostContext.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await host.locator('#copy-song-link-btn').click();
+  const songUrl = await host.evaluate(() => navigator.clipboard.readText());
+  expect(songUrl).toContain('#song=');
+  expect(songUrl).not.toContain('room=');
+  expect(songUrl.toLowerCase()).not.toMatch(/credential|hostcredential|sessionstorage/);
+
+  const imported = await importContext.newPage();
+  await imported.goto(songUrl);
+  await expect(imported.locator('#song-name-input')).toHaveValue('Band Rehearsal');
+  await expect.poll(async () => (await readState(imported)).song.sections[0].tempo).toBe(180);
+  await expect.poll(async () => (await readState(imported)).song.sections[1].name).toBe('Chorus');
+
+  await importContext.close();
+  await lateClientContext.close();
+  await clientContext.close();
+  await hostContext.close();
+});
+
+test('song section tempo automation changes the scheduled beat grid', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__songOscillatorStarts = [];
+    const original = BaseAudioContext.prototype.createOscillator;
+    BaseAudioContext.prototype.createOscillator = function(...args) {
+      const source = original.apply(this, args);
+      const start = source.start;
+      source.start = (...startArgs) => {
+        window.__songOscillatorStarts.push(startArgs[0] ?? this.currentTime);
+        return start.apply(source, startArgs);
+      };
+      return source;
+    };
+  });
+  await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const state = await AppState.getCurrentStateForPreset(true);
+    state.tempo = 60;
+    state.Tracks[0].barSettings = [
+      { beats: 1, subdivision: 16, rests: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] },
+      { beats: 1, subdivision: 16, rests: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] }
+    ];
+    const mutedPeerTrack = structuredClone(state.Tracks[0]);
+    mutedPeerTrack.muted = true;
+    state.Tracks.push(mutedPeerTrack);
+    state.song = {
+      version: 1,
+      enabled: true,
+      name: 'Tempo Map',
+      sections: [
+        { name: 'Fast', startBar: 0, tempo: 300 },
+        { name: 'Slow', startBar: 1, tempo: 150 }
+      ]
+    };
+    await AppState.loadPresetData(state);
+    const { sendState } = await import(new URL('js/webrtc.js', document.baseURI).href);
+    sendState(AppState.getCurrentStateForPreset(true));
+    window.__songOscillatorStarts = [];
+  });
+
+  await page.locator('#start-stop-btn').click();
+  await expect.poll(() => page.evaluate(() => [...new Set(window.__songOscillatorStarts.map(value => value.toFixed(3)))].length), {
+    timeout: 5_000
+  }).toBeGreaterThanOrEqual(3);
+  const deltas = await page.evaluate(() => {
+    const starts = [...new Set(window.__songOscillatorStarts.map(value => Number(value.toFixed(3))))].sort((a, b) => a - b);
+    return [starts[1] - starts[0], starts[2] - starts[1]];
+  });
+  expect(deltas[0]).toBeCloseTo(0.2, 1);
+  expect(deltas[1]).toBeCloseTo(0.4, 1);
+  const trackAlignment = await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    return AppState.getTracks().map(track => ({ bar: track.currentBar, beat: track.currentBeat, next: track.nextBeatTime }));
+  });
+  expect(trackAlignment[1].bar).toBe(trackAlignment[0].bar);
+  expect(trackAlignment[1].beat).toBe(trackAlignment[0].beat);
+  expect(Math.abs(trackAlignment[1].next - trackAlignment[0].next)).toBeLessThan(0.01);
+});
+
+test('song import rejects malformed state and reconstructs accepted data from an allowlist', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  const outcome = await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const { default: SongController } = await import(new URL('js/songController.js', document.baseURI).href);
+    const before = AppState.getTempo();
+    let rejected = false;
+    try {
+      await SongController.applyPayload({
+        format: 'metronominal-song', version: 1,
+        state: { tempo: 999, volume: 1, Tracks: [] }
+      });
+    } catch { rejected = true; }
+
+    const invalidSoundPayload = await SongController.createPayload();
+    invalidSoundPayload.state.Tracks[0].mainBeatSound.sound = { malicious: true };
+    let invalidSoundRejected = false;
+    try { await SongController.applyPayload(invalidSoundPayload); } catch { invalidSoundRejected = true; }
+
+    const unknownPayload = await SongController.createPayload();
+    unknownPayload.state.song.unknownSongField = 'drop me';
+    unknownPayload.state.Tracks[0].mainBeatSound.unknownSoundField = 'drop me';
+    unknownPayload.state.customSounds = {
+      SafeAlias: { baseSound: 'Synth Kick', settings: {}, unknownCustomField: 'drop me' }
+    };
+    await SongController.applyPayload(unknownPayload);
+    const reconstructed = await AppState.getCurrentStateForPreset(true);
+
+    const fractionalPayload = await SongController.createPayload();
+    fractionalPayload.state.tempo = 120.5;
+    let fractionalRejected = false;
+    try { await SongController.applyPayload(fractionalPayload); } catch { fractionalRejected = true; }
+
+    return {
+      rejected, invalidSoundRejected, fractionalRejected, before, after: AppState.getTempo(),
+      unknownSong: 'unknownSongField' in reconstructed.song,
+      unknownSound: 'unknownSoundField' in reconstructed.Tracks[0].mainBeatSound,
+      unknownCustom: 'unknownCustomField' in reconstructed.customSounds.SafeAlias
+    };
+  });
+  expect(outcome).toEqual({
+    rejected: true, invalidSoundRejected: true, fractionalRejected: true,
+    before: 120, after: 120, unknownSong: false, unknownSound: false, unknownCustom: false
+  });
+});
+
+test('a song edit attempted during playback cannot publish after Stop', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#song-mode-enabled')).toBeEnabled({ timeout: 30_000 });
+  await page.locator('#song-mode-enabled').check();
+  await page.locator('#start-stop-btn').click();
+  await expect.poll(async () => (await readState(page)).isPlaying).toBe(true);
+  await page.evaluate(() => {
+    const input = document.getElementById('song-name-input');
+    input.disabled = false;
+    input.value = 'Stale playback edit';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await page.locator('#start-stop-btn').click();
+  await expect.poll(async () => (await readState(page)).isPlaying).toBe(false);
+  await page.locator('[data-song-section-name="0"]').fill('Safe edit');
+  await page.locator('[data-song-section-name="0"]').blur();
+  await expect.poll(async () => (await readState(page)).song).toMatchObject({
+    name: 'Untitled Song', sections: [{ name: 'Safe edit' }]
+  });
+});
+
+test('song mode rolls back when a connected browser lacks song capability', async ({ page }) => {
+  await page.addInitScript(() => {
+    const NativeWebSocket = window.WebSocket;
+    window.WebSocket = class ObservedWebSocket extends NativeWebSocket {
+      constructor(url, protocols) {
+        super(url, protocols);
+        window.__syncServerUrl = String(url);
+      }
+    };
+  });
+  await page.goto('./');
+  await expect(page.locator('#song-mode-enabled')).toBeEnabled({ timeout: 30_000 });
+  await expect.poll(() => new URL(page.url()).searchParams.get('room')).not.toBeNull();
+  await page.evaluate(async () => {
+    const room = new URL(location.href).searchParams.get('room');
+    let legacy = null;
+    for (let attempt = 0; attempt < 3 && !legacy; attempt += 1) {
+      const candidate = new WebSocket(window.__syncServerUrl);
+      const opened = await new Promise(resolve => {
+        candidate.addEventListener('open', () => resolve(true), { once: true });
+        candidate.addEventListener('error', () => resolve(false), { once: true });
+      });
+      if (opened) legacy = candidate;
+      else {
+        candidate.close();
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+    }
+    if (!legacy) throw new Error('Could not open legacy compatibility probe');
+    window.__legacySongClient = legacy;
+    const joined = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Legacy join timed out')), 5000);
+      legacy.addEventListener('message', event => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'error') {
+          clearTimeout(timeout);
+          reject(new Error(`Legacy join failed: ${message.code}`));
+        } else if (message.type === 'joined') {
+          clearTimeout(timeout);
+          resolve();
+        }
+      });
+    });
+    legacy.send(JSON.stringify({ type: 'join', room, requestedRole: 'client' }));
+    await joined;
+  });
+  await page.locator('#song-mode-enabled').check();
+  await expect.poll(async () => (await readState(page)).song.enabled).toBe(false);
+  await expect(page.locator('#song-mode-enabled')).not.toBeChecked();
+  await page.evaluate(() => window.__legacySongClient.close());
+});
+
+test('removing bars normalizes the host song timeline before synchronization', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await page.locator('#song-mode-enabled').check();
+  await page.locator('#add-song-section-btn').click();
+  await expect.poll(async () => (await readState(page)).song.sections).toHaveLength(2);
+  await page.getByRole('button', { name: 'Decrease bars' }).click();
+  const state = await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    return {
+      local: AppState.getSong(),
+      serialized: (await AppState.getCurrentStateForPreset(true)).song
+    };
+  });
+  expect(state.local.sections).toHaveLength(1);
+  expect(state.serialized).toEqual(state.local);
+});
+
+test('song sharing excludes private recordings and safely falls back to built-in sounds', async ({ page }) => {
+  await page.goto('./');
+  const shared = await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const { default: SongController } = await import(new URL('js/songController.js', document.baseURI).href);
+    AppState.addRecording('Private rehearsal take');
+    AppState.addCustomSound('Private alias', 'Private rehearsal take', {});
+    AppState.getTracks()[0].mainBeatSound.sound = 'Private rehearsal take';
+    AppState.getTracks()[0].subdivisionSound.sound = 'Private alias';
+    const payload = await SongController.createPayload();
+    return {
+      main: payload.state.Tracks[0].mainBeatSound.sound,
+      subdivision: payload.state.Tracks[0].subdivisionSound.sound,
+      customSounds: Object.keys(payload.state.customSounds),
+      serialized: JSON.stringify(payload)
+    };
+  });
+  expect(shared.main).toBe('Synth Kick');
+  expect(shared.subdivision).toBe('Synth HiHat');
+  expect(shared.customSounds).not.toContain('Private alias');
+  expect(shared.serialized).not.toContain('Private rehearsal take');
 });
 
 test('a client can disconnect from a shared room into a new solo session', async ({ browser }) => {
@@ -412,6 +721,13 @@ test('a QR room join syncs settings and playback position but preserves each pee
   await client.locator('[data-theme="synthwave"]').click();
   await host.locator('.tempo-slider input').fill('181');
   await expect.poll(async () => (await readState(client)).tempo).toBe(181);
+  await host.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const { sendState } = await import(new URL('js/webrtc.js', document.baseURI).href);
+    AppState.setSong({ version: 1, enabled: true, name: 'Lifecycle Song', sections: [{ name: 'Main', startBar: 0, tempo: 181 }] });
+    sendState(AppState.getCurrentStateForPreset(true));
+  });
+  await expect.poll(async () => (await readState(client)).song.name).toBe('Lifecycle Song');
   expect((await readState(client)).theme).toBe('synthwave');
 
   // A second independent browser receives the same room snapshot and presence count.
@@ -421,6 +737,7 @@ test('a QR room join syncs settings and playback position but preserves each pee
   await expect(secondClient.locator('#n-of-connections')).toHaveText('(2)');
   await secondClient.locator('#dismiss-connection-modal-btn').click();
   await expect.poll(async () => (await readState(secondClient)).tempo).toBe(181);
+  await expect.poll(async () => (await readState(secondClient)).song.name).toBe('Lifecycle Song');
   await secondClient.locator('[data-theme="dark"]').click();
 
   // Client controls cannot overwrite or permanently diverge from authoritative host settings.
@@ -469,6 +786,7 @@ test('a QR room join syncs settings and playback position but preserves each pee
   await expect(host.locator('#n-of-connections')).toHaveText('(1)');
   await expect(client.locator('#n-of-connections')).toHaveText('(1)');
   await expect.poll(async () => (await readState(client)).tempo).toBe(181);
+  await expect.poll(async () => (await readState(client)).song.name).toBe('Lifecycle Song');
   await expect.poll(async () => (await readState(client)).isPlaying).toBe(true);
   expect((await readState(client)).theme).toBe('synthwave');
 
@@ -498,6 +816,7 @@ test('a QR room join syncs settings and playback position but preserves each pee
   replacementHost.on('pageerror', error => replacementErrors.push(error.message));
   await replacementHost.goto(joinUrl);
   await expect.poll(async () => (await readState(replacementHost)).tempo).toBe(181);
+  await expect.poll(async () => (await readState(replacementHost)).song.name).toBe('Lifecycle Song');
   await expect.poll(async () => (await readState(replacementHost)).isPlaying).toBe(true);
   expect(await replacementHost.evaluate(() => window.isHost)).toBe(true);
   expect(await host.evaluate(() => window.isHost)).toBe(false);
