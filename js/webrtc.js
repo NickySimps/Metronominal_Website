@@ -18,6 +18,7 @@ let heartbeatTimer = null;
 let timeSyncBurstTimer = null;
 let steadyTimeSyncTimer = null;
 let pendingTransport = null;
+let countInEndsAt = 0;
 let scheduledStopTimer = null;
 let stateSendTimer = null;
 let pendingStatePromise = null;
@@ -215,6 +216,8 @@ function updateConnectionStatusUI(state) {
     shareBtn.classList.add("disconnected");
     disconnectBtn.style.display = "none";
   }
+  const countInSelect = document.getElementById("count-in-bars-select");
+  if (countInSelect) countInSelect.disabled = state !== "connected" || !window.isHost;
   updateDiagnosticsUI();
 }
 
@@ -249,6 +252,8 @@ function clearDesiredHostPlaybackState() {
 function refreshUIFromState() {
   TempoController.updateTempoDisplay({ animate: true });
   VolumeController.updateVolumeDisplay({ animate: true });
+  const countInSelect = document.getElementById("count-in-bars-select");
+  if (countInSelect) countInSelect.value = String(AppState.getCountInBars());
   TrackController.renderTracks();
   BarControlsController.updateBarControlsForSelectedTrack();
 }
@@ -320,8 +325,22 @@ function stopAt(serverTimestamp, generation) {
 function invalidatePendingTransport() {
   transportGeneration += 1;
   pendingTransport = null;
+  countInEndsAt = 0;
+  MetronomeEngine.cancelCountIn();
   clearTimeout(scheduledStopTimer);
   scheduledStopTimer = null;
+}
+
+function hasValidCountIn(message) {
+  if (message.countIn === undefined) return true;
+  const countIn = message.countIn;
+  if (!message.playing || !countIn || typeof countIn !== "object"
+    || !Number.isFinite(Number(countIn.startsAt))
+    || !Number.isInteger(countIn.totalBeats) || countIn.totalBeats < 1 || countIn.totalBeats > 512
+    || !Number.isFinite(Number(countIn.beatIntervalMs)) || countIn.beatIntervalMs < 150 || countIn.beatIntervalMs > 3000
+    || !Number.isInteger(countIn.accentEvery) || countIn.accentEvery < 1 || countIn.accentEvery > 64) return false;
+  const expectedEffectiveAt = Number(countIn.startsAt) + countIn.totalBeats * countIn.beatIntervalMs;
+  return Math.abs(Number(message.effectiveAt) - expectedEffectiveAt) < 2;
 }
 
 function applyTransport(message) {
@@ -332,7 +351,8 @@ function applyTransport(message) {
     || !Number.isInteger(message.currentBeat)
     || !Number.isInteger(message.revision)
     || message.currentBar < 0 || message.currentBar > 4095
-    || message.currentBeat < 0 || message.currentBeat > 4095) return;
+    || message.currentBeat < 0 || message.currentBeat > 4095
+    || !hasValidCountIn(message)) return;
   if (message.revision < lastTransportRevision) return;
   if (window.isHost && desiredHostPlaybackState !== null && !acceptingReplacementReplay) {
     lastTransportRevision = message.revision;
@@ -345,9 +365,17 @@ function applyTransport(message) {
   lastTransportRevision = message.revision;
   transportGeneration += 1;
   const generation = transportGeneration;
+  countInEndsAt = message.countIn ? Number(message.effectiveAt) : 0;
+  MetronomeEngine.cancelCountIn();
   clearTimeout(scheduledStopTimer);
 
   if (message.playing) {
+    if (message.countIn) {
+      MetronomeEngine.scheduleCountIn({
+        ...message.countIn,
+        startsAt: localTimestamp(message.countIn.startsAt)
+      }, () => generation === transportGeneration);
+    }
     MetronomeEngine.scheduleStart(
       localTimestamp(message.effectiveAt),
       message.currentBar || 0,
@@ -800,6 +828,8 @@ export function broadcastStop() {
 
 export function broadcastSyncPulse(nextBeatWallTime, currentBar, currentBeat) {
   if (!window.isHost || !joined) return false;
+  if (countInEndsAt && Date.now() + timeOffset < countInEndsAt) return false;
+  countInEndsAt = 0;
   return sendMessage({
     type: "playback-sync-pulse",
     nextBeatWallTime: nextBeatWallTime + timeOffset,

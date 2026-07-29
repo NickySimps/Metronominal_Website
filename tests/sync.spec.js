@@ -7,6 +7,7 @@ async function readState(page) {
     return {
       tempo: AppState.getTempo(),
       volume: AppState.getVolume(),
+      countInBars: AppState.getCountInBars(),
       theme: AppState.getCurrentTheme(),
       isPlaying: AppState.isPlaying(),
       tracks: AppState.getTracks().map(({ analyserNode, ...track }) => track),
@@ -85,6 +86,87 @@ test('Play begins with a low-latency authoritative start', async ({ page }) => {
     audio.scheduledAt + Math.max(0, audio.startAt - audio.audioNow) * 1000
   ))));
   expect(audibleAt - startedAt).toBeLessThan(400);
+});
+
+test('host count-in is synchronized and locally scheduled on every peer', async ({ browser }) => {
+  const hostContext = await browser.newContext();
+  const clientContext = await browser.newContext();
+  const host = await hostContext.newPage();
+  const client = await clientContext.newPage();
+  const publishedCountIns = [];
+  const receivedCountIns = [];
+  host.on('websocket', socket => socket.on('framesent', event => {
+    try {
+      const message = JSON.parse(event.payload);
+      if (message.type === 'state') publishedCountIns.push(message.payload.countInBars);
+    } catch (_error) { /* Ignore non-JSON WebSocket frames. */ }
+  }));
+  client.on('websocket', socket => socket.on('framereceived', event => {
+    try {
+      const message = JSON.parse(event.payload);
+      if (message.type === 'state') receivedCountIns.push(message.payload.countInBars);
+    } catch (_error) { /* Ignore non-JSON WebSocket frames. */ }
+  }));
+  const observeStarts = () => {
+    window.__scheduledAudioStarts = [];
+    window.__cancelledCountInSources = 0;
+    const originalCreateOscillator = BaseAudioContext.prototype.createOscillator;
+    BaseAudioContext.prototype.createOscillator = function(...args) {
+      const source = originalCreateOscillator.apply(this, args);
+      const originalStart = source.start;
+      const originalStop = source.stop;
+      source.start = (...startArgs) => {
+        window.__scheduledAudioStarts.push({
+          scheduledAt: Date.now(),
+          audioNow: this.currentTime,
+          startAt: startArgs[0] ?? 0,
+          frequency: source.frequency.value
+        });
+        return originalStart.apply(source, startArgs);
+      };
+      source.stop = (...stopArgs) => {
+        if (stopArgs.length === 0) window.__cancelledCountInSources += 1;
+        return originalStop.apply(source, stopArgs);
+      };
+      return source;
+    };
+  };
+  await host.addInitScript(observeStarts);
+  await client.addInitScript(observeStarts);
+
+  await host.goto('./');
+  await expect(host.locator('#share-btn')).toHaveClass(/connected/);
+  await host.locator('#count-in-bars-select').selectOption('1');
+  await expect.poll(async () => (await readState(host)).countInBars).toBe(1);
+  await expect.poll(() => publishedCountIns.at(-1)).toBe(1);
+  const joinUrl = host.url();
+  await client.goto(joinUrl);
+  await waitForPeer(host);
+  await expect.poll(() => receivedCountIns.at(-1)).toBe(1);
+  await client.locator('#dismiss-connection-modal-btn').click();
+  await expect(client.locator('#count-in-bars-select')).toHaveValue('1');
+  await expect(client.locator('#count-in-bars-select')).toBeDisabled();
+
+  await host.evaluate(() => { window.__scheduledAudioStarts = []; });
+  await client.evaluate(() => { window.__scheduledAudioStarts = []; });
+  await host.locator('#start-stop-btn').click();
+  await expect.poll(() => host.evaluate(() => window.__scheduledAudioStarts.length)).toBe(4);
+  await expect.poll(() => client.evaluate(() => window.__scheduledAudioStarts.length)).toBe(4);
+  const [hostFirst, clientFirst] = await Promise.all([host, client].map(page => page.evaluate(() => {
+    const starts = window.__scheduledAudioStarts;
+    return Math.min(...starts.map(item => item.scheduledAt + Math.max(0, item.startAt - item.audioNow) * 1000));
+  })));
+  expect(Math.abs(hostFirst - clientFirst)).toBeLessThan(40);
+
+  await host.locator('#start-stop-btn').click();
+  await expect.poll(() => host.evaluate(() => window.__cancelledCountInSources)).toBeGreaterThan(0);
+  await expect.poll(() => client.evaluate(() => window.__cancelledCountInSources)).toBeGreaterThan(0);
+  await host.waitForTimeout(2_200);
+  expect(await host.evaluate(() => window.__scheduledAudioStarts.length)).toBe(4);
+  expect(await client.evaluate(() => window.__scheduledAudioStarts.length)).toBe(4);
+
+  await hostContext.close();
+  await clientContext.close();
 });
 
 test('a client can disconnect from a shared room into a new solo session', async ({ browser }) => {

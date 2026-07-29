@@ -17,6 +17,7 @@ let metronomeWorkerReady = false;
 let drawFrameId = null; // Holds the requestAnimationFrame ID for the visual loop
 let isPageVisible = true;
 let visualQueue = []; // Queue for visual events
+const countInSources = new Set();
 let lastSyncPulseTime = 0;
 const SYNC_PULSE_INTERVAL = 2000; // Broadcast sync pulse every 2 seconds
 
@@ -253,7 +254,41 @@ function performEngineStopActions() {
 }
 
 const MetronomeEngine = {
+    cancelCountIn: () => {
+        for (const source of countInSources) {
+            try { source.stop(); } catch (_error) { /* The source may already have ended. */ }
+        }
+        countInSources.clear();
+    },
+
+    scheduleCountIn: async (countIn, shouldSchedule = () => true) => {
+        const audioContext = AppState.getAudioContext();
+        if (!audioContext || !countIn || !shouldSchedule()) return;
+        if (audioContext.state === 'suspended') await audioContext.resume();
+        if (audioContext.state !== 'running' || !shouldSchedule()) return;
+
+        const firstClickAudioTime = audioContext.currentTime + ((countIn.startsAt - Date.now()) / 1000);
+        for (let beat = 0; beat < countIn.totalBeats; beat += 1) {
+            const clickTime = firstClickAudioTime + ((beat * countIn.beatIntervalMs) / 1000);
+            if (clickTime < audioContext.currentTime + 0.005) continue;
+            const source = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const isAccent = beat % countIn.accentEvery === 0;
+            source.frequency.setValueAtTime(isAccent ? 1760 : 1320, clickTime);
+            gain.gain.setValueAtTime(0.0001, clickTime);
+            gain.gain.exponentialRampToValueAtTime(Math.max(0.01, AppState.getVolume() * (isAccent ? 0.35 : 0.22)), clickTime + 0.002);
+            gain.gain.exponentialRampToValueAtTime(0.0001, clickTime + 0.04);
+            source.connect(gain);
+            gain.connect(audioContext.destination);
+            countInSources.add(source);
+            source.onended = () => countInSources.delete(source);
+            source.start(clickTime);
+            source.stop(clickTime + 0.045);
+        }
+    },
+
     onPlayStateChange: null,
+
     registerPlayStateChangeListener: (callback) => {
         MetronomeEngine.onPlayStateChange = callback;
     },

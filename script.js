@@ -49,6 +49,7 @@ function refreshUIFromState() {
   TempoController.updateTempoDisplay({ animate: true });
   VolumeController.updateVolumeDisplay({ animate: true });
   UIController.updateScreenOffToggleBtn();
+  if (DOM.countInBarsSelect) DOM.countInBarsSelect.value = String(AppState.getCountInBars());
 
   TrackController.renderTracks();
   BarControlsController.updateBarControlsForSelectedTrack();
@@ -107,6 +108,11 @@ async function initialize() {
   TrackController.init();
   PresetController.initializePresetControls(refreshUIFromState);
   VolumeController.initializeVolumeControls();
+  DOM.countInBarsSelect?.addEventListener('change', () => {
+    if (!window.isHost) return;
+    AppState.setCountInBars(DOM.countInBarsSelect.value);
+    sendState(AppState.getCurrentStateForPreset(true));
+  });
   SoundSettingsModal.init();
   RecordingManager.init();
   UIController.initializeConnectionModal();

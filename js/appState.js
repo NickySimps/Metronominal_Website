@@ -238,6 +238,7 @@ const AppState = (function () {
   // --- Private State ---
   let tempo = 120;
   let volume = 1.0;
+  let countInBars = 0;
   let Tracks = [
     {
       barSettings: [{ beats: 4, subdivision: 1, rests: [] }],
@@ -382,6 +383,12 @@ const AppState = (function () {
     },
     increaseTempo: () => publicAPI.setTempo(tempo + 1),
     decreaseTempo: () => publicAPI.setTempo(tempo - 1),
+    getCountInBars: () => countInBars,
+    setCountInBars: (bars) => {
+      const parsed = Number.parseInt(bars, 10);
+      countInBars = Number.isInteger(parsed) ? Math.max(0, Math.min(parsed, 8)) : 0;
+      saveState();
+    },
     addTapTimestamp: (timestamp) => {
       if (
         tapTempoTimestamps.length > 0 &&
@@ -976,6 +983,7 @@ const AppState = (function () {
       const state = {
         tempo: tempo,
         volume: volume,
+        countInBars: countInBars,
         Tracks: JSON.parse(
           JSON.stringify(
             Tracks.map((track) => {
@@ -1012,6 +1020,9 @@ const AppState = (function () {
       if (data.volume !== undefined) {
         volume = data.volume;
       }
+      countInBars = Number.isInteger(data.countInBars)
+        ? Math.max(0, Math.min(data.countInBars, 8))
+        : 0;
 
       // Store current playback state if playing
       const wasPlayingBeforeLoad = isPlaying;
@@ -1215,6 +1226,7 @@ const AppState = (function () {
     resetState: () => {
       tempo = 120;
       volume = 1.0;
+      countInBars = 0;
       Tracks = [
         {
           barSettings: [{ beats: 4, subdivision: 1, rests: [] }],
