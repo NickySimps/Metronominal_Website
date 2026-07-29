@@ -34,12 +34,94 @@ let isReadyToPlay = false;
 let hasTimeSync = false;
 let timeOffset = 0; // Server clock - this browser's clock.
 let timeSyncGeneration = 0;
+let connectionState = "disconnected";
+let localRole = "offline";
+let syncClientCount = 0;
+let latestRoundTripTime = null;
+let lastTimeSyncAt = 0;
+let diagnosticsRefreshTimer = null;
 let receiveChain = Promise.resolve();
 const offsetSamples = [];
 const pendingTimeSyncRequests = new Map();
 const MAX_OFFSET_SAMPLES = 20;
 
 window.isHost = false;
+
+function median(values) {
+  if (!values.length) return null;
+  const sorted = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+function synchronizationQuality() {
+  if (!joined) return "offline";
+  if (!hasTimeSync || !lastTimeSyncAt) return "syncing";
+  const medianRtt = median(offsetSamples.map(sample => sample.rtt));
+  if (Date.now() - lastTimeSyncAt > 15000 || medianRtt === null) return "poor";
+  if (medianRtt <= 100) return "good";
+  if (medianRtt <= 250) return "fair";
+  return "poor";
+}
+
+function diagnosticText(value) {
+  return Number.isFinite(value) ? `${Number(value.toFixed(1))} ms` : "—";
+}
+
+export function getSyncDiagnostics() {
+  const audioContext = AppState.getAudioContext();
+  return {
+    status: connectionState,
+    role: joined ? localRole : "offline",
+    quality: synchronizationQuality(),
+    peers: syncClientCount,
+    latestRtt: latestRoundTripTime,
+    medianRtt: median(offsetSamples.map(sample => sample.rtt)),
+    bestRtt: offsetSamples.length ? Math.min(...offsetSamples.map(sample => sample.rtt)) : null,
+    clockOffset: hasTimeSync ? timeOffset : null,
+    sampleAge: lastTimeSyncAt ? Math.max(0, Date.now() - lastTimeSyncAt) : null,
+    reconnectAttempt,
+    stateRevision: lastStateRevision,
+    transportRevision: lastTransportRevision,
+    timeSyncReady: hasTimeSync,
+    audioState: audioContext?.state || "unavailable",
+    schedulerReady: MetronomeEngine.isSchedulerReady()
+  };
+}
+
+function updateDiagnosticsUI() {
+  const diagnostics = getSyncDiagnostics();
+  const role = document.getElementById("sync-role");
+  const quality = document.getElementById("sync-quality");
+  if (role) role.textContent = diagnostics.role.toUpperCase();
+  if (quality) quality.textContent = diagnostics.quality.toUpperCase();
+  document.body.dataset.syncRole = diagnostics.role;
+  document.body.dataset.syncQuality = diagnostics.quality;
+
+  const values = {
+    role: diagnostics.role[0].toUpperCase() + diagnostics.role.slice(1),
+    status: diagnostics.status[0].toUpperCase() + diagnostics.status.slice(1),
+    quality: diagnostics.quality[0].toUpperCase() + diagnostics.quality.slice(1),
+    rtt: diagnosticText(diagnostics.medianRtt),
+    offset: diagnosticText(diagnostics.clockOffset),
+    "sample-age": diagnosticText(diagnostics.sampleAge),
+    audio: diagnostics.audioState[0].toUpperCase() + diagnostics.audioState.slice(1),
+    scheduler: diagnostics.schedulerReady ? "Ready" : "Unavailable",
+    peers: String(diagnostics.peers),
+    "state-revision": diagnostics.stateRevision >= 0 ? String(diagnostics.stateRevision) : "—",
+    "transport-revision": diagnostics.transportRevision >= 0 ? String(diagnostics.transportRevision) : "—"
+  };
+  for (const [name, value] of Object.entries(values)) {
+    const element = document.querySelector(`[data-diagnostic="${name}"]`);
+    if (element) element.textContent = value;
+  }
+}
+
+function resetProtocolDiagnostics() {
+  localRole = "offline";
+  lastStateRevision = -1;
+  lastTransportRevision = -1;
+}
 
 function signalingUrl() {
   if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
@@ -105,6 +187,7 @@ function scheduleJoinRetry() {
 }
 
 function updateConnectionStatusUI(state) {
+  connectionState = state;
   const shareBtn = document.getElementById("share-btn");
   const disconnectBtn = document.getElementById("disconnect-btn");
   const status = document.getElementById("connection-status");
@@ -132,9 +215,11 @@ function updateConnectionStatusUI(state) {
     shareBtn.classList.add("disconnected");
     disconnectBtn.style.display = "none";
   }
+  updateDiagnosticsUI();
 }
 
 function updateClientCount(count = 0) {
+  syncClientCount = count;
   const connectionCount = document.getElementById("n-of-connections");
   if (!connectionCount) return;
   const shareBtn = document.getElementById("share-btn");
@@ -147,6 +232,7 @@ function updateClientCount(count = 0) {
     shareBtn.classList.toggle("has-peers", count > 0);
     shareBtn.setAttribute("aria-label", `Share room; ${count} connected ${count === 1 ? "peer" : "peers"}`);
   }
+  updateDiagnosticsUI();
 }
 
 function clearDesiredHostPlaybackState() {
@@ -172,6 +258,8 @@ function updateTimeOffset(newOffset, roundTripTime) {
   if (offsetSamples.length > MAX_OFFSET_SAMPLES) offsetSamples.shift();
   const best = offsetSamples.reduce((current, sample) => sample.rtt < current.rtt ? sample : current);
   timeOffset = best.offset;
+  latestRoundTripTime = roundTripTime;
+  lastTimeSyncAt = Date.now();
 }
 
 function requestTimeSync() {
@@ -196,6 +284,9 @@ function stopTimeSync() {
   offsetSamples.length = 0;
   hasTimeSync = false;
   timeOffset = 0;
+  latestRoundTripTime = null;
+  lastTimeSyncAt = 0;
+  updateDiagnosticsUI();
 }
 
 function startTimeSync() {
@@ -300,6 +391,7 @@ async function handleSocketMessage(event, generation) {
       clearTimeout(joinRetryTimer);
       joinRetryTimer = null;
       window.isHost = Boolean(message.isHost);
+      localRole = window.isHost ? "host" : "client";
       acceptingReplacementReplay = Boolean(message.replacedHost && message.isHost);
       lastStateRevision = -1;
       lastTransportRevision = -1;
@@ -368,6 +460,7 @@ async function handleSocketMessage(event, generation) {
       const offset = message.serverTime - (message.t0 + rtt / 2);
       updateTimeOffset(offset, rtt);
       hasTimeSync = true;
+      updateDiagnosticsUI();
       if (pendingTransport && isReadyToPlay) applyTransport(pendingTransport);
       break;
     }
@@ -377,6 +470,7 @@ async function handleSocketMessage(event, generation) {
 
     case "room-closed":
       joined = false;
+      resetProtocolDiagnostics();
       acceptingReplacementReplay = false;
       clearDesiredHostPlaybackState();
       invalidatePendingTransport();
@@ -391,6 +485,7 @@ async function handleSocketMessage(event, generation) {
     case "host-replaced":
       intentionallyDisconnected = true;
       joined = false;
+      resetProtocolDiagnostics();
       acceptingReplacementReplay = false;
       clearDesiredHostPlaybackState();
       invalidatePendingTransport();
@@ -490,6 +585,7 @@ function connectToSynchronizationServer() {
     connectionGeneration += 1;
     resumePlaybackOnReconnect = !intentionallyDisconnected && window.isHost && AppState.isPlaying();
     joined = false;
+    resetProtocolDiagnostics();
     clearDesiredHostPlaybackState();
     invalidatePendingTransport();
     if (AppState.isPlaying()) MetronomeEngine.togglePlay(true);
@@ -531,9 +627,21 @@ export function initializeShareControls() {
   const closeBtn = shareModal?.querySelector(".close-button");
   const qrContainer = document.getElementById("qrcode");
   const mobileShareBtn = document.getElementById("mobile-share-btn");
+  const diagnosticsBtn = document.getElementById("sync-diagnostics-btn");
+  const diagnosticsModal = document.getElementById("sync-diagnostics-modal");
+  const diagnosticsCloseBtn = diagnosticsModal?.querySelector(".close-button");
 
   if (!shareBtn || !shareModal || !closeBtn || !qrContainer) return;
   if (navigator.share && mobileShareBtn) mobileShareBtn.style.display = "flex";
+  clearInterval(diagnosticsRefreshTimer);
+  diagnosticsRefreshTimer = setInterval(updateDiagnosticsUI, 1000);
+
+  const closeDiagnostics = () => {
+    if (!diagnosticsModal || diagnosticsModal.style.display === "none") return;
+    diagnosticsModal.style.display = "none";
+    diagnosticsBtn?.setAttribute("aria-expanded", "false");
+    diagnosticsBtn?.focus();
+  };
 
   shareBtn.addEventListener("click", () => {
     if (!roomId) return;
@@ -571,8 +679,19 @@ export function initializeShareControls() {
   });
 
   closeBtn.addEventListener("click", () => { shareModal.style.display = "none"; });
+  diagnosticsBtn?.addEventListener("click", () => {
+    updateDiagnosticsUI();
+    diagnosticsModal.style.display = "block";
+    diagnosticsBtn.setAttribute("aria-expanded", "true");
+    diagnosticsCloseBtn?.focus();
+  });
+  diagnosticsCloseBtn?.addEventListener("click", closeDiagnostics);
+  window.addEventListener("keydown", event => {
+    if (event.key === "Escape" && diagnosticsModal?.style.display === "block") closeDiagnostics();
+  });
   window.addEventListener("click", event => {
     if (event.target === shareModal) shareModal.style.display = "none";
+    if (event.target === diagnosticsModal) closeDiagnostics();
   });
 }
 
@@ -719,6 +838,7 @@ export function disconnect() {
   const socketToClose = socket;
   socket = null;
   joined = false;
+  resetProtocolDiagnostics();
   acceptingReplacementReplay = false;
   clearDesiredHostPlaybackState();
   resumePlaybackOnReconnect = false;
@@ -740,6 +860,7 @@ export async function disconnectAllPeers() {
   const sent = sendMessage({ type: "close-room" });
   if (!sent) return false;
   joined = false;
+  resetProtocolDiagnostics();
   acceptingReplacementReplay = false;
   clearDesiredHostPlaybackState();
   stopTimeSync();

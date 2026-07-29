@@ -27,9 +27,11 @@
         <div class="metronome-container">
             <div class="top-controls-area">
                 <button class="tap-tempo-btn">TAP TEMPO</button>
-                <button id="share-btn">SHARE <span id="connection-status"></span><span
+                <button id="share-btn">SHARE <span id="sync-role">OFFLINE</span><span
+                        id="connection-status"></span><span id="sync-quality">OFFLINE</span><span
                         id="n-of-connections"></span></button>
                 <button id="disconnect-btn" style="display: none;">DISCONNECT</button>
+                <button id="sync-diagnostics-btn" aria-controls="sync-diagnostics-modal" aria-expanded="false">DIAGNOSTICS</button>
                 <button class="reset-btn">↺</button>
                 <button id="manage-recordings-btn">✎◯</button>
                 <button id="screen-off-toggle-btn">Allow Screen Sleep</button>
@@ -240,6 +242,26 @@
         <h2>You're connected!</h2>
         <p>Click the button below to start.</p>
         <button id="dismiss-connection-modal-btn">Let's Go!</button>
+    </div>
+</div>
+
+<div id="sync-diagnostics-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="sync-diagnostics-title">
+    <div class="modal-content sync-diagnostics-content">
+        <button class="close-button" type="button" aria-label="Close synchronization diagnostics">&times;</button>
+        <h2 id="sync-diagnostics-title">Synchronization Diagnostics</h2>
+        <dl class="sync-diagnostics-grid">
+            <dt>Role</dt><dd data-diagnostic="role">Offline</dd>
+            <dt>Status</dt><dd data-diagnostic="status">Disconnected</dd>
+            <dt>Quality</dt><dd data-diagnostic="quality">Offline</dd>
+            <dt>Round-trip time</dt><dd data-diagnostic="rtt">—</dd>
+            <dt>Clock offset</dt><dd data-diagnostic="offset">—</dd>
+            <dt>Sample age</dt><dd data-diagnostic="sample-age">—</dd>
+            <dt>Audio context</dt><dd data-diagnostic="audio">Unavailable</dd>
+            <dt>Scheduler</dt><dd data-diagnostic="scheduler">Unavailable</dd>
+            <dt>Connected peers</dt><dd data-diagnostic="peers">0</dd>
+            <dt>State revision</dt><dd data-diagnostic="state-revision">—</dd>
+            <dt>Transport revision</dt><dd data-diagnostic="transport-revision">—</dd>
+        </dl>
     </div>
 </div>
 

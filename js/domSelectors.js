@@ -49,6 +49,10 @@ const DOM = {
     get shareBtn() { return document.getElementById('share-btn'); },
     get disconnectBtn() { return document.getElementById('disconnect-btn'); },
     get connectionStatus() { return document.getElementById('connection-status'); },
+    get syncRole() { return document.getElementById('sync-role'); },
+    get syncQuality() { return document.getElementById('sync-quality'); },
+    get syncDiagnosticsBtn() { return document.getElementById('sync-diagnostics-btn'); },
+    get syncDiagnosticsModal() { return document.getElementById('sync-diagnostics-modal'); },
 
     // Preset Display Heading
     get currentPresetDisplayHeading() { return document.getElementById('current-preset-display-heading'); },

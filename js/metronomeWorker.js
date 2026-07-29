@@ -2,6 +2,8 @@
 let timerID = null;
 let interval = 25;
 
+postMessage("ready");
+
 self.onmessage = function(e) {
     if (e.data === "start") {
         if (!timerID) {

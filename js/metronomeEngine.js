@@ -13,6 +13,7 @@ import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, 
 import AudioController from './audioController.js';
 
 let metronomeWorker = new Worker('js/metronomeWorker.js');
+let metronomeWorkerReady = false;
 let drawFrameId = null; // Holds the requestAnimationFrame ID for the visual loop
 let isPageVisible = true;
 let visualQueue = []; // Queue for visual events
@@ -20,10 +21,15 @@ let lastSyncPulseTime = 0;
 const SYNC_PULSE_INTERVAL = 2000; // Broadcast sync pulse every 2 seconds
 
 metronomeWorker.onmessage = function(e) {
+    if (e.data === "ready") {
+        metronomeWorkerReady = true;
+        return;
+    }
     if (e.data === "tick") {
         scheduler();
     }
 };
+metronomeWorker.onerror = () => { metronomeWorkerReady = false; };
 
 document.addEventListener('visibilitychange', () => {
     isPageVisible = document.visibilityState === 'visible';
@@ -461,6 +467,8 @@ const MetronomeEngine = {
 
     isPlaying: () => {
         return AppState.isPlaying();
-    }
+    },
+
+    isSchedulerReady: () => metronomeWorkerReady
 };
 export default MetronomeEngine;

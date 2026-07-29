@@ -176,6 +176,85 @@ test('a stale time-sync response cannot survive room closure', async ({ browser 
     const sync = await import(new URL('js/webrtc.js', document.baseURI).href);
     return sync.getTimeOffset();
   })).toBe(0);
+  await expect.poll(() => client.evaluate(async () => {
+    const sync = await import(new URL('js/webrtc.js', document.baseURI).href);
+    const diagnostics = sync.getSyncDiagnostics();
+    return {
+      role: diagnostics.role,
+      stateRevision: diagnostics.stateRevision,
+      transportRevision: diagnostics.transportRevision
+    };
+  })).toEqual({ role: 'offline', stateRevision: -1, transportRevision: -1 });
+
+  await clientContext.close();
+  await hostContext.close();
+});
+
+test('diagnostics show authoritative role and connection quality without credentials', async ({ browser }) => {
+  const hostContext = await browser.newContext();
+  const clientContext = await browser.newContext();
+  const host = await hostContext.newPage();
+  const client = await clientContext.newPage();
+
+  await host.goto('./');
+  await expect(host.locator('#share-btn')).toHaveClass(/connected/);
+  await expect.poll(() => host.evaluate(() => {
+    const launcher = document.getElementById('sync-diagnostics-btn').getBoundingClientRect();
+    const controls = document.querySelector('.global-app-controls').getBoundingClientRect();
+    return launcher.bottom <= controls.top;
+  })).toBe(true);
+  await expect(host.locator('#sync-role')).toHaveText('HOST');
+  await expect(host.locator('#sync-quality')).toHaveText(/GOOD|FAIR|POOR/);
+  const joinUrl = host.url();
+  const hostCredential = await host.evaluate(() => sessionStorage.getItem('host_credential'));
+
+  await client.goto(joinUrl);
+  await waitForPeer(host);
+  await expect(client.locator('#sync-role')).toHaveText('CLIENT');
+  await expect(client.locator('#sync-quality')).toHaveText(/GOOD|FAIR|POOR/);
+  await expect(host.locator('#sync-role')).toHaveText('HOST');
+
+  await client.waitForTimeout(1200);
+  await client.evaluate(() => {
+    window.__realDiagnosticsDateNow = Date.now;
+    Date.now = () => window.__realDiagnosticsDateNow() + 20_000;
+  });
+  await expect(client.locator('#sync-quality')).toHaveText('POOR', { timeout: 2500 });
+  await client.evaluate(() => { Date.now = window.__realDiagnosticsDateNow; });
+
+  await client.locator('#dismiss-connection-modal-btn').click();
+  await client.locator('#sync-diagnostics-btn').click();
+  const modal = client.locator('#sync-diagnostics-modal');
+  await expect(modal).toBeVisible();
+  await expect(modal).toHaveAttribute('role', 'dialog');
+  await expect(modal).toHaveAttribute('aria-modal', 'true');
+  await expect.poll(() => client.evaluate(() => {
+    const content = document.querySelector('#sync-diagnostics-modal .modal-content').getBoundingClientRect();
+    return content.top >= 0 && content.bottom <= window.innerHeight;
+  })).toBe(true);
+  await expect(modal.locator('.close-button')).toBeFocused();
+  await client.keyboard.press('Escape');
+  await expect(modal).toBeHidden();
+  await expect(client.locator('#sync-diagnostics-btn')).toBeFocused();
+  await client.locator('#sync-diagnostics-btn').click();
+  await expect(modal.locator('[data-diagnostic="role"]')).toHaveText('Client');
+  await expect(modal.locator('[data-diagnostic="status"]')).toHaveText('Connected');
+  await expect(modal.locator('[data-diagnostic="quality"]')).toHaveText(/Good|Fair|Poor/);
+  await expect(modal.locator('[data-diagnostic="rtt"]')).toHaveText(/^\d+(?:\.\d)? ms$/);
+  await expect(modal.locator('[data-diagnostic="offset"]')).toHaveText(/^-?\d+(?:\.\d)? ms$/);
+  await expect(modal.locator('[data-diagnostic="peers"]')).toHaveText('1');
+  await expect(modal.locator('[data-diagnostic="audio"]')).toHaveText(/Running|Suspended/);
+  await expect(modal.locator('[data-diagnostic="scheduler"]')).toHaveText('Ready');
+  await expect(modal.locator('[data-diagnostic="state-revision"]')).toHaveText(/^\d+$/);
+  await expect(modal.locator('[data-diagnostic="transport-revision"]')).toHaveText(/^\d+$/);
+  await expect(modal).not.toContainText(hostCredential);
+  await expect(modal).not.toContainText(new URL(joinUrl).searchParams.get('room'));
+
+  await modal.locator('.close-button').click();
+  await host.locator('#sync-diagnostics-btn').click();
+  const hostModal = host.locator('#sync-diagnostics-modal');
+  await expect(hostModal).not.toContainText(hostCredential);
+  await expect(hostModal).not.toContainText(new URL(joinUrl).searchParams.get('room'));
 
   await clientContext.close();
   await hostContext.close();

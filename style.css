@@ -71,7 +71,7 @@ body {
   width: 100%; /* Make body take full width */
   margin: 0; /* Remove auto margins for centering */
   /* Standardized padding: top, horizontal, bottom, horizontal */
-  padding: var(--s8) var(--s4) var(--s5) var(--s4); /* 64px 12px 20px 12px */
+  padding: var(--s11) var(--s4) var(--s5) var(--s4);
   box-sizing: border-box; /* Include padding in the 100% width */
   user-select: none; /* Keep user-select none */
   color: var(--TextPrimary);
@@ -720,7 +720,7 @@ select {
     height: 100%; /* Make body fill the html element's height (effectively 100vh) */
     overflow: hidden; /* Prevent body from scrolling if its content overflows */
     box-sizing: border-box; /* Ensure padding is included in the body's height calculation */
-    padding-top: var(--s5); /* Standardized padding (20px) */
+    padding-top: var(--s11);
     /* Horizontal and bottom padding will be inherited from global body style (15px horizontal, 20px bottom) */
     /* margin: 0; is inherited from global body style */
   }
@@ -992,10 +992,22 @@ select {
   position: fixed; /* Changed from absolute to fixed */
   top: var(--s3); /* Standardized position (8px) */
   left: var(--s3); /* Standardized position (8px) */
+  width: max-content;
+  max-width: calc(100vw - (2 * var(--s3)));
   display: flex;
   gap: var(--s3); /* Standardized gap (8px) */
-  z-index: 1000; /* Ensure it's on top of other elements */
+  z-index: 1000;
   overflow-x: auto;
+  white-space: nowrap;
+}
+
+.top-controls-area button { flex: 0 0 auto; }
+
+#sync-diagnostics-btn {
+  position: fixed;
+  top: calc(var(--s3) + 48px);
+  left: var(--s3);
+  z-index: 1100;
 }
 
 .top-controls-area button {
@@ -1040,7 +1052,7 @@ select {
     /* Override global body styles for mobile */
     /* Adjust body padding to make space for the fixed top and bottom bars */
     /* These values are estimates; you might need to fine-tune them based on the actual height of your bars */
-    padding-top: var(--s7); /* Standardized padding (48px, approx 50px) */
+    padding-top: var(--s10);
     padding-left: 0;
     padding-bottom: var(--s7); /* Standardized padding (48px, approx 50px) */
     padding-right: 0;
@@ -1723,6 +1735,44 @@ button:active,
   background-color: var(--Accent, #f0f0f0);
   color: var(--TextPrimary, #333);
   border-radius: var(--BorderRadius);
+}
+
+#sync-role,
+#sync-quality {
+  display: inline-block;
+  margin-left: var(--s2);
+  padding: 0.1em 0.45em;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.7em;
+  font-weight: 700;
+}
+
+body[data-sync-quality="good"] #sync-quality { color: #087f23; }
+body[data-sync-quality="fair"] #sync-quality { color: #9a6700; }
+body[data-sync-quality="poor"] #sync-quality { color: #b42318; }
+body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
+
+.sync-diagnostics-content {
+  box-sizing: border-box;
+  margin: 5vh auto;
+  max-height: 90vh;
+  max-width: 560px;
+  overflow-y: auto;
+}
+
+.sync-diagnostics-grid {
+  display: grid;
+  grid-template-columns: minmax(9rem, 1fr) minmax(7rem, 1fr);
+  gap: var(--s3) var(--s5);
+  text-align: left;
+}
+
+.sync-diagnostics-grid dt { font-weight: 700; }
+.sync-diagnostics-grid dd {
+  margin: 0;
+  font-family: "Roboto Mono", monospace;
+  text-align: right;
 }
 
 #share-btn:hover {
