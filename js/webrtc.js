@@ -33,8 +33,10 @@ let joined = false;
 let isReadyToPlay = false;
 let hasTimeSync = false;
 let timeOffset = 0; // Server clock - this browser's clock.
+let timeSyncGeneration = 0;
 let receiveChain = Promise.resolve();
 const offsetSamples = [];
+const pendingTimeSyncRequests = new Map();
 const MAX_OFFSET_SAMPLES = 20;
 
 window.isHost = false;
@@ -174,15 +176,26 @@ function updateTimeOffset(newOffset, roundTripTime) {
 
 function requestTimeSync() {
   const t0 = Date.now();
-  sendMessage({ type: "time-sync", t0 });
+  pendingTimeSyncRequests.set(t0, {
+    generation: timeSyncGeneration,
+    startedAt: performance.now()
+  });
+  while (pendingTimeSyncRequests.size > MAX_OFFSET_SAMPLES) {
+    pendingTimeSyncRequests.delete(pendingTimeSyncRequests.keys().next().value);
+  }
+  if (!sendMessage({ type: "time-sync", t0 })) pendingTimeSyncRequests.delete(t0);
 }
 
 function stopTimeSync() {
+  timeSyncGeneration += 1;
   clearInterval(timeSyncBurstTimer);
   clearInterval(steadyTimeSyncTimer);
   timeSyncBurstTimer = null;
   steadyTimeSyncTimer = null;
+  pendingTimeSyncRequests.clear();
   offsetSamples.length = 0;
+  hasTimeSync = false;
+  timeOffset = 0;
 }
 
 function startTimeSync() {
@@ -348,8 +361,10 @@ async function handleSocketMessage(event, generation) {
       break;
 
     case "time-sync-response": {
-      const now = Date.now();
-      const rtt = now - message.t0;
+      const request = pendingTimeSyncRequests.get(message.t0);
+      if (!joined || !request || request.generation !== timeSyncGeneration) break;
+      pendingTimeSyncRequests.delete(message.t0);
+      const rtt = performance.now() - request.startedAt;
       const offset = message.serverTime - (message.t0 + rtt / 2);
       updateTimeOffset(offset, rtt);
       hasTimeSync = true;

@@ -133,6 +133,54 @@ test('a client can disconnect from a shared room into a new solo session', async
   await hostContext.close();
 });
 
+test('a stale time-sync response cannot survive room closure', async ({ browser }) => {
+  const hostContext = await browser.newContext();
+  const clientContext = await browser.newContext();
+  await clientContext.addInitScript(() => {
+    const NativeWebSocket = window.WebSocket;
+    window.WebSocket = class DelayedTimeSyncWebSocket extends NativeWebSocket {
+      set onmessage(handler) {
+        this.__messageHandler = handler;
+        super.onmessage = event => {
+          const message = JSON.parse(event.data);
+          if (message.type === 'time-sync-response') {
+            window.__releaseHeldTimeSync = serverTime => handler(new MessageEvent('message', {
+              data: JSON.stringify({ ...message, serverTime })
+            }));
+            return;
+          }
+          handler(event);
+        };
+      }
+
+      get onmessage() {
+        return this.__messageHandler;
+      }
+    };
+  });
+  const host = await hostContext.newPage();
+  const client = await clientContext.newPage();
+
+  await host.goto('./');
+  await expect(host.locator('#share-btn')).toHaveClass(/connected/);
+  const joinUrl = host.url();
+  await client.goto(joinUrl);
+  await waitForPeer(host);
+  await expect.poll(() => client.evaluate(() => typeof window.__releaseHeldTimeSync)).toBe('function');
+
+  await host.locator('#disconnect-btn').click();
+  await expect(client.locator('#share-btn')).not.toHaveClass(/connected/);
+  await client.evaluate(() => window.__releaseHeldTimeSync(Date.now() + 60_000));
+
+  await expect.poll(() => client.evaluate(async () => {
+    const sync = await import(new URL('js/webrtc.js', document.baseURI).href);
+    return sync.getTimeOffset();
+  })).toBe(0);
+
+  await clientContext.close();
+  await hostContext.close();
+});
+
 test('a QR room join syncs settings and playback position but preserves each peer theme', async ({ browser }) => {
   const hostContext = await browser.newContext();
   const clientContext = await browser.newContext();
