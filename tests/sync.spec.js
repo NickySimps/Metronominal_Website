@@ -51,6 +51,51 @@ test('a second host click before the transport echo cancels the pending Play', a
   await expect(page.locator('#start-stop-btn')).not.toHaveClass(/active|pending/);
 });
 
+test('a client can disconnect from a shared room into a new solo session', async ({ browser }) => {
+  const hostContext = await browser.newContext();
+  const clientContext = await browser.newContext();
+  const host = await hostContext.newPage();
+  const client = await clientContext.newPage();
+
+  await host.goto('./');
+  await host.locator('#share-btn').click();
+  const joinUrl = await host.evaluate(() => window.location.href);
+  const sharedRoomId = new URL(joinUrl).searchParams.get('room');
+  await host.locator('#share-modal .close-button').click();
+  await client.goto(joinUrl);
+  await waitForPeer(host);
+  await client.locator('#dismiss-connection-modal-btn').click();
+
+  await host.locator('#start-stop-btn').click();
+  await expect.poll(async () => (await readState(client)).isPlaying).toBe(true);
+
+  const disconnectButton = client.locator('#disconnect-btn');
+  await expect(disconnectButton).toBeVisible();
+  await expect(disconnectButton).toHaveText('DISCONNECT');
+  await expect(disconnectButton).toHaveAttribute('aria-label', 'Disconnect from this room');
+  await expect(host.locator('#disconnect-btn')).toHaveAttribute('aria-label', 'Disconnect all clients');
+  await disconnectButton.click();
+
+  await expect.poll(() => new URL(client.url()).searchParams.has('room')).toBe(false);
+  await expect.poll(() => client.evaluate(() => window.isHost)).toBe(true);
+  await expect.poll(() => client.evaluate(() => ({
+    roomId: sessionStorage.getItem('host_room_id'),
+    credential: sessionStorage.getItem('host_credential'),
+    isHost: sessionStorage.getItem('is_host'),
+  }))).toMatchObject({
+    roomId: expect.not.stringMatching(new RegExp(`^${sharedRoomId}$`)),
+    credential: expect.stringMatching(/^[a-f0-9]{64}$/),
+    isHost: 'true',
+  });
+  await expect.poll(async () => (await readState(client)).isPlaying).toBe(false);
+  await expect(host.locator('#n-of-connections')).toHaveText('(0)');
+  await client.waitForTimeout(1_500);
+  await expect(host.locator('#n-of-connections')).toHaveText('(0)');
+
+  await clientContext.close();
+  await hostContext.close();
+});
+
 test('a QR room join syncs settings and playback position but preserves each peer theme', async ({ browser }) => {
   const hostContext = await browser.newContext();
   const clientContext = await browser.newContext();

@@ -1,4 +1,4 @@
-import { WebRTC, sendState, initializeShareControls, initializeWebRTC, disconnectAllPeers } from "./js/webrtc.js"; 
+import { WebRTC, sendState, initializeShareControls, initializeWebRTC, disconnect, disconnectAllPeers } from "./js/webrtc.js";
 import AppState from "./js/appState.js";
 import DOM from "./js/domSelectors.js";
 import UIController from "./js/uiController.js";
@@ -153,12 +153,16 @@ async function initialize() {
     await MetronomeEngine.togglePlay();
   }
 
-  // Make the disconnect button functional for the host.
+  // Hosts close their room; clients leave it and return to a fresh solo session.
   if (DOM.disconnectBtn) {
     DOM.disconnectBtn.addEventListener('click', () => {
-      // Only the host can disconnect all peers.
       if (window.isHost) {
         disconnectAllPeers();
+      } else {
+        disconnect();
+        const soloUrl = new URL(window.location.href);
+        soloUrl.searchParams.delete('room');
+        window.location.replace(soloUrl.href);
       }
     });
   }

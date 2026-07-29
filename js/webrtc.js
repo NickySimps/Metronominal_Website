@@ -114,7 +114,12 @@ function updateConnectionStatusUI(state) {
 
   if (state === "connected") {
     shareBtn.classList.add("connected");
-    disconnectBtn.style.display = window.isHost ? "" : "none";
+    disconnectBtn.style.display = "";
+    disconnectBtn.textContent = "DISCONNECT";
+    disconnectBtn.setAttribute(
+      "aria-label",
+      window.isHost ? "Disconnect all clients" : "Disconnect from this room"
+    );
   } else if (state === "connecting") {
     shareBtn.classList.add("connecting");
     disconnectBtn.style.display = "none";
