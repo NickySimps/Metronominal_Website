@@ -222,11 +222,11 @@ const TrackController = {
           <div class="sound-selection">
             <span class="sound-label main-sound-label">✎ Main</span>
           </div>
-          <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}">𝄽</button>
+          <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode"><span class="control-icon" aria-hidden="true">𝄽</span></button>
           <div class="sound-selection">
             <span class="sound-label sub-sound-label">✎ Sub</span>
           </div>
-          <button class="record-btn ${AppState.isRecording() ? 'active' : ''}">●</button>
+          <button class="record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording"><span class="control-icon" aria-hidden="true">●</span></button>
         </div>
         <div class="bar-display-container" data-container-index="${index}"></div>
         <div class="measures-container ${isSelected ? 'showing' : 'hidden'}">

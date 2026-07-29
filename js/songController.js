@@ -224,14 +224,17 @@ async function publishSongChange(nextSong, shouldRender = true) {
 function render() {
   const song = AppState.getSong();
   const editable = canEditSong && !AppState.isPlaying();
+  const panel = document.getElementById("song-mode-panel");
   const enabled = document.getElementById("song-mode-enabled");
   const name = document.getElementById("song-name-input");
   const list = document.getElementById("song-sections-list");
   const add = document.getElementById("add-song-section-btn");
-  if (!enabled || !name || !list || !add) return;
+  if (!panel || !enabled || !name || !list || !add) return;
 
-  enabled.checked = song.enabled;
+  enabled.setAttribute("aria-pressed", String(song.enabled));
+  enabled.setAttribute("aria-label", song.enabled ? "Disable song mode" : "Enable song mode");
   enabled.disabled = !editable;
+  panel.hidden = !song.enabled;
   name.value = song.name;
   name.disabled = !editable;
   const primaryBarCount = AppState.getTracks()[0]?.barSettings?.length || 1;
@@ -245,16 +248,19 @@ function render() {
     const row = document.createElement("div");
     row.className = "song-section-row";
     row.dataset.sectionIndex = String(index);
+    const barOptions = Array.from({ length: primaryBarCount }, (_, barIndex) =>
+      `<option value="${barIndex + 1}"${barIndex === section.startBar ? " selected" : ""}>Bar ${barIndex + 1}</option>`
+    ).join("");
     row.innerHTML = `
       <span class="song-section-number">${index + 1}</span>
       <label>Name <input data-song-section-name="${index}" maxlength="48" value=""></label>
-      <label>Starts at bar <input data-song-section-start="${index}" type="number" min="1" max="${AppState.getTracks()[0]?.barSettings?.length || 1}" value="${section.startBar + 1}"></label>
+      <label>Starts at bar <select data-song-section-start="${index}">${barOptions}</select></label>
       <label>BPM <input data-song-section-tempo="${index}" type="number" min="20" max="300" value="${section.tempo}"></label>
       <button type="button" data-go-song-section="${index}" aria-label="Start from ${section.name === "" ? "this section" : "section"}">Go</button>
       <button type="button" data-remove-song-section="${index}" aria-label="Remove song section">Remove</button>`;
     const nameInput = row.querySelector(`[data-song-section-name="${index}"]`);
     nameInput.value = section.name;
-    for (const input of row.querySelectorAll("input")) input.disabled = !editable;
+    for (const field of row.querySelectorAll("input, select")) field.disabled = !editable;
     row.querySelector(`[data-go-song-section="${index}"]`).disabled = !editable;
     row.querySelector(`[data-remove-song-section="${index}"]`).disabled = !editable || index === 0;
     list.appendChild(row);
@@ -270,7 +276,7 @@ function render() {
 
 function updatedSongFromFields() {
   const song = AppState.getSong();
-  song.enabled = document.getElementById("song-mode-enabled").checked;
+  song.enabled = document.getElementById("song-mode-enabled").getAttribute("aria-pressed") === "true";
   song.name = document.getElementById("song-name-input").value;
   song.sections = song.sections.map((section, index) => ({
     name: document.querySelector(`[data-song-section-name="${index}"]`)?.value || section.name,
@@ -285,9 +291,13 @@ async function initialize(callback) {
   const panel = document.getElementById("song-mode-panel");
   if (!panel) return;
 
+  document.getElementById("song-mode-enabled")?.addEventListener("click", () => {
+    const song = AppState.getSong();
+    song.enabled = !song.enabled;
+    publishSongChange(song);
+  });
   panel.addEventListener("change", event => {
-    if (event.target.id === "song-mode-enabled") publishSongChange(updatedSongFromFields());
-    else if (event.target.matches("input")) publishSongChange(updatedSongFromFields(), false);
+    if (event.target.matches("input, select")) publishSongChange(updatedSongFromFields(), false);
   });
   document.getElementById("add-song-section-btn")?.addEventListener("click", () => {
     const song = updatedSongFromFields();

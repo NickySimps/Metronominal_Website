@@ -192,6 +192,86 @@ const themes = {
     }
 };
 
+function readableTextColor(background) {
+    const hex = background.replace('#', '');
+    const normalized = hex.length === 3 ? [...hex].map(value => value + value).join('') : hex;
+    const channels = [0, 2, 4].map(index => Number.parseInt(normalized.slice(index, index + 2), 16) / 255)
+        .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
+    const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+    const blackContrast = (luminance + 0.05) / 0.05;
+    const whiteContrast = 1.05 / (luminance + 0.05);
+    return blackContrast >= whiteContrast ? '#000000' : '#ffffff';
+}
+
+const RANDOM_THEME_STORAGE_KEY = 'randomThemePalette';
+
+function hslToHex(hue, saturation, lightness) {
+    const saturationRatio = saturation / 100;
+    const lightnessRatio = lightness / 100;
+    const chroma = (1 - Math.abs(2 * lightnessRatio - 1)) * saturationRatio;
+    const hueSegment = ((hue % 360) + 360) % 360 / 60;
+    const secondComponent = chroma * (1 - Math.abs((hueSegment % 2) - 1));
+    const [red, green, blue] = hueSegment < 1 ? [chroma, secondComponent, 0]
+        : hueSegment < 2 ? [secondComponent, chroma, 0]
+        : hueSegment < 3 ? [0, chroma, secondComponent]
+        : hueSegment < 4 ? [0, secondComponent, chroma]
+        : hueSegment < 5 ? [secondComponent, 0, chroma]
+        : [chroma, 0, secondComponent];
+    const match = lightnessRatio - chroma / 2;
+    return `#${[red, green, blue].map(channel => Math.round((channel + match) * 255).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function createRandomTheme() {
+    const hue = Math.floor(Math.random() * 360);
+    const dark = Math.random() < 0.5;
+    const roleHue = offset => (hue + offset) % 360;
+    const background = hslToHex(roleHue(288), dark ? 34 : 44, dark ? 9 : 94);
+    const highlight = hslToHex(roleHue(72), 92, dark ? 22 : 82);
+    const main = hslToHex(roleHue(0), 96, dark ? 30 : 64);
+    const accent = hslToHex(roleHue(144), 96, dark ? 24 : 80);
+    const alt2 = hslToHex(roleHue(216), 96, dark ? 32 : 62);
+    const text = readableTextColor(background);
+    return {
+        ...themes.default,
+        '--Main': main,
+        '--Background': background,
+        '--Accent': accent,
+        '--Highlight': highlight,
+        '--Alt1': hslToHex(roleHue(288), 96, dark ? 64 : 38),
+        '--Alt2': alt2,
+        '--TextOnMain': readableTextColor(main),
+        '--TextPrimary': text,
+        '--TextSecondary': text,
+        '--SubdivisionBeatColor': alt2,
+        '--HighlightedBeatColor': main,
+        '--ActiveBarBackground': `${alt2}80`,
+        '--BorderColor': hslToHex(roleHue(288), 88, dark ? 66 : 34),
+        '--text-shadow': 'none'
+    };
+}
+
+function saveRandomTheme(theme) {
+    localStorage.setItem(RANDOM_THEME_STORAGE_KEY, JSON.stringify(theme));
+}
+
+function loadRandomTheme() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(RANDOM_THEME_STORAGE_KEY));
+        if (!saved || typeof saved !== 'object' || typeof saved['--Background'] !== 'string') return null;
+        return { ...themes.default, ...saved };
+    } catch {
+        return null;
+    }
+}
+
+function ensureRandomTheme(regenerate = false) {
+    if (regenerate || !themes.random) {
+        themes.random = regenerate ? createRandomTheme() : loadRandomTheme() || createRandomTheme();
+        saveRandomTheme(themes.random);
+    }
+    return themes.random;
+}
+
 let mainContainerRef = null; // To store reference to the main 2D UI container
 
 /**
@@ -245,6 +325,10 @@ function handleThemeSelection(themeName) {
         for (const [variable, value] of Object.entries(theme)) {
             document.documentElement.style.setProperty(variable, value);
         }
+        document.documentElement.style.setProperty('--ReadableOnBackground', readableTextColor(theme['--Background']));
+        document.documentElement.style.setProperty('--ReadableOnHighlight', readableTextColor(theme['--Highlight']));
+        document.documentElement.style.setProperty('--ReadableOnAlt2', readableTextColor(theme['--Alt2']));
+        document.documentElement.style.setProperty('--ReadableOnMain', readableTextColor(theme['--Main']));
 
         // If the logical theme state *before this call* was '3dRoom',
         // AND the 3D manager was actually active (renderer existed),
@@ -263,6 +347,7 @@ function handleThemeSelection(themeName) {
 const ThemeController = {
     applyTheme: (themeName) => {
         // Now delegates to handleThemeSelection which manages both 2D and 3D
+        if (themeName === 'random') ensureRandomTheme();
         if (!themes[themeName] && themeName !== '3dRoom') {
             console.warn(`Theme "${themeName}" not found. Applying default.`);
             handleThemeSelection('default');
@@ -285,6 +370,7 @@ const ThemeController = {
         // DOM.themeButtons is a NodeList
         DOM.themeButtons.forEach(button => {
             button.addEventListener('click', () => {
+                if (button.dataset.theme === 'random') ensureRandomTheme(true);
                 handleThemeSelection(button.dataset.theme); // Use the internal handler
             });
         });
@@ -293,6 +379,7 @@ const ThemeController = {
         const savedTheme = localStorage.getItem('selectedTheme');
         let themeToLoad = 'default'; 
 
+        if (savedTheme === 'random') ensureRandomTheme();
         if (savedTheme && (themes[savedTheme] || savedTheme === '3dRoom')) { // If a valid theme (2D or 3D) is saved
             themeToLoad = savedTheme;
         }

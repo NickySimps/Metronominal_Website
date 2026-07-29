@@ -180,7 +180,24 @@ test('song mode synchronizes sections and creates a credential-free song link', 
 
   await host.goto('./');
   await expect(host.locator('#share-btn')).toHaveClass(/connected/);
-  await host.locator('#song-mode-enabled').check();
+  await expect(host.locator('#song-mode-panel')).toBeHidden();
+  await expect(host.locator('.global-app-controls #song-mode-enabled')).toBeVisible();
+  await expect(host.locator('#song-mode-enabled')).toHaveAttribute('aria-pressed', 'false');
+  await expect.poll(() => host.evaluate(() => [...document.querySelectorAll('.rest-button, .record-btn')].every(button => {
+    const icon = button.querySelector('.control-icon');
+    if (!icon) return false;
+    const buttonRect = button.getBoundingClientRect();
+    const iconRect = icon.getBoundingClientRect();
+    const horizontalOffset = Math.abs((buttonRect.left + buttonRect.width / 2) - (iconRect.left + iconRect.width / 2));
+    const verticalOffset = Math.abs((buttonRect.top + buttonRect.height / 2) - (iconRect.top + iconRect.height / 2));
+    return horizontalOffset <= 1 && verticalOffset <= 1;
+  }))).toBe(true);
+  await host.locator('#song-mode-enabled').click();
+  await expect(host.locator('#song-mode-enabled')).toHaveAttribute('aria-pressed', 'true');
+  await expect(host.locator('#song-mode-panel')).toBeVisible();
+  await expect.poll(() => host.locator('#song-mode-panel').evaluate(panel => Math.max(
+    ...getComputedStyle(panel).animationDuration.split(',').map(value => Number.parseFloat(value) || 0)
+  ))).toBeLessThanOrEqual(0.2);
   await host.locator('#song-name-input').fill('Band Rehearsal');
   await host.locator('[data-song-section-name="0"]').fill('Intro');
   await host.locator('[data-song-section-tempo="0"]').fill('180');
@@ -189,6 +206,8 @@ test('song mode synchronizes sections and creates a credential-free song link', 
   await host.locator('#add-song-section-btn').click();
   await expect(host.locator('.bar-visual')).toHaveCount(2);
   await host.locator('[data-song-section-name="1"]').fill('Chorus');
+  await expect(host.locator('[data-song-section-start="1"]')).toHaveJSProperty('tagName', 'SELECT');
+  await expect(host.locator('[data-song-section-start="1"] option')).toHaveCount(2);
   await host.locator('[data-song-section-tempo="1"]').fill('150');
   await host.locator('[data-song-section-tempo="1"]').blur();
 
@@ -317,6 +336,117 @@ test('song section tempo automation changes the scheduled beat grid', async ({ p
   expect(Math.abs(trackAlignment[1].next - trackAlignment[0].next)).toBeLessThan(0.01);
 });
 
+test('song, rest, and recording controls keep readable contrast in every theme', async ({ page }) => {
+  await page.goto('./');
+  await page.locator('#song-mode-enabled').click();
+  const contrastByTheme = await page.evaluate(() => {
+    const style = document.createElement('style');
+    style.textContent = '*, *::before, *::after { transition: none !important; }';
+    document.head.appendChild(style);
+    const rgb = value => value.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+    const luminance = color => color.map(value => value / 255)
+      .map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
+      .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+    const ratio = element => {
+      const computed = getComputedStyle(element);
+      const foreground = luminance(rgb(computed.color));
+      const background = luminance(rgb(computed.backgroundColor));
+      return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+    };
+    const selectors = [
+      '#song-mode-enabled',
+      '.rest-button',
+      '.record-btn',
+      '.song-mode-panel input',
+      '.song-mode-actions button',
+      '[data-go-song-section]',
+      '[data-remove-song-section]',
+      '.sticky-btn',
+      '.sticky-play-btn'
+    ];
+    return [...document.querySelectorAll('[data-theme]')].map(button => {
+      button.click();
+      return [button.dataset.theme, Math.min(...selectors.map(selector => ratio(document.querySelector(selector))))];
+    });
+  });
+  for (const [theme, ratio] of contrastByTheme) expect(ratio, theme).toBeGreaterThanOrEqual(4.5);
+});
+
+test('the theme menu question-mark button generates and persists a new random theme on every press', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#random-theme-btn')).toHaveText('?');
+  await expect(page.locator('#random-theme-btn')).toHaveAttribute('aria-label', 'Generate a random theme');
+  const paletteSignature = () => page.evaluate(() => [
+    getComputedStyle(document.documentElement).getPropertyValue('--Background').trim(),
+    getComputedStyle(document.documentElement).getPropertyValue('--Main').trim(),
+    getComputedStyle(document.documentElement).getPropertyValue('--Alt2').trim(),
+    getComputedStyle(document.documentElement).getPropertyValue('--Highlight').trim()
+  ].join('|'));
+  await page.locator('#random-theme-btn').click();
+  const firstPalette = await paletteSignature();
+  const minimumHueDistance = await page.evaluate(() => {
+    const hue = value => {
+      const [red, green, blue] = value.match(/[\da-f]{2}/gi).map(channel => Number.parseInt(channel, 16) / 255);
+      const maximum = Math.max(red, green, blue);
+      const minimum = Math.min(red, green, blue);
+      const difference = maximum - minimum;
+      if (difference === 0) return 0;
+      const sector = maximum === red ? ((green - blue) / difference) % 6
+        : maximum === green ? (blue - red) / difference + 2
+        : (red - green) / difference + 4;
+      return (sector * 60 + 360) % 360;
+    };
+    const styles = getComputedStyle(document.documentElement);
+    const hues = ['--Main', '--Highlight', '--Accent', '--Alt2'].map(variable => hue(styles.getPropertyValue(variable).trim()));
+    return Math.min(...hues.flatMap((value, index) => hues.slice(index + 1).map(other => {
+      const difference = Math.abs(value - other);
+      return Math.min(difference, 360 - difference);
+    })));
+  });
+  expect(minimumHueDistance).toBeGreaterThanOrEqual(50);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('selectedTheme'))).toBe('random');
+  await page.locator('#random-theme-btn').click();
+  const secondPalette = await paletteSignature();
+  expect(secondPalette).not.toBe(firstPalette);
+  await page.reload();
+  await expect.poll(paletteSignature).toBe(secondPalette);
+});
+
+test('main playback controls collapse into a desktop floating control card when scrolled away', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 500 });
+  await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  const controls = page.locator('#sticky-mobile-controls');
+  await page.evaluate(async () => {
+    document.body.style.setProperty('min-height', '2200px', 'important');
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    window.scrollTo(0, document.documentElement.scrollHeight);
+    window.dispatchEvent(new Event('scroll'));
+  });
+  await expect(controls).toHaveClass(/sticky-active/);
+  await expect.poll(() => controls.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return style.position === 'fixed'
+      && style.display === 'flex'
+      && Math.abs(rect.left - 20) <= 2
+      && rect.right < window.innerWidth
+      && rect.bottom < window.innerHeight
+      && rect.width < window.innerWidth * 0.8
+      && Number.parseFloat(style.borderRadius) > 0
+      && style.borderColor !== 'transparent'
+      && style.borderColor !== 'rgba(0, 0, 0, 0)'
+      && style.boxShadow !== 'none'
+      && Number.parseFloat(style.transitionDuration) < 0.2;
+  })).toBe(true);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(controls).not.toHaveClass(/sticky-active/);
+  await page.evaluate(() => {
+    document.getElementById('start-stop-btn').style.transform = 'translateY(-1200px)';
+  });
+  await expect(controls).toHaveClass(/sticky-active/);
+});
+
 test('song import rejects malformed state and reconstructs accepted data from an allowlist', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#share-btn')).toHaveClass(/connected/);
@@ -367,7 +497,7 @@ test('song import rejects malformed state and reconstructs accepted data from an
 test('a song edit attempted during playback cannot publish after Stop', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#song-mode-enabled')).toBeEnabled({ timeout: 30_000 });
-  await page.locator('#song-mode-enabled').check();
+  await page.locator('#song-mode-enabled').click();
   await page.locator('#start-stop-btn').click();
   await expect.poll(async () => (await readState(page)).isPlaying).toBe(true);
   await page.evaluate(() => {
@@ -431,16 +561,16 @@ test('song mode rolls back when a connected browser lacks song capability', asyn
     legacy.send(JSON.stringify({ type: 'join', room, requestedRole: 'client' }));
     await joined;
   });
-  await page.locator('#song-mode-enabled').check();
+  await page.locator('#song-mode-enabled').click();
   await expect.poll(async () => (await readState(page)).song.enabled).toBe(false);
-  await expect(page.locator('#song-mode-enabled')).not.toBeChecked();
+  await expect(page.locator('#song-mode-enabled')).toHaveAttribute('aria-pressed', 'false');
   await page.evaluate(() => window.__legacySongClient.close());
 });
 
 test('removing bars normalizes the host song timeline before synchronization', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#share-btn')).toHaveClass(/connected/);
-  await page.locator('#song-mode-enabled').check();
+  await page.locator('#song-mode-enabled').click();
   await page.locator('#add-song-section-btn').click();
   await expect.poll(async () => (await readState(page)).song.sections).toHaveLength(2);
   await page.getByRole('button', { name: 'Decrease bars' }).click();
@@ -589,11 +719,9 @@ test('diagnostics show authoritative role and connection quality without credent
 
   await host.goto('./');
   await expect(host.locator('#share-btn')).toHaveClass(/connected/);
-  await expect.poll(() => host.evaluate(() => {
-    const launcher = document.getElementById('sync-diagnostics-btn').getBoundingClientRect();
-    const controls = document.querySelector('.global-app-controls').getBoundingClientRect();
-    return launcher.bottom <= controls.top;
-  })).toBe(true);
+  await expect(host.locator('.top-controls-area #sync-diagnostics-btn')).toHaveCount(0);
+  await expect(host.locator('#share-modal #sync-diagnostics-btn')).toHaveCount(1);
+  await expect(host.locator('#sync-diagnostics-btn')).toBeHidden();
   await expect(host.locator('#sync-role')).toHaveText('HOST');
   await expect(host.locator('#sync-quality')).toHaveText(/GOOD|FAIR|POOR/);
   const joinUrl = host.url();
@@ -614,38 +742,55 @@ test('diagnostics show authoritative role and connection quality without credent
   await client.evaluate(() => { Date.now = window.__realDiagnosticsDateNow; });
 
   await client.locator('#dismiss-connection-modal-btn').click();
+  await client.locator('#share-btn').click();
+  await expect(client.locator('#share-modal')).toBeVisible();
   await client.locator('#sync-diagnostics-btn').click();
-  const modal = client.locator('#sync-diagnostics-modal');
-  await expect(modal).toBeVisible();
-  await expect(modal).toHaveAttribute('role', 'dialog');
-  await expect(modal).toHaveAttribute('aria-modal', 'true');
+  await expect(client.locator('#share-modal')).toBeVisible();
+  const diagnostics = client.locator('#sync-diagnostics-panel');
+  await expect(diagnostics).toBeVisible();
+  await expect(client.locator('#sync-diagnostics-btn')).toHaveAttribute('aria-expanded', 'true');
   await expect.poll(() => client.evaluate(() => {
-    const content = document.querySelector('#sync-diagnostics-modal .modal-content').getBoundingClientRect();
-    return content.top >= 0 && content.bottom <= window.innerHeight;
+    const primary = document.getElementById('share-primary-content')?.getBoundingClientRect();
+    const panel = document.getElementById('sync-diagnostics-panel')?.getBoundingClientRect();
+    const panelStyle = getComputedStyle(document.getElementById('sync-diagnostics-panel'));
+    const modalStyle = getComputedStyle(document.querySelector('.share-modal-content'));
+    const seconds = value => Math.max(...value.split(',').map(part => Number.parseFloat(part) || 0));
+    return Boolean(primary && panel)
+      && panel.left >= primary.right - 1
+      && seconds(panelStyle.animationDuration) <= 0.2
+      && seconds(modalStyle.transitionDuration) <= 0.2;
   })).toBe(true);
-  await expect(modal.locator('.close-button')).toBeFocused();
   await client.keyboard.press('Escape');
-  await expect(modal).toBeHidden();
+  await expect(diagnostics).toBeHidden();
+  await expect(client.locator('#share-modal')).toBeVisible();
   await expect(client.locator('#sync-diagnostics-btn')).toBeFocused();
   await client.locator('#sync-diagnostics-btn').click();
-  await expect(modal.locator('[data-diagnostic="role"]')).toHaveText('Client');
-  await expect(modal.locator('[data-diagnostic="status"]')).toHaveText('Connected');
-  await expect(modal.locator('[data-diagnostic="quality"]')).toHaveText(/Good|Fair|Poor/);
-  await expect(modal.locator('[data-diagnostic="rtt"]')).toHaveText(/^\d+(?:\.\d)? ms$/);
-  await expect(modal.locator('[data-diagnostic="offset"]')).toHaveText(/^-?\d+(?:\.\d)? ms$/);
-  await expect(modal.locator('[data-diagnostic="peers"]')).toHaveText('1');
-  await expect(modal.locator('[data-diagnostic="audio"]')).toHaveText(/Running|Suspended/);
-  await expect(modal.locator('[data-diagnostic="scheduler"]')).toHaveText('Ready');
-  await expect(modal.locator('[data-diagnostic="state-revision"]')).toHaveText(/^\d+$/);
-  await expect(modal.locator('[data-diagnostic="transport-revision"]')).toHaveText(/^\d+$/);
-  await expect(modal).not.toContainText(hostCredential);
-  await expect(modal).not.toContainText(new URL(joinUrl).searchParams.get('room'));
+  await expect(diagnostics.locator('[data-diagnostic="role"]')).toHaveText('Client');
+  await expect(diagnostics.locator('[data-diagnostic="status"]')).toHaveText('Connected');
+  await expect(diagnostics.locator('[data-diagnostic="quality"]')).toHaveText(/Good|Fair|Poor/);
+  await expect(diagnostics.locator('[data-diagnostic="rtt"]')).toHaveText(/^\d+(?:\.\d)? ms$/);
+  await expect(diagnostics.locator('[data-diagnostic="offset"]')).toHaveText(/^-?\d+(?:\.\d)? ms$/);
+  await expect(diagnostics.locator('[data-diagnostic="peers"]')).toHaveText('1');
+  await expect(diagnostics.locator('[data-diagnostic="audio"]')).toHaveText(/Running|Suspended/);
+  await expect(diagnostics.locator('[data-diagnostic="scheduler"]')).toHaveText('Ready');
+  await expect(diagnostics.locator('[data-diagnostic="state-revision"]')).toHaveText(/^\d+$/);
+  await expect(diagnostics.locator('[data-diagnostic="transport-revision"]')).toHaveText(/^\d+$/);
+  await expect(diagnostics).not.toContainText(hostCredential);
+  await expect(diagnostics).not.toContainText(new URL(joinUrl).searchParams.get('room'));
+  await client.setViewportSize({ width: 390, height: 720 });
+  await expect.poll(() => client.evaluate(() => {
+    const primary = document.getElementById('share-primary-content').getBoundingClientRect();
+    const panel = document.getElementById('sync-diagnostics-panel').getBoundingClientRect();
+    const content = document.querySelector('.share-modal-content').getBoundingClientRect();
+    return panel.top >= primary.bottom - 1 && content.width <= window.innerWidth * 0.95;
+  })).toBe(true);
 
-  await modal.locator('.close-button').click();
+  await host.locator('#share-btn').click();
   await host.locator('#sync-diagnostics-btn').click();
-  const hostModal = host.locator('#sync-diagnostics-modal');
-  await expect(hostModal).not.toContainText(hostCredential);
-  await expect(hostModal).not.toContainText(new URL(joinUrl).searchParams.get('room'));
+  const hostDiagnostics = host.locator('#sync-diagnostics-panel');
+  await expect(hostDiagnostics).toBeVisible();
+  await expect(hostDiagnostics).not.toContainText(hostCredential);
+  await expect(hostDiagnostics).not.toContainText(new URL(joinUrl).searchParams.get('room'));
 
   await clientContext.close();
   await hostContext.close();

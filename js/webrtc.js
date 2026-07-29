@@ -661,19 +661,20 @@ export function initializeShareControls() {
   const qrContainer = document.getElementById("qrcode");
   const mobileShareBtn = document.getElementById("mobile-share-btn");
   const diagnosticsBtn = document.getElementById("sync-diagnostics-btn");
-  const diagnosticsModal = document.getElementById("sync-diagnostics-modal");
-  const diagnosticsCloseBtn = diagnosticsModal?.querySelector(".close-button");
+  const diagnosticsPanel = document.getElementById("sync-diagnostics-panel");
+  const shareContent = shareModal?.querySelector(".share-modal-content");
 
   if (!shareBtn || !shareModal || !closeBtn || !qrContainer) return;
   if (navigator.share && mobileShareBtn) mobileShareBtn.style.display = "flex";
   clearInterval(diagnosticsRefreshTimer);
   diagnosticsRefreshTimer = setInterval(updateDiagnosticsUI, 1000);
 
-  const closeDiagnostics = () => {
-    if (!diagnosticsModal || diagnosticsModal.style.display === "none") return;
-    diagnosticsModal.style.display = "none";
+  const closeDiagnostics = (focusButton = false) => {
+    if (!diagnosticsPanel || diagnosticsPanel.hidden) return;
+    diagnosticsPanel.hidden = true;
+    shareContent?.classList.remove("diagnostics-expanded");
     diagnosticsBtn?.setAttribute("aria-expanded", "false");
-    diagnosticsBtn?.focus();
+    if (focusButton) diagnosticsBtn?.focus();
   };
 
   shareBtn.addEventListener("click", () => {
@@ -708,23 +709,29 @@ export function initializeShareControls() {
         if (error.name !== "AbortError") console.error("Could not share:", error);
       });
     }
+    closeDiagnostics();
     shareModal.style.display = "block";
   });
 
-  closeBtn.addEventListener("click", () => { shareModal.style.display = "none"; });
-  diagnosticsBtn?.addEventListener("click", () => {
-    updateDiagnosticsUI();
-    diagnosticsModal.style.display = "block";
-    diagnosticsBtn.setAttribute("aria-expanded", "true");
-    diagnosticsCloseBtn?.focus();
+  closeBtn.addEventListener("click", () => {
+    closeDiagnostics();
+    shareModal.style.display = "none";
   });
-  diagnosticsCloseBtn?.addEventListener("click", closeDiagnostics);
+  diagnosticsBtn?.addEventListener("click", () => {
+    const willOpen = diagnosticsPanel?.hidden !== false;
+    if (willOpen) updateDiagnosticsUI();
+    if (diagnosticsPanel) diagnosticsPanel.hidden = !willOpen;
+    shareContent?.classList.toggle("diagnostics-expanded", willOpen);
+    diagnosticsBtn.setAttribute("aria-expanded", String(willOpen));
+  });
   window.addEventListener("keydown", event => {
-    if (event.key === "Escape" && diagnosticsModal?.style.display === "block") closeDiagnostics();
+    if (event.key === "Escape" && diagnosticsPanel && !diagnosticsPanel.hidden) closeDiagnostics(true);
   });
   window.addEventListener("click", event => {
-    if (event.target === shareModal) shareModal.style.display = "none";
-    if (event.target === diagnosticsModal) closeDiagnostics();
+    if (event.target === shareModal) {
+      closeDiagnostics();
+      shareModal.style.display = "none";
+    }
   });
 }
 

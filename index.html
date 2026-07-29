@@ -31,7 +31,6 @@
                         id="connection-status"></span><span id="sync-quality">OFFLINE</span><span
                         id="n-of-connections"></span></button>
                 <button id="disconnect-btn" style="display: none;">DISCONNECT</button>
-                <button id="sync-diagnostics-btn" aria-controls="sync-diagnostics-modal" aria-expanded="false">DIAGNOSTICS</button>
                 <button class="reset-btn">↺</button>
                 <button id="manage-recordings-btn">✎◯</button>
                 <button id="screen-off-toggle-btn">Allow Screen Sleep</button>
@@ -71,6 +70,13 @@
                     </select>
                 </div>
                 <div class="control-group">
+                    <span class="control-label">Song Mode:</span>
+                    <button id="song-mode-enabled" class="song-mode-button" type="button" aria-pressed="false"
+                        aria-controls="song-mode-panel" aria-label="Enable song mode" title="Toggle Song Mode">
+                        <span class="control-icon" aria-hidden="true">♫</span>
+                    </button>
+                </div>
+                <div class="control-group">
                     <label for="preset-slot-select" class="control-label">Preset Slot:</label>
                     <select id="preset-slot-select" class="compact-select" aria-label="Select preset slot">
                         <option value="0">1</option>
@@ -107,13 +113,12 @@
                 </div>
             </div>
 
-            <section id="song-mode-panel" class="song-mode-panel" aria-labelledby="song-mode-title">
+            <section id="song-mode-panel" class="song-mode-panel" aria-labelledby="song-mode-title" hidden>
                 <div class="song-mode-heading">
                     <div>
                         <h2 id="song-mode-title">Song Mode</h2>
                         <p>Label your bars and automate BPM at section changes. The arrangement loops for rehearsal.</p>
                     </div>
-                    <label class="song-mode-toggle"><input id="song-mode-enabled" type="checkbox"> Enable timeline</label>
                 </div>
                 <div class="song-mode-meta">
                     <label>Song name <input id="song-name-input" maxlength="80" value="Untitled Song"></label>
@@ -197,6 +202,7 @@
                 <button data-theme="colorblind" aria-label="Switch to Colorblind Theme">
                     Colorblind
                 </button>
+                <button id="random-theme-btn" data-theme="random" aria-label="Generate a random theme" title="Generate a random theme">?</button>
             </div>
         </div>
     </div>
@@ -237,7 +243,7 @@
     </div>
 </body>
 
-    <div id="sticky-mobile-controls" class="sticky-mobile-controls">
+    <div id="sticky-mobile-controls" class="sticky-mobile-controls" aria-hidden="true" inert>
         <div class="sticky-group sticky-tempo">
             <button id="sticky-tempo-decrease" class="sticky-btn">-</button>
             <div class="sticky-tempo-display">
@@ -259,17 +265,39 @@
         </div>
     </div>
 
-    <div id="share-modal" class="modal">    <div class="modal-content">
-        <span class="close-button">&times;</span>
-        <h2>Sync Metronome</h2>
-        <p>Have your friend scan this QR code to sync your metronomes.</p>
-        <div id="qrcode" style="margin: 20px auto; width: 256px;"></div>
-        <div class="share-actions">
-            <button id="copy-link-btn" class="preset-btn">Copy Link</button>
-            <button id="mobile-share-btn" class="preset-btn">Share</button>
+    <div id="share-modal" class="modal">
+        <div class="modal-content share-modal-content">
+            <span class="close-button">&times;</span>
+            <div class="share-layout">
+                <section id="share-primary-content" class="share-primary-content">
+                    <h2>Sync Metronome</h2>
+                    <p>Have your friend scan this QR code to sync your metronomes.</p>
+                    <div id="qrcode" style="margin: 20px auto; width: 256px;"></div>
+                    <div class="share-actions">
+                        <button id="copy-link-btn" class="preset-btn">Copy Link</button>
+                        <button id="mobile-share-btn" class="preset-btn">Share</button>
+                        <button id="sync-diagnostics-btn" class="preset-btn" aria-controls="sync-diagnostics-panel" aria-expanded="false">Diagnostics</button>
+                    </div>
+                </section>
+                <section id="sync-diagnostics-panel" class="sync-diagnostics-panel" aria-labelledby="sync-diagnostics-title" hidden>
+                    <h3 id="sync-diagnostics-title">Synchronization Diagnostics</h3>
+                    <dl class="sync-diagnostics-grid">
+                        <dt>Role</dt><dd data-diagnostic="role">Offline</dd>
+                        <dt>Status</dt><dd data-diagnostic="status">Disconnected</dd>
+                        <dt>Quality</dt><dd data-diagnostic="quality">Offline</dd>
+                        <dt>Round-trip time</dt><dd data-diagnostic="rtt">—</dd>
+                        <dt>Clock offset</dt><dd data-diagnostic="offset">—</dd>
+                        <dt>Sample age</dt><dd data-diagnostic="sample-age">—</dd>
+                        <dt>Audio context</dt><dd data-diagnostic="audio">Unavailable</dd>
+                        <dt>Scheduler</dt><dd data-diagnostic="scheduler">Unavailable</dd>
+                        <dt>Connected peers</dt><dd data-diagnostic="peers">0</dd>
+                        <dt>State revision</dt><dd data-diagnostic="state-revision">—</dd>
+                        <dt>Transport revision</dt><dd data-diagnostic="transport-revision">—</dd>
+                    </dl>
+                </section>
+            </div>
         </div>
     </div>
-</div>
 
 <script src="js/vendor/qrcode.min.js"></script>
 <script type="module" src="script.js" defer></script>
@@ -279,26 +307,6 @@
         <h2>You're connected!</h2>
         <p>Click the button below to start.</p>
         <button id="dismiss-connection-modal-btn">Let's Go!</button>
-    </div>
-</div>
-
-<div id="sync-diagnostics-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="sync-diagnostics-title">
-    <div class="modal-content sync-diagnostics-content">
-        <button class="close-button" type="button" aria-label="Close synchronization diagnostics">&times;</button>
-        <h2 id="sync-diagnostics-title">Synchronization Diagnostics</h2>
-        <dl class="sync-diagnostics-grid">
-            <dt>Role</dt><dd data-diagnostic="role">Offline</dd>
-            <dt>Status</dt><dd data-diagnostic="status">Disconnected</dd>
-            <dt>Quality</dt><dd data-diagnostic="quality">Offline</dd>
-            <dt>Round-trip time</dt><dd data-diagnostic="rtt">—</dd>
-            <dt>Clock offset</dt><dd data-diagnostic="offset">—</dd>
-            <dt>Sample age</dt><dd data-diagnostic="sample-age">—</dd>
-            <dt>Audio context</dt><dd data-diagnostic="audio">Unavailable</dd>
-            <dt>Scheduler</dt><dd data-diagnostic="scheduler">Unavailable</dd>
-            <dt>Connected peers</dt><dd data-diagnostic="peers">0</dd>
-            <dt>State revision</dt><dd data-diagnostic="state-revision">—</dd>
-            <dt>Transport revision</dt><dd data-diagnostic="transport-revision">—</dd>
-        </dl>
     </div>
 </div>
 

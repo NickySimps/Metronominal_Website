@@ -1,6 +1,6 @@
 /**
  * stickyControls.js
- * Manages the sticky mobile header controls that appear on scroll.
+ * Manages the collapsed playback controls that appear when the main transport is out of view.
  */
 
 import AppState from "./appState.js";
@@ -83,20 +83,36 @@ const StickyControls = {
   },
 
   setupScrollListener: () => {
-    window.addEventListener("scroll", () => {
-      // Logic to show sticky header only after scrolling past the main play button
+    const updateFloatingState = () => {
       const startStopBtn = DOM.startStopBtn;
       if (!startStopBtn) return;
 
       const rect = startStopBtn.getBoundingClientRect();
+      const mainTransportIsVisible = rect.bottom > 0
+        && rect.top < window.innerHeight
+        && rect.right > 0
+        && rect.left < window.innerWidth;
+      const floatingControlsAreActive = !mainTransportIsVisible;
+      StickyControls.elements.container.classList.toggle("sticky-active", floatingControlsAreActive);
+      StickyControls.elements.container.toggleAttribute("inert", !floatingControlsAreActive);
+      StickyControls.elements.container.setAttribute("aria-hidden", String(!floatingControlsAreActive));
+    };
 
-      // Show sticky controls when the main play button is scrolled out of view (above viewport)
-      if (rect.bottom < 0) {
-        StickyControls.elements.container.classList.add("sticky-active");
-      } else {
-        StickyControls.elements.container.classList.remove("sticky-active");
+    window.addEventListener("scroll", updateFloatingState, { passive: true });
+    window.addEventListener("resize", updateFloatingState);
+    if ("IntersectionObserver" in window) {
+      StickyControls.visibilityObserver = new IntersectionObserver(updateFloatingState, { threshold: 0 });
+      StickyControls.visibilityObserver.observe(DOM.startStopBtn);
+    }
+    if ("MutationObserver" in window) {
+      StickyControls.layoutObserver = new MutationObserver(updateFloatingState);
+      const mainContainer = document.querySelector(".main-container");
+      if (mainContainer) {
+        StickyControls.layoutObserver.observe(mainContainer, { childList: true, subtree: true });
       }
-    });
+      StickyControls.layoutObserver.observe(DOM.startStopBtn, { attributes: true, attributeFilter: ["class", "style"] });
+    }
+    updateFloatingState();
   },
 
   updateDisplay: () => {
