@@ -611,6 +611,18 @@ select {
   gap: 5px;
   margin: var(--s3);
 }
+/* The beats counter is a span: it needs flex to honor its height and keep
+   the value optically centered inside its pill. */
+.total-beats-display {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: var(--s6);
+  padding: 0 var(--s3);
+  margin: 0;
+  line-height: 1;
+}
 .measure-bar {
   background: var(--Highlight);
   display: flex;
@@ -710,6 +722,8 @@ select {
 .control-label {
   font-size: var(--font-1); /* Standardized font size */
   color: var(--TextSecondary);
+  white-space: nowrap; /* Keep labels like "Count-in:" on one line */
+  line-height: 1.2;
 }
 /* Desktop and larger */
 @media (min-width: 1024px) {
@@ -790,7 +804,11 @@ select {
   top: var(--s3); /* Standardized position (8px) */
   right: var(--s3); /* Standardized position (8px) */
   display: flex; /* Keep as flex */
-  flex-wrap: nowrap;
+  /* Wrap and cap width so the palette never slides over the top-left
+     controls (undo / edit / screen lock) on mid-size windows. */
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: calc(100vw - 640px);
   gap: var(--s3); /* Standardized gap (8px) */
   padding: var(--s3); /* Standardized padding (8px) */
   background-color: color-mix(in srgb, var(--Background) 80%, transparent);
@@ -1088,6 +1106,8 @@ select {
     right: 0; /* Ensure it starts from the right edge */
     left: 0; /* Stretch across the bottom */
     width: 100%;
+    max-width: none; /* Desktop cap does not apply to the mobile bottom bar */
+    flex-wrap: nowrap; /* Single scrollable row on mobile */
     justify-content: flex-start; /* Align items to the start */
     border-top: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
     overflow-x: auto; /* Enable horizontal scrolling */
