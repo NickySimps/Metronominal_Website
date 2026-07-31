@@ -234,11 +234,46 @@ const defaultSoundSettings = {
   "Synth Noise": defaultNoise,
 };
 
+function normalizeSectionSound(value, fallbackSound, fallbackSettings) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || typeof value.sound !== "string" || !value.sound.trim()
+    || /^Recording:/i.test(value.sound)) {
+    return { sound: fallbackSound, settings: { ...fallbackSettings } };
+  }
+  const settings = value.settings && typeof value.settings === "object" && !Array.isArray(value.settings)
+    ? JSON.parse(JSON.stringify(value.settings))
+    : { ...fallbackSettings };
+  return { sound: value.sound.slice(0, 64), settings };
+}
+
+function normalizeSectionTrack(value, index) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const bars = Array.isArray(value.barSettings) ? value.barSettings.slice(0, 64).map(bar => ({
+    beats: Math.max(1, Math.min(Number.parseInt(bar?.beats, 10) || 4, 32)),
+    subdivision: Math.max(0.25, Math.min(Number(bar?.subdivision) || 1, 16)),
+    rests: Array.isArray(bar?.rests)
+      ? bar.rests.filter(rest => Number.isInteger(rest) && rest >= 0 && rest <= 511).slice(0, 256)
+      : [],
+  })) : [];
+  if (!bars.length) return null;
+  return {
+    ...(typeof value.name === "string" && value.name.trim()
+      ? { name: value.name.trim().slice(0, 64) }
+      : { name: `Track ${index + 1}` }),
+    barSettings: bars,
+    muted: value.muted === true,
+    solo: value.solo === true,
+    volume: Number.isFinite(Number(value.volume)) ? Math.max(0, Math.min(Number(value.volume), 1)) : 1,
+    mainBeatSound: normalizeSectionSound(value.mainBeatSound, "Synth Kick", defaultKick),
+    subdivisionSound: normalizeSectionSound(value.subdivisionSound, "Synth HiHat", defaultHiHat),
+  };
+}
+
 const defaultSong = (tempo = 120) => ({
-  version: 1,
+  version: 2,
   enabled: false,
   name: "Untitled Song",
-  sections: [{ name: "Section 1", startBar: 0, tempo }],
+  sections: [{ name: "Section 1", startBar: 0, tempo, repeats: 1 }],
 });
 
 function normalizeSong(value, barCount, fallbackTempo = 120) {
@@ -247,18 +282,25 @@ function normalizeSong(value, barCount, fallbackTempo = 120) {
   const sections = Array.isArray(source.sections) ? source.sections : [];
   const normalizedSections = sections
     .slice(0, 32)
-    .map((section, index) => ({
-      name: String(section?.name || `Section ${index + 1}`).trim().slice(0, 48) || `Section ${index + 1}`,
-      startBar: Math.max(0, Math.min(Number.parseInt(section?.startBar, 10) || 0, safeBarCount - 1)),
-      tempo: Math.max(20, Math.min(Number.parseInt(section?.tempo, 10) || fallbackTempo, 300)),
-    }))
+    .map((section, index) => {
+      const snapshotTracks = Array.isArray(section?.tracks)
+        ? section.tracks.slice(0, 16).map(normalizeSectionTrack).filter(Boolean)
+        : [];
+      return {
+        name: String(section?.name || `Section ${index + 1}`).trim().slice(0, 48) || `Section ${index + 1}`,
+        startBar: Math.max(0, Math.min(Number.parseInt(section?.startBar, 10) || 0, safeBarCount - 1)),
+        tempo: Math.max(20, Math.min(Number.parseInt(section?.tempo, 10) || fallbackTempo, 300)),
+        repeats: Math.max(1, Math.min(Number.parseInt(section?.repeats, 10) || 1, 16)),
+        ...(snapshotTracks.length ? { tracks: snapshotTracks } : {}),
+      };
+    })
     .sort((a, b) => a.startBar - b.startBar)
     .filter((section, index, all) => index === 0 || section.startBar !== all[index - 1].startBar);
   if (!normalizedSections.length || normalizedSections[0].startBar !== 0) {
-    normalizedSections.unshift({ name: "Section 1", startBar: 0, tempo: fallbackTempo });
+    normalizedSections.unshift({ name: "Section 1", startBar: 0, tempo: fallbackTempo, repeats: 1 });
   }
   return {
-    version: 1,
+    version: 2,
     enabled: source.enabled === true,
     name: String(source.name || "Untitled Song").trim().slice(0, 80) || "Untitled Song",
     sections: normalizedSections,
@@ -445,6 +487,23 @@ const AppState = (function () {
         activeIndex = index;
       }
       return { index: activeIndex, ...song.sections[activeIndex] };
+    },
+    getNextSongPosition: (barIndex = 0, repeatIteration = 0, barCount = Tracks[0]?.barSettings?.length || 1) => {
+      const safeBarCount = Math.max(1, Math.min(Number.parseInt(barCount, 10) || 1, 64));
+      const currentBar = Math.max(0, Math.min(Number.parseInt(barIndex, 10) || 0, safeBarCount - 1));
+      if (!song.enabled) return { bar: (currentBar + 1) % safeBarCount, repeatIteration: 0 };
+      const active = publicAPI.getSongSectionForBar(currentBar);
+      const nextSection = song.sections[active.index + 1];
+      const sectionEnd = Math.min(nextSection?.startBar ?? safeBarCount, safeBarCount);
+      if (currentBar + 1 < sectionEnd) return {
+        bar: currentBar + 1,
+        repeatIteration: Math.max(0, Math.min(Number.parseInt(repeatIteration, 10) || 0, 15)),
+      };
+      const currentIteration = Math.max(0, Math.min(Number.parseInt(repeatIteration, 10) || 0, 15));
+      if (currentIteration + 1 < active.repeats) {
+        return { bar: active.startBar, repeatIteration: currentIteration + 1 };
+      }
+      return { bar: sectionEnd >= safeBarCount ? 0 : sectionEnd, repeatIteration: 0 };
     },
     addTapTimestamp: (timestamp) => {
       if (
@@ -1248,7 +1307,14 @@ const AppState = (function () {
         });
         if (audioContext) publicAPI.createTrackAnalysers();
       }
-      song = normalizeSong(data.song, Tracks[0]?.barSettings?.length, tempo);
+      const loadedSongName = typeof data.song?.name === "string" && data.song.name.trim()
+        ? data.song.name
+        : (typeof data.songName === "string" ? data.songName : undefined);
+      song = normalizeSong(
+        { ...(data.song || {}), ...(loadedSongName ? { name: loadedSongName } : {}) },
+        Tracks[0]?.barSettings?.length,
+        tempo
+      );
       
       if (data.selectedTheme !== undefined) {
         publicAPI.setCurrentTheme(data.selectedTheme);

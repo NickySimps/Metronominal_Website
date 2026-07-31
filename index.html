@@ -124,6 +124,15 @@
                     <label>Song name <input id="song-name-input" maxlength="80" value="Untitled Song"></label>
                     <strong id="song-now-playing" aria-live="polite">Song mode off</strong>
                 </div>
+                <div class="song-section-navigator">
+                    <label for="song-section-select">Section
+                        <select id="song-section-select" aria-label="Select song section"></select>
+                    </label>
+                    <button id="go-selected-section-btn" type="button">Go</button>
+                    <button id="apply-section-tracks-btn" type="button">Apply Tracks</button>
+                    <button id="capture-section-tracks-btn" type="button">Capture Tracks</button>
+                </div>
+                <div id="song-section-track-preview" class="song-section-track-preview" aria-live="polite"></div>
                 <div id="song-sections-list" class="song-sections-list"></div>
                 <div class="song-mode-actions">
                     <button id="add-song-section-btn" type="button">Add Section</button>

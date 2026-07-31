@@ -11,6 +11,15 @@ const FORBIDDEN_KEYS = new Set([
 
 let refreshApplicationUI = () => {};
 let canEditSong = false;
+let selectedSectionIndex = 0;
+
+const SNAPSHOT_TRACK_KEYS = new Set([
+  "name", "barSettings", "muted", "solo", "volume", "mainBeatSound", "subdivisionSound"
+]);
+
+function hasOnlyKeys(value, keys) {
+  return Object.keys(value).every(key => keys.has(key));
+}
 
 function stripUnsafeData(value) {
   if (Array.isArray(value)) return value.map(stripUnsafeData);
@@ -36,22 +45,18 @@ function decodeBase64Url(value) {
 
 async function createPayload() {
   const state = stripUnsafeData(await AppState.getCurrentStateForPreset(true));
-  const privateSounds = new Set(AppState.getRecordings());
-  let foundPrivateAlias = true;
-  while (foundPrivateAlias) {
-    foundPrivateAlias = false;
-    for (const [name, definition] of Object.entries(state.customSounds || {})) {
-      if (privateSounds.has(definition?.baseSound) && !privateSounds.has(name)) {
-        privateSounds.add(name);
-        foundPrivateAlias = true;
-      }
-    }
-  }
+  const privateSounds = privateSoundNames();
   state.customSounds = Object.fromEntries(Object.entries(state.customSounds || {})
     .filter(([name]) => !privateSounds.has(name)));
+  const sharedTracks = [
+    ...(state.Tracks || []),
+    ...(state.song?.sections || []).flatMap(section => section.tracks || [])
+  ];
   for (const track of state.Tracks || []) {
     track.currentBar = 0;
     track.currentBeat = 0;
+  }
+  for (const track of sharedTracks) {
     if (privateSounds.has(track.mainBeatSound?.sound)) track.mainBeatSound.sound = "Synth Kick";
     if (privateSounds.has(track.subdivisionSound?.sound)) track.subdivisionSound.sound = "Synth HiHat";
   }
@@ -84,6 +89,69 @@ function isSafeSound(value) {
     && isSafeSettings(value.settings);
 }
 
+function isSafeSnapshotTrack(track) {
+  if (!track || typeof track !== "object" || Array.isArray(track) || !hasOnlyKeys(track, SNAPSHOT_TRACK_KEYS)) return false;
+  if (track.name !== undefined && (typeof track.name !== "string" || track.name.length < 1 || track.name.length > 64)) return false;
+  if (!Array.isArray(track.barSettings) || track.barSettings.length < 1 || track.barSettings.length > 64) return false;
+  if (typeof track.muted !== "boolean" || typeof track.solo !== "boolean" || !isFiniteInRange(track.volume, 0, 1)) return false;
+  if (!isSafeSound(track.mainBeatSound) || !isSafeSound(track.subdivisionSound)
+    || /^Recording:/i.test(track.mainBeatSound.sound) || /^Recording:/i.test(track.subdivisionSound.sound)) return false;
+  return track.barSettings.every(bar => bar && typeof bar === "object" && !Array.isArray(bar)
+    && hasOnlyKeys(bar, new Set(["beats", "subdivision", "rests"]))
+    && Number.isInteger(bar.beats) && bar.beats >= 1 && bar.beats <= 32
+    && isFiniteInRange(Number(bar.subdivision), 0.25, 16)
+    && Array.isArray(bar.rests) && bar.rests.length <= 256
+    && bar.rests.every(rest => Number.isInteger(rest) && rest >= 0 && rest <= 511));
+}
+
+function privateSoundNames() {
+  const names = new Set(AppState.getRecordings());
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const name of AppState.getCustomSounds()) {
+      if (names.has(AppState.getCustomSoundData(name)?.baseSound) && !names.has(name)) {
+        names.add(name);
+        changed = true;
+      }
+    }
+  }
+  return names;
+}
+
+function snapshotCurrentTracks() {
+  const privateSounds = privateSoundNames();
+  return AppState.getTracks().slice(0, 16).map((track, index) => ({
+    name: String(track.name || `Track ${index + 1}`).trim().slice(0, 64) || `Track ${index + 1}`,
+    barSettings: track.barSettings.slice(0, 64).map(bar => ({
+      beats: bar.beats,
+      subdivision: Number(bar.subdivision),
+      rests: [...(bar.rests || [])].slice(0, 256),
+    })),
+    muted: track.muted === true,
+    solo: track.solo === true,
+    volume: isFiniteInRange(track.volume, 0, 1) ? track.volume : 1,
+    mainBeatSound: {
+      sound: privateSounds.has(track.mainBeatSound?.sound) ? "Synth Kick" : track.mainBeatSound.sound,
+      settings: JSON.parse(JSON.stringify(track.mainBeatSound?.settings || {})),
+    },
+    subdivisionSound: {
+      sound: privateSounds.has(track.subdivisionSound?.sound) ? "Synth HiHat" : track.subdivisionSound.sound,
+      settings: JSON.parse(JSON.stringify(track.subdivisionSound?.settings || {})),
+    },
+  }));
+}
+
+function runtimeTracksFromSnapshot(tracks) {
+  return tracks.map(track => ({
+    ...JSON.parse(JSON.stringify(track)),
+    currentBar: 0,
+    currentBeat: 0,
+    songRepeatIteration: 0,
+    nextBeatTime: 0,
+  }));
+}
+
 function validateImportedState(state) {
   if (!state || typeof state !== "object" || Array.isArray(state)) return false;
   if (!Number.isInteger(state.tempo) || !isFiniteInRange(state.tempo, 20, 400) || !isFiniteInRange(state.volume, 0, 1)) return false;
@@ -111,7 +179,7 @@ function validateImportedState(state) {
     }
   }
   const song = state.song;
-  if (!song || song.version !== 1 || typeof song.enabled !== "boolean" || typeof song.name !== "string" || song.name.length < 1 || song.name.length > 80) return false;
+  if (!song || ![1, 2].includes(song.version) || typeof song.enabled !== "boolean" || typeof song.name !== "string" || song.name.length < 1 || song.name.length > 80) return false;
   if (!Array.isArray(song.sections) || song.sections.length < 1 || song.sections.length > 32) return false;
   let previousStart = -1;
   const barCount = state.Tracks[0].barSettings.length;
@@ -119,6 +187,12 @@ function validateImportedState(state) {
     if (!section || typeof section.name !== "string" || section.name.length < 1 || section.name.length > 48) return false;
     if (!Number.isInteger(section.startBar) || section.startBar <= previousStart || section.startBar >= barCount) return false;
     if (!Number.isInteger(section.tempo) || section.tempo < 20 || section.tempo > 300) return false;
+    if (song.version === 2) {
+      if (!Number.isInteger(section.repeats) || section.repeats < 1 || section.repeats > 16) return false;
+      if (section.tracks !== undefined
+        && (!Array.isArray(section.tracks) || section.tracks.length < 1 || section.tracks.length > 16
+          || !section.tracks.every(isSafeSnapshotTrack))) return false;
+    }
     previousStart = section.startBar;
   }
   return song.sections[0].startBar === 0;
@@ -141,13 +215,27 @@ function reconstructImportedState(state) {
     volume: state.volume,
     countInBars: state.countInBars || 0,
     song: {
-      version: 1,
+      version: 2,
       enabled: state.song.enabled,
       name: state.song.name,
       sections: state.song.sections.map(section => ({
         name: section.name,
         startBar: section.startBar,
-        tempo: section.tempo
+        tempo: section.tempo,
+        repeats: state.song.version === 2 ? section.repeats : 1,
+        ...(state.song.version === 2 && Array.isArray(section.tracks)
+          ? { tracks: section.tracks.map(track => ({
+            ...(typeof track.name === "string" ? { name: track.name } : {}),
+            barSettings: track.barSettings.map(bar => ({
+              beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests]
+            })),
+            muted: track.muted,
+            solo: track.solo,
+            volume: track.volume,
+            mainBeatSound: reconstructSound(track.mainBeatSound),
+            subdivisionSound: reconstructSound(track.subdivisionSound)
+          })) }
+          : {})
       }))
     },
     Tracks: state.Tracks.map(track => ({
@@ -221,6 +309,21 @@ async function publishSongChange(nextSong, shouldRender = true) {
   sendState(AppState.getCurrentStateForPreset(true));
 }
 
+function goToSection(index) {
+  if (!Number.isInteger(index) || !canEditSong || AppState.isPlaying()) return false;
+  const section = AppState.getSong().sections[index];
+  if (!section) return false;
+  for (const track of AppState.getTracks()) {
+    track.currentBar = section.startBar % track.barSettings.length;
+    track.currentBeat = 0;
+    track.songRepeatIteration = 0;
+  }
+  selectedSectionIndex = index;
+  sendState(AppState.getCurrentStateForPreset(true));
+  render();
+  return true;
+}
+
 function render() {
   const song = AppState.getSong();
   const editable = canEditSong && !AppState.isPlaying();
@@ -229,7 +332,12 @@ function render() {
   const name = document.getElementById("song-name-input");
   const list = document.getElementById("song-sections-list");
   const add = document.getElementById("add-song-section-btn");
-  if (!panel || !enabled || !name || !list || !add) return;
+  const selector = document.getElementById("song-section-select");
+  const goSelected = document.getElementById("go-selected-section-btn");
+  const applyTracks = document.getElementById("apply-section-tracks-btn");
+  const captureTracks = document.getElementById("capture-section-tracks-btn");
+  const preview = document.getElementById("song-section-track-preview");
+  if (!panel || !enabled || !name || !list || !add || !selector || !goSelected || !applyTracks || !captureTracks || !preview) return;
 
   enabled.setAttribute("aria-pressed", String(song.enabled));
   enabled.setAttribute("aria-label", song.enabled ? "Disable song mode" : "Enable song mode");
@@ -242,6 +350,37 @@ function render() {
   add.disabled = !editable || song.sections.length >= 32 || (!hasUnusedBar && primaryBarCount >= 64);
   const importInput = document.getElementById("import-song-input");
   if (importInput) importInput.disabled = !editable;
+  selectedSectionIndex = Math.max(0, Math.min(selectedSectionIndex, song.sections.length - 1));
+  selector.replaceChildren(...song.sections.map((section, index) => {
+    const option = document.createElement("option");
+    option.value = String(index);
+    option.textContent = `${index + 1}. ${section.name}`;
+    option.selected = index === selectedSectionIndex;
+    return option;
+  }));
+  selector.disabled = !song.enabled;
+  goSelected.disabled = !editable;
+  const selectedSection = song.sections[selectedSectionIndex];
+  const selectedTracks = selectedSection?.tracks || [];
+  applyTracks.disabled = !editable || !selectedTracks.length;
+  captureTracks.disabled = !editable;
+  captureTracks.textContent = selectedTracks.length ? "Update Tracks" : "Capture Tracks";
+  preview.replaceChildren();
+  const summary = document.createElement("strong");
+  summary.textContent = selectedTracks.length
+    ? `${selectedTracks.length} track${selectedTracks.length === 1 ? "" : "s"} saved in ${selectedSection.name}`
+    : `No tracks saved in ${selectedSection.name}`;
+  preview.appendChild(summary);
+  if (selectedTracks.length) {
+    const previewList = document.createElement("ul");
+    for (const [index, track] of selectedTracks.entries()) {
+      const item = document.createElement("li");
+      const state = track.muted ? "muted" : (track.solo ? "solo" : "active");
+      item.textContent = `${track.name || `Track ${index + 1}`} · ${track.barSettings.length} bar${track.barSettings.length === 1 ? "" : "s"} · ${track.mainBeatSound.sound} / ${track.subdivisionSound.sound} · ${state}`;
+      previewList.appendChild(item);
+    }
+    preview.appendChild(previewList);
+  }
   list.replaceChildren();
 
   song.sections.forEach((section, index) => {
@@ -251,11 +390,17 @@ function render() {
     const barOptions = Array.from({ length: primaryBarCount }, (_, barIndex) =>
       `<option value="${barIndex + 1}"${barIndex === section.startBar ? " selected" : ""}>Bar ${barIndex + 1}</option>`
     ).join("");
+    const repeatOptions = Array.from({ length: 16 }, (_, repeatIndex) => {
+      const repeats = repeatIndex + 1;
+      return `<option value="${repeats}"${repeats === section.repeats ? " selected" : ""}>${repeats}×</option>`;
+    }).join("");
     row.innerHTML = `
       <span class="song-section-number">${index + 1}</span>
       <label>Name <input data-song-section-name="${index}" maxlength="48" value=""></label>
       <label>Starts at bar <select data-song-section-start="${index}">${barOptions}</select></label>
       <label>BPM <input data-song-section-tempo="${index}" type="number" min="20" max="300" value="${section.tempo}"></label>
+      <label>Repeats <select data-song-section-repeats="${index}">${repeatOptions}</select></label>
+      <span class="song-section-track-count">${section.tracks?.length || 0} tracks</span>
       <button type="button" data-go-song-section="${index}" aria-label="Start from ${section.name === "" ? "this section" : "section"}">Go</button>
       <button type="button" data-remove-song-section="${index}" aria-label="Remove song section">Remove</button>`;
     const nameInput = row.querySelector(`[data-song-section-name="${index}"]`);
@@ -279,9 +424,11 @@ function updatedSongFromFields() {
   song.enabled = document.getElementById("song-mode-enabled").getAttribute("aria-pressed") === "true";
   song.name = document.getElementById("song-name-input").value;
   song.sections = song.sections.map((section, index) => ({
+    ...section,
     name: document.querySelector(`[data-song-section-name="${index}"]`)?.value || section.name,
     startBar: (Number.parseInt(document.querySelector(`[data-song-section-start="${index}"]`)?.value, 10) || 1) - 1,
     tempo: Number.parseInt(document.querySelector(`[data-song-section-tempo="${index}"]`)?.value, 10) || section.tempo,
+    repeats: Number.parseInt(document.querySelector(`[data-song-section-repeats="${index}"]`)?.value, 10) || section.repeats,
   }));
   return song;
 }
@@ -297,7 +444,43 @@ async function initialize(callback) {
     publishSongChange(song);
   });
   panel.addEventListener("change", event => {
-    if (event.target.matches("input, select")) publishSongChange(updatedSongFromFields(), false);
+    if (event.target.matches("#song-name-input, [data-song-section-name], [data-song-section-start], [data-song-section-tempo], [data-song-section-repeats]")) {
+      publishSongChange(updatedSongFromFields(), false);
+    }
+  });
+  document.getElementById("song-section-select")?.addEventListener("change", event => {
+    selectedSectionIndex = Number.parseInt(event.target.value, 10) || 0;
+    render();
+  });
+  document.getElementById("go-selected-section-btn")?.addEventListener("click", () => {
+    goToSection(selectedSectionIndex);
+  });
+  document.getElementById("capture-section-tracks-btn")?.addEventListener("click", async () => {
+    if (!canEditSong || AppState.isPlaying()) return;
+    const song = updatedSongFromFields();
+    const section = song.sections[selectedSectionIndex];
+    if (!section) return;
+    section.tracks = snapshotCurrentTracks();
+    await publishSongChange(song);
+    announce(`${section.tracks.length} track${section.tracks.length === 1 ? "" : "s"} captured for ${section.name}.`);
+  });
+  document.getElementById("apply-section-tracks-btn")?.addEventListener("click", async () => {
+    if (!canEditSong || AppState.isPlaying()) return;
+    const song = updatedSongFromFields();
+    const section = song.sections[selectedSectionIndex];
+    if (!section?.tracks?.length) return;
+    const requiredBars = Math.max(...song.sections.map(item => item.startBar)) + 1;
+    if (section.tracks[0].barSettings.length < requiredBars) {
+      announce("This snapshot does not contain enough bars for the current section layout. Update it first.", true);
+      return;
+    }
+    const state = await AppState.getCurrentStateForPreset(true);
+    state.Tracks = runtimeTracksFromSnapshot(section.tracks);
+    state.song = song;
+    await AppState.loadPresetData(state);
+    refreshApplicationUI();
+    sendState(AppState.getCurrentStateForPreset(true));
+    announce(`${section.name} tracks applied.`);
   });
   document.getElementById("add-song-section-btn")?.addEventListener("click", () => {
     const song = updatedSongFromFields();
@@ -315,26 +498,27 @@ async function initialize(callback) {
       barCount = tracks[0]?.barSettings?.length || barCount;
     }
     if (nextStart >= barCount) return;
-    song.sections.push({ name: `Section ${song.sections.length + 1}`, startBar: nextStart, tempo: AppState.getTempo() });
+    song.sections.push({
+      name: `Section ${song.sections.length + 1}`,
+      startBar: nextStart,
+      tempo: AppState.getTempo(),
+      repeats: 1,
+    });
+    selectedSectionIndex = song.sections.length - 1;
     publishSongChange(song);
     refreshApplicationUI();
   });
   document.getElementById("song-sections-list")?.addEventListener("click", event => {
     const goIndex = Number.parseInt(event.target.dataset.goSongSection, 10);
     if (Number.isInteger(goIndex) && canEditSong && !AppState.isPlaying()) {
-      const section = AppState.getSong().sections[goIndex];
-      if (!section) return;
-      for (const track of AppState.getTracks()) {
-        track.currentBar = section.startBar % track.barSettings.length;
-        track.currentBeat = 0;
-      }
-      render();
+      goToSection(goIndex);
       return;
     }
     const index = Number.parseInt(event.target.dataset.removeSongSection, 10);
     if (!Number.isInteger(index) || index <= 0) return;
     const song = updatedSongFromFields();
     song.sections.splice(index, 1);
+    selectedSectionIndex = Math.min(selectedSectionIndex, song.sections.length - 1);
     publishSongChange(song);
   });
   document.getElementById("copy-song-link-btn")?.addEventListener("click", async () => {

@@ -137,10 +137,13 @@ function advanceTrackBeat(track) {
     track.currentBeat++;
     if (track.currentBeat >= totalSubBeatsInBar) {
         track.currentBeat = 0;
-        track.currentBar++;
-        if (track.currentBar >= track.barSettings.length) {
-            track.currentBar = 0; // Loop back
-        }
+        const nextPosition = AppState.getNextSongPosition(
+            track.currentBar,
+            track.songRepeatIteration || 0,
+            track.barSettings.length
+        );
+        track.currentBar = nextPosition.bar;
+        track.songRepeatIteration = nextPosition.repeatIteration;
     }
 }
 
@@ -206,7 +209,7 @@ function scheduler() {
                     // Relation: WallTime = Date.now() + (AudioTime - AudioCtx.currentTime)*1000
                     const timeToBeat = track.nextBeatTime - audioContext.currentTime;
                     const wallTime = Date.now() + (timeToBeat * 1000);
-                    broadcastSyncPulse(wallTime, track.currentBar, track.currentBeat);
+                    broadcastSyncPulse(wallTime, track.currentBar, track.currentBeat, track.songRepeatIteration || 0);
                     lastSyncPulseTime = Date.now();
                 }
                 
@@ -370,7 +373,7 @@ const MetronomeEngine = {
         return isNowPlaying;
     },
 
-    scheduleStart: async (targetTimestamp, startBar = 0, startBeat = 0, shouldStart = () => true) => {
+    scheduleStart: async (targetTimestamp, startBar = 0, startBeat = 0, repeatIteration = 0, shouldStart = () => true) => {
         const audioContext = AppState.getAudioContext();
         if (audioContext && audioContext.state === 'suspended') {
             await audioContext.resume();
@@ -403,6 +406,7 @@ const MetronomeEngine = {
         allTracks.forEach(track => {
             if (!track.barSettings.length) return;
             track.currentBar = startBar % track.barSettings.length;
+            track.songRepeatIteration = Math.max(0, Math.min(Number.parseInt(repeatIteration, 10) || 0, 15));
             const startBarData = track.barSettings[track.currentBar];
             const beatsInBar = Math.max(1, Math.ceil(startBarData.beats * startBarData.subdivision));
             track.currentBeat = startBeat % beatsInBar;
@@ -452,7 +456,7 @@ const MetronomeEngine = {
         }
     },
 
-    handleSyncPulse: (targetWallTime, bar, beat) => {
+    handleSyncPulse: (targetWallTime, bar, beat, repeatIteration = 0) => {
         const audioContext = AppState.getAudioContext();
         if (!AppState.isPlaying() || !audioContext) return;
 
@@ -470,12 +474,14 @@ const MetronomeEngine = {
             // Note: 'bar' and 'beat' from Host are the indices of the NEXT beat (targetAudioTime).
             // 'track.currentBar' and 'track.currentBeat' are the indices of OUR next beat.
             
-            if (track.currentBar !== bar || track.currentBeat !== beat) {
+            if (track.currentBar !== bar || track.currentBeat !== beat
+                || (track.songRepeatIteration || 0) !== repeatIteration) {
                 console.warn(`Sync Mismatch! Client: ${track.currentBar}:${track.currentBeat}, Host: ${bar}:${beat}. Snapping structure...`);
                 
                 // Hard snap indices
                 track.currentBar = bar;
                 track.currentBeat = beat;
+                track.songRepeatIteration = repeatIteration;
                 
                 // Hard snap time (force alignment to host's target time)
                 const correction = targetAudioTime - track.nextBeatTime;
@@ -485,6 +491,7 @@ const MetronomeEngine = {
                    // For other tracks, we can't easily snap indices (might have different meters),
                    // but we MUST apply the time correction so they don't drift relative to Track 0.
                    t.nextBeatTime += correction;
+                   t.songRepeatIteration = repeatIteration;
                    
                    if (t === track) {
                        t.nextBeatTime = targetAudioTime; // Ensure exact match for reference

@@ -173,7 +173,7 @@ function sendJoinRequest() {
     type: "join",
     room: roomId,
     requestedRole: window.isHost ? "host" : "client",
-    capabilities: ["song-v1"],
+    capabilities: ["song-v1", "song-v2"],
     ...(window.isHost ? { hostCredential } : {})
   });
 }
@@ -384,6 +384,7 @@ function applyTransport(message) {
       localTimestamp(message.effectiveAt),
       message.currentBar || 0,
       message.currentBeat || 0,
+      message.repeatIteration || 0,
       () => generation === transportGeneration
     );
   } else {
@@ -476,11 +477,14 @@ async function handleSocketMessage(event, generation) {
         && message.revision >= lastTransportRevision
         && Number.isInteger(message.currentBar) && message.currentBar >= 0 && message.currentBar <= 4095
         && Number.isInteger(message.currentBeat) && message.currentBeat >= 0 && message.currentBeat <= 4095
+        && (message.repeatIteration === undefined
+          || (Number.isInteger(message.repeatIteration) && message.repeatIteration >= 0 && message.repeatIteration <= 15))
         && Number.isFinite(Number(message.nextBeatWallTime))) {
         MetronomeEngine.handleSyncPulse(
           localTimestamp(message.nextBeatWallTime),
           message.currentBar,
-          message.currentBeat
+          message.currentBeat,
+          message.repeatIteration || 0
         );
       }
       break;
@@ -838,7 +842,7 @@ export function broadcastStop() {
   return broadcastTransportCommand(false);
 }
 
-export function broadcastSyncPulse(nextBeatWallTime, currentBar, currentBeat) {
+export function broadcastSyncPulse(nextBeatWallTime, currentBar, currentBeat, repeatIteration = 0) {
   if (!window.isHost || !joined) return false;
   if (countInEndsAt && Date.now() + timeOffset < countInEndsAt) return false;
   countInEndsAt = 0;
@@ -846,7 +850,8 @@ export function broadcastSyncPulse(nextBeatWallTime, currentBar, currentBeat) {
     type: "playback-sync-pulse",
     nextBeatWallTime: nextBeatWallTime + timeOffset,
     currentBar,
-    currentBeat
+    currentBeat,
+    repeatIteration
   });
 }
 

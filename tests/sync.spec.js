@@ -212,7 +212,7 @@ test('song mode synchronizes sections and creates a credential-free song link', 
   await host.locator('[data-song-section-tempo="1"]').blur();
 
   await expect.poll(async () => (await readState(host)).song).toMatchObject({
-    version: 1,
+    version: 2,
     enabled: true,
     name: 'Band Rehearsal',
     sections: [
@@ -334,6 +334,103 @@ test('song section tempo automation changes the scheduled beat grid', async ({ p
   expect(trackAlignment[1].bar).toBe(trackAlignment[0].bar);
   expect(trackAlignment[1].beat).toBe(trackAlignment[0].beat);
   expect(Math.abs(trackAlignment[1].next - trackAlignment[0].next)).toBeLessThan(0.01);
+});
+
+test('song v2 normalizes snapshots, repeats section ranges, and derives a missing song name from its preset', async ({ page }) => {
+  await page.goto('./');
+  const result = await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const state = await AppState.getCurrentStateForPreset(true);
+    state.songName = 'Loaded Math-Rock Preset';
+    delete state.song;
+    state.Tracks[0].barSettings = Array.from({ length: 4 }, () => ({ beats: 4, subdivision: 1, rests: [] }));
+    await AppState.loadPresetData(state);
+    const fallbackName = AppState.getSong().name;
+    AppState.setSong({
+      version: 2,
+      enabled: true,
+      name: 'Repeated Arrangement',
+      sections: [
+        {
+          name: 'Verse', startBar: 0, tempo: 120, repeats: 2,
+          tracks: [{
+            name: 'Snapshot', muted: false, solo: false, volume: 1,
+            barSettings: [{ beats: 4, subdivision: 1, rests: [] }],
+            mainBeatSound: { sound: 'Synth Kick', settings: {} },
+            subdivisionSound: { sound: 'Synth HiHat', settings: {} }
+          }]
+        },
+        { name: 'Chorus', startBar: 2, tempo: 140, repeats: 1 }
+      ]
+    });
+    const sequence = [];
+    let position = { bar: 0, repeatIteration: 0 };
+    for (let index = 0; index < 4; index += 1) {
+      position = AppState.getNextSongPosition(position.bar, position.repeatIteration, 4);
+      sequence.push(position);
+    }
+    return { fallbackName, song: AppState.getSong(), sequence };
+  });
+  expect(result.fallbackName).toBe('Loaded Math-Rock Preset');
+  expect(result.song).toMatchObject({
+    version: 2,
+    sections: [{ repeats: 2, tracks: [{ name: 'Snapshot' }] }, { repeats: 1 }]
+  });
+  expect(result.sequence).toEqual([
+    { bar: 1, repeatIteration: 0 },
+    { bar: 0, repeatIteration: 1 },
+    { bar: 1, repeatIteration: 1 },
+    { bar: 2, repeatIteration: 0 }
+  ]);
+});
+
+test('section selector captures, previews, and atomically reapplies all section tracks', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await page.locator('#song-mode-enabled').click();
+  await expect(page.locator('#song-section-select')).toBeVisible();
+  await page.locator('[data-song-section-repeats="0"]').selectOption('3');
+  await page.locator('#capture-section-tracks-btn').click();
+  await expect(page.locator('#song-section-track-preview')).toContainText('1 track');
+  await expect.poll(async () => (await readState(page)).song.sections[0].repeats).toBe(3);
+  await expect.poll(async () => (await readState(page)).song.sections[0].tracks?.length).toBe(1);
+
+  await page.locator('#add-track-btn').click();
+  await expect.poll(async () => (await readState(page)).tracks.length).toBe(2);
+  await page.locator('#apply-section-tracks-btn').click();
+  await expect.poll(async () => (await readState(page)).tracks.length).toBe(1);
+  await expect(page.locator('#song-share-status')).toContainText('applied');
+});
+
+test('section repeat counts repeat the bounded bar range before advancing', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const state = await AppState.getCurrentStateForPreset(true);
+    state.Tracks[0].barSettings = [
+      { beats: 1, subdivision: 16, rests: Array.from({ length: 15 }, (_, index) => index + 1) },
+      { beats: 1, subdivision: 16, rests: Array.from({ length: 15 }, (_, index) => index + 1) }
+    ];
+    state.song = {
+      version: 2,
+      enabled: true,
+      name: 'Repeat Test',
+      sections: [
+        { name: 'A', startBar: 0, tempo: 300, repeats: 2 },
+        { name: 'B', startBar: 1, tempo: 300, repeats: 1 }
+      ]
+    };
+    await AppState.loadPresetData(state);
+    const { sendState } = await import(new URL('js/webrtc.js', document.baseURI).href);
+    sendState(AppState.getCurrentStateForPreset(true));
+    window.__songBars = [];
+    document.addEventListener('songpositionchange', event => window.__songBars.push(event.detail.bar));
+  });
+  await page.locator('#start-stop-btn').click();
+  await expect.poll(() => page.evaluate(() => window.__songBars.length), { timeout: 5_000 }).toBeGreaterThanOrEqual(3);
+  const bars = await page.evaluate(() => window.__songBars.slice(0, 3));
+  expect(bars).toEqual([0, 0, 1]);
 });
 
 test('song, rest, and recording controls keep readable contrast in every theme', async ({ page }) => {
@@ -594,16 +691,28 @@ test('song sharing excludes private recordings and safely falls back to built-in
     AppState.addCustomSound('Private alias', 'Private rehearsal take', {});
     AppState.getTracks()[0].mainBeatSound.sound = 'Private rehearsal take';
     AppState.getTracks()[0].subdivisionSound.sound = 'Private alias';
+    const song = AppState.getSong();
+    song.sections[0].tracks = [{
+      name: 'Private snapshot', barSettings: [{ beats: 4, subdivision: 1, rests: [] }],
+      muted: false, solo: false, volume: 1,
+      mainBeatSound: { sound: 'Private rehearsal take', settings: {} },
+      subdivisionSound: { sound: 'Private alias', settings: {} }
+    }];
+    AppState.setSong(song);
     const payload = await SongController.createPayload();
     return {
       main: payload.state.Tracks[0].mainBeatSound.sound,
       subdivision: payload.state.Tracks[0].subdivisionSound.sound,
+      snapshotMain: payload.state.song.sections[0].tracks[0].mainBeatSound.sound,
+      snapshotSubdivision: payload.state.song.sections[0].tracks[0].subdivisionSound.sound,
       customSounds: Object.keys(payload.state.customSounds),
       serialized: JSON.stringify(payload)
     };
   });
   expect(shared.main).toBe('Synth Kick');
   expect(shared.subdivision).toBe('Synth HiHat');
+  expect(shared.snapshotMain).toBe('Synth Kick');
+  expect(shared.snapshotSubdivision).toBe('Synth HiHat');
   expect(shared.customSounds).not.toContain('Private alias');
   expect(shared.serialized).not.toContain('Private rehearsal take');
 });
