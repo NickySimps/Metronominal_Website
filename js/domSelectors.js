@@ -37,7 +37,7 @@ const DOM = {
     get volumeValueDisplay() { return document.querySelector('.volume-value'); },
 
     // Theme buttons
-    get themeButtons() { return document.querySelectorAll('.theme-controls button'); },
+    get themeButtons() { return document.querySelectorAll('.theme-menu button'); },
 
     // Preset Controls
     get savePresetButton() { return document.querySelector('.save-preset-btn'); },

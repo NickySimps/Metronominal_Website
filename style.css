@@ -803,20 +803,41 @@ select {
   position: fixed;
   top: var(--s3); /* Standardized position (8px) */
   right: var(--s3); /* Standardized position (8px) */
-  display: flex; /* Keep as flex */
-  /* Wrap and cap width so the palette never slides over the top-left
-     controls (undo / edit / screen lock) on mid-size windows. */
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  max-width: calc(100vw - 640px);
-  gap: var(--s3); /* Standardized gap (8px) */
-  padding: var(--s3); /* Standardized padding (8px) */
-  background-color: color-mix(in srgb, var(--Background) 80%, transparent);
-  border: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
-  border-radius: var(--BorderRadius);
   z-index: 1000; /* Ensure it's on top of other elements */
-  box-shadow: 0 var(--s1) var(--s2) rgba(0, 0, 0, 0.1); /* 0 2px 4px */
 }
+
+#theme-menu-toggle {
+  width: var(--s8);
+  height: var(--s8);
+  font-size: var(--font-3);
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background-color: var(--Highlight);
+  border: var(--s0) solid var(--BorderColor);
+  border-radius: 50%;
+  box-shadow: 0 var(--s1) var(--s2) rgba(0, 0, 0, 0.1);
+}
+#theme-menu-toggle:hover { background-color: var(--Accent); }
+
+.theme-menu {
+  position: absolute;
+  top: calc(100% + var(--s2));
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(96px, 1fr));
+  gap: var(--s2);
+  padding: var(--s3);
+  background-color: color-mix(in srgb, var(--Background) 92%, black 4%);
+  border: var(--s0) solid var(--BorderColor);
+  border-radius: var(--BorderRadius);
+  box-shadow: 0 var(--s2) var(--s4) rgba(0, 0, 0, 0.2);
+  animation: song-panel-expand 160ms ease-out;
+}
+.theme-menu[hidden] { display: none; }
 
 .theme-controls button {
   padding: var(--s2) var(--s3); /* Standardized padding (4px 8px) */
@@ -1060,8 +1081,7 @@ select {
 
 /* Mobile-specific adjustments */
 @media (max-width: 767px) {
-  .top-controls-area,
-  .theme-controls {
+  .top-controls-area {
     position: fixed;
     left: 0;
     width: 100%;
@@ -1099,21 +1119,24 @@ select {
     box-shadow: 0 var(--s1) var(--s2) rgba(0, 0, 0, 0.1); /* Standardized shadow (0 2px 4px) */
   }
 
-  /* Specific styling for .theme-controls */
+  /* Specific styling for .theme-controls: compact toggle pinned bottom-right,
+     palette pops up above it. */
   .theme-controls {
     top: auto;
-    bottom: 0;
-    right: 0; /* Ensure it starts from the right edge */
-    left: 0; /* Stretch across the bottom */
-    width: 100%;
-    max-width: none; /* Desktop cap does not apply to the mobile bottom bar */
-    flex-wrap: nowrap; /* Single scrollable row on mobile */
-    justify-content: flex-start; /* Align items to the start */
-    border-top: var(--s0) solid var(--BorderColor); /* Standardized border (1px) */
-    overflow-x: auto; /* Enable horizontal scrolling */
-    white-space: nowrap; /* Keep all buttons on one line */
-    padding-left: var(--s3); /* Add some padding to the left */
-    padding-right: var(--s3); /* Add some padding to the right */
+    bottom: var(--s3);
+    right: var(--s3);
+    left: auto;
+    width: auto;
+    padding: 0;
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+  }
+  .theme-menu {
+    top: auto;
+    bottom: calc(100% + var(--s2));
+    max-height: 60vh;
+    overflow-y: auto;
   }
   /* Add this to your style.css file */
   /* Base styles for all subdivision options */
@@ -1571,7 +1594,11 @@ button:active,
 
 .modal-content {
     background-color: var(--Background);
-    margin: 15% auto;
+    /* Keep the dialog on screen: cap height and scroll internally instead of
+       overflowing the viewport (lower sliders were unreachable). */
+    margin: 4vh auto;
+    max-height: 92vh;
+    overflow-y: auto;
     padding: 20px;
     border: 1px solid var(--Alt2);
     width: 85%;
@@ -1715,9 +1742,6 @@ button:active,
 
 .slider-container input[type="range"] {
   width: 100%;
-}
-.slider-container span {
-  padding-top: 20px;
 }
 #background-oscilloscope {
   position: fixed;
@@ -1995,13 +2019,29 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 }
 
 .slider-container {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  row-gap: 0.35rem;
   margin-bottom: 1rem;
 }
 .slider-container label {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
+  font-weight: 600;
 }
+/* Value chip sits beside its label instead of floating below the slider. */
+.slider-container > span {
+  grid-row: 1;
+  grid-column: 2;
+  padding: var(--s1) var(--s2);
+  font-size: var(--font-1);
+  background: var(--Highlight);
+  color: var(--ReadableOnHighlight);
+  border-radius: var(--BorderRadius);
+  text-shadow: none;
+  justify-self: end;
+}
+.slider-container .slider-wrapper { grid-column: 1 / -1; }
 .slider-container input[type="range"] {
   -webkit-appearance: none;
   width: 100%;

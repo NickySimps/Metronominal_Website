@@ -372,7 +372,25 @@ const ThemeController = {
             button.addEventListener('click', () => {
                 if (button.dataset.theme === 'random') ensureRandomTheme(true);
                 handleThemeSelection(button.dataset.theme); // Use the internal handler
+                toggleThemeMenu(false);
             });
+        });
+
+        // Palette popover: one compact button opens the theme grid.
+        const themeMenuToggle = document.getElementById('theme-menu-toggle');
+        const themeMenu = document.getElementById('theme-menu');
+        const toggleThemeMenu = (open) => {
+            if (!themeMenuToggle || !themeMenu) return;
+            const show = open ?? themeMenu.hidden;
+            themeMenu.hidden = !show;
+            themeMenuToggle.setAttribute('aria-expanded', String(show));
+        };
+        themeMenuToggle?.addEventListener('click', () => toggleThemeMenu());
+        document.addEventListener('click', (event) => {
+            if (!themeMenu?.hidden && !event.target.closest('.theme-controls')) toggleThemeMenu(false);
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') toggleThemeMenu(false);
         });
 
         // Load and apply saved theme or default on initialization

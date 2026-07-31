@@ -515,8 +515,9 @@ const TrackController = {
    * @param {Event} event - The mousedown event.
    */
   handleMouseDown: (event) => {
-    const target = event.target;
-    if (target.matches(".sound-label")) {
+    // Resolve from the nearest label so clicks landing on padding still count.
+    const target = event.target.closest?.(".sound-label");
+    if (target) {
       const trackElement = target.closest(".track");
       if (trackElement) {
         const containerIndex = parseInt(

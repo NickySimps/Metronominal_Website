@@ -484,6 +484,8 @@ test('song, rest, and recording controls keep readable contrast in every theme',
 
 test('the theme menu question-mark button generates and persists a new random theme on every press', async ({ page }) => {
   await page.goto('./');
+  await page.locator('#theme-menu-toggle').click();
+  await expect(page.locator('#theme-menu')).toBeVisible();
   await expect(page.locator('#random-theme-btn')).toHaveText('?');
   await expect(page.locator('#random-theme-btn')).toHaveAttribute('aria-label', 'Generate a random theme');
   const paletteSignature = () => page.evaluate(() => [
@@ -515,6 +517,7 @@ test('the theme menu question-mark button generates and persists a new random th
   });
   expect(minimumHueDistance).toBeGreaterThanOrEqual(50);
   await expect.poll(() => page.evaluate(() => localStorage.getItem('selectedTheme'))).toBe('random');
+  await page.locator('#theme-menu-toggle').click();
   await page.locator('#random-theme-btn').click();
   const secondPalette = await paletteSignature();
   expect(secondPalette).not.toBe(firstPalette);
@@ -945,6 +948,7 @@ test('a QR room join syncs settings and playback position but preserves each pee
   await expect(host.locator('#n-of-connections')).toHaveText('(0)');
   await expect(host.locator('#n-of-connections')).toHaveAttribute('aria-label', '0 connected peers');
   await expect(host.locator('#share-btn')).not.toHaveClass(/has-peers/);
+  await host.locator('#theme-menu-toggle').click();
   await host.locator('[data-theme="dark"]').click();
   await host.locator('.tempo-slider input').fill('173');
   await host.locator('#volume-slider-input').fill('0.42');
@@ -993,6 +997,7 @@ test('a QR room join syncs settings and playback position but preserves each pee
   expect(Math.min(beatDistance, beatPositions - beatDistance)).toBeLessThanOrEqual(1);
 
   // Changes made after joining remain host-authoritative and keep the client's theme local.
+  await client.locator('#theme-menu-toggle').click();
   await client.locator('[data-theme="synthwave"]').click();
   await host.locator('.tempo-slider input').fill('181');
   await expect.poll(async () => (await readState(client)).tempo).toBe(181);
@@ -1013,6 +1018,7 @@ test('a QR room join syncs settings and playback position but preserves each pee
   await secondClient.locator('#dismiss-connection-modal-btn').click();
   await expect.poll(async () => (await readState(secondClient)).tempo).toBe(181);
   await expect.poll(async () => (await readState(secondClient)).song.name).toBe('Lifecycle Song');
+  await secondClient.locator('#theme-menu-toggle').click();
   await secondClient.locator('[data-theme="dark"]').click();
 
   // Client controls cannot overwrite or permanently diverge from authoritative host settings.

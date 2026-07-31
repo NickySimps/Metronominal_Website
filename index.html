@@ -181,7 +181,10 @@
                 <h3 id="current-preset-display-heading">Metronominal</h3>
             </div>
             <div class="theme-controls">
-                <button data-theme="default" aria-label="Switch to Default Theme">
+                <button id="theme-menu-toggle" aria-label="Choose theme" aria-haspopup="true" aria-expanded="false"
+                    title="Choose theme">🎨</button>
+                <div id="theme-menu" class="theme-menu" hidden>
+                    <button data-theme="default" aria-label="Switch to Default Theme">
                     Default
                 </button>
                 <button data-theme="dark" aria-label="Switch to Dark Theme">
@@ -212,6 +215,7 @@
                     Colorblind
                 </button>
                 <button id="random-theme-btn" data-theme="random" aria-label="Generate a random theme" title="Generate a random theme">?</button>
+                </div>
             </div>
         </div>
     </div>
