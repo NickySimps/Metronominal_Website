@@ -136,18 +136,21 @@ async function initialize() {
   }
   
   // Unlock AudioContext on first user interaction (Crucial for Mobile)
-  const unlockAudio = () => {
-      UserInteraction.handleFirstInteraction();
-      // Remove listeners after first successful interaction
+  const unlockAudio = async () => {
+      await UserInteraction.handleFirstInteraction();
+      // Only remove listeners once the context is genuinely running;
+      // on iOS the first attempt can fail (interrupted state, mute switch).
       if (UserInteraction.audioContextInitialized) {
           document.removeEventListener('click', unlockAudio);
           document.removeEventListener('keydown', unlockAudio);
-          document.removeEventListener('touchstart', unlockAudio);
+          document.removeEventListener('touchend', unlockAudio);
       }
   };
   document.addEventListener('click', unlockAudio);
   document.addEventListener('keydown', unlockAudio);
-  document.addEventListener('touchstart', unlockAudio);
+  // iOS requires the gesture to complete: touchend counts as user activation,
+  // touchstart alone may not.
+  document.addEventListener('touchend', unlockAudio);
 
   initializeShareControls();
   await initializeWebRTC();
