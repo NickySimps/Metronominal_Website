@@ -11,6 +11,7 @@ async function readState(page) {
       song: AppState.getSong(),
       theme: AppState.getCurrentTheme(),
       isPlaying: AppState.isPlaying(),
+      isRestMode: AppState.isRestMode(),
       tracks: AppState.getTracks().map(({ analyserNode, ...track }) => track),
     };
   });
@@ -431,6 +432,18 @@ test('section repeat counts repeat the bounded bar range before advancing', asyn
   await expect.poll(() => page.evaluate(() => window.__songBars.length), { timeout: 5_000 }).toBeGreaterThanOrEqual(3);
   const bars = await page.evaluate(() => window.__songBars.slice(0, 3));
   expect(bars).toEqual([0, 0, 1]);
+});
+
+test('rest and record buttons toggle even when their inner icon is clicked', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  const restIcon = page.locator('.rest-button .control-icon').first();
+  await restIcon.click();
+  await expect.poll(async () => (await readState(page)).isRestMode).toBe(true);
+  await expect(page.locator('.rest-button').first()).toHaveClass(/active/);
+  await restIcon.click();
+  await expect.poll(async () => (await readState(page)).isRestMode).toBe(false);
+  await expect(page.locator('.rest-button').first()).not.toHaveClass(/active/);
 });
 
 test('song, rest, and recording controls keep readable contrast in every theme', async ({ page }) => {

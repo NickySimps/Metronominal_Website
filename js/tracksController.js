@@ -305,7 +305,11 @@ const TrackController = {
    * @param {Event} event - The click event.
    */
   handleTrackClicks: (event) => {
-    const target = event.target;
+    // Buttons contain inner icon spans, so resolve the intended control from
+    // the nearest matching ancestor instead of relying on event.target alone.
+    const target = event.target.closest(
+      ".track-mute-btn, .track-solo-btn, .track-remove-btn, .rest-button, .record-btn"
+    ) || event.target;
     const trackElement = target.closest(".track");
 
     if (!trackElement) return;
