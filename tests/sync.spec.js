@@ -607,9 +607,15 @@ test('song import rejects malformed state and reconstructs accepted data from an
 test('a song edit attempted during playback cannot publish after Stop', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#song-mode-enabled')).toBeEnabled({ timeout: 30_000 });
-  await page.locator('#song-mode-enabled').click();
-  await expect(page.locator('#song-mode-panel')).toBeVisible();
-  await expect.poll(async () => (await readState(page)).song.enabled).toBe(true);
+  // The initial authoritative state replay can race the first Enable click
+  // and revert it; retry until the toggle sticks.
+  await expect(async () => {
+    if (await page.locator('#song-mode-panel').isHidden()) {
+      await page.locator('#song-mode-enabled').click();
+    }
+    await expect(page.locator('#song-mode-panel')).toBeVisible({ timeout: 2_000 });
+    expect((await readState(page)).song.enabled).toBe(true);
+  }).toPass({ timeout: 20_000 });
   await page.locator('#start-stop-btn').click();
   await expect.poll(async () => (await readState(page)).isPlaying).toBe(true);
   await page.evaluate(() => {
