@@ -31,9 +31,9 @@
                         id="connection-status"></span><span id="sync-quality">OFFLINE</span><span
                         id="n-of-connections"></span></button>
                 <button id="disconnect-btn" style="display: none;">DISCONNECT</button>
-                <button class="reset-btn">↺</button>
-                <button id="manage-recordings-btn">✎◯</button>
-                <button id="screen-off-toggle-btn">Allow Screen Sleep</button>
+                <button class="reset-btn" title="Reset all settings" aria-label="Reset all settings">↺</button>
+                <button id="manage-recordings-btn" title="Manage recordings" aria-label="Manage recordings">◉</button>
+                <button id="screen-off-toggle-btn" title="Toggle screen sleep" aria-label="Toggle screen sleep">Allow Screen Sleep</button>
             </div>
             <div class="global-app-controls">
                 <div class="control-group">
@@ -182,7 +182,7 @@
             </div>
             <div class="theme-controls">
                 <button id="theme-menu-toggle" aria-label="Choose theme" aria-haspopup="true" aria-expanded="false"
-                    title="Choose theme">🎨</button>
+                    title="Choose theme">◐</button>
                 <div id="theme-menu" class="theme-menu" hidden>
                     <button data-theme="default" aria-label="Switch to Default Theme">
                     Default
@@ -231,9 +231,9 @@
                     <button id="quantize-btn" style="display: none;">Quantize</button>
                     <button id="grid-snap-btn" style="display: none;">Grid</button>
                     <button id="reset-sound-btn">Reset</button>
-                    <button id="rename-sound-btn" title="Rename Sound">✎</button>
-                    <button id="save-sound-btn" title="Save Sound">💾</button>
-                    <button id="delete-sound-btn" title="Delete Sound" style="display: none;">🗑️</button>
+                    <button id="rename-sound-btn" title="Rename Sound" aria-label="Rename sound">Rename</button>
+                    <button id="save-sound-btn" title="Save Sound" aria-label="Save sound">Save</button>
+                    <button id="delete-sound-btn" title="Delete Sound" aria-label="Delete sound" style="display: none;">Delete</button>
                 </div>
             </div>
             <canvas class="oscilloscope-canvas" width="400" height="100"></canvas>

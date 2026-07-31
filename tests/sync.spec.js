@@ -517,7 +517,8 @@ test('the theme menu question-mark button generates and persists a new random th
   });
   expect(minimumHueDistance).toBeGreaterThanOrEqual(50);
   await expect.poll(() => page.evaluate(() => localStorage.getItem('selectedTheme'))).toBe('random');
-  await page.locator('#theme-menu-toggle').click();
+  // The menu stays open after a pick for rapid comparison.
+  await expect(page.locator('#theme-menu')).toBeVisible();
   await page.locator('#random-theme-btn').click();
   const secondPalette = await paletteSignature();
   expect(secondPalette).not.toBe(firstPalette);

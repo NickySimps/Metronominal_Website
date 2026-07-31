@@ -372,7 +372,8 @@ const ThemeController = {
             button.addEventListener('click', () => {
                 if (button.dataset.theme === 'random') ensureRandomTheme(true);
                 handleThemeSelection(button.dataset.theme); // Use the internal handler
-                toggleThemeMenu(false);
+                // Menu stays open so themes can be compared rapidly;
+                // it closes via the toggle, outside click, or Escape.
             });
         });
 

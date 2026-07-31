@@ -32,9 +32,11 @@ function createTrackElement(track, index) {
   trackElement.innerHTML = `
     <div class="track-controls">
       <span class="track-name">Track ${index + 1}</span>
-      <button class="track-mute-btn">${track.muted ? "Unmute" : "Mute"}</button>
-      <button class="track-solo-btn">${track.solo ? "Unsolo" : "Solo"}</button>
-      <button class="track-remove-btn">-</button>
+      <button class="track-mute-btn" title="${track.muted ? "Unmute track" : "Mute track"}"
+        aria-label="${track.muted ? "Unmute track" : "Mute track"}" aria-pressed="${track.muted}">⍉</button>
+      <button class="track-solo-btn" title="${track.solo ? "Unsolo track" : "Solo track"}"
+        aria-pressed="${track.solo}">${track.solo ? "Unsolo" : "Solo"}</button>
+      <button class="track-remove-btn" title="Remove track" aria-label="Remove track">✖</button>
       <div class="track-volume-controls">
         <span class="track-volume-label">Vol:</span>
         <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${
@@ -93,15 +95,17 @@ function updateTrackElement(trackElement, track, index) {
   }
   trackElement.classList.add(`track-color-${index % 6}`);
 
-  // Update solo/muted state classes and button text
+  // Update solo/muted state classes and button affordances (glyphs are static;
+  // state reads through .muted/.soloed styling and ARIA).
   trackElement.classList.toggle("soloed", track.solo);
   trackElement.classList.toggle("muted", track.muted);
-  trackElement.querySelector(".track-mute-btn").textContent = track.muted
-    ? "Unmute"
-    : "Mute";
-  trackElement.querySelector(".track-solo-btn").textContent = track.solo
-    ? "Unsolo"
-    : "Solo";
+  const muteBtn = trackElement.querySelector(".track-mute-btn");
+  muteBtn.title = muteBtn.ariaLabel = track.muted ? "Unmute track" : "Mute track";
+  muteBtn.setAttribute("aria-pressed", String(track.muted));
+  const soloBtn = trackElement.querySelector(".track-solo-btn");
+  soloBtn.textContent = track.solo ? "Unsolo" : "Solo";
+  soloBtn.title = track.solo ? "Unsolo track" : "Solo track";
+  soloBtn.setAttribute("aria-pressed", String(track.solo));
 
   // Update track name
   trackElement.querySelector(".track-name").textContent = `Track ${index + 1}`;
@@ -201,13 +205,14 @@ const TrackController = {
       trackElement.innerHTML = `
         <div class="track-controls">
           <span class="track-name">Track ${index + 1}</span>
-          <button class="track-mute-btn">${
-            track.muted ? "▶" : "⍉"
-          }</button>
-          <button class="track-solo-btn">${
-            track.solo ? "Unsolo" : "Solo"
-          }</button>
-          <button class="track-remove-btn">✖</button>
+          <button class="track-mute-btn"
+            title="${track.muted ? "Unmute track" : "Mute track"}"
+            aria-label="${track.muted ? "Unmute track" : "Mute track"}"
+            aria-pressed="${track.muted}">⍉</button>
+          <button class="track-solo-btn"
+            title="${track.solo ? "Unsolo track" : "Solo track"}"
+            aria-pressed="${track.solo}">${track.solo ? "Unsolo" : "Solo"}</button>
+          <button class="track-remove-btn" title="Remove track" aria-label="Remove track">✖</button>
           <div class="track-volume-controls">
             <span class="track-volume-label">Vol:</span>
             <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${

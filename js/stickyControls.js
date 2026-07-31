@@ -130,7 +130,7 @@ const StickyControls = {
     const els = StickyControls.elements;
     const isPlaying = AppState.isPlaying();
     if (els.playPauseBtn) {
-      els.playPauseBtn.textContent = isPlaying ? "❚❚" : "▶";
+      els.playPauseBtn.textContent = isPlaying ? "■" : "▶";
       els.playPauseBtn.classList.toggle("active", isPlaying);
     }
   }

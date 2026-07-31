@@ -1565,6 +1565,7 @@ button:active,
 
 .track.muted .track-mute-btn {
   background-color: var(--Main);
+  color: var(--TextOnMain);
 }
 
 .share-actions {

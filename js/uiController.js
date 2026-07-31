@@ -132,7 +132,8 @@ const UIController = {
     updateScreenOffToggleBtn: () => {
         if (DOM.screenOffToggleBtn) {
             const isEnabled = AppState.isWakeLockEnabled();
-            DOM.screenOffToggleBtn.textContent = isEnabled ?  'Screen 🔒' : 'Screen 🔓';
+            DOM.screenOffToggleBtn.textContent = isEnabled ? 'Screen ◼' : 'Screen ◻';
+            DOM.screenOffToggleBtn.title = isEnabled ? 'Screen stays awake' : 'Screen may sleep';
             DOM.screenOffToggleBtn.classList.toggle('active', isEnabled);
         }
     },
