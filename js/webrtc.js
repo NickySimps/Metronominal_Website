@@ -201,20 +201,19 @@ function updateConnectionStatusUI(state) {
 
   if (state === "connected") {
     shareBtn.classList.add("connected");
-    disconnectBtn.style.display = "";
+    disconnectBtn.classList.add("visible");
+    disconnectBtn.style.display = "inline-flex";
     disconnectBtn.textContent = "DISCONNECT";
     disconnectBtn.setAttribute(
       "aria-label",
       window.isHost ? "Disconnect all clients" : "Disconnect from this room"
     );
-  } else if (state === "connecting") {
-    shareBtn.classList.add("connecting");
-    disconnectBtn.style.display = "none";
-  } else if (state === "failed") {
-    shareBtn.classList.add("failed");
-    disconnectBtn.style.display = "none";
   } else {
-    shareBtn.classList.add("disconnected");
+    if (state === "connecting") shareBtn.classList.add("connecting");
+    else if (state === "failed") shareBtn.classList.add("failed");
+    else shareBtn.classList.add("disconnected");
+
+    disconnectBtn.classList.remove("visible");
     disconnectBtn.style.display = "none";
   }
   const countInSelect = document.getElementById("count-in-bars-select");

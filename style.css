@@ -2053,6 +2053,16 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   background-color: var(--Highlight, #e0e0e0);
 }
 
+#disconnect-btn {
+  display: none !important;
+}
+
+#disconnect-btn.visible {
+  display: inline-flex !important;
+  background-color: var(--Alt2);
+  color: var(--ReadableOnAlt2);
+}
+
 #connection-status {
   display: inline-block;
   width: 10px;
