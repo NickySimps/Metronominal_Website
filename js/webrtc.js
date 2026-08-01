@@ -188,12 +188,29 @@ function scheduleJoinRetry() {
   }, delay);
 }
 
+function updateDisconnectBtnVisibility() {
+  const disconnectBtn = document.getElementById("disconnect-btn");
+  if (!disconnectBtn) return;
+
+  const hasConnectedPeers = syncClientCount > 0 || (!window.isHost && connectionState === "connected");
+  const shouldShow = connectionState === "connected" && hasConnectedPeers;
+
+  disconnectBtn.classList.toggle("visible", shouldShow);
+  disconnectBtn.style.display = shouldShow ? "inline-flex" : "none";
+  if (shouldShow) {
+    disconnectBtn.textContent = "DISCONNECT";
+    disconnectBtn.setAttribute(
+      "aria-label",
+      window.isHost ? "Disconnect all clients" : "Disconnect from this room"
+    );
+  }
+}
+
 function updateConnectionStatusUI(state) {
   connectionState = state;
   const shareBtn = document.getElementById("share-btn");
-  const disconnectBtn = document.getElementById("disconnect-btn");
   const status = document.getElementById("connection-status");
-  if (!shareBtn || !disconnectBtn || !status) return;
+  if (!shareBtn || !status) return;
 
   shareBtn.classList.remove("connected", "connecting", "failed", "disconnected");
   status.textContent = state === "connected" ? "●" : state === "connecting" ? "…" : "";
@@ -201,21 +218,16 @@ function updateConnectionStatusUI(state) {
 
   if (state === "connected") {
     shareBtn.classList.add("connected");
-    disconnectBtn.classList.add("visible");
-    disconnectBtn.style.display = "inline-flex";
-    disconnectBtn.textContent = "DISCONNECT";
-    disconnectBtn.setAttribute(
-      "aria-label",
-      window.isHost ? "Disconnect all clients" : "Disconnect from this room"
-    );
+  } else if (state === "connecting") {
+    shareBtn.classList.add("connecting");
+  } else if (state === "failed") {
+    shareBtn.classList.add("failed");
   } else {
-    if (state === "connecting") shareBtn.classList.add("connecting");
-    else if (state === "failed") shareBtn.classList.add("failed");
-    else shareBtn.classList.add("disconnected");
-
-    disconnectBtn.classList.remove("visible");
-    disconnectBtn.style.display = "none";
+    shareBtn.classList.add("disconnected");
   }
+
+  updateDisconnectBtnVisibility();
+
   const countInSelect = document.getElementById("count-in-bars-select");
   if (countInSelect) countInSelect.disabled = state !== "connected" || !window.isHost;
   document.dispatchEvent(new CustomEvent("syncrolechange", {
@@ -238,6 +250,7 @@ function updateClientCount(count = 0) {
     shareBtn.classList.toggle("has-peers", count > 0);
     shareBtn.setAttribute("aria-label", `Share room; ${count} connected ${count === 1 ? "peer" : "peers"}`);
   }
+  updateDisconnectBtnVisibility();
   updateDiagnosticsUI();
 }
 

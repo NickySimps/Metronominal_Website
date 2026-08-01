@@ -128,12 +128,20 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     }
 }
 
+function calculateTotalSubBeats(mainBeatsInBar, subdivision) {
+  const subdivisionFloat = parseFloat(subdivision);
+  if (subdivisionFloat < 1) {
+    return Math.max(1, Math.floor(mainBeatsInBar * subdivisionFloat));
+  }
+  return Math.round(mainBeatsInBar * subdivisionFloat);
+}
+
 function advanceTrackBeat(track) {
     if (!track || track.barSettings.length === 0) {
         return;
     }
     const currentBarData = track.barSettings[track.currentBar];
-    const totalSubBeatsInBar = currentBarData.beats * currentBarData.subdivision;
+    const totalSubBeatsInBar = calculateTotalSubBeats(currentBarData.beats, currentBarData.subdivision);
 
     track.currentBeat++;
     if (track.currentBeat >= totalSubBeatsInBar) {

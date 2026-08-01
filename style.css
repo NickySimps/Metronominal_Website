@@ -1184,6 +1184,11 @@ select {
 .top-controls-area button { flex: 0 0 auto; }
 
 .top-controls-area button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1;
   padding: 6px 12px;
   font-size: 0.85rem;
   font-weight: 600;
