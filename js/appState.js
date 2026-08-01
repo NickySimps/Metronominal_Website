@@ -340,6 +340,7 @@ const AppState = (function () {
   let recordings = [];
   let customSounds = {}; // Stores custom user presets: { "My Kick": { baseSound: "Synth Kick", settings: {...} } }
   let isWakeLockEnabled = false;
+  let audioLatencyOffset = 0; // Latency offset in ms (-200 to +500)
 
 
   // --- Constants ---
@@ -555,6 +556,11 @@ const AppState = (function () {
     isRecording: () => isRecording,
     setRecording: (recording) => {
         isRecording = recording;
+        saveState();
+    },
+    getLatencyOffset: () => audioLatencyOffset,
+    setLatencyOffset: (offsetMs) => {
+        audioLatencyOffset = Math.max(-200, Math.min(500, parseInt(offsetMs, 10) || 0));
         saveState();
     },
     isWakeLockEnabled: () => isWakeLockEnabled,
@@ -1119,6 +1125,7 @@ const AppState = (function () {
         isRestMode: isRestMode,
         isRecording: isRecording,
         customSounds: customSounds,
+        audioLatencyOffset: audioLatencyOffset,
       };
 
       if (!excludeHeavyData) {
@@ -1139,6 +1146,9 @@ const AppState = (function () {
       
       if (data.volume !== undefined) {
         volume = data.volume;
+      }
+      if (data.audioLatencyOffset !== undefined) {
+        audioLatencyOffset = Math.max(-200, Math.min(500, parseInt(data.audioLatencyOffset, 10) || 0));
       }
       countInBars = Number.isInteger(data.countInBars)
         ? Math.max(0, Math.min(data.countInBars, 8))

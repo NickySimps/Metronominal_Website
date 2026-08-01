@@ -102,6 +102,9 @@ function playBeatSound(track, beatTime) {
 
     if (!baseSoundName) return; // Safety check
 
+    const latencyOffsetSec = (AppState.getLatencyOffset ? AppState.getLatencyOffset() : 0) / 1000.0;
+    const actualBeatTime = Math.max(audioContext.currentTime, beatTime + latencyOffsetSec);
+
     // Check if the sound is a synth sound
     if (baseSoundName && baseSoundName.startsWith('Synth')) {
         const synthFunctionName = `play${baseSoundName.replace('Synth ', '').replace(/ /g, '')}`;
@@ -111,19 +114,13 @@ function playBeatSound(track, beatTime) {
             // The individual sound's volume has been factored in. Now, set the final combined volume for the synth function.
             const settingsWithVolume = { ...soundObject.settings, volume: finalVolume };
             // Pass the entire settings object to the synth function
-            SoundSynth[synthFunctionName](audioContext, beatTime, settingsWithVolume, destination);
+            SoundSynth[synthFunctionName](audioContext, actualBeatTime, settingsWithVolume, destination);
         } else {
             console.warn(`Synth function ${synthFunctionName} not found in SoundSynth.`);
         }
     } else {
-        // Play file-based or recorded sounds using AudioController
-        // If it's a custom sound based on a recording (if we supported that), baseSoundName would be the recording name.
-        // But currently custom sounds are only synth-based in our implementation logic (SoundSettingsModal check).
-        // However, strictly speaking, soundToPlay is the key for recordings in AudioController.
-        // If we allowed renaming recordings via this mechanism, we'd need to map it back.
-        // For now, let's assume recordings are played by their direct name.
         const { trimStart, trimEnd, pitchShift } = soundObject.settings || {};
-        AudioController.playRecording(baseSoundName, soundObject.settings, trimStart, trimEnd, beatTime, finalVolume, destination);
+        AudioController.playRecording(baseSoundName, soundObject.settings, trimStart, trimEnd, actualBeatTime, finalVolume, destination);
     }
 }
 

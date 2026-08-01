@@ -97,13 +97,18 @@
                         <option value="15">16</option>
                     </select>
                 </div>
-                <div class="control-group">
+                <div class="control-group preset-action-buttons">
                     <button class="preset-btn save-preset-btn"
-                        aria-label="Save current settings to selected preset slot">
+                        aria-label="Save current settings to selected preset slot" title="Save current settings to selected slot">
                         Save
                     </button>
-                    <button class="preset-btn load-preset-btn" aria-label="Load settings from selected preset slot">
-                        Load
+                    <button class="preset-btn clear-preset-btn"
+                        aria-label="Clear selected preset slot" title="Clear selected preset slot">
+                        Clear
+                    </button>
+                    <button class="preset-btn reset-preset-btn"
+                        aria-label="Reset metronome settings to default" title="Reset all settings to default">
+                        Reset
                     </button>
                 </div>
                 <div class="control-group">
@@ -189,6 +194,9 @@
                 </button>
                 <button data-theme="dark" aria-label="Switch to Dark Theme">
                     Dark
+                </button>
+                <button data-theme="hiVis" aria-label="Switch to High Visibility Theme">
+                    Hi-Vis
                 </button>
                 <button data-theme="synthwave" aria-label="Switch to Synthwave Theme">
                     Synthwave
@@ -307,6 +315,13 @@
                         <dt>State revision</dt><dd data-diagnostic="state-revision">—</dd>
                         <dt>Transport revision</dt><dd data-diagnostic="transport-revision">—</dd>
                     </dl>
+                    <div class="latency-control-group">
+                        <label for="audio-latency-slider">Audio Latency Offset:</label>
+                        <div class="latency-slider-wrapper">
+                            <input type="range" id="audio-latency-slider" min="-100" max="300" step="5" value="0" class="compact-slider" aria-label="Audio Latency Offset in milliseconds" />
+                            <span id="audio-latency-value">0 ms</span>
+                        </div>
+                    </div>
                 </section>
             </div>
         </div>

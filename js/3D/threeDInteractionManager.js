@@ -451,26 +451,19 @@ function onSceneClick(event) {
             animateClick(clickedMesh);
             if (DOM.presetSlotSelect && DOM.presetSlotSelect.selectedIndex > 0) {
                 DOM.presetSlotSelect.selectedIndex--;
-                // DOM.presetSlotSelect.dispatchEvent(new Event('change')); // Monolithic doesn't dispatch change here
+                DOM.presetSlotSelect.dispatchEvent(new Event('change'));
                 ControlsManager.updateDynamicControlLabels();
             }
         } else if (name === "nextPresetSlotButton3D") {
             animateClick(clickedMesh);
             if (DOM.presetSlotSelect && DOM.presetSlotSelect.selectedIndex < DOM.presetSlotSelect.options.length - 1) {
                 DOM.presetSlotSelect.selectedIndex++;
-                // DOM.presetSlotSelect.dispatchEvent(new Event('change'));
+                DOM.presetSlotSelect.dispatchEvent(new Event('change'));
                 ControlsManager.updateDynamicControlLabels();
             }
         } else if (name === "savePresetButton3D") {
             DOM.savePresetButton?.click(); animateClick(clickedMesh);
             ControlsManager.updateDynamicControlLabels(); // Update preset name display
-        } else if (name === "loadPresetButton3D") {
-            animateClick(clickedMesh);
-            DOM.loadPresetButton?.click(); // This will trigger UI refresh including 3D in script.js
-            // The monolithic file has a setTimeout to update labels and rebuild measures.
-            // This should ideally be handled by the main refreshUIFromState in script.js after preset load.
-            // For strict adherence, we can replicate, but it's better if script.js handles the full refresh.
-            // Assuming script.js handles the full refresh including ThemeController.update3DScenePostStateChange()
         } else if (name === "prevMeasuresPageButton3D") {
             animateClick(clickedMesh);
             MeasuresManager.decrementPage();

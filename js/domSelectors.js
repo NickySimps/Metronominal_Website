@@ -42,6 +42,8 @@ const DOM = {
     // Preset Controls
     get savePresetButton() { return document.querySelector('.save-preset-btn'); },
     get loadPresetButton() { return document.querySelector('.load-preset-btn'); },
+    get clearPresetButton() { return document.querySelector('.clear-preset-btn'); },
+    get resetPresetButton() { return document.querySelector('.reset-preset-btn'); },
     get recordButton() { return document.querySelector('.record-btn'); },
     get presetSlotSelect() { return document.getElementById('preset-slot-select'); },
     get presetNameInput() { return document.getElementById('preset-name-input'); },
@@ -54,6 +56,8 @@ const DOM = {
     get syncQuality() { return document.getElementById('sync-quality'); },
     get syncDiagnosticsBtn() { return document.getElementById('sync-diagnostics-btn'); },
     get syncDiagnosticsModal() { return document.getElementById('sync-diagnostics-modal'); },
+    get audioLatencySlider() { return document.getElementById('audio-latency-slider'); },
+    get audioLatencyValue() { return document.getElementById('audio-latency-value'); },
 
     // Preset Display Heading
     get currentPresetDisplayHeading() { return document.getElementById('current-preset-display-heading'); },

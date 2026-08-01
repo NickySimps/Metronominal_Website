@@ -204,6 +204,32 @@ function onWindowPointerMove(event) {
     }
 }
 
+async function applySubdivisionChange(containerIndex, barIndex, newSubdivision) {
+    if (newSubdivision === null || isNaN(containerIndex) || isNaN(barIndex)) {
+        return;
+    }
+
+    const wasPlaying = AppState.isPlaying();
+    if (wasPlaying) {
+        await MetronomeEngine.togglePlay();
+    }
+
+    AppState.setSelectedTrackIndex(containerIndex);
+    AppState.setSelectedBarIndexInContainer(barIndex);
+    AppState.setSubdivisionForSelectedBar(newSubdivision);
+    sendState(AppState.getCurrentStateForPreset(true));
+
+    BarDisplayController.renderBarsAndControls(-1);
+    BarControlsController.updateBeatControlsDisplay();
+
+    if (wasPlaying && AppState.getBarSettings(containerIndex).length > 0) {
+        await MetronomeEngine.togglePlay();
+    }
+
+    if (ThemeController.is3DSceneActive()) {
+        ThemeController.update3DScenePostStateChange();
+    }
+}
 
 async function onWindowPointerUp(event) {
   if (isLongPressActive) {
@@ -233,6 +259,7 @@ async function onWindowPointerUp(event) {
         if (ThemeController.is3DSceneActive()) {
           ThemeController.update3DScenePostStateChange();
         }
+        await applySubdivisionChange(containerIndex, barIndex, newSubdivision);
       }
     }
   } else if (longPressTimer) {
@@ -364,6 +391,7 @@ function showSubdivisionSelector(barElement) {
                     if (ThemeController.is3DSceneActive()) {
                         ThemeController.update3DScenePostStateChange();
                     }
+                    await applySubdivisionChange(containerIndex, barIndex, newSubdivision);
                 }
                 hideSubdivisionSelector();
             });

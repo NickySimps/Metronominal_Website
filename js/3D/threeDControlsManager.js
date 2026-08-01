@@ -324,16 +324,11 @@ export function createControls(font, controlsGroup, interactionGroup) {
     presetNameDisplayBox.position.set(0, BUTTON_Y_POSITION + BUTTON_HEIGHT_MAIN / 2, Z_ROW_MAIN_4);
     controlsGroup.add(presetNameDisplayBox);
 
-    btnPos = { x: 1.9, z: Z_ROW_MAIN_4 };
+    btnPos = { x: 2.5, z: Z_ROW_MAIN_4 };
     btn = createButtonMesh("savePresetButton3D", DefaultThemeColors3D.main, btnPos, BUTTON_DIM_SMALL, MAIN_BUTTON_HEIGHT, BUTTON_SHAPE_SQUARE);
     if (localInteractionGroupRef) addHitbox(btn, localInteractionGroupRef);
     controlsGroup.add(btn);
     if (font) _updateOrAddTextLabel("savePresetLabel", "Save", saveLoadLabelSize, LABEL_TEXT_COLOR, { x: btnPos.x, y: Y_POS_LABELS_ABOVE_BUTTONS, z: btnPos.z });
-    btnPos = { x: 3.1, z: Z_ROW_MAIN_4 };
-    btn = createButtonMesh("loadPresetButton3D", DefaultThemeColors3D.subdivisionBeat, btnPos, BUTTON_DIM_SMALL, MAIN_BUTTON_HEIGHT, BUTTON_SHAPE_SQUARE);
-    if (localInteractionGroupRef) addHitbox(btn, localInteractionGroupRef);
-    controlsGroup.add(btn);
-    if (font) _updateOrAddTextLabel("loadPresetLabel", "Load", saveLoadLabelSize, LABEL_TEXT_COLOR, { x: btnPos.x, y: Y_POS_LABELS_ABOVE_BUTTONS, z: btnPos.z });
 
     // Measures Paging Buttons (Z_ROW_MEASURES_PAGING)
     const measuresPagingYForLabel = BUTTON_Y_POSITION + BUTTON_HEIGHT_THEME_CAMERA_LIGHT + 0.12; // Using themeButtonHeight as it's similar

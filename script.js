@@ -51,6 +51,11 @@ function refreshUIFromState() {
   VolumeController.updateVolumeDisplay({ animate: true });
   UIController.updateScreenOffToggleBtn();
   if (DOM.countInBarsSelect) DOM.countInBarsSelect.value = String(AppState.getCountInBars());
+  if (DOM.audioLatencySlider && DOM.audioLatencyValue) {
+    const val = AppState.getLatencyOffset ? AppState.getLatencyOffset() : 0;
+    DOM.audioLatencySlider.value = String(val);
+    DOM.audioLatencyValue.textContent = `${val > 0 ? '+' : ''}${val} ms`;
+  }
   SongController.render();
 
   TrackController.renderTracks();
@@ -115,6 +120,13 @@ async function initialize() {
     AppState.setCountInBars(DOM.countInBarsSelect.value);
     sendState(AppState.getCurrentStateForPreset(true));
   });
+  if (DOM.audioLatencySlider && DOM.audioLatencyValue) {
+    DOM.audioLatencySlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10) || 0;
+      AppState.setLatencyOffset(val);
+      DOM.audioLatencyValue.textContent = `${val > 0 ? '+' : ''}${val} ms`;
+    });
+  }
   SoundSettingsModal.init();
   RecordingManager.init();
   UIController.initializeConnectionModal();

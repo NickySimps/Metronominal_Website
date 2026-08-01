@@ -1043,6 +1043,21 @@ select {
   transform: translateY(var(--s0)); /* Standardized transform (1px) */
 }
 
+.preset-action-buttons {
+  display: flex;
+  gap: var(--s2, 4px);
+  align-items: center;
+}
+.preset-action-buttons .preset-btn {
+  padding: var(--s2, 4px) var(--s3, 8px);
+}
+.clear-preset-btn:hover {
+  background-color: color-mix(in srgb, var(--Accent) 60%, #ff4444);
+}
+.reset-preset-btn:hover {
+  background-color: color-mix(in srgb, var(--Accent) 60%, #ffaa00);
+}
+
 /* Suggestion for your CSS file */
 .top-controls-area {
   position: fixed; /* Changed from absolute to fixed */
@@ -1822,6 +1837,37 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 .sync-diagnostics-panel h3 {
   margin: 0 0 var(--s4);
   color: var(--ReadableOnBackground);
+}
+
+.latency-control-group {
+  margin-top: var(--s4);
+  padding-top: var(--s3);
+  border-top: var(--s0) solid color-mix(in srgb, var(--ReadableOnBackground) 20%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+.latency-control-group label {
+  font-size: 0.9em;
+  font-weight: 700;
+  color: var(--ReadableOnBackground);
+}
+.latency-slider-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+.latency-slider-wrapper input[type="range"] {
+  flex: 1;
+  accent-color: var(--Accent);
+  cursor: pointer;
+}
+.latency-slider-wrapper span {
+  font-family: monospace;
+  font-size: 0.9em;
+  min-width: 60px;
+  text-align: right;
+  font-weight: 600;
 }
 
 .share-modal-content {

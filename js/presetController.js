@@ -23,7 +23,6 @@ const PresetController = {
     if (
       !DOM.presetSlotSelect ||
       !DOM.savePresetButton ||
-      !DOM.loadPresetButton ||
       !DOM.presetNameInput
     ) {
       console.error(
@@ -40,6 +39,27 @@ const PresetController = {
       option.value = preset.slotIndex;
       option.textContent = preset.displaySongName;
       DOM.presetSlotSelect.appendChild(option);
+    });
+
+    // Add event listener for the dropdown to auto-load on change
+    DOM.presetSlotSelect.addEventListener("change", () => {
+      const selectedSlot = parseInt(DOM.presetSlotSelect.value, 10);
+      const loadedData = PresetController.loadPreset(selectedSlot);
+      if (loadedData) {
+        // 1. Apply the theme from the loaded preset.
+        ThemeController.applyTheme(loadedData.theme);
+
+        // 2. Refresh the main UI components from the new state.
+        refreshUIFromState();
+
+        // 3. Update preset-specific UI elements that aren't part of the main refresh.
+        if (DOM.presetNameInput) {
+          DOM.presetNameInput.value = loadedData.songName;
+        }
+        UIController.updateCurrentPresetDisplay(loadedData.songName);
+
+        console.log(`Loaded preset. Theme: ${loadedData.theme}, Song: "${loadedData.songName}"`);
+      }
     });
 
     // Add event listener for the "Save" button
@@ -64,26 +84,48 @@ const PresetController = {
       }
     });
 
-    // Add event listener for the "Load" button
-    DOM.loadPresetButton.addEventListener("click", () => {
-      const selectedSlot = parseInt(DOM.presetSlotSelect.value, 10);
-      const loadedData = PresetController.loadPreset(selectedSlot);
-      if (loadedData) {
-        // 1. Apply the theme from the loaded preset.
-        ThemeController.applyTheme(loadedData.theme);
-
-        // 2. Refresh the main UI components from the new state.
-        refreshUIFromState();
-
-        // 3. Update preset-specific UI elements that aren't part of the main refresh.
-        if (DOM.presetNameInput) {
-          DOM.presetNameInput.value = loadedData.songName;
+    // Add event listener for the "Clear" preset slot button
+    if (DOM.clearPresetButton) {
+      DOM.clearPresetButton.addEventListener("click", () => {
+        const selectedSlot = parseInt(DOM.presetSlotSelect.value, 10);
+        PresetController.clearPreset(selectedSlot);
+        const option = DOM.presetSlotSelect.querySelector(`option[value="${selectedSlot}"]`);
+        if (option) {
+          option.textContent = `Slot ${selectedSlot + 1}`;
         }
-        UIController.updateCurrentPresetDisplay(loadedData.songName);
+        if (DOM.presetNameInput) {
+          DOM.presetNameInput.value = "";
+        }
+        UIController.updateCurrentPresetDisplay(`Slot ${selectedSlot + 1}`);
+        console.log(`Cleared preset in slot ${selectedSlot + 1}`);
+      });
+    }
 
-        console.log(`Loaded preset. Theme: ${loadedData.theme}, Song: "${loadedData.songName}"`);
-      }
-    });
+    // Add event listener for the "Reset" app settings button
+    if (DOM.resetPresetButton) {
+      DOM.resetPresetButton.addEventListener("click", () => {
+        AppState.resetState();
+        refreshUIFromState();
+        console.log("Reset metronome settings to default");
+      });
+    }
+  },
+
+  /**
+   * Clears a preset slot from localStorage.
+   */
+  clearPreset: (slotIndex) => {
+    if (slotIndex < 0 || slotIndex >= NUM_PRESET_SLOTS) {
+      console.error("Invalid preset slot index for clearing:", slotIndex);
+      return false;
+    }
+    try {
+      localStorage.removeItem(PRESET_STORAGE_KEY_PREFIX + slotIndex);
+      return true;
+    } catch (e) {
+      console.error("Error clearing preset:", e);
+      return false;
+    }
   },
 
   /**

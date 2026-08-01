@@ -189,6 +189,24 @@ const themes = {
         '--BorderRadius': '10px',
         '--font-family': '"Roboto Mono", monospace',
         '--text-shadow': '2px 2px 2px var(--Main)' // Added text shadow
+    },
+    hiVis: { // High Visibility Outdoor / Gig Mode Theme
+        '--Main': '#eeff00', // Electric Neon Yellow
+        '--Background': '#000000', // Pure Pitch Black
+        '--Accent': '#00ff44', // Neon Lime Green
+        '--Highlight': '#1a1a1a', // Dark Charcoal
+        '--Alt1': '#00ffff', // Electric Cyan
+        '--Alt2': '#ff0055', // Hot Neon Pink
+        '--TextOnMain': '#000000', // Crisp Black Text on Yellow
+        '--TextPrimary': '#ffffff', // High Contrast White
+        '--TextSecondary': '#eeff00', // High Contrast Yellow
+        '--SubdivisionBeatColor': '#00ff44', // Neon Green
+        '--HighlightedBeatColor': '#eeff00', // Bright Yellow
+        '--ActiveBarBackground': 'rgba(238, 255, 0, 0.45)',
+        '--BorderColor': '#eeff00', // Bold High Vis Yellow Border
+        '--BorderRadius': '4px',
+        '--font-family': '"Roboto Mono", monospace',
+        '--text-shadow': '0px 0px 8px #eeff00'
     }
 };
 
@@ -204,6 +222,25 @@ function readableTextColor(background) {
 }
 
 const RANDOM_THEME_STORAGE_KEY = 'randomThemePalette';
+
+const RANDOM_FONTS = [
+    '"Inter", sans-serif',
+    '"Roboto Mono", monospace',
+    '"Orbitron", sans-serif',
+    '"Press Start 2P", cursive',
+    '"Pacifico", cursive',
+    '"Handlee", cursive',
+    '"Bubblegum Sans", cursive'
+];
+
+const RANDOM_BORDER_RADII = [
+    '0px',
+    '4px',
+    '8px',
+    '15px',
+    '25px',
+    '50px'
+];
 
 function hslToHex(hue, saturation, lightness) {
     const saturationRatio = saturation / 100;
@@ -229,15 +266,38 @@ function createRandomTheme() {
     const highlight = hslToHex(roleHue(72), 92, dark ? 22 : 82);
     const main = hslToHex(roleHue(0), 96, dark ? 30 : 64);
     const accent = hslToHex(roleHue(144), 96, dark ? 24 : 80);
+    const alt1 = hslToHex(roleHue(288), 96, dark ? 64 : 38);
     const alt2 = hslToHex(roleHue(216), 96, dark ? 32 : 62);
     const text = readableTextColor(background);
+
+    // Randomize font, border radius, text shadow, and border color
+    const font = RANDOM_FONTS[Math.floor(Math.random() * RANDOM_FONTS.length)];
+    const borderRadius = RANDOM_BORDER_RADII[Math.floor(Math.random() * RANDOM_BORDER_RADII.length)];
+    
+    const shadowTypes = [
+        'none',
+        `0px 0px 8px ${accent}`,
+        `2px 2px 0px ${alt2}`,
+        `1px 1px 4px rgba(0,0,0,0.6)`,
+        `0px 0px 12px ${main}`
+    ];
+    const textShadow = shadowTypes[Math.floor(Math.random() * shadowTypes.length)];
+
+    const borderOptions = [
+        'transparent',
+        accent,
+        main,
+        alt1
+    ];
+    const borderColor = borderOptions[Math.floor(Math.random() * borderOptions.length)];
+
     return {
         ...themes.default,
         '--Main': main,
         '--Background': background,
         '--Accent': accent,
         '--Highlight': highlight,
-        '--Alt1': hslToHex(roleHue(288), 96, dark ? 64 : 38),
+        '--Alt1': alt1,
         '--Alt2': alt2,
         '--TextOnMain': readableTextColor(main),
         '--TextPrimary': text,
@@ -245,8 +305,10 @@ function createRandomTheme() {
         '--SubdivisionBeatColor': alt2,
         '--HighlightedBeatColor': main,
         '--ActiveBarBackground': `${alt2}80`,
-        '--BorderColor': hslToHex(roleHue(288), 88, dark ? 66 : 34),
-        '--text-shadow': 'none'
+        '--BorderColor': borderColor,
+        '--BorderRadius': borderRadius,
+        '--font-family': font,
+        '--text-shadow': textShadow
     };
 }
 
