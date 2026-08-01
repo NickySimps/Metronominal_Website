@@ -224,14 +224,19 @@ const TrackController = {
           </div>
         </div>
         <div class="track-sound-controls">
-          <div class="sound-selection">
+          <div class="edit-buttons-col">
             <span class="sound-label main-sound-label">✎ Main</span>
-          </div>
-          <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode"><span class="control-icon" aria-hidden="true">𝄽</span></button>
-          <div class="sound-selection">
             <span class="sound-label sub-sound-label">✎ Sub</span>
           </div>
-          <button class="record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording"><span class="control-icon" aria-hidden="true">●</span></button>
+          <div class="sound-selectors-col">
+            <div class="sound-selection main-sound-selection"></div>
+            <div class="sound-selection sub-sound-selection"></div>
+          </div>
+          <div class="mode-buttons-col">
+            <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode"><span class="control-icon" aria-hidden="true">𝄽</span></button>
+            <button class="accent-button ${AppState.isAccentMode() ? 'active' : ''}" aria-label="Toggle accent mode" title="Toggle Accent & Ghost Note Mode"><span class="control-icon" aria-hidden="true">⚡</span></button>
+            <button class="record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon" aria-hidden="true">●</span></button>
+          </div>
         </div>
         <div class="bar-display-container" data-container-index="${index}"></div>
         <div class="measures-container ${isSelected ? 'showing' : 'hidden'}">
@@ -266,10 +271,10 @@ const TrackController = {
 
       // Find placeholders and append the actual sound dropdowns
       const mainSoundSelectorContainer = trackElement.querySelector(
-        ".sound-selection:nth-child(1)"
+        ".main-sound-selection"
       );
       const subSoundSelectorContainer = trackElement.querySelector(
-        ".sound-selection:nth-child(3)"
+        ".sub-sound-selection"
       );
 
       if (mainSoundSelectorContainer && subSoundSelectorContainer) {
@@ -321,6 +326,39 @@ const TrackController = {
 
     const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
 
+    const updateSelectionUI = (shouldScroll = true) => {
+        const allSelectedTracks = document.querySelectorAll('.track.selected');
+        allSelectedTracks.forEach(prevTrack => {
+            if (prevTrack !== trackElement) {
+                prevTrack.classList.remove('selected');
+                const prevMeasuresContainer = prevTrack.querySelector('.measures-container');
+                if (prevMeasuresContainer) {
+                    prevMeasuresContainer.classList.remove('showing');
+                    prevMeasuresContainer.classList.add('hiding');
+                    prevMeasuresContainer.addEventListener('transitionend', () => {
+                        prevMeasuresContainer.classList.remove('hiding');
+                        prevMeasuresContainer.classList.add('hidden');
+                    }, { once: true });
+                }
+            }
+        });
+
+        if (!trackElement.classList.contains('selected')) {
+            trackElement.classList.add('selected');
+            const measuresContainer = trackElement.querySelector('.measures-container');
+            if (measuresContainer) {
+                measuresContainer.classList.remove('hidden');
+                measuresContainer.classList.add('showing');
+            }
+        }
+
+        sendState(AppState.getCurrentStateForPreset(true));
+
+        setTimeout(() => {
+            document.dispatchEvent(new CustomEvent("trackselectionchanged", { detail: { shouldScroll } }));
+        }, 0);
+    };
+
     if (target.matches(".track-mute-btn")) {
       const track = AppState.getTracks()[containerIndex];
       AppState.updateTrack(containerIndex, { muted: !track.muted });
@@ -337,37 +375,72 @@ const TrackController = {
       setTimeout(() => {
         document.dispatchEvent(new CustomEvent("trackselectionchanged", { detail: { shouldScroll: false } }));
       }, 0);
-    } else if (target.matches(".rest-button")) {
+    } else if (target.matches(".rest-button") || target.closest(".rest-button")) {
         const newRestModeState = !AppState.isRestMode();
         AppState.setRestMode(newRestModeState);
+
+        const restActive = AppState.isRestMode();
+        const accentActive = AppState.isAccentMode();
+
         document.querySelectorAll(".rest-button").forEach(button => {
-            button.classList.toggle("active", newRestModeState);
+            button.classList.toggle("active", restActive);
+        });
+        document.querySelectorAll(".accent-button").forEach(button => {
+            button.classList.toggle("active", accentActive);
         });
         document.querySelectorAll(".sub-sound-label").forEach(label => {
-            label.classList.toggle("rest-mode-active", newRestModeState);
+            label.classList.toggle("rest-mode-active", restActive);
         });
         document.querySelectorAll(".bar-visual").forEach(bar => {
-            bar.classList.toggle("rest-mode-active", newRestModeState);
+            bar.classList.toggle("rest-mode-active", restActive);
+            bar.classList.toggle("accent-mode-active", accentActive);
         });
 
-        // Ensure the clicked track is selected if it wasn't already (or if no bar was selected)
         const currentSelectedTrackIndex = AppState.getSelectedTrackIndex();
         if (currentSelectedTrackIndex !== containerIndex) {
             AppState.setSelectedTrackIndex(containerIndex);
-            
-            // Check if track has bars before selecting the first one
             const track = AppState.getTracks()[containerIndex];
             if (track && track.barSettings && track.barSettings.length > 0) {
                 AppState.setSelectedBarIndexInContainer(0);
             } else {
                 AppState.setSelectedBarIndexInContainer(-1);
             }
-
-            // Update Visuals for Bar Selection
-            BarDisplayController.renderBarsAndControls();
-            
-            updateSelectionUI();
         }
+        BarDisplayController.renderBarsAndControls();
+        updateSelectionUI();
+    } else if (target.matches(".accent-button") || target.closest(".accent-button")) {
+        const newAccentModeState = !AppState.isAccentMode();
+        AppState.setAccentMode(newAccentModeState);
+
+        const restActive = AppState.isRestMode();
+        const accentActive = AppState.isAccentMode();
+
+        document.querySelectorAll(".accent-button").forEach(button => {
+            button.classList.toggle("active", accentActive);
+        });
+        document.querySelectorAll(".rest-button").forEach(button => {
+            button.classList.toggle("active", restActive);
+        });
+        document.querySelectorAll(".sub-sound-label").forEach(label => {
+            label.classList.toggle("rest-mode-active", restActive);
+        });
+        document.querySelectorAll(".bar-visual").forEach(bar => {
+            bar.classList.toggle("accent-mode-active", accentActive);
+            bar.classList.toggle("rest-mode-active", restActive);
+        });
+
+        const currentSelectedTrackIndex = AppState.getSelectedTrackIndex();
+        if (currentSelectedTrackIndex !== containerIndex) {
+            AppState.setSelectedTrackIndex(containerIndex);
+            const track = AppState.getTracks()[containerIndex];
+            if (track && track.barSettings && track.barSettings.length > 0) {
+                AppState.setSelectedBarIndexInContainer(0);
+            } else {
+                AppState.setSelectedBarIndexInContainer(-1);
+            }
+        }
+        BarDisplayController.renderBarsAndControls();
+        updateSelectionUI();
     } else if (target.matches(".record-btn")) {
         AudioController.toggleRecording(containerIndex);
     } else {
@@ -375,7 +448,6 @@ const TrackController = {
         if (AppState.getSelectedTrackIndex() !== containerIndex) {
             AppState.setSelectedTrackIndex(containerIndex);
             
-            // Validate bar index for the new track
             const track = AppState.getTracks()[containerIndex];
             if (track && track.barSettings) {
                 const currentBarIndex = AppState.getSelectedBarIndexInContainer();
@@ -401,81 +473,7 @@ const TrackController = {
              BarDisplayController.updateSelectionVisuals();
         }
 
-        const updateSelectionUI = (shouldScroll = true) => {
-            const allSelectedTracks = document.querySelectorAll('.track.selected');
-            allSelectedTracks.forEach(prevTrack => {
-                if (prevTrack !== trackElement) {
-                    prevTrack.classList.remove('selected');
-                    const prevMeasuresContainer = prevTrack.querySelector('.measures-container');
-                    if (prevMeasuresContainer) {
-                        prevMeasuresContainer.classList.remove('showing');
-                        prevMeasuresContainer.classList.add('hiding');
-                        prevMeasuresContainer.addEventListener('transitionend', () => {
-                            prevMeasuresContainer.classList.remove('hiding');
-                            prevMeasuresContainer.classList.add('hidden');
-                        }, { once: true });
-                    }
-                }
-            });
-
-            if (!trackElement.classList.contains('selected')) {
-                trackElement.classList.add('selected');
-                const measuresContainer = trackElement.querySelector('.measures-container');
-                if (measuresContainer) {
-                    measuresContainer.classList.remove('hidden');
-                    measuresContainer.classList.add('showing');
-                }
-            }
-
-            sendState(AppState.getCurrentStateForPreset(true));
-
-            setTimeout(() => {
-                // Dispatch event, but only scroll if requested
-                document.dispatchEvent(new CustomEvent("trackselectionchanged", { detail: { shouldScroll } }));
-            }, 0);
-        };
-
-        if (target.matches(".beat-square")) {
-            const barVisual = target.closest(".bar-visual");
-            const barIndex = barVisual ? parseInt(barVisual.dataset.barIndex, 10) : 0;
-            const beatIndex = parseInt(target.dataset.beatIndex, 10);
-            const track = AppState.getTracks()[containerIndex];
-
-            if (track && track.barSettings[barIndex]) {
-                if (AppState.isRestMode()) {
-                    const newRests = [...(track.barSettings[barIndex].rests || [])];
-                    if (newRests.includes(beatIndex)) {
-                        const indexToRemove = newRests.indexOf(beatIndex);
-                        newRests.splice(indexToRemove, 1);
-                        target.classList.remove("rested");
-                    } else {
-                        newRests.push(beatIndex);
-                        target.classList.add("rested");
-                    }
-                    const newBarSettings = [...track.barSettings];
-                    newBarSettings[barIndex].rests = newRests;
-                    AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
-                } else {
-                    const currentVelocities = { ...(track.barSettings[barIndex].velocities || {}) };
-                    const defaultVel = (beatIndex === 0) ? 1.0 : 0.7;
-                    const curVel = currentVelocities[beatIndex] !== undefined ? currentVelocities[beatIndex] : defaultVel;
-                    let nextVel = 0.7;
-                    if (curVel === 0.7) nextVel = 1.0;
-                    else if (curVel === 1.0) nextVel = 0.3;
-                    else nextVel = 0.7;
-
-                    currentVelocities[beatIndex] = nextVel;
-                    const newBarSettings = [...track.barSettings];
-                    newBarSettings[barIndex].velocities = currentVelocities;
-                    AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
-                }
-                BarDisplayController.updateBar(containerIndex, barIndex);
-                sendState(AppState.getCurrentStateForPreset(true));
-            }
-            updateSelectionUI();
-        } else {
-            updateSelectionUI();
-        }
+        updateSelectionUI();
     }
   },
 

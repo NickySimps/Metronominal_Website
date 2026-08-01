@@ -23,8 +23,11 @@ let isLongPressActive = false;
 let longPressedBarElement = null;
 let longPressInitialPosition = { x: 0, y: 0 };
 let hoveredSubdivisionOption = null;
-const LONG_PRESS_DURATION = 150; // ms
-const POINTER_MOVE_THRESHOLD = 15; // pixels (Increased for more forgiving long-press)
+let lastPaintedBeatSquare = null;
+let dragPaintAction = null;
+let dragPaintTargetVel = 0.7;
+const LONG_PRESS_DURATION = 200; // ms
+const POINTER_MOVE_THRESHOLD = 35; // pixels (Forgiving for touch & mouse hold)
 
 // Helper function to calculate total sub-beats needed based on subdivision
 function calculateTotalSubBeats(mainBeatsInBar, subdivision) {
@@ -136,21 +139,69 @@ function updateBeatIndicator(barDiv, beats, subdivision) {
 }
 
 function onBarPointerDown(event) {
-  // Don't initiate on right-click
   if (event.button !== 0) return;
 
   event.preventDefault();
   longPressedBarElement = event.currentTarget;
   longPressInitialPosition = { x: event.clientX, y: event.clientY };
+  lastPaintedBeatSquare = event.target.closest(".beat-square");
+
+  if (lastPaintedBeatSquare) {
+    const barVisual = lastPaintedBeatSquare.closest(".bar-visual");
+    if (barVisual) {
+      const containerIndex = parseInt(barVisual.dataset.containerIndex, 10);
+      const barIndex = parseInt(barVisual.dataset.barIndex, 10);
+      const beatIndex = parseInt(lastPaintedBeatSquare.dataset.beatIndex, 10);
+      const track = AppState.getTracks()[containerIndex];
+      if (track && track.barSettings[barIndex]) {
+        if (AppState.isRestMode()) {
+          const rests = [...(track.barSettings[barIndex].rests || [])];
+          if (rests.includes(beatIndex)) {
+            dragPaintAction = 'UNREST';
+            const idx = rests.indexOf(beatIndex);
+            rests.splice(idx, 1);
+          } else {
+            dragPaintAction = 'REST';
+            rests.push(beatIndex);
+          }
+          const velocities = { ...(track.barSettings[barIndex].velocities || {}) };
+          delete velocities[beatIndex];
+
+          const newBarSettings = [...track.barSettings];
+          newBarSettings[barIndex].rests = rests;
+          newBarSettings[barIndex].velocities = velocities;
+          AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
+          BarDisplayController.updateBar(containerIndex, barIndex);
+        } else if (AppState.isAccentMode()) {
+          dragPaintAction = 'ACCENT';
+          const velocities = { ...(track.barSettings[barIndex].velocities || {}) };
+          const defaultVel = (beatIndex === 0) ? 1.0 : 0.7;
+          const curVel = velocities[beatIndex] !== undefined ? velocities[beatIndex] : defaultVel;
+          let nextVel = 0.7;
+          if (curVel === 0.7) nextVel = 1.0;
+          else if (curVel === 1.0) nextVel = 0.3;
+          else nextVel = 0.7;
+
+          dragPaintTargetVel = nextVel;
+          velocities[beatIndex] = nextVel;
+          const rests = [...(track.barSettings[barIndex].rests || [])].filter(r => r !== beatIndex);
+
+          const newBarSettings = [...track.barSettings];
+          newBarSettings[barIndex].velocities = velocities;
+          newBarSettings[barIndex].rests = rests;
+          AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
+          BarDisplayController.updateBar(containerIndex, barIndex);
+        }
+      }
+    }
+  }
 
   longPressTimer = setTimeout(() => {
     isLongPressActive = true;
-    longPressTimer = null; // Timer has fired
+    longPressTimer = null;
     if (longPressedBarElement) {
-      // Ensure longPressedBarElement is still valid
       showSubdivisionSelector(longPressedBarElement);
     } else {
-      // If for some reason it's null, clean up
       resetLongPressState();
       cleanupPointerListeners();
     }
@@ -170,7 +221,57 @@ function onWindowPointerMove(event) {
             clearTimeout(longPressTimer);
             longPressTimer = null;
             isLongPressActive = false;
-            longPressedBarElement = null;
+        }
+    }
+
+    const elementUnderPointer = document.elementFromPoint(event.clientX, event.clientY);
+    const beatSquare = elementUnderPointer ? elementUnderPointer.closest(".beat-square") : null;
+
+    if (beatSquare && beatSquare !== lastPaintedBeatSquare) {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+        isLongPressActive = false;
+        lastPaintedBeatSquare = beatSquare;
+
+        const barVisual = beatSquare.closest(".bar-visual");
+        if (barVisual) {
+          const clickedBarIndex = parseInt(barVisual.dataset.barIndex, 10);
+          const clickedContainerIndex = parseInt(barVisual.dataset.containerIndex, 10);
+          const beatIndex = parseInt(beatSquare.dataset.beatIndex, 10);
+          const track = AppState.getTracks()[clickedContainerIndex];
+
+          if (track && track.barSettings[clickedBarIndex]) {
+            if (AppState.isRestMode()) {
+              let newRests = [...(track.barSettings[clickedBarIndex].rests || [])];
+              if (dragPaintAction === 'UNREST') {
+                newRests = newRests.filter(r => r !== beatIndex);
+              } else {
+                if (!newRests.includes(beatIndex)) {
+                  newRests.push(beatIndex);
+                }
+              }
+              const velocities = { ...(track.barSettings[clickedBarIndex].velocities || {}) };
+              delete velocities[beatIndex];
+
+              const newBarSettings = [...track.barSettings];
+              newBarSettings[clickedBarIndex].rests = newRests;
+              newBarSettings[clickedBarIndex].velocities = velocities;
+              AppState.updateTrack(clickedContainerIndex, { barSettings: newBarSettings });
+              BarDisplayController.updateBar(clickedContainerIndex, clickedBarIndex);
+            } else if (AppState.isAccentMode()) {
+              const velocities = { ...(track.barSettings[clickedBarIndex].velocities || {}) };
+              velocities[beatIndex] = dragPaintTargetVel || 1.0;
+              const newRests = [...(track.barSettings[clickedBarIndex].rests || [])].filter(r => r !== beatIndex);
+
+              const newBarSettings = [...track.barSettings];
+              newBarSettings[clickedBarIndex].velocities = velocities;
+              newBarSettings[clickedBarIndex].rests = newRests;
+              AppState.updateTrack(clickedContainerIndex, { barSettings: newBarSettings });
+              BarDisplayController.updateBar(clickedContainerIndex, clickedBarIndex);
+            }
+          }
         }
     }
 
@@ -275,6 +376,8 @@ async function onWindowPointerUp(event) {
         sendState(AppState.getCurrentStateForPreset(true));
         BarDisplayController.renderBarsAndControls();
         BarControlsController.updateBeatControlsDisplay();
+    } else {
+        sendState(AppState.getCurrentStateForPreset(true));
     }
   }
 
@@ -293,6 +396,8 @@ function resetLongPressState() {
   longPressTimer = null;
   longPressedBarElement = null;
   hoveredSubdivisionOption = null;
+  lastPaintedBeatSquare = null;
+  dragPaintAction = null;
 }
 
 function showSubdivisionSelector(barElement) {
@@ -500,6 +605,9 @@ const BarDisplayController = {
         if (AppState.isRestMode()) {
             barDiv.classList.add("rest-mode-active");
         }
+        if (AppState.isAccentMode()) {
+            barDiv.classList.add("accent-mode-active");
+        }
         barDiv.dataset.containerIndex = trackIndex;
         barDiv.dataset.barIndex = barIndex;
 
@@ -604,8 +712,14 @@ const BarDisplayController = {
             updateBeatSquareClasses(sq, beatIdx, subdivision, mainBeatsInBar);
             if (rests.includes(beatIdx)) {
                 sq.classList.add("rested");
+                sq.classList.remove("ghost-note", "accent-note");
             } else {
                 sq.classList.remove("rested");
+                const velocities = barData.velocities || {};
+                const defaultVel = (beatIdx === 0) ? 1.0 : 0.7;
+                const vel = velocities[beatIdx] !== undefined ? velocities[beatIdx] : defaultVel;
+                sq.classList.toggle("ghost-note", vel === 0.3);
+                sq.classList.toggle("accent-note", vel === 1.0);
             }
         });
 
@@ -906,6 +1020,18 @@ const BarDisplayController = {
             subdivision,
             mainBeatsInBar
           );
+          const rests = barData.rests || [];
+          if (rests.includes(beatIndex)) {
+            beatSquare.classList.add("rested");
+            beatSquare.classList.remove("ghost-note", "accent-note");
+          } else {
+            beatSquare.classList.remove("rested");
+            const velocities = barData.velocities || {};
+            const defaultVel = (beatIndex === 0) ? 1.0 : 0.7;
+            const vel = velocities[beatIndex] !== undefined ? velocities[beatIndex] : defaultVel;
+            beatSquare.classList.toggle("ghost-note", vel === 0.3);
+            beatSquare.classList.toggle("accent-note", vel === 1.0);
+          }
         });
       });
     });

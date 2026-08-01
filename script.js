@@ -60,6 +60,21 @@ function refreshUIFromState() {
   }
   SongController.render();
 
+  const abLoop = AppState.getAbLoop ? AppState.getAbLoop() : { enabled: false, startBar: 0, endBar: 3 };
+  const abStartInput = document.getElementById("ab-start-bar");
+  const abEndInput = document.getElementById("ab-end-bar");
+  const abBtn = document.getElementById("ab-loop-toggle-btn");
+  const abInputs = document.getElementById("ab-loop-inputs");
+  if (abStartInput) abStartInput.value = String(abLoop.startBar + 1);
+  if (abEndInput) abEndInput.value = String(abLoop.endBar + 1);
+  if (abBtn) {
+    abBtn.textContent = abLoop.enabled ? "🔂 Loop ON" : "🔂 A/B Loop";
+    abBtn.classList.toggle("active", abLoop.enabled);
+  }
+  if (abInputs) {
+    abInputs.classList.toggle("open", abLoop.enabled);
+  }
+
   TrackController.renderTracks();
   BarControlsController.updateBarControlsForSelectedTrack();
   
@@ -132,7 +147,8 @@ async function initialize() {
   const abStart = document.getElementById("ab-start-bar");
   const abEnd = document.getElementById("ab-end-bar");
   const abBtn = document.getElementById("ab-loop-toggle-btn");
-  if (abStart && abEnd && abBtn) {
+  const abInputs = document.getElementById("ab-loop-inputs");
+  if (abStart && abEnd && abBtn && abInputs) {
     const updateAb = () => {
       const s = (parseInt(abStart.value, 10) || 1) - 1;
       const e = (parseInt(abEnd.value, 10) || 1) - 1;
@@ -144,8 +160,9 @@ async function initialize() {
       const current = AppState.getAbLoop();
       const nextEnabled = !current.enabled;
       AppState.setAbLoop({ enabled: nextEnabled });
-      abBtn.textContent = nextEnabled ? "🔂 Loop ON" : "🔂 Loop Off";
+      abBtn.textContent = nextEnabled ? "🔂 Loop ON" : "🔂 A/B Loop";
       abBtn.classList.toggle("active", nextEnabled);
+      abInputs.classList.toggle("open", nextEnabled);
     });
   }
   SoundSettingsModal.init();

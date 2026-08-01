@@ -362,6 +362,7 @@ const AppState = (function () {
   let soundBuffers = {};
   let currentTheme = "default";
   let isRestMode = false;
+  let isAccentMode = false;
   let isRecording = false;
   let recordings = [];
   let customSounds = {}; // Stores custom user presets: { "My Kick": { baseSound: "Synth Kick", settings: {...} } }
@@ -599,7 +600,14 @@ const AppState = (function () {
     },
     isRestMode: () => isRestMode,
     setRestMode: (mode) => {
-      isRestMode = mode;
+      isRestMode = !!mode;
+      if (isRestMode) isAccentMode = false;
+      saveState();
+    },
+    isAccentMode: () => isAccentMode,
+    setAccentMode: (mode) => {
+      isAccentMode = !!mode;
+      if (isAccentMode) isRestMode = false;
       saveState();
     },
 
