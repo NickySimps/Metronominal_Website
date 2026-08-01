@@ -32,14 +32,16 @@
     <div class="main-container">
         <div class="metronome-container">
             <div class="top-controls-area">
-                <button class="tap-tempo-btn">TAP TEMPO</button>
-                <button id="share-btn">SHARE <span id="sync-role">OFFLINE</span><span
+                <button class="tap-tempo-btn" title="Tap Tempo">⏱️ TAP</button>
+                <button id="share-btn" title="WebRTC Sync & Room Share">🔗 Sync <span id="sync-role">OFFLINE</span><span
                         id="connection-status"></span><span id="sync-quality">OFFLINE</span><span
                         id="n-of-connections"></span></button>
+                <button id="speed-trainer-btn" class="preset-btn" title="Speed Trainer / Accel Mode" aria-label="Open Speed Trainer controls">🚀 Accel Mode</button>
+                <button id="visualizer-mode-btn" class="preset-btn" title="Cycle Visualizer Mode (Waveform, Spectrum, Lissajous, Radial)" aria-label="Cycle Visualizer Mode">🌊 Waveform Scope</button>
                 <button id="disconnect-btn" style="display: none;">DISCONNECT</button>
-                <button class="reset-btn" title="Reset all settings" aria-label="Reset all settings">↺</button>
-                <button id="manage-recordings-btn" title="Manage recordings" aria-label="Manage recordings">◉</button>
-                <button id="screen-off-toggle-btn" title="Toggle screen sleep" aria-label="Toggle screen sleep">Allow Screen Sleep</button>
+                <button class="reset-btn" title="Reset all settings to default" aria-label="Reset all settings">↺ Reset</button>
+                <button id="manage-recordings-btn" title="Manage custom samples and recordings" aria-label="Manage recordings">📁 Samples</button>
+                <button id="screen-off-toggle-btn" title="Toggle screen sleep" aria-label="Toggle screen sleep">📱 Keep Awake</button>
             </div>
             <div class="global-app-controls">
                 <div class="control-group">
@@ -47,22 +49,22 @@
                     <span class="total-beats-display">0</span>
                 </div>
                 <div class="control-group">
-                    <label for="beat-multiplier-select" class="control-label">Note Subdivision:</label>
+                    <label for="beat-multiplier-select" class="control-label">Subdivision:</label>
                     <select name="beat-multiplier" id="beat-multiplier-select" class="compact-select">
-                        <option value="0.25">4/1</option>
-                        <option value="0.5">2/1</option>
-                        <option value="1" selected>1/4</option>
-                        <option value="2">1/8</option>
-                        <option value="3">1/8T</option>
-                        <option value="4">1/16</option>
+                        <option value="0.25">4/1 (Whole)</option>
+                        <option value="0.5">2/1 (Half)</option>
+                        <option value="1" selected>1/4 (Quarter)</option>
+                        <option value="2">1/8 (Eighth)</option>
+                        <option value="3">1/8T (Triplet)</option>
+                        <option value="4">1/16 (16th)</option>
                         <option value="5">1/16 Quin</option>
                         <option value="6">1/16 Sex</option>
                         <option value="7">1/16 Sep</option>
-                        <option value="8">1/32</option>
+                        <option value="8">1/32 (32nd)</option>
                     </select>
                 </div>
                 <div class="control-group">
-                    <label for="count-in-bars-select" class="control-label">Count-in:</label>
+                    <label for="count-in-bars-select" class="control-label">Count-In:</label>
                     <select id="count-in-bars-select" class="compact-select" aria-label="Count-in bars">
                         <option value="0">Off</option>
                         <option value="1">1 bar</option>
@@ -75,6 +77,15 @@
                         <option value="8">8 bars</option>
                     </select>
                 </div>
+                <div class="control-group ab-loop-controls" style="display: inline-flex; align-items: center; gap: 6px;">
+                    <span class="control-label">A/B Loop:</span>
+                    <label for="ab-start-bar" class="sr-only">Loop Start Bar</label>
+                    <input type="number" id="ab-start-bar" class="compact-input" min="1" max="64" value="1" style="width: 50px;" title="Start Bar" />
+                    <span style="opacity: 0.7;">to</span>
+                    <label for="ab-end-bar" class="sr-only">Loop End Bar</label>
+                    <input type="number" id="ab-end-bar" class="compact-input" min="1" max="64" value="2" style="width: 50px;" title="End Bar" />
+                    <button id="ab-loop-toggle-btn" class="preset-btn" title="Toggle A/B Bar Looper">🔂 Loop Off</button>
+                </div>
                 <div class="control-group">
                     <span class="control-label">Song Mode:</span>
                     <button id="song-mode-enabled" class="song-mode-button" type="button" aria-pressed="false"
@@ -85,41 +96,41 @@
                 <div class="control-group">
                     <label for="preset-slot-select" class="control-label">Preset Slot:</label>
                     <select id="preset-slot-select" class="compact-select" aria-label="Select preset slot">
-                        <option value="0">1</option>
-                        <option value="1">2</option>
-                        <option value="2">3</option>
-                        <option value="3">4</option>
-                        <option value="4">5</option>
-                        <option value="5">6</option>
-                        <option value="6">7</option>
-                        <option value="7">8</option>
-                        <option value="8">9</option>
-                        <option value="9">10</option>
-                        <option value="10">11</option>
-                        <option value="11">12</option>
-                        <option value="12">13</option>
-                        <option value="13">14</option>
-                        <option value="14">15</option>
-                        <option value="15">16</option>
+                        <option value="0">Slot 1</option>
+                        <option value="1">Slot 2</option>
+                        <option value="2">Slot 3</option>
+                        <option value="3">Slot 4</option>
+                        <option value="4">Slot 5</option>
+                        <option value="5">Slot 6</option>
+                        <option value="6">Slot 7</option>
+                        <option value="7">Slot 8</option>
+                        <option value="8">Slot 9</option>
+                        <option value="9">Slot 10</option>
+                        <option value="10">Slot 11</option>
+                        <option value="11">Slot 12</option>
+                        <option value="12">Slot 13</option>
+                        <option value="13">Slot 14</option>
+                        <option value="14">Slot 15</option>
+                        <option value="15">Slot 16</option>
                     </select>
                 </div>
                 <div class="control-group preset-action-buttons">
                     <button class="preset-btn save-preset-btn"
                         aria-label="Save current settings to selected preset slot" title="Save current settings to selected slot">
-                        Save
+                        💾 Save
                     </button>
                     <button class="preset-btn clear-preset-btn"
                         aria-label="Clear selected preset slot" title="Clear selected preset slot">
-                        Clear
+                        🗑 Clear
                     </button>
                     <button class="preset-btn reset-preset-btn"
                         aria-label="Reset metronome settings to default" title="Reset all settings to default">
-                        Reset
+                        ↺ Reset
                     </button>
                 </div>
                 <div class="control-group">
-                    <label for="preset-name-input" class="control-label">Song Name:</label>
-                    <input type="text" id="preset-name-input" class="compact-input" placeholder="Enter name..."
+                    <label for="preset-name-input" class="control-label">Preset Title:</label>
+                    <input type="text" id="preset-name-input" class="compact-input" placeholder="Enter song title..."
                         aria-label="Song or Preset Name" />
                 </div>
             </div>
@@ -127,8 +138,8 @@
             <section id="song-mode-panel" class="song-mode-panel" aria-labelledby="song-mode-title" hidden>
                 <div class="song-mode-heading">
                     <div>
-                        <h2 id="song-mode-title">Song Mode</h2>
-                        <p>Label your bars and automate BPM at section changes. The arrangement loops for rehearsal.</p>
+                        <h2 id="song-mode-title">🎵 Song Mode & Section Arrangement</h2>
+                        <p>Organize your song into sections with custom tempos, repeats, and captured track setups.</p>
                     </div>
                 </div>
                 <div class="song-mode-meta">
@@ -257,8 +268,75 @@
     <div id="manage-recordings-modal" class="modal">
         <div class="modal-content">
             <span class="close-button">&times;</span>
-            <h2>Manage Recordings</h2>
+            <h2>Manage Recordings & Samples</h2>
+
+            <div class="sample-actions" style="display: flex; gap: 10px; margin: 15px 0; align-items: center; flex-wrap: wrap;">
+                <button id="upload-sample-btn" class="preset-btn">📁 Upload Sample Files</button>
+                <input type="file" id="upload-sample-input" accept="audio/*" multiple style="display: none;" />
+            </div>
+
+            <div class="loop-sampler-box" style="margin: 15px 0; padding: 12px; border: 1px solid var(--BorderColor, #444); border-radius: var(--BorderRadius); background: rgba(0,0,0,0.15);">
+                <h3 style="margin-top:0;">⏺ Multi-Bar Self-Sampling Loop Recorder</h3>
+                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <label for="loop-bars-select">Bars to record:
+                        <select id="loop-bars-select" class="compact-select">
+                            <option value="1">1 Bar</option>
+                            <option value="2">2 Bars</option>
+                            <option value="4" selected>4 Bars</option>
+                            <option value="8">8 Bars</option>
+                        </select>
+                    </label>
+                    <button id="record-loop-btn" class="preset-btn" style="background: var(--Alt2); color: var(--TextOnMain);">⏺ Start Loop Sampler</button>
+                </div>
+            </div>
+
+            <h3>Saved Samples & Loops</h3>
             <div id="recordings-list"></div>
+        </div>
+    </div>
+    <div id="speed-trainer-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2>🚀 Speed Trainer (Gradual Acceleration)</h2>
+            <p>Automatically increase BPM over time to build speed and accuracy.</p>
+
+            <div class="speed-trainer-controls" style="display: flex; flex-direction: column; gap: 12px; margin-top: 15px;">
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: bold; cursor: pointer;">
+                    <input type="checkbox" id="st-enable-toggle" style="width: 20px; height: 20px;" />
+                    Enable Speed Trainer Mode
+                </label>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 10px;">
+                    <div>
+                        <label for="st-start-bpm" class="control-label">Start BPM:</label>
+                        <input type="number" id="st-start-bpm" class="compact-input" min="20" max="300" value="100" />
+                    </div>
+                    <div>
+                        <label for="st-bpm-step" class="control-label">Increase By (+BPM):</label>
+                        <input type="number" id="st-bpm-step" class="compact-input" min="1" max="50" value="5" />
+                    </div>
+                    <div>
+                        <label for="st-step-bars" class="control-label">Every (N Bars):</label>
+                        <input type="number" id="st-step-bars" class="compact-input" min="1" max="64" value="2" />
+                    </div>
+                    <div>
+                        <label for="st-max-bpm" class="control-label">Target Max BPM:</label>
+                        <input type="number" id="st-max-bpm" class="compact-input" min="20" max="300" value="180" />
+                    </div>
+                    <div>
+                        <label for="st-max-action" class="control-label">On Max BPM Reached:</label>
+                        <select id="st-max-action" class="compact-select">
+                            <option value="hold" selected>Hold Max BPM</option>
+                            <option value="stop">Stop Playback</option>
+                            <option value="reset">Reset to Start BPM</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="st-status-box" style="padding: 10px; border-radius: var(--BorderRadius); background: rgba(0,0,0,0.15); font-weight: 500; margin-top: 10px;">
+                    Status: <span id="st-status-text">Speed Trainer is inactive.</span>
+                </div>
+            </div>
         </div>
     </div>
     <div id="recording-display-modal" class="modal">

@@ -435,26 +435,43 @@ const TrackController = {
             }, 0);
         };
 
-        if (target.matches(".beat-square") && AppState.isRestMode()) {
-            const barIndex = parseInt(target.closest(".bar-visual").dataset.barIndex, 10);
+        if (target.matches(".beat-square")) {
+            const barVisual = target.closest(".bar-visual");
+            const barIndex = barVisual ? parseInt(barVisual.dataset.barIndex, 10) : 0;
             const beatIndex = parseInt(target.dataset.beatIndex, 10);
             const track = AppState.getTracks()[containerIndex];
-            const newRests = [...(track.barSettings[barIndex].rests || [])];
 
-            if (newRests.includes(beatIndex)) {
-                const indexToRemove = newRests.indexOf(beatIndex);
-                newRests.splice(indexToRemove, 1);
-                target.classList.remove("rested");
-            } else {
-                newRests.push(beatIndex);
-                target.classList.add("rested");
+            if (track && track.barSettings[barIndex]) {
+                if (AppState.isRestMode()) {
+                    const newRests = [...(track.barSettings[barIndex].rests || [])];
+                    if (newRests.includes(beatIndex)) {
+                        const indexToRemove = newRests.indexOf(beatIndex);
+                        newRests.splice(indexToRemove, 1);
+                        target.classList.remove("rested");
+                    } else {
+                        newRests.push(beatIndex);
+                        target.classList.add("rested");
+                    }
+                    const newBarSettings = [...track.barSettings];
+                    newBarSettings[barIndex].rests = newRests;
+                    AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
+                } else {
+                    const currentVelocities = { ...(track.barSettings[barIndex].velocities || {}) };
+                    const defaultVel = (beatIndex === 0) ? 1.0 : 0.7;
+                    const curVel = currentVelocities[beatIndex] !== undefined ? currentVelocities[beatIndex] : defaultVel;
+                    let nextVel = 0.7;
+                    if (curVel === 0.7) nextVel = 1.0;
+                    else if (curVel === 1.0) nextVel = 0.3;
+                    else nextVel = 0.7;
+
+                    currentVelocities[beatIndex] = nextVel;
+                    const newBarSettings = [...track.barSettings];
+                    newBarSettings[barIndex].velocities = currentVelocities;
+                    AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
+                }
+                BarDisplayController.updateBar(containerIndex, barIndex);
+                sendState(AppState.getCurrentStateForPreset(true));
             }
-            const newBarSettings = [...track.barSettings];
-            newBarSettings[barIndex].rests = newRests;
-            AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
-            BarDisplayController.updateBar(containerIndex, barIndex);
-            sendState(AppState.getCurrentStateForPreset(true));
-            
             updateSelectionUI();
         } else {
             updateSelectionUI();

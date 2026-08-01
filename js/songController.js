@@ -10,7 +10,7 @@ const FORBIDDEN_KEYS = new Set([
 ]);
 
 let refreshApplicationUI = () => {};
-let canEditSong = false;
+let canEditSong = true;
 let selectedSectionIndex = 0;
 
 const SNAPSHOT_TRACK_KEYS = new Set([
@@ -558,7 +558,7 @@ async function initialize(callback) {
   document.addEventListener("songpositionchange", render);
   document.addEventListener("playbackstatechange", render);
   document.addEventListener("syncrolechange", event => {
-    canEditSong = event.detail?.state === "connected" && event.detail?.isHost === true;
+    canEditSong = !event.detail || event.detail.state !== "connected" || event.detail.isHost === true;
     render();
   });
 

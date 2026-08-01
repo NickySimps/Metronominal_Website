@@ -367,6 +367,7 @@ const AppState = (function () {
   let customSounds = {}; // Stores custom user presets: { "My Kick": { baseSound: "Synth Kick", settings: {...} } }
   let isWakeLockEnabled = false;
   let audioLatencyOffset = 0; // Latency offset in ms (-200 to +500)
+  let abLoop = { enabled: false, startBar: 0, endBar: 1 };
 
 
   // --- Constants ---
@@ -580,6 +581,13 @@ const AppState = (function () {
     getVolume: () => volume,
     setVolume: (newVolume) => {
       volume = Math.max(0, Math.min(parseFloat(newVolume), 1));
+      saveState();
+    },
+
+    // A/B Bar Looper
+    getAbLoop: () => ({ ...abLoop }),
+    setAbLoop: (settings) => {
+      abLoop = { ...abLoop, ...settings };
       saveState();
     },
 

@@ -18,6 +18,8 @@ import AudioController from './js/audioController.js';
 import RecordingManager from './js/recordingManager.js';
 import StickyControls from './js/stickyControls.js';
 import SongController from './js/songController.js';
+import SpeedTrainerController from './js/speedTrainerController.js';
+import MidiController from './js/midiController.js';
 
 let qrCodeInstance = null;
 let appInitialized = false;
@@ -127,8 +129,29 @@ async function initialize() {
       DOM.audioLatencyValue.textContent = `${val > 0 ? '+' : ''}${val} ms`;
     });
   }
+  const abStart = document.getElementById("ab-start-bar");
+  const abEnd = document.getElementById("ab-end-bar");
+  const abBtn = document.getElementById("ab-loop-toggle-btn");
+  if (abStart && abEnd && abBtn) {
+    const updateAb = () => {
+      const s = (parseInt(abStart.value, 10) || 1) - 1;
+      const e = (parseInt(abEnd.value, 10) || 1) - 1;
+      AppState.setAbLoop({ startBar: Math.min(s, e), endBar: Math.max(s, e) });
+    };
+    abStart.addEventListener("input", updateAb);
+    abEnd.addEventListener("input", updateAb);
+    abBtn.addEventListener("click", () => {
+      const current = AppState.getAbLoop();
+      const nextEnabled = !current.enabled;
+      AppState.setAbLoop({ enabled: nextEnabled });
+      abBtn.textContent = nextEnabled ? "🔂 Loop ON" : "🔂 Loop Off";
+      abBtn.classList.toggle("active", nextEnabled);
+    });
+  }
   SoundSettingsModal.init();
   RecordingManager.init();
+  SpeedTrainerController.init();
+  MidiController.init();
   UIController.initializeConnectionModal();
   console.log('DOM.recordingDisplayModal:', DOM.recordingDisplayModal);
   AudioController.initialize();

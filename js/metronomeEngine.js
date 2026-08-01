@@ -11,6 +11,7 @@ import BarDisplayController from './barDisplayController.js';
 import SoundSynth from './soundSynth.js';
 import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, broadcastSyncPulse, getDesiredHostPlaybackState } from './webrtc.js';
 import AudioController from './audioController.js';
+import MidiController from './midiController.js';
 
 let metronomeWorker = new Worker('js/metronomeWorker.js');
 let metronomeWorkerReady = false;
@@ -53,7 +54,7 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
-function playBeatSound(track, beatTime) {
+function playBeatSound(track, beatTime, trackIndex = 0) {
     const audioContext = AppState.getAudioContext();
     const isAnySoloed = AppState.isAnyTrackSoloed();
     const canPlay = !isAnySoloed ? !track.muted : track.solo;
@@ -81,10 +82,15 @@ function playBeatSound(track, beatTime) {
     if (!soundObject || !soundObject.sound) return; // Safety check
     const soundToPlay = soundObject.sound; // Extract the sound name string
 
-    // Calculate final volume by combining global, track, and individual sound volumes
+    // Calculate final volume by combining global, track, sound, and beat velocity (3-tier dynamics)
+    const defaultVel = isAccent ? 1.0 : 0.7;
+    const beatVelocity = (currentBarData.velocities && currentBarData.velocities[track.currentBeat] !== undefined)
+        ? currentBarData.velocities[track.currentBeat]
+        : defaultVel;
+
     const trackVolume = track.volume !== undefined ? track.volume : 1.0;
     const soundVolume = soundObject.settings && soundObject.settings.volume !== undefined ? soundObject.settings.volume : 1.0;
-    const finalVolume = AppState.getVolume() * trackVolume * soundVolume;
+    const finalVolume = AppState.getVolume() * trackVolume * soundVolume * beatVelocity;
 
     const destination = track.analyserNode || audioContext.destination;
 
@@ -116,6 +122,10 @@ function playBeatSound(track, beatTime) {
         const { trimStart, trimEnd, pitchShift } = soundObject.settings || {};
         AudioController.playRecording(baseSoundName, soundObject.settings, trimStart, trimEnd, actualBeatTime, finalVolume, destination);
     }
+
+    if (trackIndex === 0) {
+        MidiController.sendMidiClock();
+    }
 }
 
 function advanceTrackBeat(track) {
@@ -128,13 +138,24 @@ function advanceTrackBeat(track) {
     track.currentBeat++;
     if (track.currentBeat >= totalSubBeatsInBar) {
         track.currentBeat = 0;
-        const nextPosition = AppState.getNextSongPosition(
-            track.currentBar,
-            track.songRepeatIteration || 0,
-            track.barSettings.length
-        );
-        track.currentBar = nextPosition.bar;
-        track.songRepeatIteration = nextPosition.repeatIteration;
+        const abLoop = AppState.getAbLoop ? AppState.getAbLoop() : null;
+        if (abLoop && abLoop.enabled && track.barSettings.length > 1) {
+            const start = Math.max(0, Math.min(abLoop.startBar, track.barSettings.length - 1));
+            const end = Math.max(start, Math.min(abLoop.endBar, track.barSettings.length - 1));
+            let nextBar = track.currentBar + 1;
+            if (nextBar > end || nextBar < start) {
+                nextBar = start;
+            }
+            track.currentBar = nextBar;
+        } else {
+            const nextPosition = AppState.getNextSongPosition(
+                track.currentBar,
+                track.songRepeatIteration || 0,
+                track.barSettings.length
+            );
+            track.currentBar = nextPosition.bar;
+            track.songRepeatIteration = nextPosition.repeatIteration;
+        }
     }
 }
 
@@ -183,7 +204,7 @@ function scheduler() {
                 // Only play sound and schedule visuals if the beat is within a reasonable window (not >250ms in the past)
                 // This prevents "machine gun" bursts when syncing catches up from a late start or large drift.
                 if (track.nextBeatTime > audioContext.currentTime - 0.25) {
-                    playBeatSound(track, track.nextBeatTime);
+                    playBeatSound(track, track.nextBeatTime, trackIndex);
                     
                     // Push visual event to queue only if page is visible
                     if (isPageVisible) {
@@ -259,6 +280,7 @@ function performEngineStopActions() {
     if (MetronomeEngine.onPlayStateChange) {
         MetronomeEngine.onPlayStateChange(false);
     }
+    MidiController.sendMidiStop();
 }
 
 const MetronomeEngine = {
@@ -351,6 +373,7 @@ const MetronomeEngine = {
             }
 
             metronomeWorker.postMessage("start");
+            MidiController.sendMidiStart();
             
             if (isPageVisible) {
                 if (!drawFrameId) {

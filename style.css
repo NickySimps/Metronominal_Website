@@ -528,6 +528,17 @@ button {
   transition: all 0.2s ease-out; /* Smoother and slightly longer "pop" for liquid feel */
 }
 
+.beat-square.ghost-note {
+  opacity: 0.45;
+  transform: scale(0.82);
+  border: 1px dashed var(--TextSecondary);
+}
+
+.beat-square.accent-note {
+  border: 2px solid var(--Accent);
+  box-shadow: 0 0 6px var(--Accent);
+}
+
 .beat-square.rested,
 .beat-square.subdivision.rested {
   /* Added .beat-square.subdivision.rested for higher specificity */
@@ -780,12 +791,25 @@ select {
     gap: var(--s3); /* Standardized gap (8px) */
   }
   .control-label {
-    font-size: var(--font-1); /* Standardized font size */
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--ReadableOnBackground, var(--TextPrimary));
   }
-  /* Style for a compact select if used in global-app-controls */
-  .compact-select {
-    font-size: var(--font-1); /* Standardized font size */
-    padding: var(--s1) var(--s2); /* Standardized padding (2px 4px) */
+  .compact-select,
+  .compact-input {
+    font-size: 0.88rem;
+    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: var(--BorderRadius);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background-color: var(--Highlight);
+    color: var(--TextPrimary);
+    transition: all 0.15s ease-in-out;
+  }
+  .compact-select:hover,
+  .compact-input:hover {
+    border-color: var(--Accent);
   }
 
   .start-stop-btn {
@@ -1083,32 +1107,44 @@ select {
 /* Suggestion for your CSS file */
 .top-controls-area {
   position: fixed; /* Changed from absolute to fixed */
-  top: var(--s3); /* Standardized position (8px) */
-  left: var(--s3); /* Standardized position (8px) */
+  top: 10px;
+  left: 10px;
   width: max-content;
-  max-width: calc(100vw - (2 * var(--s3)));
+  max-width: calc(100vw - 20px);
   display: flex;
-  gap: var(--s3); /* Standardized gap (8px) */
+  align-items: center;
+  gap: 6px;
   z-index: 1000;
   overflow-x: auto;
   white-space: nowrap;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: calc(var(--BorderRadius) + 2px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .top-controls-area button { flex: 0 0 auto; }
 
 .top-controls-area button {
-  /* Basic styling, adjust to match your theme */
-  padding: var(--s3) var(--s3); /* Standardized padding (8px 8px) */
-  font-size: var(--font-2); /* Standardized font size */
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  border: var(--s0) solid var(--BorderColor, transparent); /* Standardized border (1px) */
-  background-color: var(--Accent, #f0f0f0);
-  color: var(--TextPrimary, #333);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background-color: var(--Main);
+  color: var(--TextOnMain);
   border-radius: var(--BorderRadius);
+  transition: all 0.15s ease-in-out;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
 
 .top-controls-area button:hover {
-  background-color: var(--Highlight, #e0e0e0);
+  background-color: var(--Highlight);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.25);
 }
 
 #screen-off-toggle-btn.active {
