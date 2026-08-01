@@ -39,7 +39,6 @@ const VolumeController = {
           requestAnimationFrame(animationStep);
         } else {
           slider.value = targetVolume; // Ensure final value is precise
-          // Final update of text display (already done at the start for volume)
           if (DOM.volumeValueDisplay) {
             DOM.volumeValueDisplay.textContent = `${Math.round(
               targetVolume * 100
@@ -49,8 +48,14 @@ const VolumeController = {
       }
       requestAnimationFrame(animationStep);
     } else {
-      if (slider) slider.value = targetVolume;
-      // Text display already updated at the beginning of the function
+      if (slider) {
+        slider.value = targetVolume;
+        const pct = Math.round(targetVolume * 100);
+        slider.setAttribute("aria-valuenow", String(pct));
+        slider.setAttribute("aria-valuemin", "0");
+        slider.setAttribute("aria-valuemax", "100");
+        slider.setAttribute("aria-valuetext", `${pct}%`);
+      }
     }
 
     if (VolumeController.onVolumeChange) {

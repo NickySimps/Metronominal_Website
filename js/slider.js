@@ -33,6 +33,7 @@ export class Slider {
             }
 
             this.value = newValue;
+            this.updateAria();
             if (this.onValueChange) {
                 this.onValueChange(this.value);
             }
@@ -40,11 +41,21 @@ export class Slider {
 
         this.decrementButton.addEventListener('click', () => this.decrement());
         this.incrementButton.addEventListener('click', () => this.increment());
+        this.updateAria();
+    }
+
+    updateAria() {
+        if (!this.sliderElement) return;
+        this.sliderElement.setAttribute('aria-valuenow', String(this.value));
+        this.sliderElement.setAttribute('aria-valuemin', String(this.sliderElement.min || 0));
+        this.sliderElement.setAttribute('aria-valuemax', String(this.sliderElement.max || 100));
+        this.sliderElement.setAttribute('aria-valuetext', String(this.value));
     }
 
     setValue(newValue) {
         this.value = newValue;
         this.sliderElement.value = this.value;
+        this.updateAria();
         if (this.onValueChange) {
             this.onValueChange(this.value);
         }

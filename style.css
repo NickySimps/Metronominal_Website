@@ -10,6 +10,15 @@ html {
   overflow-x: hidden; /* Prevent horizontal scrolling for the entire page */
 }
 
+@property --Main { syntax: '<color>'; inherits: true; initial-value: #00b430; }
+@property --Background { syntax: '<color>'; inherits: true; initial-value: #e3ffe8; }
+@property --Accent { syntax: '<color>'; inherits: true; initial-value: #ffe0b2; }
+@property --Highlight { syntax: '<color>'; inherits: true; initial-value: #a0faa0; }
+@property --Alt1 { syntax: '<color>'; inherits: true; initial-value: #4682b4; }
+@property --Alt2 { syntax: '<color>'; inherits: true; initial-value: #dc143c; }
+@property --SubdivisionBeatColor { syntax: '<color>'; inherits: true; initial-value: rgba(14, 75, 0, 0.85); }
+@property --HighlightedBeatColor { syntax: '<color>'; inherits: true; initial-value: #ffc471; }
+
 :root {
   --Main: #00b430; /* Pistachio Green */
   --Background: #e3ffe8; /* Light Green */
@@ -81,8 +90,21 @@ body {
   color: var(--TextPrimary);
 }
 body * {
-  transition: all 0.3s ease-in-out;
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, text-shadow 0.25s ease;
   text-shadow: var(--text-shadow);
+}
+
+:focus-visible {
+  outline: 3px solid var(--Accent, #00ff44);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--Accent, #00ff44);
+  outline-offset: 2px;
 }
 
 .main-container {
@@ -1237,10 +1259,6 @@ select {
     max-width: 100%; /* Override any max-width constraints */
     padding: 0 var(--s3); /* Standardized padding (0 8px) */
   }
-}
-
-@media (max-width: 768px) {
-  /* Styles for mobile devices */
 }
 
 .subdivision-option.desktop {

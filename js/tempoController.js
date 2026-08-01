@@ -85,7 +85,13 @@ const TempoController = {
       }
       requestAnimationFrame(animationStep);
     } else {
-      if (slider) slider.value = targetTempo;
+      if (slider) {
+        slider.value = targetTempo;
+        slider.setAttribute("aria-valuenow", String(targetTempo));
+        slider.setAttribute("aria-valuemin", slider.min || "20");
+        slider.setAttribute("aria-valuemax", slider.max || "300");
+        slider.setAttribute("aria-valuetext", `${targetTempo} BPM`);
+      }
       _updateTempoDescriptionDOM(currentTempoDescription);
     }
 

@@ -1,6 +1,21 @@
-/**
- * A collection of functions to synthesize drum sounds using the Web Audio API.
- */
+let cachedNoiseBuffer = null;
+let cachedNoiseSampleRate = 0;
+
+function getSharedNoiseBuffer(audioContext) {
+  if (cachedNoiseBuffer && cachedNoiseSampleRate === audioContext.sampleRate) {
+    return cachedNoiseBuffer;
+  }
+  const bufferSize = audioContext.sampleRate * 2;
+  const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  cachedNoiseBuffer = buffer;
+  cachedNoiseSampleRate = audioContext.sampleRate;
+  return buffer;
+}
+
 const SoundSynth = {
   /**
    * Plays a synthesized kick drum sound.
@@ -95,17 +110,7 @@ const SoundSynth = {
     gain.connect(finalDestination);
 
     // Configure the noise part (the "snap" of the snare)
-    const bufferSize = audioContext.sampleRate * 0.5; // 0.5 seconds of noise
-    const buffer = audioContext.createBuffer(
-      1,
-      bufferSize,
-      audioContext.sampleRate
-    );
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
-    noise.buffer = buffer;
+    noise.buffer = getSharedNoiseBuffer(audioContext);
 
     noiseFilter.type = "highpass";
     noiseFilter.frequency.value = noiseFilterFrequency;
@@ -147,17 +152,7 @@ const SoundSynth = {
     const noiseGain = audioContext.createGain();
 
     // Use the same noise generation as the snare
-    const bufferSize = audioContext.sampleRate * 0.5;
-    const buffer = audioContext.createBuffer(
-      1,
-      bufferSize,
-      audioContext.sampleRate
-    );
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
-    noise.buffer = buffer;
+    noise.buffer = getSharedNoiseBuffer(audioContext);
 
     // Filter the noise to be high-frequency (the "tsss" sound)
     noiseFilter.type = "highpass";
@@ -196,17 +191,7 @@ const SoundSynth = {
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
-    const bufferSize = audioContext.sampleRate * 1;
-    const buffer = audioContext.createBuffer(
-      1,
-      bufferSize,
-      audioContext.sampleRate
-    );
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
-    noise.buffer = buffer;
+    noise.buffer = getSharedNoiseBuffer(audioContext);
 
     noiseFilter.type = "highpass";
     noiseFilter.frequency.value = filterFrequency;
@@ -344,17 +329,7 @@ const SoundSynth = {
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
-    const bufferSize = audioContext.sampleRate * 0.5;
-    const buffer = audioContext.createBuffer(
-      1,
-      bufferSize,
-      audioContext.sampleRate
-    );
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
-    noise.buffer = buffer;
+    noise.buffer = getSharedNoiseBuffer(audioContext);
 
     noiseFilter.type = "bandpass";
     noiseFilter.frequency.value = filterFrequency;
@@ -425,17 +400,7 @@ const SoundSynth = {
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
-    const bufferSize = audioContext.sampleRate * 0.5;
-    const buffer = audioContext.createBuffer(
-      1,
-      bufferSize,
-      audioContext.sampleRate
-    );
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
-    noise.buffer = buffer;
+    noise.buffer = getSharedNoiseBuffer(audioContext);
 
     noiseFilter.type = "bandpass";
     noiseFilter.frequency.value = filterFrequency;
@@ -473,17 +438,7 @@ const SoundSynth = {
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
-    const bufferSize = audioContext.sampleRate * 2; // Longer noise buffer
-    const buffer = audioContext.createBuffer(
-      1,
-      bufferSize,
-      audioContext.sampleRate
-    );
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
-    noise.buffer = buffer;
+    noise.buffer = getSharedNoiseBuffer(audioContext);
 
     noiseFilter.type = "bandpass"; // Or highpass, experiment for desired sound
     noiseFilter.frequency.value = filterFrequency;
@@ -629,17 +584,7 @@ const SoundSynth = {
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
-    const bufferSize = audioContext.sampleRate * 0.5; // Short noise buffer
-    const buffer = audioContext.createBuffer(
-      1,
-      bufferSize,
-      audioContext.sampleRate
-    );
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
-    noise.buffer = buffer;
+    noise.buffer = getSharedNoiseBuffer(audioContext);
 
     noiseFilter.type = "highpass";
     noiseFilter.frequency.value = filterFrequency;
@@ -840,17 +785,7 @@ const SoundSynth = {
     const noise = audioContext.createBufferSource();
     const noiseGain = audioContext.createGain();
 
-    const bufferSize = audioContext.sampleRate * 1;
-    const buffer = audioContext.createBuffer(
-      1,
-      bufferSize,
-      audioContext.sampleRate
-    );
-    const output = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
-    }
-    noise.buffer = buffer;
+    noise.buffer = getSharedNoiseBuffer(audioContext);
 
     noiseGain.gain.setValueAtTime(0, time);
     noiseGain.gain.linearRampToValueAtTime(volume, time + attack);

@@ -1,5 +1,31 @@
 import { audioBufferToWav, wavToArrayBuffer } from './audioSerialization.js';
 
+/**
+ * @typedef {Object} BarSetting
+ * @property {number} beats - Number of beats in the bar
+ * @property {number} subdivision - Subdivision value (1=quarter, 2=eighth, 3=triplet, 4=sixteenth, 6=sextuplet)
+ * @property {boolean[]} rests - Array indicating rest state per beat
+ */
+
+/**
+ * @typedef {Object} SoundConfig
+ * @property {string} sound - Instrument sound name or custom sound identifier
+ * @property {Object} settings - Instrument synthesis settings
+ */
+
+/**
+ * @typedef {Object} TrackConfig
+ * @property {string} [name] - Track title
+ * @property {boolean} muted - Whether track is muted
+ * @property {boolean} soloed - Whether track is soloed
+ * @property {number} volume - Volume gain (0.0 to 1.0)
+ * @property {number} currentBar - Active bar index
+ * @property {number} currentBeat - Active beat index
+ * @property {BarSetting[]} barSettings - Settings for each bar in track
+ * @property {SoundConfig} mainBeatSound - Accent beat sound configuration
+ * @property {SoundConfig} subdivisionSound - Subdivision sound configuration
+ */
+
 const defaultKick = {
   volume: 1.0,
   startFrequency: 150,
@@ -351,7 +377,9 @@ const AppState = (function () {
   const LOCAL_STORAGE_KEY = "metronominalState";
 
   // --- Private Functions ---
-  const saveState = async () => {
+  let saveStateTimeout = null;
+
+  const saveStateImmediate = async () => {
     try {
       const state = await publicAPI.getCurrentStateForPreset();
       localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
@@ -359,6 +387,20 @@ const AppState = (function () {
       console.error("Could not save state to localStorage:", e);
     }
   };
+
+  const saveState = () => {
+    if (saveStateTimeout) clearTimeout(saveStateTimeout);
+    saveStateTimeout = setTimeout(saveStateImmediate, 300);
+  };
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("beforeunload", () => {
+      if (saveStateTimeout) {
+        clearTimeout(saveStateTimeout);
+        saveStateImmediate();
+      }
+    });
+  }
 
   // --- Public API ---
   const publicAPI = {

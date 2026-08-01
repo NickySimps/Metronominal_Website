@@ -95,41 +95,29 @@ const Oscilloscope = {
 
     // Get colors from CSS variables
     const cssMainColor = getComputedStyle(document.documentElement).getPropertyValue('--Main').trim();
-    const cssAccentColor = getComputedStyle(document.documentElement).getPropertyValue('--Accent').trim();
-    const cssHighlightColor = getComputedStyle(document.documentElement).getPropertyValue('--Highlight').trim();
-
     // Expand shorthand hex like #abc to #aabbcc
     const expandHex = (hex) => {
       if (/^#([0-9a-f]{3})$/i.test(hex)) {
-        return (
-          "#" +
- hex
- .slice(1)
- .split("")
- .map((c) => c + c)
- .join("")
- );
+        return "#" + hex.slice(1).split("").map((c) => c + c).join("");
       }
- return hex;
+      return hex;
+    };
+
+    const getColor = (propName, fallback) => {
+      const color = getComputedStyle(document.documentElement).getPropertyValue(propName).trim();
+      return color || fallback;
     };
 
     const baseColors = [
- expandHex(cssMainColor),
- expandHex(cssAccentColor),
- expandHex(cssHighlightColor),
+      expandHex(getColor('--Main', '#00b430')),
+      expandHex(getColor('--Accent', '#ffe0b2')),
+      expandHex(getColor('--Highlight', '#a0faa0')),
     ];
 
-    // Validate hex format and fallback if invalid
-    for (let i = 0; i < baseColors.length; i++) {
-      if (!/^#([0-9a-f]{6})$/i.test(baseColors[i])) {
-        console.warn(`Invalid CSS color for oscilloscope. Falling back for index ${i}.`);
-        baseColors[i] = ['#00b430', '#ffe0b2', '#a0faa0'][i]; // Fallback to default theme colors
-      }
-    }
-
-    // Function to adjust lightness of a hex color
-    const adjustLightness = (hex, percent) => {
-      let f = parseInt(hex.slice(1), 16),
+    // Function to adjust lightness of a hex color (returns original if not a 6-digit hex string)
+    const adjustLightness = (color, percent) => {
+      if (!/^#([0-9a-f]{6})$/i.test(color)) return color;
+      let f = parseInt(color.slice(1), 16),
         t = percent < 0 ? 0 : 255,
         p = percent < 0 ? percent * -1 : percent,
         R = f >> 16,
@@ -150,7 +138,6 @@ const Oscilloscope = {
 
     const colors = analyserNodes.map((_, index) => {
       const baseColor = baseColors[index % baseColors.length];
-      // Apply a slight lightness variation to each color for more visual distinction
       const lightnessAdjustment = (index % 2 === 0 ? 0.05 : -0.05) * Math.floor(index / baseColors.length);
       return adjustLightness(baseColor, lightnessAdjustment);
     });

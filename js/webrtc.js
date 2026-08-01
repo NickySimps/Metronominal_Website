@@ -577,6 +577,11 @@ async function handleSocketMessage(event, generation) {
 
 function scheduleReconnect() {
   if (intentionallyDisconnected || reconnectTimer) return;
+  if (reconnectAttempt >= 5) {
+    console.log("Sync server unavailable. Operating in standalone local mode.");
+    updateConnectionStatusUI("disconnected");
+    return;
+  }
   const delay = Math.min(30000, 1000 * (2 ** reconnectAttempt));
   reconnectAttempt += 1;
   reconnectTimer = setTimeout(() => {
@@ -598,6 +603,7 @@ function connectToSynchronizationServer() {
 
   currentSocket.onopen = () => {
     if (generation !== connectionGeneration || socket !== currentSocket) return;
+    reconnectAttempt = 0;
     sendJoinRequest();
     clearInterval(heartbeatTimer);
     heartbeatTimer = setInterval(() => sendMessage({ type: "ping", t0: Date.now() }), 25000);
@@ -614,18 +620,21 @@ function connectToSynchronizationServer() {
   };
   currentSocket.onerror = error => {
     if (generation === connectionGeneration && socket === currentSocket) {
-      console.error("Synchronization WebSocket error:", error);
+      if (reconnectAttempt <= 1) {
+        console.warn("Synchronization WebSocket unavailable (standalone mode)");
+      }
     }
   };
   currentSocket.onclose = () => {
     if (generation !== connectionGeneration || socket !== currentSocket) return;
+    const wasJoined = joined;
     connectionGeneration += 1;
-    resumePlaybackOnReconnect = !intentionallyDisconnected && window.isHost && AppState.isPlaying();
+    resumePlaybackOnReconnect = !intentionallyDisconnected && window.isHost && AppState.isPlaying() && wasJoined;
     joined = false;
     resetProtocolDiagnostics();
     clearDesiredHostPlaybackState();
     invalidatePendingTransport();
-    if (AppState.isPlaying()) MetronomeEngine.togglePlay(true);
+    if (wasJoined && AppState.isPlaying()) MetronomeEngine.togglePlay(true);
     clearInterval(heartbeatTimer);
     stopTimeSync();
     clearTimeout(joinRetryTimer);
@@ -801,7 +810,7 @@ export function getDesiredHostPlaybackState() {
 }
 
 function broadcastTransportCommand(playing, forcePublication = false) {
-  if (!window.isHost) return false;
+  if (!window.isHost || !joined) return false;
   if (desiredHostPlaybackState === playing && !forcePublication) return true;
 
   desiredHostPlaybackState = playing;
@@ -811,7 +820,7 @@ function broadcastTransportCommand(playing, forcePublication = false) {
     playButton.classList.add("pending");
   }
 
-  if (!joined || acceptingReplacementReplay) return true;
+  if (acceptingReplacementReplay) return true;
 
   const referenceTrack = AppState.getTracks()[0];
   const publish = () => sendMessage({

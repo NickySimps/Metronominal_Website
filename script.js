@@ -230,6 +230,15 @@ document.addEventListener('click', (event) => {
   }
 });
 
+// Register Service Worker for offline PWA capabilities
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch((err) => {
+      console.warn('Service Worker registration failed:', err);
+    });
+  });
+}
+
 // Start the application once the DOM is ready.
 document.addEventListener("DOMContentLoaded", initialize);
 

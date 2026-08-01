@@ -151,6 +151,8 @@ export function disposeScene() {
 
 
     // Nullify internal references to allow for re-initialization
+    directionalLight = null;
+    animationFrameId = null;
     renderer = null;
     scene = null;
     camera = null;

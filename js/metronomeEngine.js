@@ -36,20 +36,14 @@ document.addEventListener('visibilitychange', () => {
     isPageVisible = document.visibilityState === 'visible';
     if (AppState.isPlaying()) {
         if (isPageVisible) {
-            // Page became visible: Start drawing loop
+            visualQueue = []; // Clear stale background events
             if (!drawFrameId) {
                 draw();
             }
         } else {
-            // Page is not visible
             if (!AppState.isWakeLockEnabled()) {
-                // If wake lock is not enabled, stop the metronome completely
                 MetronomeEngine.togglePlay();
             } else {
-                // If wake lock IS enabled, we do nothing.
-                // The worker keeps ticking, scheduler keeps running (on main thread), audio keeps playing.
-                // We just stop the visual loop (handled below by draw() checking isPageVisible, 
-                // or we can explicitly cancel it here to be cleaner).
                 if (drawFrameId) {
                     cancelAnimationFrame(drawFrameId);
                     drawFrameId = null;
@@ -191,13 +185,15 @@ function scheduler() {
                 if (track.nextBeatTime > audioContext.currentTime - 0.25) {
                     playBeatSound(track, track.nextBeatTime);
                     
-                    // Push visual event to queue
-                    visualQueue.push({
-                        time: track.nextBeatTime,
-                        trackIndex,
-                        bar: track.currentBar,
-                        beat: track.currentBeat
-                    });
+                    // Push visual event to queue only if page is visible
+                    if (isPageVisible) {
+                        visualQueue.push({
+                            time: track.nextBeatTime,
+                            trackIndex,
+                            bar: track.currentBar,
+                            beat: track.currentBeat
+                        });
+                    }
                 }
                 
                 // Host Sync Pulse: Broadcast expected wall time for this beat
