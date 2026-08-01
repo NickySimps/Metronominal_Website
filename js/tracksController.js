@@ -443,6 +443,11 @@ const TrackController = {
         updateSelectionUI();
     } else if (target.matches(".record-btn")) {
         AudioController.toggleRecording(containerIndex);
+    } else if (target.matches(".sound-label") || target.closest(".sound-label")) {
+        const soundLabel = target.closest(".sound-label");
+        const isMain = soundLabel.classList.contains("main-sound-label");
+        const soundType = isMain ? "mainBeatSound" : "subdivisionSound";
+        SoundSettingsModal.show(containerIndex, soundType);
     } else {
         let selectionChanged = false;
         if (AppState.getSelectedTrackIndex() !== containerIndex) {
@@ -544,8 +549,7 @@ const TrackController = {
           trackElement.dataset.containerIndex,
           10
         );
-        const soundSelectionDiv = target.closest(".sound-selection");
-        const isMainSound = soundSelectionDiv.querySelector(".main-beat-sound-select");
+        const isMainSound = target.classList.contains("main-sound-label");
         const soundType = isMainSound ? "mainBeatSound" : "subdivisionSound";
         SoundSettingsModal.show(containerIndex, soundType);
       }
