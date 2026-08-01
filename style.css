@@ -1158,19 +1158,27 @@ select {
   max-width: 100%;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8px;
   z-index: 100;
   overflow-x: auto;
   white-space: nowrap;
   padding: 6px 12px;
   margin-bottom: 6px;
-  background: rgba(0, 0, 0, 0.18);
+  background: color-mix(in srgb, var(--Main) 20%, var(--Background));
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-radius: var(--BorderRadius);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid color-mix(in srgb, var(--TextPrimary) 20%, transparent);
   box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tap-tempo-btn {
+  background-color: var(--Alt1) !important;
+  color: var(--TextOnMain) !important;
+  font-weight: 700 !important;
+  border-color: color-mix(in srgb, var(--Alt1) 60%, var(--TextPrimary)) !important;
 }
 
 .top-controls-area button { flex: 0 0 auto; }
@@ -1181,7 +1189,7 @@ select {
   font-weight: 600;
   letter-spacing: 0.02em;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid color-mix(in srgb, var(--TextPrimary) 20%, transparent);
   background-color: var(--Main);
   color: var(--TextOnMain);
   border-radius: var(--BorderRadius);
@@ -1191,6 +1199,7 @@ select {
 
 .top-controls-area button:hover {
   background-color: var(--Highlight);
+  color: var(--ReadableOnHighlight);
   transform: translateY(-1px);
   box-shadow: 0 3px 6px rgba(0,0,0,0.25);
 }
@@ -1215,11 +1224,11 @@ select {
     gap: 6px;
     padding: 6px 10px;
     box-sizing: border-box;
-    background: rgba(15, 15, 20, 0.88);
+    background: color-mix(in srgb, var(--Background) 92%, var(--Main));
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border-radius: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+    border-bottom: 1px solid color-mix(in srgb, var(--TextPrimary) 25%, transparent);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     z-index: 1000;
     overflow-x: auto;
