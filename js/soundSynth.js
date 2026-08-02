@@ -16,8 +16,14 @@ function getSharedNoiseBuffer(audioContext) {
   return buffer;
 }
 
+const PITCH_POW_TABLE = {};
+for (let i = -24; i <= 24; i++) {
+  PITCH_POW_TABLE[i] = Math.pow(2, i / 12);
+}
+
 function getPitchMult(pitchShift = 0) {
-  return Math.pow(2, (pitchShift || 0) / 12);
+  const p = Math.round(pitchShift || 0);
+  return PITCH_POW_TABLE[p] !== undefined ? PITCH_POW_TABLE[p] : Math.pow(2, p / 12);
 }
 
 const SoundSynth = {

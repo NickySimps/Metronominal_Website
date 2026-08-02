@@ -54,6 +54,32 @@ document.addEventListener('visibilitychange', () => {
     }
 });
 
+function getTrackSwingOffsetSec(track) {
+  if (!track || !track.swing || track.swing <= 0) return 0;
+  const currentBarData = track.barSettings[track.currentBar];
+  if (!currentBarData) return 0;
+
+  const tempo = AppState.getPlaybackTempo ? AppState.getPlaybackTempo(track.currentBar) : AppState.getTempo();
+  const secondsPerMainBeat = 60.0 / tempo;
+  const sub = parseFloat(currentBarData.subdivision || 1);
+  const secondsPerBeatUnit = sub >= 1
+    ? secondsPerMainBeat / sub
+    : secondsPerMainBeat * (1 / sub);
+
+  let isOffBeat = false;
+  if (sub >= 3 && Math.round(sub) % 3 === 0) {
+    // Triplet / Compound subdivision: 2nd note in each triplet group
+    isOffBeat = (track.currentBeat % 3 === 1);
+  } else {
+    // Standard beats (sub = 1) or even subdivisions (2, 4, 8, 16): odd indices (1, 3, 5, 7...)
+    isOffBeat = (track.currentBeat % 2 === 1);
+  }
+
+  if (!isOffBeat) return 0;
+  // Swing range: 0% to 100% -> delay up to 50% of the beat unit duration
+  return (track.swing / 100.0) * (secondsPerBeatUnit * 0.5);
+}
+
 function playBeatSound(track, beatTime, trackIndex = 0) {
     const audioContext = AppState.getAudioContext();
     const isAnySoloed = AppState.isAnyTrackSoloed();
@@ -64,29 +90,24 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     }
 
     const currentBarData = track.barSettings[track.currentBar];
+    if (!currentBarData) return;
 
-    if (!currentBarData) {
-        // Defensive check: Track state might be invalid (e.g. currentBar out of bounds)
-        return;
+    const beatIndex = track.currentBeat;
+    const rests = currentBarData.rests || [];
+    if (rests.includes(beatIndex)) {
+        return; // It's a rest
     }
 
-    // Check for rests
-    if (currentBarData.rests && currentBarData.rests.includes(track.currentBeat)) {
-        return; // Skip playing the sound for rested beats
-    }
-
-    const beatMultiplier = parseFloat(currentBarData.subdivision);
-    const isAccent = (track.currentBeat === 0) || (beatMultiplier > 1 && track.currentBeat % beatMultiplier === 0);
+    const beatMultiplier = parseFloat(currentBarData.subdivision || 1);
+    const isAccent = (beatIndex === 0) || (beatMultiplier > 1 && beatIndex % beatMultiplier === 0);
 
     const soundObject = isAccent ? track.mainBeatSound : track.subdivisionSound;
-    if (!soundObject || !soundObject.sound) return; // Safety check
-    const soundToPlay = soundObject.sound; // Extract the sound name string
+    if (!soundObject || !soundObject.sound) return;
 
-    // Calculate final volume by combining global, track, sound, and beat velocity (3-tier dynamics)
+    const soundToPlay = soundObject.sound;
     const defaultVel = isAccent ? 1.0 : 0.7;
-    const beatVelocity = (currentBarData.velocities && currentBarData.velocities[track.currentBeat] !== undefined)
-        ? currentBarData.velocities[track.currentBeat]
-        : defaultVel;
+    const velocities = currentBarData.velocities || {};
+    const beatVelocity = velocities[beatIndex] !== undefined ? velocities[beatIndex] : defaultVel;
 
     const trackVolume = track.volume !== undefined ? track.volume : 1.0;
     const soundVolume = soundObject.settings && soundObject.settings.volume !== undefined ? soundObject.settings.volume : 1.0;
@@ -100,32 +121,19 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
         baseSoundName = customSoundData.baseSound;
     }
 
-    if (!baseSoundName) return; // Safety check
+    if (!baseSoundName) return;
 
     const trackPitchShift = track.pitchShift || 0;
     const soundSettings = soundObject.settings || {};
     const effectivePitchShift = (soundSettings.pitchShift || 0) + trackPitchShift;
 
-    // Apply track swing (micro-timing offset on off-beats)
-    let swingOffsetSec = 0;
-    if (track.swing && track.swing > 0 && (track.currentBeat % 2 === 1)) {
-        const currentBarData = track.barSettings[track.currentBar];
-        const tempo = AppState.getTempo();
-        const secondsPerBeat = 60.0 / tempo;
-        const subInterval = secondsPerBeat / (currentBarData.subdivision || 1);
-        swingOffsetSec = (track.swing / 100.0) * (subInterval * 0.33);
-    }
-
     const latencyOffsetSec = (AppState.getLatencyOffset ? AppState.getLatencyOffset() : 0) / 1000.0;
-    const actualBeatTime = Math.max(audioContext.currentTime, beatTime + latencyOffsetSec + swingOffsetSec);
+    const actualBeatTime = Math.max(audioContext.currentTime, beatTime + latencyOffsetSec);
 
     const mergedSettings = { ...soundSettings, volume: finalVolume, pitchShift: effectivePitchShift };
 
-    // Check if the sound is a synth sound
     if (baseSoundName && baseSoundName.startsWith('Synth')) {
         const synthFunctionName = `play${baseSoundName.replace('Synth ', '').replace(/ /g, '')}`;
-        
-        // Dynamically call the synth function if it exists
         if (SoundSynth[synthFunctionName]) {
             SoundSynth[synthFunctionName](audioContext, actualBeatTime, mergedSettings, destination);
         } else {
@@ -225,12 +233,15 @@ function scheduler() {
                 // Only play sound and schedule visuals if the beat is within a reasonable window (not >250ms in the past)
                 // This prevents "machine gun" bursts when syncing catches up from a late start or large drift.
                 if (track.nextBeatTime > audioContext.currentTime - 0.25) {
-                    playBeatSound(track, track.nextBeatTime, trackIndex);
+                    const swingOffset = getTrackSwingOffsetSec(track);
+                    const swungBeatTime = track.nextBeatTime + swingOffset;
+
+                    playBeatSound(track, swungBeatTime, trackIndex);
                     
                     // Push visual event to queue only if page is visible
                     if (isPageVisible) {
                         visualQueue.push({
-                            time: track.nextBeatTime,
+                            time: swungBeatTime,
                             trackIndex,
                             bar: track.currentBar,
                             beat: track.currentBeat
