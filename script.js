@@ -309,9 +309,20 @@ if ('serviceWorker' in navigator) {
     try {
       const registration = await navigator.serviceWorker.register('./sw.js');
       const banner = document.getElementById('app-update-banner');
-      const showUpdate = () => { if (banner) banner.hidden = false; };
-      document.getElementById('app-update-btn')?.addEventListener('click', () => window.location.reload());
-      document.getElementById('app-update-dismiss')?.addEventListener('click', () => { if (banner) banner.hidden = true; });
+      const updateDismissedKey = 'metronominal-update-dismissed';
+      const hideUpdate = () => { if (banner) banner.hidden = true; };
+      const showUpdate = () => {
+        if (banner && sessionStorage.getItem(updateDismissedKey) !== '1') banner.hidden = false;
+      };
+      document.getElementById('app-update-btn')?.addEventListener('click', () => {
+        sessionStorage.setItem(updateDismissedKey, '1');
+        hideUpdate();
+        window.location.reload();
+      });
+      document.getElementById('app-update-dismiss')?.addEventListener('click', () => {
+        sessionStorage.setItem(updateDismissedKey, '1');
+        hideUpdate();
+      });
       if (registration.waiting) showUpdate();
       registration.addEventListener('updatefound', () => {
         const worker = registration.installing;

@@ -12,6 +12,7 @@ test.describe('mode controls responsive layout', () => {
 
       await page.locator('#theme-menu-toggle').click();
       await page.locator('[data-theme="synthwave"]').click();
+      await page.locator('#theme-menu-toggle').click();
 
       await page.evaluate(async () => {
         const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
@@ -110,9 +111,26 @@ test.describe('mode controls responsive layout', () => {
     expect(menu.x).toBeGreaterThanOrEqual(0);
     expect(menu.x + menu.width).toBeLessThanOrEqual(320);
     await expect(page.locator('#theme-menu [role="menuitem"]').first()).toBeFocused();
+    await page.locator('[data-theme="synthwave"]').click();
+    await expect(page.locator('#theme-menu')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.locator('#theme-menu')).toBeHidden();
     await expect(page.locator('#theme-menu-toggle')).toBeFocused();
+  });
+
+  test('theme selection assigns a visualizer mode and random theme changes it', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/');
+    await page.locator('#theme-menu-toggle').click();
+    const readMode = () => page.evaluate(async () => {
+      const { default: Oscilloscope } = await import(new URL('js/oscilloscope.js', document.baseURI).href);
+      return Oscilloscope.mode;
+    });
+    await page.locator('[data-theme="synthwave"]').click();
+    await expect.poll(readMode).toBe('radial');
+    await page.locator('#random-theme-btn').click();
+    await expect.poll(readMode).toMatch(/waveform|spectrum|lissajous|radial|spiral|orbit|grid|mirror|stars|ringbar|pulse/);
+    await expect(page.locator('#theme-menu')).toBeVisible();
   });
 
   test('keeps the synthwave theme palette above the oval theme control', async ({ page }) => {

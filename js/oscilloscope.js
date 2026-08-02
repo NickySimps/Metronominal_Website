@@ -6,7 +6,21 @@ const Oscilloscope = {
   canvas: null,
   canvasCtx: null,
   isDrawing: false,
-  mode: "waveform", // "waveform", "spectrum", "lissajous", "radial"
+  mode: "waveform",
+  modes: ["waveform", "spectrum", "lissajous", "radial", "spiral", "orbit", "grid", "mirror", "stars", "ringbar", "pulse"],
+  themeModes: {
+    default: "waveform",
+    dark: "spectrum",
+    hiVis: "grid",
+    synthwave: "radial",
+    gundam: "orbit",
+    helloKitty: "ringbar",
+    beach: "waveform",
+    iceCream: "spiral",
+    tuxedo: "mirror",
+    pastel: "pulse",
+    colorblind: "stars",
+  },
 
   init() {
     this.canvas = document.getElementById("background-oscilloscope");
@@ -26,24 +40,33 @@ const Oscilloscope = {
     this.canvas.addEventListener("click", () => {
       this.cycleMode();
     });
+    document.addEventListener("themeapplied", (event) => {
+      this.setModeForTheme(event.detail?.themeName);
+    });
+  },
+
+  setMode(mode) {
+    if (!this.modes.includes(mode)) return;
+    this.mode = mode;
+    const labels = {
+      waveform: "🌊 Waveform Scope", spectrum: "📊 Frequency RTA", lissajous: "🔮 Lissajous Matrix",
+      radial: "💫 Radial Pulse", spiral: "🌀 Spiral Bloom", orbit: "🪐 Orbit Bands", grid: "▦ Grid Pulse",
+      mirror: "🪞 Mirror Spectrum", stars: "✨ Starfield", ringbar: "🎡 Ring Bars", pulse: "🔆 Pulse Field",
+    };
+    const btn = document.getElementById("visualizer-mode-btn");
+    if (btn) btn.textContent = labels[this.mode];
+    if (this.canvas) this.canvas.title = `Visualizer: ${labels[this.mode]}. Click to cycle.`;
+  },
+
+  setModeForTheme(themeName) {
+    const mode = this.themeModes[themeName];
+    if (mode) this.setMode(mode);
+    else if (themeName === "random") this.setMode(this.modes[Math.floor(Math.random() * this.modes.length)]);
   },
 
   cycleMode() {
-    const modes = ["waveform", "spectrum", "lissajous", "radial"];
-    const labels = {
-      waveform: "🌊 Waveform Scope",
-      spectrum: "📊 Frequency RTA",
-      lissajous: "🔮 Lissajous Matrix",
-      radial: "💫 Radial Pulse",
-    };
-    const idx = modes.indexOf(this.mode);
-    this.mode = modes[(idx + 1) % modes.length];
-
-    const btn = document.getElementById("visualizer-mode-btn");
-    if (btn) {
-      btn.textContent = labels[this.mode] || "🌊 Visualizer";
-    }
-    console.log("Oscilloscope mode set to:", this.mode);
+    const idx = this.modes.indexOf(this.mode);
+    this.setMode(this.modes[(idx + 1) % this.modes.length]);
   },
 
   start() {
@@ -153,6 +176,104 @@ const Oscilloscope = {
     canvasCtx.stroke();
   },
 
+  drawSpiral(canvasCtx, analyserNode, strokeStyle) {
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteTimeDomainData(data);
+    const { width, height } = canvasCtx.canvas;
+    const cx = width / 2, cy = height / 2, maxRadius = Math.min(cx, cy) * .9;
+    canvasCtx.strokeStyle = strokeStyle; canvasCtx.lineWidth = 2; canvasCtx.beginPath();
+    for (let i = 0; i < data.length; i += 2) {
+      const angle = (i / data.length) * Math.PI * 10;
+      const radius = (i / data.length) * maxRadius * (0.35 + data[i] / 255 * .65);
+      const x = cx + Math.cos(angle) * radius, y = cy + Math.sin(angle) * radius;
+      i === 0 ? canvasCtx.moveTo(x, y) : canvasCtx.lineTo(x, y);
+    }
+    canvasCtx.stroke();
+  },
+
+  drawOrbit(canvasCtx, analyserNode, strokeStyle) {
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(data);
+    const { width, height } = canvasCtx.canvas, cx = width / 2, cy = height / 2;
+    const radius = Math.min(cx, cy) * .45;
+    canvasCtx.strokeStyle = strokeStyle; canvasCtx.lineWidth = 2;
+    for (let i = 0; i < data.length; i += 8) {
+      const angle = (i / data.length) * Math.PI * 2;
+      const length = (data[i] / 255) * radius;
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+      canvasCtx.lineTo(cx + Math.cos(angle) * (radius + length), cy + Math.sin(angle) * (radius + length));
+      canvasCtx.stroke();
+    }
+    canvasCtx.beginPath(); canvasCtx.arc(cx, cy, radius, 0, Math.PI * 2); canvasCtx.stroke();
+  },
+
+  drawGrid(canvasCtx, analyserNode, strokeStyle) {
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(data);
+    const { width, height } = canvasCtx.canvas;
+    const columns = Math.min(64, data.length), cellWidth = width / columns;
+    canvasCtx.fillStyle = strokeStyle;
+    for (let i = 0; i < columns; i += 1) {
+      const rows = Math.floor((data[i] / 255) * 12);
+      for (let row = 0; row < rows; row += 1) canvasCtx.fillRect(i * cellWidth, height - (row + 1) * 8, cellWidth - 1, 6);
+    }
+  },
+
+  drawMirror(canvasCtx, analyserNode, strokeStyle) {
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(data);
+    const { width, height } = canvasCtx.canvas, half = width / 2;
+    canvasCtx.fillStyle = strokeStyle;
+    for (let i = 0; i < data.length; i += 2) {
+      const x = (i / data.length) * half, bar = (data[i] / 255) * height * .45;
+      canvasCtx.fillRect(half - x, height / 2 - bar, 2, bar);
+      canvasCtx.fillRect(half + x, height / 2, 2, bar);
+    }
+  },
+
+  drawStars(canvasCtx, analyserNode, strokeStyle) {
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(data);
+    const { width, height } = canvasCtx.canvas;
+    canvasCtx.fillStyle = strokeStyle;
+    for (let i = 0; i < data.length; i += 4) {
+      const brightness = data[i] / 255, x = ((i * 47) % width), y = ((i * 83) % height);
+      canvasCtx.globalAlpha = .25 + brightness * .75;
+      canvasCtx.fillRect(x, y, 1 + brightness * 3, 1 + brightness * 3);
+    }
+    canvasCtx.globalAlpha = 1;
+  },
+
+  drawRingBars(canvasCtx, analyserNode, strokeStyle) {
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(data);
+    const { width, height } = canvasCtx.canvas, cx = width / 2, cy = height / 2, radius = Math.min(cx, cy) * .35;
+    canvasCtx.strokeStyle = strokeStyle; canvasCtx.lineWidth = 3;
+    for (let i = 0; i < data.length; i += 6) {
+      const angle = i / data.length * Math.PI * 2, outer = radius + data[i] / 255 * radius;
+      canvasCtx.beginPath();
+      canvasCtx.moveTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+      canvasCtx.lineTo(cx + Math.cos(angle) * outer, cy + Math.sin(angle) * outer);
+      canvasCtx.stroke();
+    }
+  },
+
+  drawPulse(canvasCtx, analyserNode, strokeStyle) {
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(data);
+    const average = data.reduce((sum, value) => sum + value, 0) / data.length;
+    const { width, height } = canvasCtx.canvas, cx = width / 2, cy = height / 2;
+    canvasCtx.strokeStyle = strokeStyle; canvasCtx.lineWidth = 3;
+    for (let ring = 1; ring <= 5; ring += 1) {
+      canvasCtx.globalAlpha = 1 - ring / 6;
+      canvasCtx.beginPath();
+      canvasCtx.arc(cx, cy, Math.min(cx, cy) * (ring / 6) * (.7 + average / 255 * .4), 0, Math.PI * 2);
+      canvasCtx.stroke();
+    }
+    canvasCtx.globalAlpha = 1;
+  },
+
   draw() {
     if (!this.isDrawing) return;
     requestAnimationFrame(() => this.draw());
@@ -225,6 +346,20 @@ const Oscilloscope = {
           this.drawLissajous(this.canvasCtx, analyser, color);
         } else if (this.mode === "radial") {
           this.drawRadial(this.canvasCtx, analyser, color);
+        } else if (this.mode === "spiral") {
+          this.drawSpiral(this.canvasCtx, analyser, color);
+        } else if (this.mode === "orbit") {
+          this.drawOrbit(this.canvasCtx, analyser, color);
+        } else if (this.mode === "grid") {
+          this.drawGrid(this.canvasCtx, analyser, color);
+        } else if (this.mode === "mirror") {
+          this.drawMirror(this.canvasCtx, analyser, color);
+        } else if (this.mode === "stars") {
+          this.drawStars(this.canvasCtx, analyser, color);
+        } else if (this.mode === "ringbar") {
+          this.drawRingBars(this.canvasCtx, analyser, color);
+        } else if (this.mode === "pulse") {
+          this.drawPulse(this.canvasCtx, analyser, color);
         } else {
           this.drawWaveform(this.canvasCtx, analyser, color);
         }

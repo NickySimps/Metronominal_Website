@@ -3041,5 +3041,21 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
     color: var(--ReadableOnMain);
     box-shadow: 0 0.4rem 1.2rem rgba(0,0,0,.25);
 }
-.app-update-banner button { min-height: 2rem; }
-.app-update-banner button:last-child { margin-left: auto; }
+.app-update-banner button {
+    min-height: 2rem;
+    padding: .35rem .7rem;
+    border: 1px solid currentColor;
+    border-radius: .4rem;
+    background: var(--Highlight);
+    color: var(--ReadableOnHighlight);
+    cursor: pointer;
+    font: inherit;
+}
+.app-update-banner button:hover { filter: brightness(1.1); }
+.app-update-banner button:last-child {
+    margin-left: auto;
+    padding-inline: .45rem;
+    background: transparent;
+    border-color: transparent;
+}
+.app-update-banner[hidden] { display: none !important; }

@@ -404,6 +404,7 @@ function handleThemeSelection(themeName) {
     AppState.setCurrentTheme(themeName); // Update AppState's current theme
 
     console.log(`Theme applied by ThemeController: ${themeName}`);
+    document.dispatchEvent(new CustomEvent('themeapplied', { detail: { themeName } }));
 }
 
 const ThemeController = {
@@ -434,15 +435,7 @@ const ThemeController = {
             button.addEventListener('click', () => {
                 if (button.dataset.theme === 'random') ensureRandomTheme(true);
                 handleThemeSelection(button.dataset.theme); // Use the internal handler
-                if (window.matchMedia('(max-width: 640px)').matches) {
-                    const mobileMenu = document.getElementById('theme-menu');
-                    const mobileToggle = document.getElementById('theme-menu-toggle');
-                    if (mobileMenu && mobileToggle) {
-                        mobileMenu.hidden = true;
-                        mobileToggle.setAttribute('aria-expanded', 'false');
-                    }
-                }
-                // Menu stays open on larger screens so themes can be compared rapidly;
+                // Keep the menu open so users can compare themes quickly; it closes via toggle, outside click, or Escape.
             });
         });
 
