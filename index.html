@@ -28,11 +28,17 @@
 
 <body>
     <canvas id="background-oscilloscope"></canvas>
+    <div id="app-update-banner" class="app-update-banner" role="status" hidden>
+        <span>A new version of Metronominal is available.</span>
+        <button id="app-update-btn" type="button">Reload</button>
+        <button id="app-update-dismiss" type="button" aria-label="Dismiss update notice">×</button>
+    </div>
 
     <div class="main-container">
         <div class="metronome-container">
             <div class="top-controls-area">
-                <button class="tap-tempo-btn" title="Tap Tempo">⏱️ TAP</button>
+                <button class="tap-tempo-btn" title="Tap Tempo" aria-keyshortcuts="T">⏱️ TAP</button>
+                <span id="tap-tempo-feedback" class="tap-tempo-feedback" role="status" aria-live="polite"></span>
                 <button id="share-btn" title="WebRTC Sync & Room Share">🔗 Sync <span id="sync-role">OFFLINE</span><span
                         id="connection-status"></span><span id="sync-quality">OFFLINE</span><span
                         id="n-of-connections"></span></button>
@@ -43,6 +49,10 @@
                 <button id="manage-recordings-btn" title="Manage custom samples and recordings" aria-label="Manage recordings">📁 Samples</button>
                 <button id="screen-off-toggle-btn" title="Toggle screen sleep" aria-label="Toggle screen sleep">📱 Keep Awake</button>
             </div>
+            <details class="keyboard-shortcuts">
+                <summary>Keyboard shortcuts</summary>
+                <span><kbd>Space</kbd> Play/pause · <kbd>T</kbd> Tap tempo · <kbd>L</kbd> A/B loop · <kbd>S</kbd> Song Mode · <kbd>R</kbd> Reset</span>
+            </details>
             <div class="global-app-controls">
                 <!-- Group 1: Timing & Subdivision (Always 1 row on mobile) -->
                 <div class="control-card-group timing-controls-group">
@@ -84,7 +94,7 @@
                 <!-- Group 2: Modes (A/B Loop & Song Mode - Always 1 row on mobile) -->
                 <div class="control-card-group mode-controls-group">
                     <div class="control-group ab-loop-controls">
-                        <button id="ab-loop-toggle-btn" class="preset-btn" title="Toggle A/B Bar Looper">🔂 A/B Loop</button>
+                        <button id="ab-loop-toggle-btn" class="preset-btn" title="Toggle A/B Bar Looper" aria-keyshortcuts="L">🔂 A/B Loop</button>
                         <span id="ab-loop-inputs" class="ab-loop-inputs">
                             <label for="ab-start-bar">Loop from
                                 <select id="ab-start-bar" class="compact-select ab-input" aria-label="Loop from bar">
@@ -227,7 +237,7 @@
                     <div class="control-group song-mode-toggle-wrap">
                         <span class="control-label">Song Mode:</span>
                         <button id="song-mode-enabled" class="song-mode-button" type="button" aria-pressed="false"
-                            aria-controls="song-mode-panel" aria-label="Enable song mode" title="Toggle Song Mode">
+                            aria-controls="song-mode-panel" aria-label="Enable song mode" aria-keyshortcuts="S" title="Toggle Song Mode">
                             <span class="control-icon" aria-hidden="true">♫</span>
                         </button>
                     </div>
@@ -348,7 +358,7 @@
             <div class="theme-controls">
                 <button id="theme-menu-toggle" aria-label="Choose theme" aria-haspopup="true" aria-expanded="false"
                     title="Choose theme">◐</button>
-                <div id="theme-menu" class="theme-menu" hidden>
+                <div id="theme-menu" class="theme-menu" role="menu" aria-label="Theme selection" hidden>
                     <button data-theme="default" aria-label="Switch to Default Theme">
                     Default
                 </button>

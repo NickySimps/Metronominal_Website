@@ -45,6 +45,25 @@ for (const playButton of [DOM.startStopBtn, document.getElementById('sticky-play
   }, true);
 }
 
+function syncAbLoopOptions() {
+  const start = document.getElementById("ab-start-bar");
+  const end = document.getElementById("ab-end-bar");
+  if (!start || !end) return;
+  const barCount = AppState.getAbLoopBarCount ? AppState.getAbLoopBarCount() : 1;
+  const loop = AppState.getAbLoop ? AppState.getAbLoop() : { startBar: 0, endBar: 0 };
+  for (const select of [start, end]) {
+    const currentValue = select.value;
+    select.replaceChildren();
+    for (let index = 1; index <= barCount; index += 1) {
+      const option = new Option(String(index), String(index));
+      select.add(option);
+    }
+    select.value = currentValue && Number(currentValue) <= barCount
+      ? currentValue
+      : String(select === start ? loop.startBar + 1 : loop.endBar + 1);
+  }
+}
+
 /**
  * Refreshes all relevant UI components to reflect the current AppState.
  */
@@ -60,7 +79,8 @@ function refreshUIFromState() {
   }
   SongController.render();
 
-  const abLoop = AppState.getAbLoop ? AppState.getAbLoop() : { enabled: false, startBar: 0, endBar: 3 };
+  syncAbLoopOptions();
+  const abLoop = AppState.getAbLoop ? AppState.getAbLoop() : { enabled: false, startBar: 0, endBar: 0 };
   const abStartInput = document.getElementById("ab-start-bar");
   const abEndInput = document.getElementById("ab-end-bar");
   const abBtn = document.getElementById("ab-loop-toggle-btn");
@@ -150,10 +170,15 @@ async function initialize() {
   const abBtn = document.getElementById("ab-loop-toggle-btn");
   const abInputs = document.getElementById("ab-loop-inputs");
   if (abStart && abEnd && abBtn && abInputs) {
-    const updateAb = () => {
-      const s = (parseInt(abStart.value, 10) || 1) - 1;
-      const e = (parseInt(abEnd.value, 10) || 1) - 1;
-      AppState.setAbLoop({ startBar: Math.min(s, e), endBar: Math.max(s, e) });
+    const updateAb = (event) => {
+      let s = (parseInt(abStart.value, 10) || 1) - 1;
+      let e = (parseInt(abEnd.value, 10) || 1) - 1;
+      if (s > e) {
+        if (event?.target === abStart) e = s;
+        else s = e;
+      }
+      AppState.setAbLoop({ startBar: s, endBar: e });
+      refreshUIFromState();
     };
     abStart.addEventListener("input", updateAb);
     abEnd.addEventListener("input", updateAb);
@@ -241,6 +266,7 @@ async function initialize() {
  * Handles all UI updates that need to happen when track selection changes.
  */
 function handleTrackSelectionChange(event) {
+  syncAbLoopOptions();
   BarControlsController.updateBarControlsForSelectedTrack();
   // Only scroll if shouldScroll is not explicitly false
   if (event.detail && event.detail.shouldScroll === false) {
@@ -253,6 +279,12 @@ function handleTrackSelectionChange(event) {
 
 // Listen for the custom event from tracksController.js
 document.addEventListener('trackselectionchanged', handleTrackSelectionChange);
+
+document.addEventListener('barstructurechanged', () => {
+  syncAbLoopOptions();
+  const loop = AppState.getAbLoop?.();
+  if (loop) AppState.setAbLoop(loop);
+});
 
 // Listen for clicks on the whole page to handle "clicking outside"
 document.addEventListener('click', (event) => {
@@ -273,10 +305,23 @@ document.addEventListener('click', (event) => {
 
 // Register Service Worker for offline PWA capabilities
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch((err) => {
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('./sw.js');
+      const banner = document.getElementById('app-update-banner');
+      const showUpdate = () => { if (banner) banner.hidden = false; };
+      document.getElementById('app-update-btn')?.addEventListener('click', () => window.location.reload());
+      document.getElementById('app-update-dismiss')?.addEventListener('click', () => { if (banner) banner.hidden = true; });
+      if (registration.waiting) showUpdate();
+      registration.addEventListener('updatefound', () => {
+        const worker = registration.installing;
+        worker?.addEventListener('statechange', () => {
+          if (worker.state === 'installed' && navigator.serviceWorker.controller) showUpdate();
+        });
+      });
+    } catch (err) {
       console.warn('Service Worker registration failed:', err);
-    });
+    }
   });
 }
 
@@ -285,8 +330,9 @@ document.addEventListener("DOMContentLoaded", initialize);
 
 // Keyboard shortcut handling
 document.addEventListener("keydown", (event) => {
-  if (event.target instanceof HTMLInputElement) return; // Disable shortcuts when typing in input fields
-  switch (event.key) {
+  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement || event.target.isContentEditable) return;
+  const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  switch (key) {
     case " ": // Spacebar: Toggle play/pause
       event.preventDefault();
       if (appInitialized) MetronomeEngine.togglePlay();
@@ -295,6 +341,14 @@ document.addEventListener("keydown", (event) => {
     case "t": // 't': Tap tempo
       event.preventDefault();
       DOM.tapTempoBtn.click(); // Simulate click on the tap tempo button
+      break;
+    case "l":
+      event.preventDefault();
+      document.getElementById('ab-loop-toggle-btn')?.click();
+      break;
+    case "s":
+      event.preventDefault();
+      document.getElementById('song-mode-enabled')?.click();
       break;
     case "r": // 'r': Reset
       event.preventDefault();

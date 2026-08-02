@@ -377,6 +377,22 @@ const AppState = (function () {
   let audioLatencyOffset = 0; // Latency offset in ms (-200 to +500)
   let abLoop = { enabled: false, startBar: 0, endBar: 1 };
 
+  function getAbLoopBarCount() {
+    const selectedTrack = Tracks[selectedTrackIndex] || Tracks[0];
+    return Math.max(1, Math.min(selectedTrack?.barSettings?.length || 1, 64));
+  }
+
+  function normalizeAbLoop(settings = {}) {
+    const maxBar = getAbLoopBarCount() - 1;
+    const startBar = Math.max(0, Math.min(Number.parseInt(settings.startBar ?? abLoop.startBar, 10) || 0, maxBar));
+    const endBar = Math.max(0, Math.min(Number.parseInt(settings.endBar ?? abLoop.endBar, 10) || 0, maxBar));
+    return {
+      ...abLoop,
+      ...settings,
+      startBar: Math.min(startBar, endBar),
+      endBar: Math.max(startBar, endBar),
+    };
+  }
 
   // --- Constants ---
   const MAX_TAPS_FOR_AVERAGE = 4;
@@ -570,6 +586,7 @@ const AppState = (function () {
         tapTempoTimestamps.shift();
       }
     },
+    getTapCount: () => tapTempoTimestamps.length,
     calculateTapTempo: () => {
       if (tapTempoTimestamps.length < 2) return null;
       let totalInterval = 0;
@@ -593,9 +610,10 @@ const AppState = (function () {
     },
 
     // A/B Bar Looper
-    getAbLoop: () => ({ ...abLoop }),
+    getAbLoopBarCount: () => getAbLoopBarCount(),
+    getAbLoop: () => ({ ...normalizeAbLoop(abLoop) }),
     setAbLoop: (settings) => {
-      abLoop = { ...abLoop, ...settings };
+      abLoop = normalizeAbLoop(settings);
       saveState();
     },
 

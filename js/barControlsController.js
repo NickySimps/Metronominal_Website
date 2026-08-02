@@ -138,6 +138,7 @@ const BarControlsController = {
           BarDisplayController.addBar(containerIndex, newBarIndex);
           updateTotalBeatsDisplay();
           updateBeatControlsDisplay();
+          document.dispatchEvent(new CustomEvent('barstructurechanged'));
           sendState(AppState.getCurrentStateForPreset(true));
           if (ThemeController.is3DSceneActive()) {
             ThemeController.update3DScenePostStateChange();
@@ -157,6 +158,7 @@ const BarControlsController = {
             BarDisplayController.removeBar(containerIndex, barIndexToRemove);
             updateTotalBeatsDisplay();
             updateBeatControlsDisplay();
+            document.dispatchEvent(new CustomEvent('barstructurechanged'));
             sendState(AppState.getCurrentStateForPreset(true));
             if (ThemeController.is3DSceneActive()) {
               ThemeController.update3DScenePostStateChange();

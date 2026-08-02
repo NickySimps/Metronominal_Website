@@ -1,5 +1,10 @@
 const { test, expect } = require('@playwright/test');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const signalServerPath = process.env.SIGNAL_SERVER_PATH || path.resolve(__dirname, '..', 'MetronomeSignalServer', 'server.js');
+const hasSignalServer = fs.existsSync(signalServerPath);
+test.skip(!hasSignalServer, 'Signal server unavailable; set SIGNAL_SERVER_PATH to run synchronization tests.');
 
 async function readState(page) {
   return page.evaluate(async () => {

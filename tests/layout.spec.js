@@ -13,6 +13,12 @@ test.describe('mode controls responsive layout', () => {
       await page.locator('#theme-menu-toggle').click();
       await page.locator('[data-theme="synthwave"]').click();
 
+      await page.evaluate(async () => {
+        const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+        AppState.updateBarArray(8);
+        document.dispatchEvent(new CustomEvent('barstructurechanged'));
+      });
+
       const toggle = page.locator('#ab-loop-toggle-btn');
       await toggle.click();
 
@@ -33,8 +39,8 @@ test.describe('mode controls responsive layout', () => {
       await expect(endInput).toHaveJSProperty('tagName', 'SELECT');
       await expect(page.locator('label[for="ab-start-bar"]')).toContainText('Loop from');
       await expect(page.locator('label[for="ab-end-bar"]')).toContainText('Loop to');
-      await expect(page.locator('#ab-start-bar option')).toHaveCount(64);
-      await expect(endInput.locator('option')).toHaveCount(64);
+      await expect(page.locator('#ab-start-bar option')).toHaveCount(8);
+      await expect(endInput.locator('option')).toHaveCount(8);
       const boxes = await Promise.all([
         modeGroup.boundingBox(),
         abControls.boundingBox(),
@@ -67,24 +73,66 @@ test.describe('mode controls responsive layout', () => {
     });
   }
 
+  test('supports validated loop ranges, TAP feedback, and keyboard shortcuts', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/');
+    await page.waitForSelector('.tap-tempo-btn');
+    await page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      AppState.updateBarArray(8);
+      document.dispatchEvent(new CustomEvent('barstructurechanged'));
+    });
+    await page.locator('#ab-start-bar').selectOption('7');
+    await expect(page.locator('#ab-end-bar')).toHaveValue('7');
+    await page.locator('#ab-end-bar').selectOption('3');
+    await expect(page.locator('#ab-start-bar')).toHaveValue('3');
+
+    await page.keyboard.press('l');
+    await expect(page.locator('#ab-loop-toggle-btn')).toHaveClass(/active/);
+    await page.keyboard.press('s');
+    await expect(page.locator('#song-mode-enabled')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.locator('.tap-tempo-btn').click();
+    await expect(page.locator('#tap-tempo-feedback')).toContainText('Tap');
+    await page.waitForTimeout(500);
+    await page.locator('.tap-tempo-btn').click();
+    await expect(page.locator('#tap-tempo-feedback')).toContainText('Tempo:');
+  });
+
+  test('keeps the mobile theme menu contained and keyboard accessible', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    await page.locator('#theme-menu-toggle').click();
+    await expect(page.locator('#theme-menu')).toBeVisible();
+    await expect(page.locator('#theme-menu')).toHaveAttribute('role', 'menu');
+    await expect(page.locator('#theme-menu [role="menuitem"]')).toHaveCount(12);
+    const menu = await page.locator('#theme-menu').boundingBox();
+    expect(menu.x).toBeGreaterThanOrEqual(0);
+    expect(menu.x + menu.width).toBeLessThanOrEqual(320);
+    await expect(page.locator('#theme-menu [role="menuitem"]').first()).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#theme-menu')).toBeHidden();
+    await expect(page.locator('#theme-menu-toggle')).toBeFocused();
+  });
+
   test('keeps the synthwave theme palette above the oval theme control', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/');
     await page.locator('#theme-menu-toggle').click();
     await page.locator('[data-theme="synthwave"]').click();
-
-    const palette = page.locator('#theme-menu');
-    await expect(palette).toBeVisible();
+    await expect(page.locator('#theme-menu')).toBeVisible();
     await expect.poll(() => page.evaluate(() => ({
       themeClass: document.body.classList.contains('synthwave-theme'),
       controlsZ: Number.parseInt(getComputedStyle(document.querySelector('.theme-controls')).zIndex, 10),
       paletteZ: Number.parseInt(getComputedStyle(document.querySelector('#theme-menu')).zIndex, 10),
       paletteRadius: getComputedStyle(document.querySelector('#theme-menu'), '::before').borderTopLeftRadius,
-    }))).toEqual({
-      themeClass: true,
-      controlsZ: 1100,
-      paletteZ: 1101,
-      paletteRadius: '50%',
-    });
+    }))).toEqual({ themeClass: true, controlsZ: 1100, paletteZ: 1101, paletteRadius: '50%' });
+  });
+
+  test('visual regression: mobile theme menu', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    await page.locator('#theme-menu-toggle').click();
+    await expect(page).toHaveScreenshot('theme-menu-mobile.png', { animations: 'disabled' });
   });
 });

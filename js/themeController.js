@@ -434,19 +434,32 @@ const ThemeController = {
             button.addEventListener('click', () => {
                 if (button.dataset.theme === 'random') ensureRandomTheme(true);
                 handleThemeSelection(button.dataset.theme); // Use the internal handler
-                // Menu stays open so themes can be compared rapidly;
-                // it closes via the toggle, outside click, or Escape.
+                if (window.matchMedia('(max-width: 640px)').matches) {
+                    const mobileMenu = document.getElementById('theme-menu');
+                    const mobileToggle = document.getElementById('theme-menu-toggle');
+                    if (mobileMenu && mobileToggle) {
+                        mobileMenu.hidden = true;
+                        mobileToggle.setAttribute('aria-expanded', 'false');
+                    }
+                }
+                // Menu stays open on larger screens so themes can be compared rapidly;
             });
         });
 
         // Palette popover: one compact button opens the theme grid.
         const themeMenuToggle = document.getElementById('theme-menu-toggle');
         const themeMenu = document.getElementById('theme-menu');
+        const themeButtons = [...(themeMenu?.querySelectorAll('[data-theme]') || [])];
+        themeButtons.forEach(button => button.setAttribute('role', 'menuitem'));
+        let focusBeforeMenu = null;
         const toggleThemeMenu = (open) => {
             if (!themeMenuToggle || !themeMenu) return;
             const show = open ?? themeMenu.hidden;
+            if (show) focusBeforeMenu = document.activeElement;
             themeMenu.hidden = !show;
             themeMenuToggle.setAttribute('aria-expanded', String(show));
+            if (show) requestAnimationFrame(() => themeButtons[0]?.focus());
+            else if (focusBeforeMenu?.focus) focusBeforeMenu.focus();
         };
         themeMenuToggle?.addEventListener('click', () => toggleThemeMenu());
         document.addEventListener('click', (event) => {

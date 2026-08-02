@@ -123,9 +123,15 @@ const TempoController = {
     if (DOM.tapTempoBtn) {
       DOM.tapTempoBtn.addEventListener("click", () => {
         AppState.addTapTimestamp(Date.now());
-        AppState.calculateTapTempo(); // This updates AppState.tempo
+        const calculatedTempo = AppState.calculateTapTempo();
         sendState(AppState.getCurrentStateForPreset(true));
-        TempoController.updateTempoDisplay(); // Reflect change
+        TempoController.updateTempoDisplay();
+        if (DOM.tapTempoFeedback) {
+          const tapCount = AppState.getTapCount ? AppState.getTapCount() : 0;
+          DOM.tapTempoFeedback.textContent = calculatedTempo
+            ? `Tempo: ${calculatedTempo} BPM`
+            : `Tap ${Math.max(1, 2 - tapCount)} more time${tapCount === 1 ? '' : 's'}…`;
+        }
         if (DOM.tapTempoBtn) DOM.tapTempoBtn.classList.add("tapped");
         setTimeout(() => {
           if (DOM.tapTempoBtn) DOM.tapTempoBtn.classList.remove("tapped");

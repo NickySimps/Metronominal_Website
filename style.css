@@ -2993,3 +2993,53 @@ environments: Development, Staging,
     .song-section-navigator label, .song-section-navigator select { width: 100%; }
     .song-section-navigator button { flex: 1 1 120px; }
 }
+
+.keyboard-shortcuts {
+    margin: 0.35rem auto;
+    max-width: 72rem;
+    color: var(--TextSecondary);
+    font-size: 0.78rem;
+    text-align: center;
+}
+.keyboard-shortcuts summary { cursor: pointer; color: var(--TextPrimary); }
+.keyboard-shortcuts span { display: block; padding: 0.35rem; }
+kbd { padding: 0.1rem 0.35rem; border: 1px solid currentColor; border-radius: 0.25rem; font-family: inherit; }
+.tap-tempo-feedback { min-width: 7rem; color: var(--TextSecondary); font-size: 0.75rem; }
+.tap-tempo-btn:focus-visible,
+.theme-controls button:focus-visible,
+.keyboard-shortcuts summary:focus-visible,
+select:focus-visible,
+button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px; }
+
+@media (max-width: 640px) {
+    .theme-controls { right: max(var(--s3), env(safe-area-inset-right)); bottom: max(var(--s3), env(safe-area-inset-bottom)); }
+    .theme-menu {
+        width: min(92vw, 24rem);
+        max-height: min(70vh, 30rem);
+        padding: var(--s3);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--s2);
+    }
+    .theme-menu button { min-height: 2.75rem; margin: 0; }
+    .tap-tempo-feedback { flex: 1 1 100%; min-height: 1.1rem; text-align: center; }
+}
+
+.app-update-banner {
+    position: fixed;
+    z-index: 2000;
+    top: max(0.75rem, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    max-width: min(92vw, 36rem);
+    padding: 0.65rem 0.8rem;
+    border: 1px solid var(--Highlight);
+    border-radius: var(--BorderRadius);
+    background: var(--Main);
+    color: var(--ReadableOnMain);
+    box-shadow: 0 0.4rem 1.2rem rgba(0,0,0,.25);
+}
+.app-update-banner button { min-height: 2rem; }
+.app-update-banner button:last-child { margin-left: auto; }

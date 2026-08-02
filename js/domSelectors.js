@@ -12,6 +12,7 @@ const DOM = {
     get tempoTextBox() { return document.querySelector('.tempo-text-box'); },
     get decreaseTempoBtn() { return document.querySelector('.decrease-tempo'); },
     get tapTempoBtn() { return document.querySelector('.tap-tempo-btn'); },
+    get tapTempoFeedback() { return document.getElementById('tap-tempo-feedback'); },
     get startStopBtn() { return document.querySelector('.start-stop-btn'); },
     get resetButton() { return document.querySelector('.reset-btn'); },
     get tempoTextElement() { return document.querySelector('.tempo-text'); },

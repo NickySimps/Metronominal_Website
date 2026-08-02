@@ -1,28 +1,31 @@
-const { defineConfig } = require('@playwright/test');
+const fs = require('fs');
+const path = require('path');
+const { defineConfig, devices } = require('@playwright/test');
 
-const externalBaseURL = process.env.E2E_BASE_URL;
+const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:4173';
+const signalServerPath = process.env.SIGNAL_SERVER_PATH || path.resolve(__dirname, '..', 'MetronomeSignalServer', 'server.js');
+const signalServerAvailable = fs.existsSync(signalServerPath);
 
 module.exports = defineConfig({
   testDir: './tests',
-  timeout: 60_000,
-  expect: { timeout: 15_000 },
-  workers: 1,
+  timeout: 45_000,
+  expect: { timeout: 10_000 },
+  fullyParallel: false,
+  reporter: process.env.CI ? [['line'], ['html', { open: 'never' }]] : 'line',
   use: {
-    baseURL: externalBaseURL || 'http://127.0.0.1:4173',
-    headless: true,
+    baseURL,
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+    ...devices['Desktop Chrome'],
   },
-  webServer: externalBaseURL ? undefined : [
-    {
-      command: 'python -m http.server 4173 --bind 127.0.0.1',
-      url: 'http://127.0.0.1:4173',
-      reuseExistingServer: true,
-      timeout: 30_000,
-    },
-    {
-      command: 'node ../MetronomeSignalServer/server.js',
-      url: 'http://127.0.0.1:10000',
-      reuseExistingServer: true,
-      timeout: 30_000,
-    },
-  ],
+  webServer: {
+    command: 'python -m http.server 4173',
+    url: baseURL,
+    reuseExistingServer: true,
+    timeout: 30_000,
+  },
+  metadata: {
+    signalServerAvailable,
+    signalServerPath,
+  },
 });
