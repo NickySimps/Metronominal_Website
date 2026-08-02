@@ -161,28 +161,49 @@ test.describe('mode controls responsive layout', () => {
       ]);
       await SoundSettingsModal.show(0, 'mainBeatSound');
       AppState.addTrack();
+      AppState.addTrack();
+      AppState.addTrack();
+      AppState.addTrack();
+      AppState.addTrack();
       const modal = document.querySelector('#sound-settings-modal');
       const content = modal.querySelector('.modal-content');
       const canvas = modal.querySelector('.oscilloscope-canvas');
       const tracks = AppState.getTracks();
       const track = tracks[0];
       const secondTrack = tracks[1];
+      const thirdTrack = tracks[2];
+      const lastTrack = tracks[tracks.length - 1];
       return {
         contentFitsViewport: content.getBoundingClientRect().height <= window.innerHeight,
         contentScrolls: content.scrollHeight >= content.clientHeight,
         canvasHeight: canvas.getBoundingClientRect().height,
+        hasPreviewButton: Boolean(modal.querySelector('#sound-preview-btn')),
+        hasScopeModeSelect: Boolean(modal.querySelector('#sound-scope-mode-select')),
+        hasWaveformTools: Boolean(modal.querySelector('.waveform-tools')),
+        hasTrackContext: modal.querySelector('.sound-modal-context')?.textContent.includes('Track 1'),
         analysersAreSeparate: track.mainAnalyserNode && track.subdivisionAnalyserNode
           && track.mainAnalyserNode !== track.subdivisionAnalyserNode,
         secondTrackHasSeparateAnalysers: secondTrack.mainAnalyserNode && secondTrack.subdivisionAnalyserNode
           && secondTrack.mainAnalyserNode !== secondTrack.subdivisionAnalyserNode
           && secondTrack.mainAnalyserNode !== secondTrack.analyserNode,
+        thirdTrackHasSeparateAnalysers: thirdTrack.mainAnalyserNode && thirdTrack.subdivisionAnalyserNode
+          && thirdTrack.mainAnalyserNode !== thirdTrack.subdivisionAnalyserNode
+          && thirdTrack.mainAnalyserNode !== thirdTrack.analyserNode,
+        lastTrackHasSeparateAnalysers: lastTrack.mainAnalyserNode && lastTrack.subdivisionAnalyserNode
+          && lastTrack.mainAnalyserNode !== lastTrack.subdivisionAnalyserNode
+          && lastTrack.mainAnalyserNode !== lastTrack.analyserNode,
       };
     });
     expect(result.contentFitsViewport).toBe(true);
     expect(result.contentScrolls).toBe(true);
     expect(result.canvasHeight).toBeLessThanOrEqual(100);
+    expect(result.hasPreviewButton).toBe(true);
+    expect(result.hasScopeModeSelect).toBe(true);
+    expect(result.hasTrackContext).toBe(true);
     expect(result.analysersAreSeparate).toBe(true);
     expect(result.secondTrackHasSeparateAnalysers).toBe(true);
+    expect(result.thirdTrackHasSeparateAnalysers).toBe(true);
+    expect(result.lastTrackHasSeparateAnalysers).toBe(true);
   });
 
   test('visual regression: mobile theme menu', async ({ page }) => {

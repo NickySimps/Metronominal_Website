@@ -7,6 +7,7 @@ import Oscilloscope from "./oscilloscope.js";
 
 import { frequencyToNote, noteToFrequency, noteStrings, generateNoteFrequencies, semitonesToInterval } from "./utils.js";
 import { Slider } from './slider.js';
+import SoundSynth from './soundSynth.js';
 
 const SoundSettingsModal = {
   isNoteSnapping: false,
@@ -18,7 +19,12 @@ const SoundSettingsModal = {
   currentSoundType: null,
   originalSoundName: "", // The name of the sound when modal opened (e.g., "Synth Kick", "My Preset")
   displaySoundName: "", // The name currently displayed/edited
-
+  scopeMode: "waveform",
+  liveAnalyserNode: null,
+  previewAnalyserNode: null,
+  previewSource: null,
+  waveformZoom: 1,
+  waveformPan: 0,
   init() {
     DOM.soundSettingsModal
       .querySelector(".close-button")
@@ -53,6 +59,11 @@ const SoundSettingsModal = {
         if (this.currentAudioBuffer && this.drawWaveformAndTrimLines) {
             this.drawWaveformAndTrimLines(this.currentAudioBuffer);
         }
+    });
+
+    DOM.soundSettingsModal.querySelector("#sound-preview-btn").addEventListener("click", () => this.togglePreview());
+    DOM.soundSettingsModal.querySelector("#sound-scope-mode-select").addEventListener("change", (e) => {
+        this.scopeMode = e.target.value;
     });
 
     // Rename Button Logic
@@ -515,6 +526,7 @@ const SoundSettingsModal = {
   },
 
   show(trackIndex, soundType) {
+    this.stopPreview();
     this.currentTrackIndex = trackIndex;
     this.currentSoundType = soundType;
 
@@ -549,6 +561,7 @@ const SoundSettingsModal = {
     }
 
     const modalTitle = DOM.soundSettingsModal.querySelector(".modal-header h2");
+    const modalContext = DOM.soundSettingsModal.querySelector(".sound-modal-context");
     const noteSnapBtn = DOM.soundSettingsModal.querySelector("#note-snap-btn");
     const quantizeBtn = DOM.soundSettingsModal.querySelector("#quantize-btn");
     const gridSnapBtn = DOM.soundSettingsModal.querySelector("#grid-snap-btn");
@@ -578,6 +591,9 @@ const SoundSettingsModal = {
     if (modalTitle) {
       modalTitle.textContent = `Editing: ${this.displaySoundName}`;
     }
+    if (modalContext) {
+      modalContext.textContent = `Track ${trackIndex + 1} · ${soundType === "mainBeatSound" ? "Main Beat Sound" : "Subdivision Sound"}`;
+    }
 
     if (!soundSettings) {
       soundInfo.settings = {}; // Initialize if null/undefined
@@ -606,11 +622,25 @@ const SoundSettingsModal = {
         waveformCanvas.className = "waveform-canvas";
         waveformContainer.appendChild(waveformCanvas);
         slidersContainer.appendChild(waveformCanvas);
-
+        const waveformTools = document.createElement("div");
+        waveformTools.className = "waveform-tools";
+        waveformTools.innerHTML = `<label>Zoom <input class="waveform-zoom" type="range" min="1" max="8" step="0.25" value="1" /></label><label>Pan <input class="waveform-pan" type="range" min="0" max="1" step="0.01" value="0" /></label>`;
+        slidersContainer.appendChild(waveformTools);
+        const zoomInput = waveformTools.querySelector(".waveform-zoom");
+        const panInput = waveformTools.querySelector(".waveform-pan");
+        const redrawZoomedWaveform = () => {
+            this.waveformZoom = Number(zoomInput.value);
+            this.waveformPan = Number(panInput.value);
+            if (this.drawWaveformAndTrimLines) this.drawWaveformAndTrimLines(this.currentAudioBuffer);
+        };
+        zoomInput.addEventListener("input", redrawZoomedWaveform);
+        panInput.addEventListener("input", redrawZoomedWaveform);
         const mainColor = getComputedStyle(document.documentElement).getPropertyValue("--Main").trim();
 
         this.drawWaveformAndTrimLines = (buffer) => {
-            RecordingVisualizer.drawWaveform(buffer, waveformCanvas, mainColor);
+            const visibleSpan = 1 / this.waveformZoom;
+            const visibleStart = this.waveformPan * (1 - visibleSpan);
+            RecordingVisualizer.drawWaveform(buffer, waveformCanvas, mainColor, visibleStart, visibleStart + visibleSpan);
             const ctx = waveformCanvas.getContext('2d');
 
             if (this.isGridSnapping) {
@@ -687,15 +717,90 @@ const SoundSettingsModal = {
     }
 
     DOM.soundSettingsModal.style.display = "block";
+    if (AppState.createTrackAnalysers) AppState.createTrackAnalysers();
     const modalAnalyser = soundType === "mainBeatSound"
-      ? (track.mainAnalyserNode || track.analyserNode)
-      : (track.subdivisionAnalyserNode || track.analyserNode);
+      ? track.mainAnalyserNode
+      : track.subdivisionAnalyserNode;
+    if (!modalAnalyser) {
+      console.warn("Sound modal opened without a dedicated scope analyser", { trackIndex, soundType });
+      return;
+    }
+    this.liveAnalyserNode = modalAnalyser;
+    const previewButton = DOM.soundSettingsModal.querySelector("#sound-preview-btn");
+    if (previewButton) {
+      previewButton.textContent = "▶ Preview";
+      previewButton.setAttribute("aria-pressed", "false");
+    }
     this.startDrawing(modalAnalyser);
   },
 
   hide() {
+    this.stopPreview();
     DOM.soundSettingsModal.style.display = "none";
     this.stopDrawing();
+  },
+
+  async togglePreview() {
+    if (this.previewSource) {
+      this.stopPreview();
+      return;
+    }
+    const audioContext = AppState.getAudioContext();
+    const track = AppState.getTracks()[this.currentTrackIndex];
+    const soundInfo = track?.[this.currentSoundType];
+    if (!audioContext || !soundInfo) return;
+    if (audioContext.state === "suspended") await audioContext.resume();
+
+    const analyser = audioContext.createAnalyser();
+    analyser.connect(audioContext.destination);
+    this.previewAnalyserNode = analyser;
+    const soundData = AppState.getCustomSoundData(soundInfo.sound);
+    const baseSound = soundData?.baseSound || soundInfo.sound;
+    const settings = { ...(soundInfo.settings || {}) };
+
+    if (baseSound?.startsWith("Synth")) {
+      const functionName = `play${baseSound.replace("Synth ", "").replace(/ /g, "")}`;
+      if (SoundSynth[functionName]) {
+        SoundSynth[functionName](audioContext, audioContext.currentTime, { ...settings, volume: settings.volume ?? 1 }, analyser);
+        this.previewSource = { isSynth: true };
+      }
+    } else {
+      const buffer = AppState.getSoundBuffer(baseSound);
+      if (buffer) {
+        const source = audioContext.createBufferSource();
+        const gain = audioContext.createGain();
+        source.buffer = buffer;
+        source.playbackRate.value = Math.pow(2, (settings.pitchShift || 0) / 12);
+        source.connect(gain);
+        gain.connect(analyser);
+        const start = settings.trimStart || 0;
+        const end = settings.trimEnd || buffer.duration;
+        source.start(0, start, Math.max(0, end - start));
+        source.onended = () => this.stopPreview();
+        this.previewSource = source;
+      }
+    }
+
+    if (this.previewSource) {
+      const button = DOM.soundSettingsModal.querySelector("#sound-preview-btn");
+      button.textContent = "■ Stop Preview";
+      button.setAttribute("aria-pressed", "true");
+      this.startDrawing(analyser);
+    }
+  },
+
+  stopPreview() {
+    if (this.previewSource && !this.previewSource.isSynth) {
+      try { this.previewSource.stop(); } catch (_) { /* already ended */ }
+    }
+    this.previewSource = null;
+    this.previewAnalyserNode = null;
+    const button = DOM.soundSettingsModal?.querySelector("#sound-preview-btn");
+    if (button) {
+      button.textContent = "▶ Preview";
+      button.setAttribute("aria-pressed", "false");
+    }
+    if (this.liveAnalyserNode) this.startDrawing(this.liveAnalyserNode);
   },
 
   startDrawing(analyserNode) {
@@ -730,7 +835,13 @@ const SoundSettingsModal = {
       if (analyserNode) {
         const bufferLength = analyserNode.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
-        analyserNode.getByteTimeDomainData(dataArray);
+        const frequencyArray = new Uint8Array(bufferLength);
+        const displayMode = this.scopeMode;
+        if (displayMode === "spectrum" || displayMode === "spectrogram") {
+          analyserNode.getByteFrequencyData(frequencyArray);
+        } else {
+          analyserNode.getByteTimeDomainData(dataArray);
+        }
 
         // Get computed colors with safe fallbacks for iOS Safari Canvas2D
         const rootStyle = getComputedStyle(document.documentElement);
@@ -748,27 +859,35 @@ const SoundSettingsModal = {
           ctx.strokeStyle = mainColor;
         }
 
-        ctx.lineWidth = Math.max(2, Math.floor(2 * dpr));
-        ctx.beginPath();
-
-        const sliceWidth = (canvas.width * 1.0) / bufferLength;
-        let x = 0;
-
-        for (let i = 0; i < bufferLength; i++) {
-          const v = dataArray[i] / 128.0;
-          const y = (v * canvas.height) / 2;
-
-          if (i === 0) {
-            ctx.moveTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
+        if (displayMode === "spectrogram") {
+          const barWidth = canvas.width / bufferLength;
+          for (let i = 0; i < bufferLength; i += 1) {
+            ctx.globalAlpha = frequencyArray[i] / 255;
+            ctx.fillStyle = accentColor;
+            ctx.fillRect(i * barWidth, canvas.height - frequencyArray[i] / 255 * canvas.height, Math.max(1, barWidth), frequencyArray[i] / 255 * canvas.height);
           }
+          ctx.globalAlpha = 1;
+        } else if (displayMode === "spectrum") {
+          ctx.fillStyle = accentColor;
+          for (let i = 0; i < bufferLength; i += 2) {
+            const barHeight = frequencyArray[i] / 255 * canvas.height;
+            ctx.fillRect(i / bufferLength * canvas.width, canvas.height - barHeight, Math.max(1, canvas.width / bufferLength * 2), barHeight);
+          }
+        } else {
+          ctx.lineWidth = Math.max(2, Math.floor(2 * dpr));
+          ctx.beginPath();
 
-          x += sliceWidth;
+          const sliceWidth = (canvas.width * 1.0) / bufferLength;
+          let x = 0;
+          for (let i = 0; i < bufferLength; i++) {
+            const v = dataArray[i] / 128.0;
+            const y = (v * canvas.height) / 2;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            x += sliceWidth;
+          }
+          ctx.lineTo(canvas.width, canvas.height / 2);
+          ctx.stroke();
         }
-
-        ctx.lineTo(canvas.width, canvas.height / 2);
-        ctx.stroke();
       }
       ctx.restore();
     };

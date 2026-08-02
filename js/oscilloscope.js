@@ -7,6 +7,7 @@ const Oscilloscope = {
   canvasCtx: null,
   isDrawing: false,
   mode: "waveform",
+  bandEnergy: { low: 0, mid: 0, high: 0 },
   modes: ["waveform", "spectrum", "lissajous", "radial", "spiral", "orbit", "grid", "mirror", "stars", "ringbar", "pulse", "ripple", "shore", "prism"],
   themeModes: {
     default: "waveform",
@@ -304,7 +305,8 @@ const Oscilloscope = {
     const { width, height } = canvasCtx.canvas;
     const now = performance.now() / 1000;
     const shoreY = height * .72;
-    const energy = .4 + average / 255 * .8;
+    const energy = .35 + this.bandEnergy.low * .9;
+    const foamEnergy = .3 + this.bandEnergy.high * 1.2;
 
     canvasCtx.globalCompositeOperation = "source-over";
     const sand = canvasCtx.createLinearGradient(0, shoreY, 0, height);
@@ -338,7 +340,7 @@ const Oscilloscope = {
       canvasCtx.globalAlpha = .7 - foam * .16;
       canvasCtx.beginPath();
       for (let x = 0; x <= width; x += 5) {
-        const y = baseline + Math.sin(x / 28 - now * 2.2) * height * .012 * energy;
+        const y = baseline + Math.sin(x / 28 - now * (2.2 + this.bandEnergy.mid)) * height * .012 * foamEnergy;
         if (x === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
       }
       canvasCtx.stroke();
@@ -359,7 +361,8 @@ const Oscilloscope = {
     canvasCtx.lineWidth = Math.max(2, width / 220);
     for (let ribbon = 0; ribbon < colors.length; ribbon += 1) {
       const angle = now * (.35 + ribbon * .04) + ribbon * Math.PI * 2 / colors.length;
-      const radius = Math.min(cx, cy) * (.28 + average / 255 * .42);
+      const radius = Math.min(cx, cy) * (.28 + this.bandEnergy.low * .42);
+      const ribbonEnergy = .5 + this.bandEnergy.high;
       canvasCtx.strokeStyle = colors[ribbon];
       canvasCtx.globalAlpha = .5 + average / 510;
       canvasCtx.beginPath();
@@ -440,6 +443,19 @@ const Oscilloscope = {
 
     analyserNodes.forEach((analyser, index) => {
       if (analyser) {
+        const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(frequencyData);
+        const third = Math.max(1, Math.floor(frequencyData.length / 3));
+        const averageBand = (start, end) => {
+          let total = 0;
+          for (let i = start; i < end; i += 1) total += frequencyData[i];
+          return total / Math.max(1, end - start) / 255;
+        };
+        this.bandEnergy = {
+          low: averageBand(0, third),
+          mid: averageBand(third, third * 2),
+          high: averageBand(third * 2, frequencyData.length),
+        };
         const color = colors[index];
         if (this.mode === "spectrum") {
           this.drawSpectrum(this.canvasCtx, analyser, color);

@@ -70,11 +70,14 @@ const RecordingVisualizer = (function() {
                 canvasCtx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
             }
         },
-        drawWaveform: (buffer, canvasElement, color) => {
+        drawWaveform: (buffer, canvasElement, color, viewStart = 0, viewEnd = 1) => {
             const canvas = canvasElement;
             const canvasCtx = canvas.getContext('2d');
             const data = buffer.getChannelData(0);
-            const sliceWidth = canvas.width * 1.0 / data.length;
+            const startIndex = Math.floor(Math.max(0, Math.min(1, viewStart)) * data.length);
+            const endIndex = Math.max(startIndex + 1, Math.floor(Math.max(0, Math.min(1, viewEnd)) * data.length));
+            const visibleData = data.subarray(startIndex, endIndex);
+            const sliceWidth = canvas.width * 1.0 / visibleData.length;
             let x = 0;
 
             canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
@@ -83,14 +86,14 @@ const RecordingVisualizer = (function() {
             canvasCtx.beginPath();
 
             let max = 0;
-            for (let i = 0; i < data.length; i++) {
-                if (Math.abs(data[i]) > max) {
-                    max = Math.abs(data[i]);
+            for (let i = 0; i < visibleData.length; i++) {
+                if (Math.abs(visibleData[i]) > max) {
+                    max = Math.abs(visibleData[i]);
                 }
             }
 
-            for (let i = 0; i < data.length; i++) {
-                const v = (data[i] / max + 1) / 2; //-Normalize to 0-1 range
+            for (let i = 0; i < visibleData.length; i++) {
+                const v = (visibleData[i] / max + 1) / 2; //-Normalize to 0-1 range
                 const y = v * canvas.height;
 
                 if (i === 0) {

@@ -3116,3 +3116,13 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
   #sound-settings-modal .modal-header h2 { font-size: 1.1rem; margin: 0; }
   #sound-settings-modal .header-right button { min-height: 2rem; padding: .3rem .45rem; font-size: .78rem; }
 }
+#sound-settings-modal .modal-header {
+  position: sticky;
+  top: calc(-1 * clamp(.75rem, 2vw, 1.25rem));
+  z-index: 2;
+  padding-block: .35rem;
+  background: var(--ModalBackground, var(--Background));
+}
+#sound-settings-modal .sound-modal-context { font-size: .78rem; opacity: .8; }
+#sound-settings-modal .sound-scope-control { display: inline-flex; align-items: center; gap: .25rem; font-size: .8rem; }
+#sound-settings-modal #sound-preview-btn[aria-pressed="true"] { background: var(--Alt2, #b33); }
