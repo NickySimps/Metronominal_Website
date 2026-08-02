@@ -147,6 +147,33 @@ test.describe('mode controls responsive layout', () => {
     }))).toEqual({ themeClass: true, controlsZ: 1100, paletteZ: 1101, paletteRadius: '50%' });
   });
 
+  test('sound edit modals are viewport-safe and use separate main/sub analysers', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const [{ default: SoundSettingsModal }, { default: AppState }] = await Promise.all([
+        import(new URL('js/soundSettingsModal.js', document.baseURI).href),
+        import(new URL('js/appState.js', document.baseURI).href),
+      ]);
+      await SoundSettingsModal.show(0, 'mainBeatSound');
+      const modal = document.querySelector('#sound-settings-modal');
+      const content = modal.querySelector('.modal-content');
+      const canvas = modal.querySelector('.oscilloscope-canvas');
+      const track = AppState.getTracks()[0];
+      return {
+        contentFitsViewport: content.getBoundingClientRect().height <= window.innerHeight,
+        contentScrolls: content.scrollHeight >= content.clientHeight,
+        canvasHeight: canvas.getBoundingClientRect().height,
+        analysersAreSeparate: track.mainAnalyserNode && track.subdivisionAnalyserNode
+          && track.mainAnalyserNode !== track.subdivisionAnalyserNode,
+      };
+    });
+    expect(result.contentFitsViewport).toBe(true);
+    expect(result.contentScrolls).toBe(true);
+    expect(result.canvasHeight).toBeLessThanOrEqual(100);
+    expect(result.analysersAreSeparate).toBe(true);
+  });
+
   test('visual regression: mobile theme menu', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');

@@ -3065,3 +3065,54 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
 .track .record-btn { font-size: 0; }
 .track .rest-button .control-icon,
 .track .record-btn .control-icon { font-size: 1rem; }
+
+/* Sound editor: keep the oscilloscope modal usable on iOS and short viewports. */
+#sound-settings-modal {
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  box-sizing: border-box;
+}
+#sound-settings-modal .modal-content {
+  width: min(700px, 100%);
+  max-width: 100%;
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
+  margin: auto;
+  padding: clamp(.75rem, 2vw, 1.25rem);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+}
+#sound-settings-modal .oscilloscope-canvas {
+  display: block;
+  width: 100%;
+  height: clamp(72px, 18vh, 140px);
+  max-height: 140px;
+  box-sizing: border-box;
+}
+#sound-settings-modal .modal-header {
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+#sound-settings-modal .header-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+}
+@media (max-width: 640px), (max-height: 700px) {
+  #sound-settings-modal { align-items: flex-start; }
+  #sound-settings-modal .modal-content {
+    width: 100%;
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12px);
+    margin-top: 6px;
+    margin-bottom: 6px;
+    padding: .7rem;
+  }
+  #sound-settings-modal .oscilloscope-canvas { height: 78px; }
+  #sound-settings-modal .modal-header h2 { font-size: 1.1rem; margin: 0; }
+  #sound-settings-modal .header-right button { min-height: 2rem; padding: .3rem .45rem; font-size: .78rem; }
+}

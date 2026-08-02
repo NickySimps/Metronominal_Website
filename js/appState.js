@@ -358,6 +358,8 @@ const AppState = (function () {
       subdivisionSound: { sound: "Synth HiHat", settings: { ...defaultHiHat } },
       nextBeatTime: 0,
       analyserNode: null,
+      mainAnalyserNode: null,
+      subdivisionAnalyserNode: null,
     },
   ];
   let selectedTrackIndex = 0;
@@ -763,6 +765,8 @@ const AppState = (function () {
         },
         nextBeatTime: 0,
         analyserNode: null,
+      mainAnalyserNode: null,
+      subdivisionAnalyserNode: null,
       };
       if (audioContext) {
         const analyser = audioContext.createAnalyser();
@@ -1105,6 +1109,14 @@ const AppState = (function () {
           track.analyserNode = audioContext.createAnalyser();
           track.analyserNode.connect(audioContext.destination);
         }
+        if (!track.mainAnalyserNode) {
+          track.mainAnalyserNode = audioContext.createAnalyser();
+          track.mainAnalyserNode.connect(audioContext.destination);
+        }
+        if (!track.subdivisionAnalyserNode) {
+          track.subdivisionAnalyserNode = audioContext.createAnalyser();
+          track.subdivisionAnalyserNode.connect(audioContext.destination);
+        }
       });
     },
     getAudioContext: () => audioContext,
@@ -1198,7 +1210,7 @@ const AppState = (function () {
         Tracks: JSON.parse(
           JSON.stringify(
             Tracks.map((track) => {
-              const { analyserNode, ...remaningTrack } = track;
+              const { analyserNode, mainAnalyserNode, subdivisionAnalyserNode, ...remaningTrack } = track;
               return remaningTrack;
             })
           )
@@ -1467,6 +1479,8 @@ const AppState = (function () {
           },
           nextBeatTime: 0,
           analyserNode: null,
+      mainAnalyserNode: null,
+      subdivisionAnalyserNode: null,
         },
       ];
       if (audioContext) {

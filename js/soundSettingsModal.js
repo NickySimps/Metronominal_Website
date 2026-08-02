@@ -687,7 +687,10 @@ const SoundSettingsModal = {
     }
 
     DOM.soundSettingsModal.style.display = "block";
-    this.startDrawing(track.analyserNode);
+    const modalAnalyser = soundType === "mainBeatSound"
+      ? (track.mainAnalyserNode || track.analyserNode)
+      : (track.subdivisionAnalyserNode || track.analyserNode);
+    this.startDrawing(modalAnalyser);
   },
 
   hide() {

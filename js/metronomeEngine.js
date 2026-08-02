@@ -113,7 +113,9 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     const soundVolume = soundObject.settings && soundObject.settings.volume !== undefined ? soundObject.settings.volume : 1.0;
     const finalVolume = AppState.getVolume() * trackVolume * soundVolume * beatVelocity;
 
-    const destination = track.analyserNode || audioContext.destination;
+    const destination = isAccent
+        ? (track.mainAnalyserNode || track.analyserNode || audioContext.destination)
+        : (track.subdivisionAnalyserNode || track.analyserNode || audioContext.destination);
 
     let baseSoundName = soundToPlay;
     const customSoundData = AppState.getCustomSoundData(soundToPlay);
