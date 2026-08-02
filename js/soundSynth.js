@@ -16,6 +16,10 @@ function getSharedNoiseBuffer(audioContext) {
   return buffer;
 }
 
+function getPitchMult(pitchShift = 0) {
+  return Math.pow(2, (pitchShift || 0) / 12);
+}
+
 const SoundSynth = {
   /**
    * Plays a synthesized kick drum sound.
@@ -37,9 +41,11 @@ const SoundSynth = {
       sustain = 0.5,
       release = 0.2,
       pitchEnvelopeTime = 0.1,
+      pitchShift = 0,
     } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
@@ -54,9 +60,9 @@ const SoundSynth = {
     gain.gain.linearRampToValueAtTime(0, time + attack + decay + release + 0.01);
 
     // Pitch Envelope (from startFrequency down to endFrequency)
-    osc.frequency.setValueAtTime(startFrequency, time);
+    osc.frequency.setValueAtTime(startFrequency * pMult, time);
     osc.frequency.exponentialRampToValueAtTime(
-      endFrequency,
+      endFrequency * pMult,
       time + pitchEnvelopeTime
     );
 
@@ -84,9 +90,11 @@ const SoundSynth = {
       sustain = 0.5,
       release = 0.2,
       noiseFilterFrequency = 1500,
+      pitchShift = 0,
     } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
     const noise = audioContext.createBufferSource();
@@ -97,8 +105,8 @@ const SoundSynth = {
 
     // Configure the tonal part (the "body" of the snare)
     osc.type = "triangle";
-    osc.frequency.setValueAtTime(bodyFrequencyStart, time);
-    osc.frequency.exponentialRampToValueAtTime(bodyFrequencyEnd, time + 0.1);
+    osc.frequency.setValueAtTime(bodyFrequencyStart * pMult, time);
+    osc.frequency.exponentialRampToValueAtTime(bodyFrequencyEnd * pMult, time + 0.1);
     
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(volume * 0.7, time + attack);
@@ -113,7 +121,7 @@ const SoundSynth = {
     noise.buffer = getSharedNoiseBuffer(audioContext);
 
     noiseFilter.type = "highpass";
-    noiseFilter.frequency.value = noiseFilterFrequency;
+    noiseFilter.frequency.value = noiseFilterFrequency * pMult;
 
     noiseGain.gain.setValueAtTime(0, time);
     noiseGain.gain.linearRampToValueAtTime(volume * 0.8, time + attack);
@@ -133,32 +141,22 @@ const SoundSynth = {
     noise.stop(stopTime);
   },
 
-  /**
-   * Plays a synthesized closed hi-hat sound.
-   * A hi-hat is a very short burst of high-frequency filtered noise.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playHiHat: (
     audioContext,
     time,
-    { volume = 1.0, filterFrequency = 7000, attack = 0.01, decay = 0.05, sustain = 0.1, release = 0.05 } = {},
+    { volume = 1.0, filterFrequency = 7000, attack = 0.01, decay = 0.05, sustain = 0.1, release = 0.05, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
-    // Use the same noise generation as the snare
     noise.buffer = getSharedNoiseBuffer(audioContext);
 
-    // Filter the noise to be high-frequency (the "tsss" sound)
     noiseFilter.type = "highpass";
-    noiseFilter.frequency.value = filterFrequency;
+    noiseFilter.frequency.value = filterFrequency * pMult;
 
-    // Very short volume envelope for a "ticking" sound
     noiseGain.gain.setValueAtTime(0, time);
     noiseGain.gain.linearRampToValueAtTime(volume * 0.4, time + attack);
     noiseGain.gain.linearRampToValueAtTime(volume * 0.4 * sustain, time + attack + decay);
@@ -173,20 +171,13 @@ const SoundSynth = {
     noise.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized open hi-hat sound.
-   * Similar to a closed hi-hat but with a longer, sustained decay.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playOpenHiHat: (
     audioContext,
     time,
-    { volume = 1.0, filterFrequency = 6000, attack = 0.01, decay = 0.2, sustain = 0.1, release = 0.2 } = {},
+    { volume = 1.0, filterFrequency = 6000, attack = 0.01, decay = 0.2, sustain = 0.1, release = 0.2, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
@@ -194,9 +185,8 @@ const SoundSynth = {
     noise.buffer = getSharedNoiseBuffer(audioContext);
 
     noiseFilter.type = "highpass";
-    noiseFilter.frequency.value = filterFrequency;
+    noiseFilter.frequency.value = filterFrequency * pMult;
 
-    // Longer decay for the "open" sound
     noiseGain.gain.setValueAtTime(0, time);
     noiseGain.gain.linearRampToValueAtTime(volume * 0.4, time + attack);
     noiseGain.gain.linearRampToValueAtTime(volume * 0.4 * sustain, time + attack + decay);
@@ -221,15 +211,15 @@ const SoundSynth = {
   playHiTom: (
     audioContext,
     time,
-    { volume = 1.0, startFrequency = 300, endFrequency = 150, attack = 0.01, decay = 0.2, sustain = 0.1, release = 0.1 } = {},
+    { volume = 1.0, startFrequency = 300, endFrequency = 150, attack = 0.01, decay = 0.2, sustain = 0.1, release = 0.1, pitchShift = 0 } = {},
     destination = null
   ) => {
-    const osc = audioContext.createOscillator(); // Tonal part
-    const gain = audioContext.createGain(); // Gain for tonal part
+    const pMult = getPitchMult(pitchShift);
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
 
-    // Tonal part (pitched sine wave)
-    osc.frequency.setValueAtTime(startFrequency, time); // Higher start frequency
-    osc.frequency.exponentialRampToValueAtTime(endFrequency, time + 0.2);
+    osc.frequency.setValueAtTime(startFrequency * pMult, time);
+    osc.frequency.exponentialRampToValueAtTime(endFrequency * pMult, time + 0.2);
     osc.type = "triangle";
     
     gain.gain.setValueAtTime(0, time);
@@ -242,27 +232,21 @@ const SoundSynth = {
     gain.connect(destination || audioContext.destination);
 
     osc.start(time);
-    osc.stop(time + attack + decay + release + 0.1); // Stop after the decay
+    osc.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized mid tom drum sound.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playMidTom: (
     audioContext,
     time,
-    { volume = 1.0, startFrequency = 150, endFrequency = 80, attack = 0.01, decay = 0.3, sustain = 0.1, release = 0.1 } = {},
+    { volume = 1.0, startFrequency = 150, endFrequency = 80, attack = 0.01, decay = 0.3, sustain = 0.1, release = 0.1, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
-    osc.frequency.setValueAtTime(startFrequency, time);
-    osc.frequency.exponentialRampToValueAtTime(endFrequency, time + 0.25);
+    osc.frequency.setValueAtTime(startFrequency * pMult, time);
+    osc.frequency.exponentialRampToValueAtTime(endFrequency * pMult, time + 0.25);
     osc.type = "triangle";
     
     gain.gain.setValueAtTime(0, time);
@@ -278,24 +262,18 @@ const SoundSynth = {
     osc.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized low tom drum sound.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playLowTom: (
     audioContext,
     time,
-    { volume = 1.0, startFrequency = 100, endFrequency = 50, attack = 0.01, decay = 0.4, sustain = 0.1, release = 0.1 } = {},
+    { volume = 1.0, startFrequency = 100, endFrequency = 50, attack = 0.01, decay = 0.4, sustain = 0.1, release = 0.1, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
-    osc.frequency.setValueAtTime(startFrequency, time); // Lower start frequency
-    osc.frequency.exponentialRampToValueAtTime(endFrequency, time + 0.3);
+    osc.frequency.setValueAtTime(startFrequency * pMult, time);
+    osc.frequency.exponentialRampToValueAtTime(endFrequency * pMult, time + 0.3);
     osc.type = "triangle";
     
     gain.gain.setValueAtTime(0, time);
@@ -311,20 +289,13 @@ const SoundSynth = {
     osc.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized clap sound.
-   * A clap is a short, sharp burst of filtered noise.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playClap: (
     audioContext,
     time,
-    { volume = 1.0, filterFrequency = 1200, qValue = 15, attack = 0.01, decay = 0.1, sustain = 0.1, release = 0.1 } = {},
+    { volume = 1.0, filterFrequency = 1200, qValue = 15, attack = 0.01, decay = 0.1, sustain = 0.1, release = 0.1, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
@@ -332,7 +303,7 @@ const SoundSynth = {
     noise.buffer = getSharedNoiseBuffer(audioContext);
 
     noiseFilter.type = "bandpass";
-    noiseFilter.frequency.value = filterFrequency;
+    noiseFilter.frequency.value = filterFrequency * pMult;
     noiseFilter.Q.value = qValue;
 
     noiseGain.gain.setValueAtTime(0, time);
@@ -349,25 +320,18 @@ const SoundSynth = {
     noise.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized claves sound.
-   * Claves are a very short, high-pitched, tonal "tick".
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playClaves: (
     audioContext,
     time,
-    { volume = 1.0, frequency = 2500, attack = 0.01, decay = 0.05, sustain = 0.1, release = 0.05 } = {},
+    { volume = 1.0, frequency = 2500, attack = 0.01, decay = 0.05, sustain = 0.1, release = 0.05, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
     osc.type = "sine";
-    osc.frequency.setValueAtTime(frequency, time);
+    osc.frequency.setValueAtTime(frequency * pMult, time);
 
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(volume, time + attack);
@@ -382,20 +346,13 @@ const SoundSynth = {
     osc.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized shaker sound.
-   * A shaker is a sustained burst of high-frequency noise.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playShaker: (
     audioContext,
     time,
-    { volume = 1.0, filterFrequency = 6000, qValue = 5, attack = 0.01, decay = 0.1, sustain = 0.1, release = 0.1 } = {},
+    { volume = 1.0, filterFrequency = 6000, qValue = 5, attack = 0.01, decay = 0.1, sustain = 0.1, release = 0.1, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
@@ -403,7 +360,7 @@ const SoundSynth = {
     noise.buffer = getSharedNoiseBuffer(audioContext);
 
     noiseFilter.type = "bandpass";
-    noiseFilter.frequency.value = filterFrequency;
+    noiseFilter.frequency.value = filterFrequency * pMult;
     noiseFilter.Q.value = qValue;
 
     noiseGain.gain.setValueAtTime(0, time);
@@ -431,18 +388,19 @@ const SoundSynth = {
   playCymbal: (
     audioContext,
     time,
-    { volume = 1.0, filterFrequency = 8000, attack = 0.01, decay = 0.5, sustain = 0.1, release = 0.5 } = {},
+    { volume = 1.0, filterFrequency = 8000, attack = 0.01, decay = 0.5, sustain = 0.1, release = 0.5, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
     noise.buffer = getSharedNoiseBuffer(audioContext);
 
-    noiseFilter.type = "bandpass"; // Or highpass, experiment for desired sound
-    noiseFilter.frequency.value = filterFrequency;
-    noiseFilter.Q.value = 1; // Lower Q for a broader sound
+    noiseFilter.type = "bandpass";
+    noiseFilter.frequency.value = filterFrequency * pMult;
+    noiseFilter.Q.value = 1;
 
     noiseGain.gain.setValueAtTime(0, time);
     noiseGain.gain.linearRampToValueAtTime(volume, time + attack);
@@ -458,29 +416,22 @@ const SoundSynth = {
     noise.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized cowbell sound.
-   * A cowbell can be approximated with two slightly detuned square waves.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playCowbell: (
     audioContext,
     time,
-    { volume = 1.0, frequency1 = 540, frequency2 = 800, attack = 0.01, decay = 0.1, sustain = 0.1, release = 0.1 } = {},
+    { volume = 1.0, frequency1 = 540, frequency2 = 800, attack = 0.01, decay = 0.1, sustain = 0.1, release = 0.1, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const osc1 = audioContext.createOscillator();
     const osc2 = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
     osc1.type = "square";
-    osc1.frequency.setValueAtTime(frequency1, time);
+    osc1.frequency.setValueAtTime(frequency1 * pMult, time);
 
     osc2.type = "square";
-    osc2.frequency.setValueAtTime(frequency2, time);
+    osc2.frequency.setValueAtTime(frequency2 * pMult, time);
 
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(volume, time + attack);
@@ -500,25 +451,18 @@ const SoundSynth = {
     osc2.stop(stopTime);
   },
 
-  /**
-   * Plays a synthesized woodblock sound.
-   * A woodblock is a short, sharp, high-pitched sound, often with a quick decay.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playWoodblock: (
     audioContext,
     time,
-    { volume = 1.0, frequency = 1000, attack = 0.01, decay = 0.05, sustain = 0.1, release = 0.05 } = {},
+    { volume = 1.0, frequency = 1000, attack = 0.01, decay = 0.05, sustain = 0.1, release = 0.05, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
-    osc.type = "sine"; // Or 'triangle' for a slightly different timbre
-    osc.frequency.setValueAtTime(frequency, time);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(frequency * pMult, time);
 
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(volume, time + attack);
@@ -533,25 +477,18 @@ const SoundSynth = {
     osc.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized triangle sound.
-   * A triangle is a simple, sustained sine wave with a ringing decay.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playTriangle: (
     audioContext,
     time,
-    { volume = 1.0, frequency = 1200, attack = 0.01, decay = 0.2, sustain = 0.1, release = 0.2 } = {},
+    { volume = 1.0, frequency = 1200, attack = 0.01, decay = 0.2, sustain = 0.1, release = 0.2, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
     osc.type = "triangle";
-    osc.frequency.setValueAtTime(frequency, time);
+    osc.frequency.setValueAtTime(frequency * pMult, time);
 
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(volume, time + attack);
@@ -566,20 +503,13 @@ const SoundSynth = {
     osc.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized maraca sound.
-   * A maraca is a short, sharp burst of high-frequency noise with a quick, modulated decay.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playMaraca: (
     audioContext,
     time,
-    { volume = 1.0, filterFrequency = 4000, attack = 0.01, decay = 0.05, sustain = 0.1, release = 0.05 } = {},
+    { volume = 1.0, filterFrequency = 4000, attack = 0.01, decay = 0.05, sustain = 0.1, release = 0.05, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const noise = audioContext.createBufferSource();
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
@@ -587,7 +517,7 @@ const SoundSynth = {
     noise.buffer = getSharedNoiseBuffer(audioContext);
 
     noiseFilter.type = "highpass";
-    noiseFilter.frequency.value = filterFrequency;
+    noiseFilter.frequency.value = filterFrequency * pMult;
 
     noiseGain.gain.setValueAtTime(0, time);
     noiseGain.gain.linearRampToValueAtTime(volume, time + attack);
@@ -603,24 +533,18 @@ const SoundSynth = {
     noise.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized sine wave sound.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playSine: (
     audioContext,
     time,
-    { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.1, sustain = 0.5, release = 0.2 } = {},
+    { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.1, sustain = 0.5, release = 0.2, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
     osc.type = "sine";
-    osc.frequency.setValueAtTime(frequency, time);
+    osc.frequency.setValueAtTime(frequency * pMult, time);
 
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(volume, time + attack);
@@ -635,24 +559,18 @@ const SoundSynth = {
     osc.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized square wave sound.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playSquare: (
     audioContext,
     time,
-    { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.1, sustain = 0.5, release = 0.2 } = {},
+    { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.1, sustain = 0.5, release = 0.2, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
     osc.type = "square";
-    osc.frequency.setValueAtTime(frequency, time);
+    osc.frequency.setValueAtTime(frequency * pMult, time);
 
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(volume, time + attack);
@@ -667,24 +585,18 @@ const SoundSynth = {
     osc.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized sawtooth wave sound.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playSawtooth: (
     audioContext,
     time,
-    { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.1, sustain = 0.5, release = 0.2 } = {},
+    { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.1, sustain = 0.5, release = 0.2, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
     const gain = audioContext.createGain();
 
     osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(frequency, time);
+    osc.frequency.setValueAtTime(frequency * pMult, time);
 
     gain.gain.setValueAtTime(0, time);
     gain.gain.linearRampToValueAtTime(volume, time + attack);
@@ -699,51 +611,13 @@ const SoundSynth = {
     osc.stop(time + attack + decay + release + 0.1);
   },
 
-  /**
-   * Plays a synthesized sawtooth wave sound.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
-  playSawtooth: (
-    audioContext,
-    time,
-    { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.1, sustain = 0.5, release = 0.2 } = {},
-    destination = null
-  ) => {
-    const osc = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-
-    osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(frequency, time);
-
-    gain.gain.setValueAtTime(0, time);
-    gain.gain.linearRampToValueAtTime(volume, time + attack);
-    gain.gain.linearRampToValueAtTime(volume * sustain, time + attack + decay);
-    gain.gain.setValueAtTime(volume * sustain, time + attack + decay + release);
-    gain.gain.linearRampToValueAtTime(0, time + attack + decay + release + 0.01);
-
-    osc.connect(gain);
-    gain.connect(destination || audioContext.destination);
-
-    osc.start(time);
-    osc.stop(time + attack + decay + release + 0.1);
-  },
-
-  /**
-   * Plays a synthesized ultrasaw wave sound.
-   * @param {AudioContext} audioContext - The global AudioContext.
-   * @param {number} time - The time to schedule the sound to play.
-   * @param {object} settings - The settings for the sound.
-   * @param {AudioNode} destination - The destination node for the sound.
-   */
   playUltrasaw: (
     audioContext,
     time,
-    { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.2, sustain = 0.5, release = 0.2, detune = 15 } = {},
+    { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.2, sustain = 0.5, release = 0.2, detune = 15, pitchShift = 0 } = {},
     destination = null
   ) => {
+    const pMult = getPitchMult(pitchShift);
     const gain = audioContext.createGain();
     gain.connect(destination || audioContext.destination);
     gain.gain.setValueAtTime(0, time);
@@ -754,7 +628,7 @@ const SoundSynth = {
 
     const osc1 = audioContext.createOscillator();
     osc1.type = "sawtooth";
-    osc1.frequency.setValueAtTime(frequency, time);
+    osc1.frequency.setValueAtTime(frequency * pMult, time);
     osc1.detune.setValueAtTime(-detune, time);
     osc1.connect(gain);
     osc1.start(time);
@@ -762,7 +636,7 @@ const SoundSynth = {
 
     const osc2 = audioContext.createOscillator();
     osc2.type = "sawtooth";
-    osc2.frequency.setValueAtTime(frequency, time);
+    osc2.frequency.setValueAtTime(frequency * pMult, time);
     osc2.detune.setValueAtTime(detune, time);
     osc2.connect(gain);
     osc2.start(time);

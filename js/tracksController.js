@@ -215,12 +215,8 @@ const TrackController = {
           <button class="track-remove-btn" title="Remove track" aria-label="Remove track">✖</button>
           <div class="track-volume-controls">
             <span class="track-volume-label">Vol:</span>
-            <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${
-        track.volume
-      }">
-            <span class="track-volume-value">${(track.volume * 100).toFixed(
-              0
-            )}%</span>
+            <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${track.volume ?? 1.0}" title="Track Volume">
+            <span class="track-slider-value track-volume-value">${((track.volume ?? 1) * 100).toFixed(0)}%</span>
           </div>
         </div>
         <div class="track-sound-controls">
@@ -233,9 +229,22 @@ const TrackController = {
             <div class="sound-selection sub-sound-selection"></div>
           </div>
           <div class="mode-buttons-col">
-            <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode"><span class="control-icon" aria-hidden="true">𝄽</span></button>
-            <button class="accent-button ${AppState.isAccentMode() ? 'active' : ''}" aria-label="Toggle accent mode" title="Toggle Accent & Ghost Note Mode"><span class="control-icon" aria-hidden="true">⚡</span></button>
-            <button class="record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon" aria-hidden="true">●</span></button>
+            <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode">𝄽 Rest</button>
+            <button class="accent-button ${AppState.isAccentMode() ? 'active' : ''}" aria-label="Toggle accent mode" title="Toggle Accent & Ghost Note Mode">⚡ Accent</button>
+            <button class="record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording">● Rec</button>
+            <button class="random-btn" aria-label="Randomize pattern" title="Randomize accents, rests & dynamics for this track">❓ Rand</button>
+          </div>
+        </div>
+        <div class="track-bottom-sliders-row">
+          <div class="track-slider-row track-pitch-group">
+            <span class="track-slider-label">Pitch:</span>
+            <input type="range" id="track-pitch-${index}" class="track-pitch-slider" min="-12" max="12" step="1" value="${track.pitchShift ?? 0}" title="Track Pitch (Semitones)">
+            <span class="track-slider-value track-pitch-value">${(track.pitchShift ?? 0) > 0 ? '+' : ''}${track.pitchShift ?? 0}st</span>
+          </div>
+          <div class="track-slider-row track-swing-group">
+            <span class="track-slider-label">Swing:</span>
+            <input type="range" id="track-swing-${index}" class="track-swing-slider" min="0" max="100" step="1" value="${track.swing ?? 0}" title="Track Swing / Humanize">
+            <span class="track-slider-value track-swing-value">${track.swing ?? 0}%</span>
           </div>
         </div>
         <div class="bar-display-container" data-container-index="${index}"></div>
@@ -441,8 +450,31 @@ const TrackController = {
         }
         BarDisplayController.renderBarsAndControls();
         updateSelectionUI();
-    } else if (target.matches(".record-btn")) {
+    } else if (target.matches(".record-btn") || target.closest(".record-btn")) {
         AudioController.toggleRecording(containerIndex);
+    } else if (target.matches(".random-btn") || target.closest(".random-btn")) {
+        const track = AppState.getTracks()[containerIndex];
+        if (track && track.barSettings) {
+            track.barSettings.forEach(bar => {
+                const subBeats = Math.round((bar.beats || 4) * (bar.subdivision || 1));
+                bar.rests = [];
+                bar.velocities = {};
+                for (let i = 0; i < subBeats; i++) {
+                    const rand = Math.random();
+                    if (rand < 0.18) {
+                        bar.rests.push(i);
+                    } else if (rand < 0.42) {
+                        bar.velocities[i] = 1.0; // Accent
+                    } else if (rand < 0.60) {
+                        bar.velocities[i] = 0.3; // Ghost note
+                    } else {
+                        bar.velocities[i] = 0.7; // Normal
+                    }
+                }
+            });
+            sendState(AppState.getCurrentStateForPreset(true));
+            BarDisplayController.renderBarsAndControls();
+        }
     } else if (target.matches(".sound-label") || target.closest(".sound-label")) {
         const soundLabel = target.closest(".sound-label");
         const isMain = soundLabel.classList.contains("main-sound-label");
@@ -513,25 +545,34 @@ const TrackController = {
   },
 
   /**
-   * Handles input events from the volume slider.
+   * Handles input events from track sliders (volume, pitch, swing).
    * @param {Event} event - The input event.
    */
   handleTrackSliderInput: (event) => {
     const target = event.target;
+    const trackElement = target.closest(".track");
+    if (!trackElement) return;
+
+    const containerIndex = parseInt(trackElement.dataset.containerIndex, 10);
+
     if (target.matches(".track-volume-slider")) {
-      const trackElement = target.closest(".track");
-      if (trackElement) {
-        const containerIndex = parseInt(
-          trackElement.dataset.containerIndex,
-          10
-        );
-        const newVolume = parseFloat(target.value);
-        AppState.updateTrack(containerIndex, { volume: newVolume });
-        sendState(AppState.getCurrentStateForPreset(true)); // Lightweight sync
-        trackElement.querySelector(".track-volume-value").textContent = `${(
-          newVolume * 100
-        ).toFixed(0)}%`;
-      }
+      const newVolume = parseFloat(target.value);
+      AppState.updateTrack(containerIndex, { volume: newVolume });
+      sendState(AppState.getCurrentStateForPreset(true));
+      const valDisplay = trackElement.querySelector(".track-volume-value");
+      if (valDisplay) valDisplay.textContent = `${(newVolume * 100).toFixed(0)}%`;
+    } else if (target.matches(".track-pitch-slider")) {
+      const pitchVal = parseInt(target.value, 10) || 0;
+      AppState.updateTrack(containerIndex, { pitchShift: pitchVal });
+      sendState(AppState.getCurrentStateForPreset(true));
+      const pitchDisplay = trackElement.querySelector(".track-pitch-value");
+      if (pitchDisplay) pitchDisplay.textContent = `${pitchVal > 0 ? '+' : ''}${pitchVal}st`;
+    } else if (target.matches(".track-swing-slider")) {
+      const swingVal = parseInt(target.value, 10) || 0;
+      AppState.updateTrack(containerIndex, { swing: swingVal });
+      sendState(AppState.getCurrentStateForPreset(true));
+      const swingDisplay = trackElement.querySelector(".track-swing-value");
+      if (swingDisplay) swingDisplay.textContent = `${swingVal}%`;
     }
   },
 

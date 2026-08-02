@@ -781,19 +781,29 @@ select {
 /* Styles for the new global application controls panel */
 .global-app-controls {
   display: flex;
-  flex-wrap: wrap; /* Allow wrapping on smaller screens if needed */
-  justify-content: space-around; /* Distribute space */
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
-  padding: var(--s2) var(--s3); /* Standardized padding (4px 8px) */
-  margin-bottom: var(--s3); /* Standardized margin (8px) */
-  background-color: color-mix(
-    in srgb,
-    var(--Background) 90%,
-    black 5%
-  ); /* Slightly different from body */
+  padding: 6px;
+  margin-bottom: 6px;
+  background-color: color-mix(in srgb, var(--Background) 90%, var(--Main) 10%);
   border-radius: var(--BorderRadius);
-  gap: var(--s3); /* Standardized gap (8px) */
+  border: 1px solid color-mix(in srgb, var(--TextPrimary) 15%, transparent);
+  gap: 8px;
+  box-sizing: border-box;
 }
+
+.control-card-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: color-mix(in srgb, var(--Main) 12%, transparent);
+  border-radius: calc(var(--BorderRadius) * 0.65);
+  border: 1px solid color-mix(in srgb, var(--TextPrimary) 12%, transparent);
+  box-sizing: border-box;
+}
+
 .control-group {
   display: flex;
   align-items: center;
@@ -1259,23 +1269,98 @@ select {
 
   .global-app-controls {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    align-items: center;
-    gap: 6px 8px;
-    padding: 8px;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px;
     margin-top: 40px;
     width: 100%;
     box-sizing: border-box;
   }
 
-  .ab-loop-controls {
-    flex: 1 1 100%;
+  .control-card-group {
     width: 100%;
-    max-width: 100%;
+    box-sizing: border-box;
+    padding: 5px 8px;
+  }
+
+  /* Group 1: Timing controls (Total Beats, Subdiv, Count-In) strictly on 1 row */
+  .timing-controls-group {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 4px !important;
+  }
+
+  .timing-controls-group .control-group {
+    flex: 0 1 auto;
+    gap: 2px;
+  }
+
+  .timing-controls-group .control-label {
+    font-size: 0.72rem !important;
+  }
+
+  .timing-controls-group .compact-select {
+    padding: 3px 2px !important;
+    font-size: 0.78rem !important;
+  }
+
+  /* Group 2: Modes (A/B Loop & Song Mode) */
+  .mode-controls-group {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 6px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .mode-controls-group .ab-loop-controls {
+    flex: 1 1 auto;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  .mode-controls-group .song-mode-toggle-wrap {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .ab-loop-inputs.open {
+    max-width: 100%;
+    overflow: visible;
+    flex-wrap: wrap;
+  }
+
+  .ab-input {
+    width: 36px !important;
+    min-width: 32px;
+  }
+
+  /* Group 3: Preset controls grouped together */
+  .preset-controls-group {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 6px !important;
+  }
+
+  .preset-title-wrap {
+    flex: 1 1 120px;
+  }
+
+  .preset-title-wrap input {
+    width: 100%;
   }
 
   .ab-loop-inputs.open {
@@ -1552,22 +1637,26 @@ button:active,
 }
 
 .track-volume-controls {
-  width: 100%;
+  flex: 1 1 auto;
   display: flex;
   flex-flow: row nowrap;
   align-items: center;
-  margin: var(--s2);
+  gap: 6px;
+  margin: 0;
+  width: 100%;
 }
 
 .track-volume-slider {
   -webkit-appearance: none;
-  width: clamp(120px, 90%, 600px); /* A fixed width for consistency */
-  height: var(--s1); /* 2px track height */
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  height: 6px;
   background: var(--Alt1);
-  border-radius: var(--s1);
+  border-radius: var(--BorderRadius);
   outline: none;
-  opacity: 0.8;
-  margin: 0px var(--s3);
+  opacity: 0.85;
+  margin: 0 4px;
   transition: opacity 0.2s;
 }
 
@@ -2152,12 +2241,25 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   flex-direction: column;
   gap: 6px;
   align-items: flex-start;
+  justify-content: space-between;
   flex: 0 0 auto;
+  height: 70px;
 }
 
 .edit-buttons-col .sound-label {
-  width: 70px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-height: 32px;
+  width: 68px;
+  padding: 0 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
   text-align: center;
+  box-sizing: border-box;
+  line-height: 1;
+  border-radius: var(--BorderRadius);
 }
 
 .sound-selectors-col {
@@ -2165,27 +2267,101 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   flex-direction: column;
   gap: 6px;
   flex: 1 1 auto;
-  min-width: 120px;
-  justify-content: center;
+  min-width: 110px;
+  justify-content: space-between;
+  height: 70px;
 }
 
 .sound-selectors-col .sound-selection {
   width: 100%;
+  height: 32px;
+  display: flex;
+  align-items: center;
 }
 
 .sound-selectors-col select {
   width: 100% !important;
+  height: 32px !important;
+  min-height: 32px !important;
   max-width: 100%;
   box-sizing: border-box;
   margin: 0;
+  font-size: 0.82rem;
+  padding: 0 6px;
+  line-height: 32px;
+}
+
+.track-bottom-sliders-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 0 6px 0;
+  box-sizing: border-box;
+}
+
+.track-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.track-pitch-slider,
+.track-swing-slider {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  cursor: pointer;
+}
+
+.track-pitch-group,
+.track-swing-group {
+  width: 100%;
+  max-width: 100%;
+  flex: 1 1 100%;
+}
+
+.track-slider-label {
+  font-size: 0.78rem;
+  color: var(--TextSecondary);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.track-slider-value {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--TextPrimary);
+  min-width: 28px;
+  white-space: nowrap;
 }
 
 .mode-buttons-col {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
   gap: 4px;
   flex: 0 0 auto;
+  width: 128px;
+  height: 70px;
+  box-sizing: border-box;
+}
+
+.mode-buttons-col button {
+  height: 33px;
+  width: 100%;
+  padding: 0 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin: 0;
+  border-radius: var(--BorderRadius);
+  white-space: nowrap;
 }
 .song-mode-button,
 .rest-button,

@@ -44,95 +44,106 @@
                 <button id="screen-off-toggle-btn" title="Toggle screen sleep" aria-label="Toggle screen sleep">📱 Keep Awake</button>
             </div>
             <div class="global-app-controls">
-                <div class="control-group">
-                    <span class="control-label">Total Beats:</span>
-                    <span class="total-beats-display">0</span>
+                <!-- Group 1: Timing & Subdivision (Always 1 row on mobile) -->
+                <div class="control-card-group timing-controls-group">
+                    <div class="control-group beats-count-wrap">
+                        <span class="control-label">Total Beats:</span>
+                        <span class="total-beats-display">0</span>
+                    </div>
+                    <div class="control-group">
+                        <label for="beat-multiplier-select" class="control-label">Subdiv:</label>
+                        <select name="beat-multiplier" id="beat-multiplier-select" class="compact-select">
+                            <option value="0.25">4/1 (Whole)</option>
+                            <option value="0.5">2/1 (Half)</option>
+                            <option value="1" selected>1/4 (Quarter)</option>
+                            <option value="2">1/8 (Eighth)</option>
+                            <option value="3">1/8T (Triplet)</option>
+                            <option value="4">1/16 (16th)</option>
+                            <option value="5">1/16 Quin</option>
+                            <option value="6">1/16 Sex</option>
+                            <option value="7">1/16 Sep</option>
+                            <option value="8">1/32 (32nd)</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="count-in-bars-select" class="control-label">Count-In:</label>
+                        <select id="count-in-bars-select" class="compact-select" aria-label="Count-in bars">
+                            <option value="0">Off</option>
+                            <option value="1">1 bar</option>
+                            <option value="2">2 bars</option>
+                            <option value="3">3 bars</option>
+                            <option value="4">4 bars</option>
+                            <option value="5">5 bars</option>
+                            <option value="6">6 bars</option>
+                            <option value="7">7 bars</option>
+                            <option value="8">8 bars</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="control-group">
-                    <label for="beat-multiplier-select" class="control-label">Subdivision:</label>
-                    <select name="beat-multiplier" id="beat-multiplier-select" class="compact-select">
-                        <option value="0.25">4/1 (Whole)</option>
-                        <option value="0.5">2/1 (Half)</option>
-                        <option value="1" selected>1/4 (Quarter)</option>
-                        <option value="2">1/8 (Eighth)</option>
-                        <option value="3">1/8T (Triplet)</option>
-                        <option value="4">1/16 (16th)</option>
-                        <option value="5">1/16 Quin</option>
-                        <option value="6">1/16 Sex</option>
-                        <option value="7">1/16 Sep</option>
-                        <option value="8">1/32 (32nd)</option>
-                    </select>
+
+                <!-- Group 2: Modes (A/B Loop & Song Mode - Always 1 row on mobile) -->
+                <div class="control-card-group mode-controls-group">
+                    <div class="control-group ab-loop-controls">
+                        <button id="ab-loop-toggle-btn" class="preset-btn" title="Toggle A/B Bar Looper">🔂 A/B Loop</button>
+                        <span id="ab-loop-inputs" class="ab-loop-inputs">
+                            <label for="ab-start-bar" class="sr-only">Loop Start Bar</label>
+                            <input type="number" id="ab-start-bar" class="compact-input ab-input" min="1" max="64" value="1" title="Start Bar" />
+                            <span style="opacity: 0.8; font-size: 0.85rem;">to</span>
+                            <label for="ab-end-bar" class="sr-only">Loop End Bar</label>
+                            <input type="number" id="ab-end-bar" class="compact-input ab-input" min="1" max="64" value="2" title="End Bar" />
+                        </span>
+                    </div>
+                    <div class="control-group song-mode-toggle-wrap">
+                        <span class="control-label">Song Mode:</span>
+                        <button id="song-mode-enabled" class="song-mode-button" type="button" aria-pressed="false"
+                            aria-controls="song-mode-panel" aria-label="Enable song mode" title="Toggle Song Mode">
+                            <span class="control-icon" aria-hidden="true">♫</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="control-group">
-                    <label for="count-in-bars-select" class="control-label">Count-In:</label>
-                    <select id="count-in-bars-select" class="compact-select" aria-label="Count-in bars">
-                        <option value="0">Off</option>
-                        <option value="1">1 bar</option>
-                        <option value="2">2 bars</option>
-                        <option value="3">3 bars</option>
-                        <option value="4">4 bars</option>
-                        <option value="5">5 bars</option>
-                        <option value="6">6 bars</option>
-                        <option value="7">7 bars</option>
-                        <option value="8">8 bars</option>
-                    </select>
-                </div>
-                <div class="control-group ab-loop-controls">
-                    <button id="ab-loop-toggle-btn" class="preset-btn" title="Toggle A/B Bar Looper">🔂 A/B Loop</button>
-                    <span id="ab-loop-inputs" class="ab-loop-inputs">
-                        <label for="ab-start-bar" class="sr-only">Loop Start Bar</label>
-                        <input type="number" id="ab-start-bar" class="compact-input ab-input" min="1" max="64" value="1" title="Start Bar" />
-                        <span style="opacity: 0.8; font-size: 0.85rem;">to</span>
-                        <label for="ab-end-bar" class="sr-only">Loop End Bar</label>
-                        <input type="number" id="ab-end-bar" class="compact-input ab-input" min="1" max="64" value="2" title="End Bar" />
-                    </span>
-                </div>
-                <div class="control-group">
-                    <span class="control-label">Song Mode:</span>
-                    <button id="song-mode-enabled" class="song-mode-button" type="button" aria-pressed="false"
-                        aria-controls="song-mode-panel" aria-label="Enable song mode" title="Toggle Song Mode">
-                        <span class="control-icon" aria-hidden="true">♫</span>
-                    </button>
-                </div>
-                <div class="control-group">
-                    <label for="preset-slot-select" class="control-label">Preset Slot:</label>
-                    <select id="preset-slot-select" class="compact-select" aria-label="Select preset slot">
-                        <option value="0">Slot 1</option>
-                        <option value="1">Slot 2</option>
-                        <option value="2">Slot 3</option>
-                        <option value="3">Slot 4</option>
-                        <option value="4">Slot 5</option>
-                        <option value="5">Slot 6</option>
-                        <option value="6">Slot 7</option>
-                        <option value="7">Slot 8</option>
-                        <option value="8">Slot 9</option>
-                        <option value="9">Slot 10</option>
-                        <option value="10">Slot 11</option>
-                        <option value="11">Slot 12</option>
-                        <option value="12">Slot 13</option>
-                        <option value="13">Slot 14</option>
-                        <option value="14">Slot 15</option>
-                        <option value="15">Slot 16</option>
-                    </select>
-                </div>
-                <div class="control-group preset-action-buttons">
-                    <button class="preset-btn save-preset-btn"
-                        aria-label="Save current settings to selected preset slot" title="Save current settings to selected slot">
-                        💾 Save
-                    </button>
-                    <button class="preset-btn clear-preset-btn"
-                        aria-label="Clear selected preset slot" title="Clear selected preset slot">
-                        🗑 Clear
-                    </button>
-                    <button class="preset-btn reset-preset-btn"
-                        aria-label="Reset metronome settings to default" title="Reset all settings to default">
-                        ↺ Reset
-                    </button>
-                </div>
-                <div class="control-group">
-                    <label for="preset-name-input" class="control-label">Preset Title:</label>
-                    <input type="text" id="preset-name-input" class="compact-input" placeholder="Enter song title..."
-                        aria-label="Song or Preset Name" />
+
+                <!-- Group 3: Preset Controls -->
+                <div class="control-card-group preset-controls-group">
+                    <div class="control-group">
+                        <label for="preset-slot-select" class="control-label">Slot:</label>
+                        <select id="preset-slot-select" class="compact-select" aria-label="Select preset slot">
+                            <option value="0">Slot 1</option>
+                            <option value="1">Slot 2</option>
+                            <option value="2">Slot 3</option>
+                            <option value="3">Slot 4</option>
+                            <option value="4">Slot 5</option>
+                            <option value="5">Slot 6</option>
+                            <option value="6">Slot 7</option>
+                            <option value="7">Slot 8</option>
+                            <option value="8">Slot 9</option>
+                            <option value="9">Slot 10</option>
+                            <option value="10">Slot 11</option>
+                            <option value="11">Slot 12</option>
+                            <option value="12">Slot 13</option>
+                            <option value="13">Slot 14</option>
+                            <option value="14">Slot 15</option>
+                            <option value="15">Slot 16</option>
+                        </select>
+                    </div>
+                    <div class="control-group preset-title-wrap">
+                        <label for="preset-name-input" class="control-label">Title:</label>
+                        <input type="text" id="preset-name-input" class="compact-input" placeholder="Song title..."
+                            aria-label="Song or Preset Name" />
+                    </div>
+                    <div class="control-group preset-action-buttons">
+                        <button class="preset-btn save-preset-btn"
+                            aria-label="Save current settings to selected preset slot" title="Save current settings to selected slot">
+                            💾 Save
+                        </button>
+                        <button class="preset-btn clear-preset-btn"
+                            aria-label="Clear selected preset slot" title="Clear selected preset slot">
+                            🗑 Clear
+                        </button>
+                        <button class="preset-btn reset-preset-btn"
+                            aria-label="Reset metronome settings to default" title="Reset all settings to default">
+                            ↺ Reset
+                        </button>
+                    </div>
                 </div>
             </div>
 

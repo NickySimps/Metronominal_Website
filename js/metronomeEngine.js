@@ -102,8 +102,24 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
 
     if (!baseSoundName) return; // Safety check
 
+    const trackPitchShift = track.pitchShift || 0;
+    const soundSettings = soundObject.settings || {};
+    const effectivePitchShift = (soundSettings.pitchShift || 0) + trackPitchShift;
+
+    // Apply track swing (micro-timing offset on off-beats)
+    let swingOffsetSec = 0;
+    if (track.swing && track.swing > 0 && (track.currentBeat % 2 === 1)) {
+        const currentBarData = track.barSettings[track.currentBar];
+        const tempo = AppState.getTempo();
+        const secondsPerBeat = 60.0 / tempo;
+        const subInterval = secondsPerBeat / (currentBarData.subdivision || 1);
+        swingOffsetSec = (track.swing / 100.0) * (subInterval * 0.33);
+    }
+
     const latencyOffsetSec = (AppState.getLatencyOffset ? AppState.getLatencyOffset() : 0) / 1000.0;
-    const actualBeatTime = Math.max(audioContext.currentTime, beatTime + latencyOffsetSec);
+    const actualBeatTime = Math.max(audioContext.currentTime, beatTime + latencyOffsetSec + swingOffsetSec);
+
+    const mergedSettings = { ...soundSettings, volume: finalVolume, pitchShift: effectivePitchShift };
 
     // Check if the sound is a synth sound
     if (baseSoundName && baseSoundName.startsWith('Synth')) {
@@ -111,16 +127,13 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
         
         // Dynamically call the synth function if it exists
         if (SoundSynth[synthFunctionName]) {
-            // The individual sound's volume has been factored in. Now, set the final combined volume for the synth function.
-            const settingsWithVolume = { ...soundObject.settings, volume: finalVolume };
-            // Pass the entire settings object to the synth function
-            SoundSynth[synthFunctionName](audioContext, actualBeatTime, settingsWithVolume, destination);
+            SoundSynth[synthFunctionName](audioContext, actualBeatTime, mergedSettings, destination);
         } else {
             console.warn(`Synth function ${synthFunctionName} not found in SoundSynth.`);
         }
     } else {
-        const { trimStart, trimEnd, pitchShift } = soundObject.settings || {};
-        AudioController.playRecording(baseSoundName, soundObject.settings, trimStart, trimEnd, actualBeatTime, finalVolume, destination);
+        const { trimStart, trimEnd } = soundSettings;
+        AudioController.playRecording(baseSoundName, mergedSettings, trimStart, trimEnd, actualBeatTime, finalVolume, destination);
     }
 
     if (trackIndex === 0) {

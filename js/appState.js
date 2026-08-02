@@ -280,6 +280,9 @@ function normalizeSectionTrack(value, index) {
     rests: Array.isArray(bar?.rests)
       ? bar.rests.filter(rest => Number.isInteger(rest) && rest >= 0 && rest <= 511).slice(0, 256)
       : [],
+    velocities: bar?.velocities && typeof bar.velocities === "object"
+      ? bar.velocities
+      : {},
   })) : [];
   if (!bars.length) return null;
   return {
@@ -290,6 +293,8 @@ function normalizeSectionTrack(value, index) {
     muted: value.muted === true,
     solo: value.solo === true,
     volume: Number.isFinite(Number(value.volume)) ? Math.max(0, Math.min(Number(value.volume), 1)) : 1,
+    pitchShift: Number.isInteger(Number(value.pitchShift)) ? Math.max(-12, Math.min(Number(value.pitchShift), 12)) : 0,
+    swing: Number.isFinite(Number(value.swing)) ? Math.max(0, Math.min(Number(value.swing), 100)) : 0,
     mainBeatSound: normalizeSectionSound(value.mainBeatSound, "Synth Kick", defaultKick),
     subdivisionSound: normalizeSectionSound(value.subdivisionSound, "Synth HiHat", defaultHiHat),
   };
@@ -345,6 +350,8 @@ const AppState = (function () {
       muted: false,
       solo: false,
       volume: 1.0,
+      pitchShift: 0,
+      swing: 0,
       currentBar: 0,
       currentBeat: 0,
       mainBeatSound: { sound: "Synth Kick", settings: { ...defaultKick } },
@@ -727,6 +734,8 @@ const AppState = (function () {
         muted: false,
         solo: false,
         volume: 1.0,
+        pitchShift: 0,
+        swing: 0,
         currentBar: 0,
         currentBeat: 0,
         mainBeatSound: { sound: "Synth Kick", settings: { ...defaultKick } },
