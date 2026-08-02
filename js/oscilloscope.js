@@ -7,7 +7,7 @@ const Oscilloscope = {
   canvasCtx: null,
   isDrawing: false,
   mode: "waveform",
-  modes: ["waveform", "spectrum", "lissajous", "radial", "spiral", "orbit", "grid", "mirror", "stars", "ringbar", "pulse"],
+  modes: ["waveform", "spectrum", "lissajous", "radial", "spiral", "orbit", "grid", "mirror", "stars", "ringbar", "pulse", "ripple"],
   themeModes: {
     default: "waveform",
     dark: "spectrum",
@@ -15,7 +15,7 @@ const Oscilloscope = {
     synthwave: "radial",
     gundam: "orbit",
     helloKitty: "ringbar",
-    beach: "waveform",
+    beach: "ripple",
     iceCream: "spiral",
     tuxedo: "mirror",
     pastel: "pulse",
@@ -52,6 +52,7 @@ const Oscilloscope = {
       waveform: "🌊 Waveform Scope", spectrum: "📊 Frequency RTA", lissajous: "🔮 Lissajous Matrix",
       radial: "💫 Radial Pulse", spiral: "🌀 Spiral Bloom", orbit: "🪐 Orbit Bands", grid: "▦ Grid Pulse",
       mirror: "🪞 Mirror Spectrum", stars: "✨ Starfield", ringbar: "🎡 Ring Bars", pulse: "🔆 Pulse Field",
+      ripple: "💧 Water Ripples",
     };
     const btn = document.getElementById("visualizer-mode-btn");
     if (btn) btn.textContent = labels[this.mode];
@@ -274,6 +275,28 @@ const Oscilloscope = {
     canvasCtx.globalAlpha = 1;
   },
 
+  drawRipple(canvasCtx, analyserNode, strokeStyle) {
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(data);
+    const average = data.reduce((sum, value) => sum + value, 0) / data.length;
+    const { width, height } = canvasCtx.canvas;
+    const cx = width / 2, cy = height / 2;
+    const maxRadius = Math.min(cx, cy) * .95;
+    const now = performance.now() / 1000;
+    canvasCtx.strokeStyle = strokeStyle;
+    canvasCtx.lineWidth = Math.max(1, Math.min(3, width / 300));
+    for (let ring = 0; ring < 8; ring += 1) {
+      const phase = (now * (.35 + average / 510) + ring / 8) % 1;
+      const radius = phase * maxRadius;
+      const alpha = (1 - phase) * (.25 + average / 255 * .75);
+      canvasCtx.globalAlpha = alpha;
+      canvasCtx.beginPath();
+      canvasCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+      canvasCtx.stroke();
+    }
+    canvasCtx.globalAlpha = 1;
+  },
+
   draw() {
     if (!this.isDrawing) return;
     requestAnimationFrame(() => this.draw());
@@ -360,6 +383,8 @@ const Oscilloscope = {
           this.drawRingBars(this.canvasCtx, analyser, color);
         } else if (this.mode === "pulse") {
           this.drawPulse(this.canvasCtx, analyser, color);
+        } else if (this.mode === "ripple") {
+          this.drawRipple(this.canvasCtx, analyser, color);
         } else {
           this.drawWaveform(this.canvasCtx, analyser, color);
         }
