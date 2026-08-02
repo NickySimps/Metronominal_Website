@@ -7,7 +7,7 @@ const Oscilloscope = {
   canvasCtx: null,
   isDrawing: false,
   mode: "waveform",
-  modes: ["waveform", "spectrum", "lissajous", "radial", "spiral", "orbit", "grid", "mirror", "stars", "ringbar", "pulse", "ripple"],
+  modes: ["waveform", "spectrum", "lissajous", "radial", "spiral", "orbit", "grid", "mirror", "stars", "ringbar", "pulse", "ripple", "shore", "prism"],
   themeModes: {
     default: "waveform",
     dark: "spectrum",
@@ -15,10 +15,10 @@ const Oscilloscope = {
     synthwave: "radial",
     gundam: "orbit",
     helloKitty: "ringbar",
-    beach: "ripple",
+    beach: "shore",
     iceCream: "spiral",
     tuxedo: "mirror",
-    pastel: "pulse",
+    pastel: "prism",
     colorblind: "stars",
   },
 
@@ -52,7 +52,7 @@ const Oscilloscope = {
       waveform: "🌊 Waveform Scope", spectrum: "📊 Frequency RTA", lissajous: "🔮 Lissajous Matrix",
       radial: "💫 Radial Pulse", spiral: "🌀 Spiral Bloom", orbit: "🪐 Orbit Bands", grid: "▦ Grid Pulse",
       mirror: "🪞 Mirror Spectrum", stars: "✨ Starfield", ringbar: "🎡 Ring Bars", pulse: "🔆 Pulse Field",
-      ripple: "💧 Water Ripples",
+      ripple: "💧 Water Ripples", shore: "🏖️ Shorebreak", prism: "🌈 Pastel Prism",
     };
     const btn = document.getElementById("visualizer-mode-btn");
     if (btn) btn.textContent = labels[this.mode];
@@ -297,6 +297,84 @@ const Oscilloscope = {
     canvasCtx.globalAlpha = 1;
   },
 
+  drawShore(canvasCtx, analyserNode, strokeStyle) {
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(data);
+    const average = data.reduce((sum, value) => sum + value, 0) / data.length;
+    const { width, height } = canvasCtx.canvas;
+    const now = performance.now() / 1000;
+    const shoreY = height * .72;
+    const energy = .4 + average / 255 * .8;
+
+    canvasCtx.globalCompositeOperation = "source-over";
+    const sand = canvasCtx.createLinearGradient(0, shoreY, 0, height);
+    sand.addColorStop(0, "rgba(245, 207, 137, .9)");
+    sand.addColorStop(1, "rgba(178, 126, 67, .95)");
+    canvasCtx.fillStyle = sand;
+    canvasCtx.fillRect(0, shoreY, width, height - shoreY);
+
+    for (let layer = 0; layer < 4; layer += 1) {
+      const baseline = shoreY - layer * height * .13;
+      canvasCtx.beginPath();
+      for (let x = 0; x <= width; x += 4) {
+        const wave = Math.sin(x / (42 + layer * 16) - now * (1.5 + energy) + layer) * height * .025 * energy;
+        const swell = Math.sin(x / 150 + now * .7) * height * .018 * energy;
+        const y = baseline + wave + swell;
+        if (x === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
+      }
+      canvasCtx.lineTo(width, height * (.85 + layer * .02));
+      canvasCtx.lineTo(0, height * (.85 + layer * .02));
+      canvasCtx.closePath();
+      canvasCtx.fillStyle = layer === 0
+        ? "rgba(31, 161, 190, .9)"
+        : `rgba(34, 151, 190, ${.24 + (1 - layer / 3) * .22})`;
+      canvasCtx.fill();
+    }
+
+    canvasCtx.strokeStyle = "rgba(255, 250, 222, .95)";
+    canvasCtx.lineWidth = Math.max(1.5, width / 240);
+    for (let foam = 0; foam < 3; foam += 1) {
+      const baseline = shoreY + foam * height * .035;
+      canvasCtx.globalAlpha = .7 - foam * .16;
+      canvasCtx.beginPath();
+      for (let x = 0; x <= width; x += 5) {
+        const y = baseline + Math.sin(x / 28 - now * 2.2) * height * .012 * energy;
+        if (x === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
+      }
+      canvasCtx.stroke();
+    }
+    canvasCtx.globalAlpha = 1;
+    canvasCtx.globalCompositeOperation = "lighter";
+  },
+
+  drawPrism(canvasCtx, analyserNode, strokeStyle) {
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(data);
+    const average = data.reduce((sum, value) => sum + value, 0) / data.length;
+    const { width, height } = canvasCtx.canvas;
+    const cx = width / 2, cy = height / 2;
+    const now = performance.now() / 1000;
+    const colors = ["#ff8fc7", "#ffd166", "#8de7ff", "#b99cff", "#a6f58d"];
+    canvasCtx.globalCompositeOperation = "lighter";
+    canvasCtx.lineWidth = Math.max(2, width / 220);
+    for (let ribbon = 0; ribbon < colors.length; ribbon += 1) {
+      const angle = now * (.35 + ribbon * .04) + ribbon * Math.PI * 2 / colors.length;
+      const radius = Math.min(cx, cy) * (.28 + average / 255 * .42);
+      canvasCtx.strokeStyle = colors[ribbon];
+      canvasCtx.globalAlpha = .5 + average / 510;
+      canvasCtx.beginPath();
+      for (let point = 0; point <= 80; point += 1) {
+        const t = point / 80 * Math.PI * 2;
+        const orbit = radius + Math.sin(t * 3 + now * 2 + ribbon) * height * .08 * (0.5 + average / 255);
+        const x = cx + Math.cos(t + angle) * orbit;
+        const y = cy + Math.sin(t + angle) * orbit * .58;
+        if (point === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
+      }
+      canvasCtx.stroke();
+    }
+    canvasCtx.globalAlpha = 1;
+  },
+
   draw() {
     if (!this.isDrawing) return;
     requestAnimationFrame(() => this.draw());
@@ -385,6 +463,10 @@ const Oscilloscope = {
           this.drawPulse(this.canvasCtx, analyser, color);
         } else if (this.mode === "ripple") {
           this.drawRipple(this.canvasCtx, analyser, color);
+        } else if (this.mode === "shore") {
+          this.drawShore(this.canvasCtx, analyser, color);
+        } else if (this.mode === "prism") {
+          this.drawPrism(this.canvasCtx, analyser, color);
         } else {
           this.drawWaveform(this.canvasCtx, analyser, color);
         }

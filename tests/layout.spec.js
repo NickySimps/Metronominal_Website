@@ -129,9 +129,11 @@ test.describe('mode controls responsive layout', () => {
     await page.locator('[data-theme="synthwave"]').click();
     await expect.poll(readMode).toBe('radial');
     await page.locator('[data-theme="beach"]').click();
-    await expect.poll(readMode).toBe('ripple');
+    await expect.poll(readMode).toBe('shore');
+    await page.locator('[data-theme="pastel"]').click();
+    await expect.poll(readMode).toBe('prism');
     await page.locator('#random-theme-btn').click();
-    await expect.poll(readMode).toMatch(/waveform|spectrum|lissajous|radial|spiral|orbit|grid|mirror|stars|ringbar|pulse|ripple/);
+    await expect.poll(readMode).toMatch(/waveform|spectrum|lissajous|radial|spiral|orbit|grid|mirror|stars|ringbar|pulse|ripple|shore|prism/);
     await expect(page.locator('#theme-menu')).toBeVisible();
   });
 
