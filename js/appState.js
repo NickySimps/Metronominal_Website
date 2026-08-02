@@ -772,6 +772,10 @@ const AppState = (function () {
         const analyser = audioContext.createAnalyser();
         analyser.connect(audioContext.destination);
         newTrack.analyserNode = analyser;
+        newTrack.mainAnalyserNode = audioContext.createAnalyser();
+        newTrack.mainAnalyserNode.connect(analyser);
+        newTrack.subdivisionAnalyserNode = audioContext.createAnalyser();
+        newTrack.subdivisionAnalyserNode.connect(analyser);
       }
       if (isPlaying && Tracks.length > 0) {
         const referenceTrack = Tracks.find(t => t.barSettings && t.barSettings.length > 0) || Tracks[0];

@@ -160,22 +160,29 @@ test.describe('mode controls responsive layout', () => {
         import(new URL('js/appState.js', document.baseURI).href),
       ]);
       await SoundSettingsModal.show(0, 'mainBeatSound');
+      AppState.addTrack();
       const modal = document.querySelector('#sound-settings-modal');
       const content = modal.querySelector('.modal-content');
       const canvas = modal.querySelector('.oscilloscope-canvas');
-      const track = AppState.getTracks()[0];
+      const tracks = AppState.getTracks();
+      const track = tracks[0];
+      const secondTrack = tracks[1];
       return {
         contentFitsViewport: content.getBoundingClientRect().height <= window.innerHeight,
         contentScrolls: content.scrollHeight >= content.clientHeight,
         canvasHeight: canvas.getBoundingClientRect().height,
         analysersAreSeparate: track.mainAnalyserNode && track.subdivisionAnalyserNode
           && track.mainAnalyserNode !== track.subdivisionAnalyserNode,
+        secondTrackHasSeparateAnalysers: secondTrack.mainAnalyserNode && secondTrack.subdivisionAnalyserNode
+          && secondTrack.mainAnalyserNode !== secondTrack.subdivisionAnalyserNode
+          && secondTrack.mainAnalyserNode !== secondTrack.analyserNode,
       };
     });
     expect(result.contentFitsViewport).toBe(true);
     expect(result.contentScrolls).toBe(true);
     expect(result.canvasHeight).toBeLessThanOrEqual(100);
     expect(result.analysersAreSeparate).toBe(true);
+    expect(result.secondTrackHasSeparateAnalysers).toBe(true);
   });
 
   test('visual regression: mobile theme menu', async ({ page }) => {
