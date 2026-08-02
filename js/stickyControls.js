@@ -88,10 +88,15 @@ const StickyControls = {
       if (!startStopBtn) return;
 
       const rect = startStopBtn.getBoundingClientRect();
-      const mainTransportIsVisible = rect.bottom > 0
-        && rect.top < window.innerHeight
-        && rect.right > 0
-        && rect.left < window.innerWidth;
+      const transform = getComputedStyle(startStopBtn).transform;
+      const explicitlyTranslatedOffscreen = transform !== "none"
+        && new DOMMatrixReadOnly(transform).m42 < -1;
+      const mainTransportIsVisible = window.scrollY <= 1 && !explicitlyTranslatedOffscreen
+        ? true
+        : rect.bottom > 0
+          && rect.top < window.innerHeight
+          && rect.right > 0
+          && rect.left < window.innerWidth;
       const floatingControlsAreActive = !mainTransportIsVisible;
       StickyControls.elements.container.classList.toggle("sticky-active", floatingControlsAreActive);
       StickyControls.elements.container.toggleAttribute("inert", !floatingControlsAreActive);
