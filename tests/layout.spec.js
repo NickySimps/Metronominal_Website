@@ -3,11 +3,15 @@ const { test, expect } = require('@playwright/test');
 test.describe('mode controls responsive layout', () => {
   for (const viewport of [
     { name: 'mobile', width: 375, height: 800 },
+    { name: 'iPhone SE', width: 320, height: 568 },
     { name: 'desktop', width: 1280, height: 800 },
   ]) {
     test(`keeps A/B loop and Song Mode controls visible at ${viewport.name} width`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto('/');
+
+      await page.locator('#theme-menu-toggle').click();
+      await page.locator('[data-theme="synthwave"]').click();
 
       const toggle = page.locator('#ab-loop-toggle-btn');
       await toggle.click();
