@@ -25,15 +25,42 @@ const SoundSettingsModal = {
   previewSource: null,
   waveformZoom: 1,
   waveformPan: 0,
+  previewTimer: null,
+  previouslyFocusedElement: null,
   init() {
-    DOM.soundSettingsModal
-      .querySelector(".close-button")
-      .addEventListener("click", () => this.hide());
+    const closeButton = DOM.soundSettingsModal.querySelector(".close-button");
+    closeButton.addEventListener("click", () => this.hide());
+    closeButton.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        this.hide();
+      }
+    });
     DOM.soundSettingsModal.addEventListener("click", (e) => {
       if (e.target === DOM.soundSettingsModal) {
         this.hide();
       }
     });
+    DOM.soundSettingsModal.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        this.hide();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [...DOM.soundSettingsModal.querySelectorAll("button, select, input, [tabindex]:not([tabindex='-1'])")]
+        .filter((element) => !element.disabled && element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+
     DOM.soundSettingsModal.querySelector("#reset-sound-btn").addEventListener("click", () => this.resetSoundSettings());
     DOM.soundSettingsModal.querySelector("#note-snap-btn").addEventListener("click", (e) => {
         this.isNoteSnapping = !this.isNoteSnapping;
@@ -527,10 +554,12 @@ const SoundSettingsModal = {
 
   show(trackIndex, soundType) {
     this.stopPreview();
+    this.previouslyFocusedElement = document.activeElement;
     this.currentTrackIndex = trackIndex;
     this.currentSoundType = soundType;
 
     const track = AppState.getTracks()[trackIndex];
+    if (!track || !track[soundType]) return;
     const soundInfo = track[soundType];
     
     // Auto-repair if sound data is corrupted/missing
@@ -542,7 +571,7 @@ const SoundSettingsModal = {
         }
     }
 
-    const soundSettings = soundInfo.settings;
+    let soundSettings = soundInfo.settings;
 
     const oscilloscopeCanvas = DOM.soundSettingsModal.querySelector(".oscilloscope-canvas");
 
@@ -650,6 +679,11 @@ const SoundSettingsModal = {
                     const gridInterval = beatDuration / 4; // 16th notes
                     const durationMs = buffer.duration * 1000;
                     const width = waveformCanvas.width;
+                    const gridVisibleSpan = 1 / this.waveformZoom;
+                    const gridVisibleStart = this.waveformPan * (1 - gridVisibleSpan);
+                    const gridVisibleEnd = gridVisibleStart + gridVisibleSpan;
+                    const visibleStartMs = gridVisibleStart * durationMs;
+                    const visibleEndMs = gridVisibleEnd * durationMs;
                     
                     ctx.beginPath();
                     // Use a color that contrasts but isn't too distracting. 
@@ -661,7 +695,9 @@ const SoundSettingsModal = {
                     const pixelsPerMs = width / durationMs;
                     const gridPixels = gridInterval * pixelsPerMs;
 
-                    for (let x = 0; x < width; x += gridPixels) {
+                    const firstGrid = Math.ceil(visibleStartMs / gridInterval) * gridInterval;
+                    for (let timeMs = firstGrid; timeMs <= visibleEndMs; timeMs += gridInterval) {
+                        const x = ((timeMs - visibleStartMs) / (visibleEndMs - visibleStartMs)) * width;
                         ctx.moveTo(x, 0);
                         ctx.lineTo(x, waveformCanvas.height);
                     }
@@ -671,13 +707,58 @@ const SoundSettingsModal = {
 
             const trimStart = (soundSettings.trimStart || 0);
             const trimEnd = (soundSettings.trimEnd || buffer.duration);
-            const startX = (trimStart / buffer.duration) * waveformCanvas.width;
-            const endX = (trimEnd / buffer.duration) * waveformCanvas.width;
+            const trimVisibleSpan = 1 / this.waveformZoom;
+            const trimVisibleStart = this.waveformPan * (1 - trimVisibleSpan);
+            const trimVisibleEnd = trimVisibleStart + trimVisibleSpan;
+            const toCanvasX = (time) => ((time / buffer.duration - trimVisibleStart) / trimVisibleSpan) * waveformCanvas.width;
+            const startX = toCanvasX(trimStart);
+            const endX = toCanvasX(trimEnd);
 
             ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            ctx.fillRect(0, 0, startX, waveformCanvas.height);
-            ctx.fillRect(endX, 0, waveformCanvas.width - endX, waveformCanvas.height);
+            if (startX > 0) ctx.fillRect(0, 0, Math.min(waveformCanvas.width, startX), waveformCanvas.height);
+            if (endX < waveformCanvas.width) ctx.fillRect(Math.max(0, endX), 0, waveformCanvas.width - Math.max(0, endX), waveformCanvas.height);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            [startX, endX].forEach((x) => {
+                if (x >= 0 && x <= waveformCanvas.width) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, waveformCanvas.height);
+                    ctx.stroke();
+                }
+            });
         };
+        let activeTrimHandle = null;
+        const updateTrimFromPointer = (event) => {
+            if (!activeTrimHandle) return;
+            const rect = waveformCanvas.getBoundingClientRect();
+            const visibleSpan = 1 / this.waveformZoom;
+            const visibleStart = this.waveformPan * (1 - visibleSpan);
+            const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+            const time = (visibleStart + ratio * visibleSpan) * soundInfo.audioBuffer.duration;
+            const startSlider = this.sliders.find((slider) => slider.sliderElement.dataset.param === "trimStart");
+            const endSlider = this.sliders.find((slider) => slider.sliderElement.dataset.param === "trimEnd");
+            if (activeTrimHandle === "start" && startSlider) startSlider.setValue(Math.min(time, endSlider?.value ?? time));
+            if (activeTrimHandle === "end" && endSlider) endSlider.setValue(Math.max(time, startSlider?.value ?? time));
+            this.drawWaveformAndTrimLines(this.currentAudioBuffer);
+        };
+        waveformCanvas.addEventListener("pointerdown", (event) => {
+            const rect = waveformCanvas.getBoundingClientRect();
+            const visibleSpan = 1 / this.waveformZoom;
+            const visibleStart = this.waveformPan * (1 - visibleSpan);
+            const ratio = (event.clientX - rect.left) / rect.width;
+            const pointerTime = (visibleStart + ratio * visibleSpan) * soundInfo.audioBuffer.duration;
+            const start = soundSettings.trimStart || 0;
+            const end = soundSettings.trimEnd || soundInfo.audioBuffer.duration;
+            activeTrimHandle = Math.abs(pointerTime - start) <= Math.abs(pointerTime - end) ? "start" : "end";
+            waveformCanvas.setPointerCapture?.(event.pointerId);
+            updateTrimFromPointer(event);
+        });
+        waveformCanvas.addEventListener("pointermove", updateTrimFromPointer);
+        waveformCanvas.addEventListener("pointerup", (event) => {
+            activeTrimHandle = null;
+            waveformCanvas.releasePointerCapture?.(event.pointerId);
+        });
 
         this.drawWaveformAndTrimLines(soundInfo.audioBuffer);
 
@@ -732,12 +813,21 @@ const SoundSettingsModal = {
       previewButton.setAttribute("aria-pressed", "false");
     }
     this.startDrawing(modalAnalyser);
+    requestAnimationFrame(() => {
+      const firstFocusable = DOM.soundSettingsModal.querySelector("button, select, input, [tabindex]:not([tabindex='-1'])");
+      firstFocusable?.focus();
+    });
   },
 
   hide() {
     this.stopPreview();
     DOM.soundSettingsModal.style.display = "none";
     this.stopDrawing();
+    const restoreTarget = this.previouslyFocusedElement;
+    this.previouslyFocusedElement = null;
+    if (restoreTarget && typeof restoreTarget.focus === "function") {
+      requestAnimationFrame(() => restoreTarget.focus());
+    }
   },
 
   async togglePreview() {
@@ -786,14 +876,24 @@ const SoundSettingsModal = {
       button.textContent = "■ Stop Preview";
       button.setAttribute("aria-pressed", "true");
       this.startDrawing(analyser);
+      if (this.previewSource.isSynth) {
+        this.previewTimer = window.setTimeout(() => this.stopPreview(), 2500);
+      }
     }
   },
 
   stopPreview() {
+    if (this.previewTimer) {
+      clearTimeout(this.previewTimer);
+      this.previewTimer = null;
+    }
     if (this.previewSource && !this.previewSource.isSynth) {
       try { this.previewSource.stop(); } catch (_) { /* already ended */ }
     }
     this.previewSource = null;
+    if (this.previewAnalyserNode) {
+      try { this.previewAnalyserNode.disconnect(); } catch (_) { /* already disconnected */ }
+    }
     this.previewAnalyserNode = null;
     const button = DOM.soundSettingsModal?.querySelector("#sound-preview-btn");
     if (button) {
@@ -804,6 +904,7 @@ const SoundSettingsModal = {
   },
 
   startDrawing(analyserNode) {
+    this.stopDrawing();
     const canvas = DOM.soundSettingsModal.querySelector(".oscilloscope-canvas");
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -812,7 +913,7 @@ const SoundSettingsModal = {
     const draw = () => {
       if (!this.isDrawing) return;
 
-      requestAnimationFrame(draw);
+      this.animationFrameId = requestAnimationFrame(draw);
 
       const rect = canvas.getBoundingClientRect();
       const cssWidth = Math.floor(rect.width || canvas.clientWidth || 300);

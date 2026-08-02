@@ -133,7 +133,7 @@ test.describe('mode controls responsive layout', () => {
     await page.locator('[data-theme="pastel"]').click();
     await expect.poll(readMode).toBe('prism');
     await page.locator('#random-theme-btn').click();
-    await expect.poll(readMode).toMatch(/waveform|spectrum|lissajous|radial|spiral|orbit|grid|mirror|stars|ringbar|pulse|ripple|shore|prism/);
+    await expect.poll(readMode).toMatch(/waveform|spectrum|lissajous|radial|spiral|orbit|grid|mirror|stars|ringbar|pulse|ripple|shore|prism|aurora|reactor/);
     await expect(page.locator('#theme-menu')).toBeVisible();
   });
 
@@ -204,6 +204,99 @@ test.describe('mode controls responsive layout', () => {
     expect(result.secondTrackHasSeparateAnalysers).toBe(true);
     expect(result.thirdTrackHasSeparateAnalysers).toBe(true);
     expect(result.lastTrackHasSeparateAnalysers).toBe(true);
+  });
+
+  test('sound modal traps keyboard focus and restores the opener', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const [{ default: SoundSettingsModal }] = await Promise.all([
+        import(new URL('js/soundSettingsModal.js', document.baseURI).href),
+      ]);
+      const opener = document.querySelector('#theme-menu-toggle');
+      opener.focus();
+      await SoundSettingsModal.show(0, 'mainBeatSound');
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const modal = document.querySelector('#sound-settings-modal');
+      const focusedInside = modal.contains(document.activeElement);
+      const first = [...modal.querySelectorAll('button, select, input, [tabindex]:not([tabindex="-1"])')]
+        .find((element) => !element.disabled && element.offsetParent !== null);
+      first.focus();
+      modal.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true }));
+      SoundSettingsModal.hide();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      return {
+        dialog: modal.getAttribute('role'),
+        ariaModal: modal.getAttribute('aria-modal'),
+        focusedInside,
+        restoredFocus: document.activeElement === opener,
+      };
+    });
+    expect(result).toEqual({ dialog: 'dialog', ariaModal: 'true', focusedInside: true, restoredFocus: true });
+  });
+
+  test('sound preview and recorded waveform controls are available', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const [{ default: SoundSettingsModal }, { default: AppState }] = await Promise.all([
+        import(new URL('js/soundSettingsModal.js', document.baseURI).href),
+        import(new URL('js/appState.js', document.baseURI).href),
+      ]);
+      await SoundSettingsModal.show(0, 'mainBeatSound');
+      const preview = document.querySelector('#sound-preview-btn');
+      await SoundSettingsModal.togglePreview();
+      const previewActive = preview.getAttribute('aria-pressed') === 'true';
+      SoundSettingsModal.stopPreview();
+      const track = AppState.getTracks()[0];
+      track.mainBeatSound.sound = 'Click1.mp3';
+      await SoundSettingsModal.show(0, 'mainBeatSound');
+      return {
+        previewActive,
+        previewStopped: preview.getAttribute('aria-pressed') === 'false',
+        waveformTools: Boolean(document.querySelector('.waveform-tools')),
+        zoomControl: Boolean(document.querySelector('.waveform-zoom')),
+        panControl: Boolean(document.querySelector('.waveform-pan')),
+      };
+    });
+    expect(result).toEqual({ previewActive: true, previewStopped: true, waveformTools: true, zoomControl: true, panControl: true });
+  });
+
+  test('audio injected into one track scope stays out of other analysers', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const [{ default: AppState }] = await Promise.all([
+        import(new URL('js/appState.js', document.baseURI).href),
+      ]);
+      AppState.addTrack();
+      AppState.createTrackAnalysers();
+      const tracks = AppState.getTracks();
+      const context = AppState.getAudioContext();
+      if (context.state === 'suspended') await context.resume();
+      const readEnergy = (analyser) => {
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(data);
+        return data.reduce((sum, value) => sum + value, 0);
+      };
+      const beforeMain = readEnergy(tracks[0].mainAnalyserNode);
+      const beforeSubdivision = readEnergy(tracks[0].subdivisionAnalyserNode);
+      const beforeOther = readEnergy(tracks[1].mainAnalyserNode);
+      const oscillator = context.createOscillator();
+      oscillator.frequency.value = 440;
+      oscillator.connect(tracks[0].mainAnalyserNode);
+      oscillator.start();
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      const afterMain = readEnergy(tracks[0].mainAnalyserNode);
+      const afterSubdivision = readEnergy(tracks[0].subdivisionAnalyserNode);
+      const afterOther = readEnergy(tracks[1].mainAnalyserNode);
+      oscillator.stop();
+      oscillator.disconnect();
+      return {
+        selectedMainIncreased: afterMain > beforeMain,
+        selectedSubdivisionQuiet: afterSubdivision <= beforeSubdivision,
+        otherTrackQuiet: afterOther <= beforeOther,
+      };
+    });
+    expect(result).toEqual({ selectedMainIncreased: true, selectedSubdivisionQuiet: true, otherTrackQuiet: true });
   });
 
   test('visual regression: mobile theme menu', async ({ page }) => {

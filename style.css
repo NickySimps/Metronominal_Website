@@ -3125,4 +3125,7 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
 }
 #sound-settings-modal .sound-modal-context { font-size: .78rem; opacity: .8; }
 #sound-settings-modal .sound-scope-control { display: inline-flex; align-items: center; gap: .25rem; font-size: .8rem; }
+#sound-settings-modal .waveform-tools { display: flex; gap: .8rem; flex-wrap: wrap; align-items: center; margin: .35rem 0 .6rem; font-size: .8rem; }
+#sound-settings-modal .waveform-tools label { display: inline-flex; align-items: center; gap: .35rem; }
+#sound-settings-modal .waveform-canvas { display: block; width: 100%; height: clamp(90px, 22vh, 180px); touch-action: none; cursor: ew-resize; }
 #sound-settings-modal #sound-preview-btn[aria-pressed="true"] { background: var(--Alt2, #b33); }

@@ -8,7 +8,7 @@ const Oscilloscope = {
   isDrawing: false,
   mode: "waveform",
   bandEnergy: { low: 0, mid: 0, high: 0 },
-  modes: ["waveform", "spectrum", "lissajous", "radial", "spiral", "orbit", "grid", "mirror", "stars", "ringbar", "pulse", "ripple", "shore", "prism"],
+  modes: ["waveform", "spectrum", "lissajous", "radial", "spiral", "orbit", "grid", "mirror", "stars", "ringbar", "pulse", "ripple", "shore", "prism", "aurora", "reactor"],
   themeModes: {
     default: "waveform",
     dark: "spectrum",
@@ -53,7 +53,7 @@ const Oscilloscope = {
       waveform: "🌊 Waveform Scope", spectrum: "📊 Frequency RTA", lissajous: "🔮 Lissajous Matrix",
       radial: "💫 Radial Pulse", spiral: "🌀 Spiral Bloom", orbit: "🪐 Orbit Bands", grid: "▦ Grid Pulse",
       mirror: "🪞 Mirror Spectrum", stars: "✨ Starfield", ringbar: "🎡 Ring Bars", pulse: "🔆 Pulse Field",
-      ripple: "💧 Water Ripples", shore: "🏖️ Shorebreak", prism: "🌈 Pastel Prism",
+      ripple: "💧 Water Ripples", shore: "🏖️ Shorebreak", prism: "🌈 Pastel Prism", aurora: "🌌 Aurora Flow", reactor: "⚛️ Reactor Core",
     };
     const btn = document.getElementById("visualizer-mode-btn");
     if (btn) btn.textContent = labels[this.mode];
@@ -378,6 +378,52 @@ const Oscilloscope = {
     canvasCtx.globalAlpha = 1;
   },
 
+  drawAurora(canvasCtx, analyserNode, color) {
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(data);
+    const { width, height } = canvasCtx.canvas;
+    const energy = this.bandEnergy.low + this.bandEnergy.mid + this.bandEnergy.high;
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(0, height);
+    for (let i = 0; i < data.length; i += Math.max(1, Math.floor(data.length / 96))) {
+      const x = (i / data.length) * width;
+      const wave = Math.sin(i * 0.12 + performance.now() * 0.001) * height * 0.08;
+      const y = height * 0.62 - (data[i] / 255) * height * (0.35 + energy * 0.08) + wave;
+      canvasCtx.lineTo(x, y);
+    }
+    canvasCtx.lineTo(width, height);
+    canvasCtx.closePath();
+    const gradient = canvasCtx.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+    canvasCtx.fillStyle = gradient;
+    canvasCtx.fill();
+  },
+
+  drawReactor(canvasCtx, analyserNode, color) {
+    const data = new Uint8Array(analyserNode.frequencyBinCount);
+    analyserNode.getByteFrequencyData(data);
+    const { width, height } = canvasCtx.canvas;
+    const cx = width / 2;
+    const cy = height / 2;
+    const radius = Math.min(width, height) * (0.18 + this.bandEnergy.low * 0.25);
+    canvasCtx.beginPath();
+    for (let i = 0; i < 48; i += 1) {
+      const value = data[(i * 5) % data.length] / 255;
+      const angle = (i / 48) * Math.PI * 2;
+      const r = radius + value * Math.min(width, height) * 0.32;
+      const x = cx + Math.cos(angle) * r;
+      const y = cy + Math.sin(angle) * r;
+      if (i === 0) canvasCtx.moveTo(x, y); else canvasCtx.lineTo(x, y);
+    }
+    canvasCtx.closePath();
+    canvasCtx.strokeStyle = color;
+    canvasCtx.lineWidth = 2 + this.bandEnergy.high * 3;
+    canvasCtx.stroke();
+    canvasCtx.fillStyle = `${color}33`;
+    canvasCtx.fill();
+  },
+
   draw() {
     if (!this.isDrawing) return;
     requestAnimationFrame(() => this.draw());
@@ -483,6 +529,10 @@ const Oscilloscope = {
           this.drawShore(this.canvasCtx, analyser, color);
         } else if (this.mode === "prism") {
           this.drawPrism(this.canvasCtx, analyser, color);
+        } else if (this.mode === "aurora") {
+          this.drawAurora(this.canvasCtx, analyser, color);
+        } else if (this.mode === "reactor") {
+          this.drawReactor(this.canvasCtx, analyser, color);
         } else {
           this.drawWaveform(this.canvasCtx, analyser, color);
         }

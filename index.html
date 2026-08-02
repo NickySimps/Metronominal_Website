@@ -397,12 +397,12 @@
             </div>
         </div>
     </div>
-    <div id="sound-settings-modal" class="modal">
+    <div id="sound-settings-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="sound-settings-title">
         <div class="modal-content">
-            <span class="close-button">&times;</span>
+            <span class="close-button" role="button" tabindex="0" aria-label="Close sound editor">&times;</span>
             <div class="modal-header">
                 <div class="header-left">
-                    <h2>Edit Sound</h2>
+                    <h2 id="sound-settings-title">Edit Sound</h2>
                     <div class="sound-modal-context" aria-live="polite"></div>
                 </div>
                 <div class="header-right">
