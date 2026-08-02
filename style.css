@@ -3123,9 +3123,43 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
   padding-block: .35rem;
   background: var(--ModalBackground, var(--Background));
 }
-#sound-settings-modal .sound-modal-context { font-size: .78rem; opacity: .8; }
-#sound-settings-modal .sound-scope-control { display: inline-flex; align-items: center; gap: .25rem; font-size: .8rem; }
-#sound-settings-modal .waveform-tools { display: flex; gap: .8rem; flex-wrap: wrap; align-items: center; margin: .35rem 0 .6rem; font-size: .8rem; }
-#sound-settings-modal .waveform-tools label { display: inline-flex; align-items: center; gap: .35rem; }
-#sound-settings-modal .waveform-canvas { display: block; width: 100%; height: clamp(90px, 22vh, 180px); touch-action: none; cursor: ew-resize; }
+#sound-settings-modal .modal-header .header-left { min-width: 0; flex: 1 1 12rem; }
+#sound-settings-modal .modal-header .header-left h2 { overflow-wrap: anywhere; }
+#sound-settings-modal .header-right { flex: 1 1 auto; align-items: center; justify-content: flex-end; }
+#sound-settings-modal .sound-modal-context { color: var(--TextSecondary, currentColor); font-size: .78rem; line-height: 1.25; opacity: .9; overflow-wrap: anywhere; }
+#sound-settings-modal .sound-scope-control { display: inline-flex; align-items: center; gap: .35rem; font-size: .8rem; white-space: nowrap; }
+#sound-settings-modal .sound-scope-control select { min-width: 7rem; }
+#sound-settings-modal .waveform-tools {
+  display: flex;
+  gap: .65rem .9rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: .45rem 0 .7rem;
+  padding: .45rem .6rem;
+  border: 1px solid var(--BorderColor, currentColor);
+  border-radius: var(--BorderRadius, .5rem);
+  background: color-mix(in srgb, var(--Background, transparent) 72%, var(--Main, transparent));
+  color: var(--TextPrimary, currentColor);
+  font-size: .8rem;
+}
+#sound-settings-modal .waveform-tools label { display: flex; flex: 1 1 12rem; min-width: min(100%, 12rem); align-items: center; gap: .5rem; }
+#sound-settings-modal .waveform-tools input[type="range"] { flex: 1 1 auto; min-width: 7rem; accent-color: var(--Main); }
+#sound-settings-modal .waveform-canvas {
+  display: block;
+  width: 100%;
+  height: clamp(90px, 22vh, 180px);
+  border: 1px solid var(--BorderColor, currentColor);
+  border-radius: var(--BorderRadius, .5rem);
+  background: #050505;
+  touch-action: none;
+  cursor: ew-resize;
+}
 #sound-settings-modal #sound-preview-btn[aria-pressed="true"] { background: var(--Alt2, #b33); }
+@media (max-width: 640px), (max-height: 700px) {
+  #sound-settings-modal .header-right { flex-basis: 100%; justify-content: flex-start; }
+  #sound-settings-modal .sound-scope-control { flex: 1 1 9rem; }
+  #sound-settings-modal .sound-scope-control select { flex: 1 1 auto; min-width: 0; }
+  #sound-settings-modal .waveform-tools { gap: .45rem; padding: .4rem .5rem; }
+  #sound-settings-modal .waveform-tools label { flex-basis: 100%; min-width: 0; }
+  #sound-settings-modal .waveform-tools input[type="range"] { min-width: 0; }
+}

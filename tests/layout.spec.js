@@ -299,6 +299,35 @@ test.describe('mode controls responsive layout', () => {
     expect(result).toEqual({ selectedMainIncreased: true, selectedSubdivisionQuiet: true, otherTrackQuiet: true });
   });
 
+  test('recorded sound editor controls remain styled and contained on iPhone SE', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    await page.locator('.main-beat-sound-select').selectOption('Click1.mp3');
+    await page.locator('.main-sound-label').click();
+    await expect(page.locator('.waveform-tools')).toBeVisible();
+    const layout = await page.evaluate(() => {
+      const modal = document.querySelector('#sound-settings-modal');
+      const tools = modal.querySelector('.waveform-tools');
+      const labels = [...tools.querySelectorAll('label')];
+      const ranges = [...tools.querySelectorAll('input[type="range"]')];
+      const header = modal.querySelector('.modal-header');
+      const viewportWidth = document.documentElement.clientWidth;
+      return {
+        pageOverflow: document.documentElement.scrollWidth - viewportWidth,
+        toolsWidth: tools.getBoundingClientRect().width,
+        contentWidth: modal.querySelector('.modal-content').getBoundingClientRect().width,
+        labelsInside: labels.every((label) => label.getBoundingClientRect().right <= tools.getBoundingClientRect().right + 1),
+        rangesUsable: ranges.every((range) => range.getBoundingClientRect().width >= 80),
+        headerInside: header.getBoundingClientRect().right <= viewportWidth + 1,
+      };
+    });
+    expect(layout.pageOverflow).toBeLessThanOrEqual(1);
+    expect(layout.toolsWidth).toBeLessThanOrEqual(layout.contentWidth);
+    expect(layout.labelsInside).toBe(true);
+    expect(layout.rangesUsable).toBe(true);
+    expect(layout.headerInside).toBe(true);
+  });
+
   test('visual regression: mobile theme menu', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
