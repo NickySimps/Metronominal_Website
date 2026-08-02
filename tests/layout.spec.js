@@ -52,6 +52,7 @@ test.describe('mode controls responsive layout', () => {
 
       // Neither control may extend beyond the mode card.
       expect(ab.x).toBeGreaterThanOrEqual(group.x - 0.5);
+      expect(end.x + end.width).toBeLessThanOrEqual(ab.x + ab.width + 0.5);
       expect(end.x + end.width).toBeLessThanOrEqual(group.x + group.width + 0.5);
       expect(song.x + song.width).toBeLessThanOrEqual(group.x + group.width + 0.5);
       expect(button.x + button.width).toBeLessThanOrEqual(group.x + group.width + 0.5);
