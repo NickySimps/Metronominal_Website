@@ -1111,11 +1111,11 @@ const AppState = (function () {
         }
         if (!track.mainAnalyserNode) {
           track.mainAnalyserNode = audioContext.createAnalyser();
-          track.mainAnalyserNode.connect(audioContext.destination);
+          track.mainAnalyserNode.connect(track.analyserNode);
         }
         if (!track.subdivisionAnalyserNode) {
           track.subdivisionAnalyserNode = audioContext.createAnalyser();
-          track.subdivisionAnalyserNode.connect(audioContext.destination);
+          track.subdivisionAnalyserNode.connect(track.analyserNode);
         }
       });
     },
