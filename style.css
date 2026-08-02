@@ -3059,3 +3059,9 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
     border-color: transparent;
 }
 .app-update-banner[hidden] { display: none !important; }
+
+/* Icon-only mode buttons keep their glyph centered while retaining accessible labels. */
+.track .rest-button,
+.track .record-btn { font-size: 0; }
+.track .rest-button .control-icon,
+.track .record-btn .control-icon { font-size: 1rem; }

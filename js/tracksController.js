@@ -51,7 +51,7 @@ function createTrackElement(track, index) {
       <div class="sound-selection">
         <span class="sound-label">Main:</span>
       </div>
-      <button class="rest-button">𝄽</button>
+      <button class="rest-button"><span class="control-icon">𝄽</span></button>
       <div class="sound-selection">
         <span class="sound-label">Sub:</span>
       </div>
@@ -229,9 +229,9 @@ const TrackController = {
             <div class="sound-selection sub-sound-selection"></div>
           </div>
           <div class="mode-buttons-col">
-            <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode">𝄽 Rest</button>
+            <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode"><span class="control-icon">𝄽</span> Rest</button>
             <button class="accent-button ${AppState.isAccentMode() ? 'active' : ''}" aria-label="Toggle accent mode" title="Toggle Accent & Ghost Note Mode">⚡ Accent</button>
-            <button class="record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording">● Rec</button>
+            <button class="record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon">●</span> Rec</button>
             <button class="random-btn" aria-label="Randomize pattern" title="Randomize accents, rests & dynamics for this track">❓ Rand</button>
           </div>
         </div>
