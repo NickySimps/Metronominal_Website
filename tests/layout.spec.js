@@ -180,7 +180,9 @@ test.describe('mode controls responsive layout', () => {
         hasPreviewButton: Boolean(modal.querySelector('#sound-preview-btn')),
         hasScopeModeSelect: Boolean(modal.querySelector('#sound-scope-mode-select')),
         hasWaveformTools: Boolean(modal.querySelector('.waveform-tools')),
-        hasTrackContext: modal.querySelector('.sound-modal-context')?.textContent.includes('Track 1'),
+        hasPlaybackControls: Boolean(modal.querySelector('.sample-playback-controls')),
+        overlapChecked: modal.querySelector('#sample-overlap-toggle')?.checked,
+        retriggerChecked: modal.querySelector('#sample-retrigger-toggle')?.checked,
         analysersAreSeparate: track.mainAnalyserNode && track.subdivisionAnalyserNode
           && track.mainAnalyserNode !== track.subdivisionAnalyserNode,
         secondTrackHasSeparateAnalysers: secondTrack.mainAnalyserNode && secondTrack.subdivisionAnalyserNode
@@ -199,7 +201,9 @@ test.describe('mode controls responsive layout', () => {
     expect(result.canvasHeight).toBeLessThanOrEqual(100);
     expect(result.hasPreviewButton).toBe(true);
     expect(result.hasScopeModeSelect).toBe(true);
-    expect(result.hasTrackContext).toBe(true);
+    expect(result.hasPlaybackControls).toBe(true);
+    expect(result.overlapChecked).toBe(true);
+    expect(result.retriggerChecked).toBe(true);
     expect(result.analysersAreSeparate).toBe(true);
     expect(result.secondTrackHasSeparateAnalysers).toBe(true);
     expect(result.thirdTrackHasSeparateAnalysers).toBe(true);
@@ -261,6 +265,34 @@ test.describe('mode controls responsive layout', () => {
     expect(result).toEqual({ previewActive: true, previewStopped: true, waveformTools: true, zoomControl: true, panControl: true });
   });
 
+  test('sample overlap and retrigger settings persist when the modal reopens', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const [{ default: SoundSettingsModal }, { default: AppState }] = await Promise.all([
+        import(new URL('js/soundSettingsModal.js', document.baseURI).href),
+        import(new URL('js/appState.js', document.baseURI).href),
+      ]);
+      await SoundSettingsModal.show(0, 'mainBeatSound');
+      const modal = document.querySelector('#sound-settings-modal');
+      const overlap = modal.querySelector('#sample-overlap-toggle');
+      const retrigger = modal.querySelector('#sample-retrigger-toggle');
+      overlap.checked = false;
+      retrigger.checked = false;
+      overlap.dispatchEvent(new Event('change', { bubbles: true }));
+      retrigger.dispatchEvent(new Event('change', { bubbles: true }));
+      SoundSettingsModal.hide();
+      await SoundSettingsModal.show(0, 'mainBeatSound');
+      return {
+        overlap: modal.querySelector('#sample-overlap-toggle').checked,
+        retrigger: modal.querySelector('#sample-retrigger-toggle').checked,
+        savedOverlap: AppState.getTracks()[0].mainBeatSound.settings.allowOverlap,
+        savedRetrigger: AppState.getTracks()[0].mainBeatSound.settings.retrigger,
+      };
+    });
+    expect(result).toEqual({ overlap: false, retrigger: false, savedOverlap: false, savedRetrigger: false });
+  });
+
+
   test('audio injected into one track scope stays out of other analysers', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(async () => {
@@ -299,6 +331,53 @@ test.describe('mode controls responsive layout', () => {
     expect(result).toEqual({ selectedMainIncreased: true, selectedSubdivisionQuiet: true, otherTrackQuiet: true });
   });
 
+  test('recording playback honors overlap and retrigger settings', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.main-beat-sound-select').selectOption('Click1.mp3');
+    const result = await page.evaluate(async () => {
+      const [{ default: AudioController }, { default: AppState }] = await Promise.all([
+        import(new URL('js/audioController.js', document.baseURI).href),
+        import(new URL('js/appState.js', document.baseURI).href),
+      ]);
+      const context = AppState.getAudioContext();
+      const buffer = AppState.getSoundBuffer('Click1.mp3');
+      if (!context || !buffer) return { supported: false };
+      const destination = AppState.getTracks()[0].mainAnalyserNode;
+      const key = 'test-overlap-retrigger';
+      AudioController.playRecording('Click1.mp3', { allowOverlap: false, retrigger: false, voiceKey: key }, 0, .05, context.currentTime, 1, destination);
+      const first = AudioController.activeRecordingSources.get(key);
+      AudioController.playRecording('Click1.mp3', { allowOverlap: false, retrigger: false, voiceKey: key }, 0, .05, context.currentTime, 1, destination);
+      const ignored = AudioController.activeRecordingSources.get(key) === first;
+      AudioController.playRecording('Click1.mp3', { allowOverlap: false, retrigger: true, voiceKey: key }, 0, .05, context.currentTime, 1, destination);
+      const restarted = AudioController.activeRecordingSources.get(key) !== first;
+      return { supported: true, ignored, restarted };
+    });
+    expect(result).toEqual({ supported: true, ignored: true, restarted: true });
+  });
+
+  test('shorebreak uses active theme colors', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const { default: Oscilloscope } = await import(new URL('js/oscilloscope.js', document.baseURI).href);
+      document.documentElement.style.setProperty('--Main', '#123456');
+      document.documentElement.style.setProperty('--Accent', '#abcdef');
+      document.documentElement.style.setProperty('--Highlight', '#654321');
+      const fills = [];
+      const gradients = [];
+      const ctx = {
+        canvas: { width: 320, height: 160 },
+        createLinearGradient: () => { const gradient = { stops: [], addColorStop(position, color) { this.stops.push({ position, color }); } }; gradients.push(gradient); return gradient; },
+        beginPath() {}, moveTo() {}, lineTo() {}, closePath() {}, fill() {}, fillRect() {}, stroke() {},
+        set fillStyle(value) { fills.push(value); }, get fillStyle() { return fills[fills.length - 1]; },
+      };
+      const analyser = { frequencyBinCount: 8, getByteFrequencyData(data) { data.fill(100); } };
+      Oscilloscope.bandEnergy = { low: .2, mid: .2, high: .2 };
+      Oscilloscope.drawShore(ctx, analyser, '#ffffff');
+      return { usesThemeMain: fills.some((fill) => String(fill).includes('18, 52, 86')), usesThemeGradient: gradients[0]?.stops.some((stop) => stop.color.includes('171, 205, 239')) };
+    });
+    expect(result).toEqual({ usesThemeMain: true, usesThemeGradient: true });
+  });
+
   test('recorded sound editor controls remain styled and contained on iPhone SE', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
@@ -311,6 +390,12 @@ test.describe('mode controls responsive layout', () => {
       const labels = [...tools.querySelectorAll('label')];
       const ranges = [...tools.querySelectorAll('input[type="range"]')];
       const header = modal.querySelector('.modal-header');
+      const stacked = [
+        modal.querySelector('.sample-playback-controls'),
+        modal.querySelector('.oscilloscope-canvas'),
+        modal.querySelector('.waveform-canvas'),
+        tools,
+      ].map((element) => element?.getBoundingClientRect()).filter((rect) => rect && rect.height > 0);
       const viewportWidth = document.documentElement.clientWidth;
       return {
         pageOverflow: document.documentElement.scrollWidth - viewportWidth,
@@ -319,6 +404,7 @@ test.describe('mode controls responsive layout', () => {
         labelsInside: labels.every((label) => label.getBoundingClientRect().right <= tools.getBoundingClientRect().right + 1),
         rangesUsable: ranges.every((range) => range.getBoundingClientRect().width >= 80),
         headerInside: header.getBoundingClientRect().right <= viewportWidth + 1,
+        stackedWithoutOverlap: stacked.every((rect, index) => index === 0 || rect.top >= stacked[index - 1].bottom - 1),
       };
     });
     expect(layout.pageOverflow).toBeLessThanOrEqual(1);
@@ -326,6 +412,7 @@ test.describe('mode controls responsive layout', () => {
     expect(layout.labelsInside).toBe(true);
     expect(layout.rangesUsable).toBe(true);
     expect(layout.headerInside).toBe(true);
+    expect(layout.stackedWithoutOverlap).toBe(true);
   });
 
   test('visual regression: mobile theme menu', async ({ page }) => {

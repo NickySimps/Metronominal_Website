@@ -132,7 +132,12 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     const latencyOffsetSec = (AppState.getLatencyOffset ? AppState.getLatencyOffset() : 0) / 1000.0;
     const actualBeatTime = Math.max(audioContext.currentTime, beatTime + latencyOffsetSec);
 
-    const mergedSettings = { ...soundSettings, volume: finalVolume, pitchShift: effectivePitchShift };
+    const mergedSettings = {
+        ...soundSettings,
+        volume: finalVolume,
+        pitchShift: effectivePitchShift,
+        voiceKey: `${trackIndex}:${isAccent ? 'main' : 'sub'}:${soundToPlay}`,
+    };
 
     if (baseSoundName && baseSoundName.startsWith('Synth')) {
         const synthFunctionName = `play${baseSoundName.replace('Synth ', '').replace(/ /g, '')}`;

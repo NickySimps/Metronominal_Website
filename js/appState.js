@@ -269,6 +269,8 @@ function normalizeSectionSound(value, fallbackSound, fallbackSettings) {
   const settings = value.settings && typeof value.settings === "object" && !Array.isArray(value.settings)
     ? JSON.parse(JSON.stringify(value.settings))
     : { ...fallbackSettings };
+    settings.allowOverlap = settings.allowOverlap !== false;
+    settings.retrigger = settings.retrigger !== false;
   return { sound: value.sound.slice(0, 64), settings };
 }
 

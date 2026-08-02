@@ -423,6 +423,11 @@
                     <button id="delete-sound-btn" title="Delete Sound" aria-label="Delete sound" style="display: none;">Delete</button>
                 </div>
             </div>
+            <div class="sample-playback-controls" aria-label="Sample playback behavior">
+                <span class="sample-playback-controls-title">Playback</span>
+                <label><input id="sample-overlap-toggle" type="checkbox" checked /> Allow overlap</label>
+                <label><input id="sample-retrigger-toggle" type="checkbox" checked /> Retrigger</label>
+            </div>
             <canvas class="oscilloscope-canvas" width="400" height="100"></canvas>
             <div id="sound-sliders-container"></div>
         </div>

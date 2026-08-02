@@ -307,11 +307,25 @@ const Oscilloscope = {
     const shoreY = height * .72;
     const energy = .35 + this.bandEnergy.low * .9;
     const foamEnergy = .3 + this.bandEnergy.high * 1.2;
+    const rootStyle = getComputedStyle(document.documentElement);
+    const themeMain = rootStyle.getPropertyValue("--Main").trim() || strokeStyle;
+    const themeAccent = rootStyle.getPropertyValue("--Accent").trim() || "#ffe0b2";
+    const themeHighlight = rootStyle.getPropertyValue("--Highlight").trim() || "#a0faa0";
+    const withAlpha = (color, alpha) => {
+      const hex = color.match(/^#([0-9a-f]{6})$/i);
+      if (hex) {
+        const value = Number.parseInt(hex[1], 16);
+        return `rgba(${value >> 16}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
+      }
+      const rgb = color.match(/^rgba?\(([^)]+)\)$/i);
+      if (rgb) return `rgba(${rgb[1].split(",").slice(0, 3).join(",")}, ${alpha})`;
+      return color;
+    };
 
     canvasCtx.globalCompositeOperation = "source-over";
     const sand = canvasCtx.createLinearGradient(0, shoreY, 0, height);
-    sand.addColorStop(0, "rgba(245, 207, 137, .9)");
-    sand.addColorStop(1, "rgba(178, 126, 67, .95)");
+    sand.addColorStop(0, withAlpha(themeAccent, .9));
+    sand.addColorStop(1, withAlpha(themeMain, .95));
     canvasCtx.fillStyle = sand;
     canvasCtx.fillRect(0, shoreY, width, height - shoreY);
 
@@ -328,12 +342,12 @@ const Oscilloscope = {
       canvasCtx.lineTo(0, height * (.85 + layer * .02));
       canvasCtx.closePath();
       canvasCtx.fillStyle = layer === 0
-        ? "rgba(31, 161, 190, .9)"
-        : `rgba(34, 151, 190, ${.24 + (1 - layer / 3) * .22})`;
+        ? withAlpha(themeMain, .9)
+        : withAlpha(layer % 2 ? themeHighlight : themeAccent, .24 + (1 - layer / 3) * .22);
       canvasCtx.fill();
     }
 
-    canvasCtx.strokeStyle = "rgba(255, 250, 222, .95)";
+    canvasCtx.strokeStyle = withAlpha(themeAccent, .95);
     canvasCtx.lineWidth = Math.max(1.5, width / 240);
     for (let foam = 0; foam < 3; foam += 1) {
       const baseline = shoreY + foam * height * .035;

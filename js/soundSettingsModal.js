@@ -17,6 +17,7 @@ const SoundSettingsModal = {
   currentAudioBuffer: null,
   currentTrackIndex: null,
   currentSoundType: null,
+  currentSoundSettings: null,
   originalSoundName: "", // The name of the sound when modal opened (e.g., "Synth Kick", "My Preset")
   displaySoundName: "", // The name currently displayed/edited
   scopeMode: "waveform",
@@ -91,6 +92,18 @@ const SoundSettingsModal = {
     DOM.soundSettingsModal.querySelector("#sound-preview-btn").addEventListener("click", () => this.togglePreview());
     DOM.soundSettingsModal.querySelector("#sound-scope-mode-select").addEventListener("change", (e) => {
         this.scopeMode = e.target.value;
+    });
+    [
+      ["#sample-overlap-toggle", "allowOverlap"],
+      ["#sample-retrigger-toggle", "retrigger"],
+    ].forEach(([selector, setting]) => {
+      DOM.soundSettingsModal.querySelector(selector).addEventListener("change", (event) => {
+        if (!this.currentSoundSettings) return;
+        this.currentSoundSettings[setting] = event.target.checked;
+        const track = AppState.getTracks()[this.currentTrackIndex];
+        if (track?.[this.currentSoundType]) track[this.currentSoundType].settings = this.currentSoundSettings;
+        sendState(AppState.getCurrentStateForPreset(true));
+      });
     });
 
     // Rename Button Logic
@@ -628,6 +641,11 @@ const SoundSettingsModal = {
       soundInfo.settings = {}; // Initialize if null/undefined
       soundSettings = soundInfo.settings;
     }
+    soundSettings.allowOverlap = soundSettings.allowOverlap !== false;
+    soundSettings.retrigger = soundSettings.retrigger !== false;
+    this.currentSoundSettings = soundSettings;
+    DOM.soundSettingsModal.querySelector("#sample-overlap-toggle").checked = soundSettings.allowOverlap;
+    DOM.soundSettingsModal.querySelector("#sample-retrigger-toggle").checked = soundSettings.retrigger;
 
     const slidersContainer = DOM.soundSettingsModal.querySelector("#sound-sliders-container");
     slidersContainer.innerHTML = "";

@@ -5,6 +5,7 @@ import DOM from './domSelectors.js';
 import RecordingVisualizer from './recordingVisualizer.js';
 
 const AudioController = {
+    activeRecordingSources: new Map(),
     mediaRecorder: null,
     audioChunks: [],
     recordingStream: null, // To store the MediaStream
@@ -135,6 +136,17 @@ const AudioController = {
             return;
         }
 
+        const voiceKey = soundSettings?.voiceKey || recordingName;
+        const activeSource = AudioController.activeRecordingSources.get(voiceKey);
+        const allowOverlap = soundSettings?.allowOverlap !== false;
+        const retrigger = soundSettings?.retrigger !== false;
+        if (activeSource) {
+            if (!retrigger) return;
+            if (!allowOverlap) {
+                try { activeSource.stop(); } catch (_) { /* already ended */ }
+            }
+        }
+
         const source = audioContext.createBufferSource();
         source.buffer = audioBuffer;
 
@@ -152,6 +164,12 @@ const AudioController = {
         const duration = (trimEnd || audioBuffer.duration) - offset;
 
         source.start(playTime, offset, duration > 0 ? duration : 0);
+        AudioController.activeRecordingSources.set(voiceKey, source);
+        source.addEventListener('ended', () => {
+            if (AudioController.activeRecordingSources.get(voiceKey) === source) {
+                AudioController.activeRecordingSources.delete(voiceKey);
+            }
+        });
     }
 };
 

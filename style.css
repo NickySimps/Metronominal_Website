@@ -3154,6 +3154,23 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
   touch-action: none;
   cursor: ew-resize;
 }
+#sound-settings-modal .sample-playback-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .45rem .85rem;
+  margin: .55rem 0 .7rem;
+  padding: .45rem .65rem;
+  border: 1px solid var(--BorderColor, currentColor);
+  border-radius: var(--BorderRadius, .5rem);
+  background: color-mix(in srgb, var(--Background, transparent) 72%, var(--Highlight, transparent));
+  color: var(--TextPrimary, currentColor);
+  font-size: .8rem;
+}
+#sound-settings-modal .sample-playback-controls-title { font-weight: 700; color: var(--TextSecondary, currentColor); }
+#sound-settings-modal .sample-playback-controls label { display: inline-flex; align-items: center; gap: .35rem; min-height: 1.75rem; cursor: pointer; }
+#sound-settings-modal .sample-playback-controls input { width: 1rem; height: 1rem; accent-color: var(--Main); }
+
 #sound-settings-modal #sound-preview-btn[aria-pressed="true"] { background: var(--Alt2, #b33); }
 @media (max-width: 640px), (max-height: 700px) {
   #sound-settings-modal .header-right { flex-basis: 100%; justify-content: flex-start; }
