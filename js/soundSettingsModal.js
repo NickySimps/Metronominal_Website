@@ -697,6 +697,7 @@ const SoundSettingsModal = {
 
   startDrawing(analyserNode) {
     const canvas = DOM.soundSettingsModal.querySelector(".oscilloscope-canvas");
+    if (!canvas) return;
     const ctx = canvas.getContext("2d");
     this.isDrawing = true;
 
@@ -705,12 +706,21 @@ const SoundSettingsModal = {
 
       requestAnimationFrame(draw);
 
-      const { width, height } = canvas.getBoundingClientRect();
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
+      const rect = canvas.getBoundingClientRect();
+      const cssWidth = Math.floor(rect.width || canvas.clientWidth || 300);
+      const cssHeight = Math.floor(rect.height || canvas.clientHeight || 120);
+
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const targetWidth = Math.max(10, Math.floor(cssWidth * dpr));
+      const targetHeight = Math.max(10, Math.floor(cssHeight * dpr));
+
+      if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
       }
 
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -719,24 +729,23 @@ const SoundSettingsModal = {
         const dataArray = new Uint8Array(bufferLength);
         analyserNode.getByteTimeDomainData(dataArray);
 
-        // Get color variables from the stylesheet
-        const mainColor = getComputedStyle(document.documentElement)
-          .getPropertyValue("--Main")
-          .trim();
-        const accentColor = getComputedStyle(document.documentElement)
-          .getPropertyValue("--Accent")
-          .trim();
-        const highlightColor = getComputedStyle(document.documentElement)
-          .getPropertyValue("--Highlight")
-          .trim();
+        // Get computed colors with safe fallbacks for iOS Safari Canvas2D
+        const rootStyle = getComputedStyle(document.documentElement);
+        const mainColor = rootStyle.getPropertyValue("--Main").trim() || "#4caf50";
+        const accentColor = rootStyle.getPropertyValue("--Accent").trim() || "#81c784";
+        const highlightColor = rootStyle.getPropertyValue("--Highlight").trim() || "#a5d6a7";
 
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
-        gradient.addColorStop(0, mainColor);
-        gradient.addColorStop(0.5, accentColor);
-        gradient.addColorStop(1, highlightColor);
+        try {
+          const gradient = ctx.createLinearGradient(0, 0, canvas.width, 0);
+          gradient.addColorStop(0, mainColor);
+          gradient.addColorStop(0.5, accentColor);
+          gradient.addColorStop(1, highlightColor);
+          ctx.strokeStyle = gradient;
+        } catch (e) {
+          ctx.strokeStyle = mainColor;
+        }
 
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = gradient;
+        ctx.lineWidth = Math.max(2, Math.floor(2 * dpr));
         ctx.beginPath();
 
         const sliceWidth = (canvas.width * 1.0) / bufferLength;
@@ -744,7 +753,7 @@ const SoundSettingsModal = {
 
         for (let i = 0; i < bufferLength; i++) {
           const v = dataArray[i] / 128.0;
-          const y = v * (canvas.height / 2);
+          const y = (v * canvas.height) / 2;
 
           if (i === 0) {
             ctx.moveTo(x, y);
@@ -758,6 +767,7 @@ const SoundSettingsModal = {
         ctx.lineTo(canvas.width, canvas.height / 2);
         ctx.stroke();
       }
+      ctx.restore();
     };
 
     draw();

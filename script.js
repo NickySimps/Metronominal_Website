@@ -133,9 +133,10 @@ async function initialize() {
   PresetController.initializePresetControls(refreshUIFromState);
   VolumeController.initializeVolumeControls();
   DOM.countInBarsSelect?.addEventListener('change', () => {
-    if (!window.isHost) return;
     AppState.setCountInBars(DOM.countInBarsSelect.value);
-    sendState(AppState.getCurrentStateForPreset(true));
+    if (window.isHost) {
+      sendState(AppState.getCurrentStateForPreset(true));
+    }
   });
   if (DOM.audioLatencySlider && DOM.audioLatencyValue) {
     DOM.audioLatencySlider.addEventListener('input', (e) => {

@@ -589,12 +589,7 @@ async function handleSocketMessage(event, generation) {
 
 function scheduleReconnect() {
   if (intentionallyDisconnected || reconnectTimer) return;
-  if (reconnectAttempt >= 5) {
-    console.log("Sync server unavailable. Operating in standalone local mode.");
-    updateConnectionStatusUI("disconnected");
-    return;
-  }
-  const delay = Math.min(30000, 1000 * (2 ** reconnectAttempt));
+  const delay = Math.min(15000, 1000 * (2 ** Math.min(reconnectAttempt, 4)));
   reconnectAttempt += 1;
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null;
@@ -953,5 +948,31 @@ export async function disconnectAllPeers() {
 export function onReceiveState(callback) {
   receiveCallback = callback;
 }
+
+// Automatic foreground visibility & touch audio context / connection auto-restoration
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") {
+    const audioContext = AppState.getAudioContext();
+    if (audioContext && audioContext.state === "suspended") {
+      audioContext.resume().catch(() => {});
+    }
+
+    // Auto-heal background WebSocket timeouts without requiring a manual page reload
+    if (!intentionallyDisconnected && roomId) {
+      if (!socket || socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
+        console.log("Foreground restored: Re-establishing room synchronization...");
+        reconnectAttempt = 0;
+        reconnectSynchronization();
+      }
+    }
+  }
+});
+
+window.addEventListener("pointerdown", () => {
+  const audioContext = AppState.getAudioContext();
+  if (audioContext && audioContext.state === "suspended") {
+    audioContext.resume().catch(() => {});
+  }
+}, { passive: true });
 
 export const WebRTC = { onReceiveState };
