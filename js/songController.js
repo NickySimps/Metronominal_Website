@@ -441,8 +441,8 @@ function render() {
       <span class="song-section-track-count">${section.tracks?.length || 0} tracks</span>
       <span class="song-section-actions" aria-label="${section.name || `Section ${index + 1}`} actions">
         <button type="button" data-song-section-action="go" aria-label="Go to ${section.name || "section"}" title="Go to section">▶ <span>Go</span></button>
-        <button type="button" data-song-section-action="apply" aria-label="Apply ${section.name || "section"} tracks" title="Apply section tracks"${!section.tracks?.length ? " disabled" : ""}>↓ <span>Apply</span></button>
-        <button type="button" data-song-section-action="update" aria-label="Update ${section.name || "section"} from current tracks" title="Update section from current tracks"${!editable || index !== selectedSectionIndex ? " disabled" : ""}>↑ <span>Update</span></button>
+        <button type="button" data-song-section-action="apply" aria-label="Apply ${section.name || "section"} tracks" title="Apply section tracks"${!section.tracks?.length ? " disabled" : ""}>⇩ <span>Apply</span></button>
+        <button type="button" data-song-section-action="update" aria-label="Update ${section.name || "section"} from current tracks" title="Update section from current tracks"${!editable || index !== selectedSectionIndex ? " disabled" : ""}>⇧ <span>Update</span></button>
         <button type="button" data-song-section-action="copy" aria-label="Copy ${section.name || "section"}" title="Copy section">⧉ <span>Copy</span></button>
         <button type="button" data-song-section-action="remove" aria-label="Remove ${section.name || "section"}" title="Remove section"${!editable || song.sections.length === 1 ? " disabled" : ""}>× <span>Remove</span></button>
       </span>
