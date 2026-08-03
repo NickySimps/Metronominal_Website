@@ -834,6 +834,7 @@ select {
   grid-template-columns: repeat(2, minmax(10rem, 1fr));
   gap: 4px;
   width: min(28rem, calc(100vw - 1rem));
+  box-sizing: border-box;
   max-height: min(24rem, calc(100dvh - 1rem));
   overflow-y: auto;
   padding: 6px;
@@ -1447,7 +1448,7 @@ select {
     text-overflow: ellipsis;
   }
 
-  @media (max-width: 340px) {
+  @media (max-width: 420px) {
     .timing-controls-group .control-label {
       width: 0.8rem;
       overflow: hidden;

@@ -108,7 +108,8 @@ const Oscilloscope = {
           const buttonRect = btn.getBoundingClientRect();
           const menuRect = modeMenu.getBoundingClientRect();
           const margin = 8;
-          const left = Math.min(Math.max(margin, buttonRect.right - menuRect.width), innerWidth - menuRect.width - margin);
+          const maxLeft = Math.max(margin, innerWidth - menuRect.width - margin);
+          const left = Math.min(Math.max(margin, buttonRect.right - menuRect.width), maxLeft);
           const belowTop = buttonRect.bottom + 6;
           const top = belowTop + menuRect.height <= innerHeight - margin
             ? belowTop

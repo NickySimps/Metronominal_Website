@@ -255,13 +255,18 @@ test.describe('mode controls responsive layout', () => {
   });
 
   test('touch-holding the visualizer mode button opens its menu', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
+    await page.waitForSelector('#visualizer-mode-menu [data-mode="waveform"]', { state: 'attached' });
     await page.evaluate(async () => {
       const button = document.querySelector('#visualizer-mode-btn');
       button.dispatchEvent(new PointerEvent('pointerdown', { button: 0, pointerId: 11, pointerType: 'touch', bubbles: true }));
       await new Promise((resolve) => setTimeout(resolve, 600));
     });
     await expect(page.locator('#visualizer-mode-menu')).toBeVisible();
+    const menuBox = await page.locator('#visualizer-mode-menu').boundingBox();
+    expect(menuBox.x).toBeGreaterThanOrEqual(0);
+    expect(menuBox.x + menuBox.width).toBeLessThanOrEqual(320);
     await expect(page.locator('#visualizer-mode-menu [role="menuitem"]')).toHaveCount(16);
     await page.evaluate(() => {
       const option = document.querySelector('#visualizer-mode-menu [data-mode="mirror"]');
