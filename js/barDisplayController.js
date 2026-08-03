@@ -142,6 +142,16 @@ function updateBeatIndicator(barDiv, beats, subdivision) {
     
     indicator.addEventListener("click", (e) => {
         e.stopPropagation();
+        const containerIndex = Number.parseInt(barDiv.dataset.containerIndex, 10);
+        const barIndex = Number.parseInt(barDiv.dataset.barIndex, 10);
+        if (Number.isInteger(containerIndex) && Number.isInteger(barIndex)) {
+            AppState.setSelectedTrackIndex(containerIndex);
+            AppState.setSelectedBarIndexInContainer(barIndex);
+            BarDisplayController.updateSelectionVisuals();
+            BarControlsController.updateBeatControlsDisplay();
+            document.dispatchEvent(new CustomEvent("trackselectionchanged", { detail: { shouldScroll: false } }));
+            sendState(AppState.getCurrentStateForPreset(true));
+        }
         showSubdivisionSelector(barDiv);
     });
     

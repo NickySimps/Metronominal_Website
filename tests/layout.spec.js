@@ -357,6 +357,26 @@ test.describe('mode controls responsive layout', () => {
     expect(result.labelsInside).toBe(true);
   });
 
+  test('clicking a bar beat indicator selects that bar before opening subdivision options', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.increase-bar-length').click({ clickCount: 2 });
+    const indicators = page.locator('.bar-beat-indicator');
+    await expect(indicators).toHaveCount(3);
+    await indicators.nth(1).click();
+    const selection = await page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      return {
+        track: AppState.getSelectedTrackIndex(),
+        bar: AppState.getSelectedBarIndexInContainer(),
+        selectedBars: [...document.querySelectorAll('.bar-visual.selected')].map(bar => bar.dataset.barIndex),
+      };
+    });
+    expect(selection.track).toBe(0);
+    expect(selection.bar).toBe(1);
+    expect(selection.selectedBars).toEqual(['1']);
+    await expect(page.locator('.subdivision-options-container.visible').first()).toBeVisible();
+  });
+
   test('clicking the background does not change the visualizer', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 600 });
     await page.goto('/');
