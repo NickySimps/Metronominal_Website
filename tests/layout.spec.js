@@ -130,6 +130,27 @@ test.describe('mode controls responsive layout', () => {
     expect(geometry.children[1].selectWidth).toBeGreaterThan(40);
   });
 
+  test('uses compact timing symbols for coarse-pointer phones at wider CSS widths', async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { width: 800, height: 800 }, isMobile: true, hasTouch: true });
+    const page = await context.newPage();
+    await page.goto('/');
+    const result = await page.evaluate(() => {
+      const group = document.querySelector('.timing-controls-group');
+      const labels = [...group.querySelectorAll('.control-label')];
+      const feedback = document.querySelector('#tap-tempo-feedback').getBoundingClientRect();
+      return {
+        symbols: labels.map(label => getComputedStyle(label, '::after').content),
+        feedbackWidth: feedback.width,
+        controls: [...group.querySelectorAll(':scope > .control-group')].map(element => element.getBoundingClientRect()),
+      };
+    });
+    expect(result.symbols).toEqual(['"Σ"', '"÷"', '"⏱"']);
+    expect(result.feedbackWidth).toBeLessThanOrEqual(1);
+    expect(result.controls[0].right).toBeLessThanOrEqual(result.controls[1].left + 1);
+    expect(result.controls[1].right).toBeLessThanOrEqual(result.controls[2].left + 1);
+    await context.close();
+  });
+
   test('supports validated loop ranges, TAP feedback, and keyboard shortcuts', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/');

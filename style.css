@@ -1452,7 +1452,7 @@ select {
     text-overflow: ellipsis;
   }
 
-  @media (max-width: 420px) {
+  @media (max-width: 420px), (pointer: coarse) {
     .timing-controls-group .control-label {
       flex: 0 0 0.8rem;
       width: 0.8rem;
@@ -2672,6 +2672,11 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   cursor: pointer;
 }
 
+.track-pitch-slider,
+.track-swing-slider {
+  min-width: 5rem;
+}
+
 .track-pitch-group,
 .track-swing-group {
   width: 100%;
@@ -2680,14 +2685,17 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 }
 
 .track-slider-label {
-  font-size: 0.78rem;
+  flex: 0 0 auto;
+  font-size: 0.86rem;
   color: var(--TextSecondary);
   font-weight: 600;
   white-space: nowrap;
 }
 
 .track-slider-value {
-  font-size: 0.76rem;
+  flex: 0 0 auto;
+  min-width: 3.2rem;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--TextPrimary);
   background-color: var(--Alt2);
@@ -3351,7 +3359,19 @@ environments: Development, Staging,
 .keyboard-shortcuts summary { cursor: pointer; color: var(--TextPrimary); }
 .keyboard-shortcuts span { display: block; padding: 0.35rem; }
 kbd { padding: 0.1rem 0.35rem; border: 1px solid currentColor; border-radius: 0.25rem; font-family: inherit; }
-.tap-tempo-feedback { min-width: 7rem; color: var(--TextSecondary); font-size: 0.75rem; }
+.tap-tempo-feedback {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+    color: var(--TextSecondary);
+    font-size: 0.75rem;
+}
 .tap-tempo-btn:focus-visible,
 .theme-controls button:focus-visible,
 .keyboard-shortcuts summary:focus-visible,
@@ -3369,7 +3389,49 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
         gap: var(--s2);
     }
     .theme-menu button { min-height: 2.75rem; margin: 0; }
-    .tap-tempo-feedback { flex: 1 1 100%; min-height: 1.1rem; text-align: center; }
+    .tap-tempo-feedback { flex: none; min-width: 0; min-height: 0; text-align: left; }
+}
+
+/* Touch phones can expose a wider CSS viewport when display magnification is increased. Keep the compact timing layout tied to the input modality too, not only to one viewport-width breakpoint. */
+@media (pointer: coarse) {
+    .timing-controls-group {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 3px !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .timing-controls-group .control-group {
+        flex: 1 1 0;
+        min-width: 0;
+        gap: 2px;
+        max-width: none;
+    }
+    .timing-controls-group .beats-count-wrap { flex-grow: .7; }
+    .timing-controls-group .control-label {
+        flex: 0 0 0.8rem;
+        width: 0.8rem;
+        overflow: hidden;
+        font-size: 0 !important;
+        text-align: center;
+    }
+    .timing-controls-group .control-label::after {
+        display: inline-block;
+        font-size: 0.75rem;
+        font-family: system-ui, "Segoe UI Symbol", "Arial Unicode MS", sans-serif;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .timing-controls-group .beats-count-wrap .total-beats-display {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+    .timing-controls-group .beats-count-wrap .control-label::after { content: 'Σ'; }
+    .timing-controls-group > .control-group:nth-child(2) .control-label::after { content: '÷'; }
+    .timing-controls-group > .control-group:nth-child(3) .control-label::after { content: '⏱'; }
 }
 
 .app-update-banner {
