@@ -729,6 +729,41 @@ test.describe('mode controls responsive layout', () => {
     expect(result).toEqual({ overlap: false, retrigger: false, reverse: true, probability: 35, savedOverlap: false, savedRetrigger: false, savedReverse: true, savedProbability: 35 });
   });
 
+  test('reverse transforms synthesized preview envelopes', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const [{ default: SoundSettingsModal }, { default: SoundSynth }, { default: AppState }] = await Promise.all([
+        import(new URL('js/soundSettingsModal.js', document.baseURI).href),
+        import(new URL('js/soundSynth.js', document.baseURI).href),
+        import(new URL('js/appState.js', document.baseURI).href),
+      ]);
+      const track = AppState.getTracks()[0];
+      track.mainBeatSound.sound = 'Synth Kick';
+      track.mainBeatSound.settings = {
+        reverse: true,
+        attack: 0.01,
+        release: 0.2,
+        startFrequency: 200,
+        endFrequency: 50,
+        volume: 1,
+      };
+      let capturedSettings;
+      const originalPlayKick = SoundSynth.playKick;
+      SoundSynth.playKick = (_context, _time, settings) => { capturedSettings = settings; };
+      await SoundSettingsModal.show(0, 'mainBeatSound');
+      await SoundSettingsModal.togglePreview();
+      SoundSettingsModal.stopPreview();
+      SoundSynth.playKick = originalPlayKick;
+      return {
+        attack: capturedSettings?.attack,
+        release: capturedSettings?.release,
+        startFrequency: capturedSettings?.startFrequency,
+        endFrequency: capturedSettings?.endFrequency,
+      };
+    });
+    expect(result).toEqual({ attack: 0.2, release: 0.01, startFrequency: 50, endFrequency: 200 });
+  });
+
   test('probability gate honors boundaries and deterministic random rolls', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(async () => {

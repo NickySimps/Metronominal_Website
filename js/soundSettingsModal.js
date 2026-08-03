@@ -8,7 +8,7 @@ import Oscilloscope from "./oscilloscope.js";
 import { frequencyToNote, noteToFrequency, noteStrings, generateNoteFrequencies, semitonesToInterval } from "./utils.js";
 import { Slider } from './slider.js';
 import SoundSynth from './soundSynth.js';
-import { normalizeFilterSettings, createSoundFilterInput, getReversedAudioBuffer } from './audioEffects.js';
+import { normalizeFilterSettings, createSoundFilterInput, getReversedAudioBuffer, getReversedSynthSettings } from './audioEffects.js';
 
 const SoundSettingsModal = {
   isNoteSnapping: false,
@@ -915,7 +915,7 @@ const SoundSettingsModal = {
     if (baseSound?.startsWith("Synth")) {
       const functionName = `play${baseSound.replace("Synth ", "").replace(/ /g, "")}`;
       if (SoundSynth[functionName]) {
-        SoundSynth[functionName](audioContext, audioContext.currentTime, { ...settings, volume: settings.volume ?? 1 }, createSoundFilterInput(audioContext, analyser, settings));
+        SoundSynth[functionName](audioContext, audioContext.currentTime, getReversedSynthSettings({ ...settings, volume: settings.volume ?? 1 }), createSoundFilterInput(audioContext, analyser, settings));
         this.previewSource = { isSynth: true };
       }
     } else {

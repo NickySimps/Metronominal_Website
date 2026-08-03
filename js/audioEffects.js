@@ -23,6 +23,20 @@ export function getReversedAudioBuffer(audioContext, audioBuffer) {
   return reversed;
 }
 
+function getReversedSynthSettings(settings = {}) {
+  if (settings.reverse !== true) return settings;
+  const reversed = { ...settings };
+  [["attack", "release"], ["startFrequency", "endFrequency"], ["bodyFrequencyStart", "bodyFrequencyEnd"]].forEach(([first, second]) => {
+    if (settings[first] !== undefined || settings[second] !== undefined) {
+      reversed[first] = settings[second];
+      reversed[second] = settings[first];
+    }
+  });
+  return reversed;
+}
+
+export { getReversedSynthSettings };
+
 function clampFrequency(value, fallback, sampleRate) {
   const nyquist = Math.max(DEFAULT_HIGH_PASS, (sampleRate || 48000) / 2);
   const numeric = Number(value);
