@@ -43,7 +43,9 @@
                         id="connection-status"></span><span id="sync-quality">OFFLINE</span><span
                         id="n-of-connections"></span></button>
                 <button id="speed-trainer-btn" class="preset-btn" title="Speed Trainer / Accel Mode" aria-label="Open Speed Trainer controls">🚀 Accel Mode</button>
-                <button id="visualizer-mode-btn" class="preset-btn" title="Cycle Visualizer Mode (Waveform, Spectrum, Lissajous, Radial)" aria-label="Cycle Visualizer Mode">🌊 Waveform Scope</button>
+                <div class="visualizer-mode-control">
+                    <button id="visualizer-mode-btn" class="preset-btn" title="Cycle Visualizer Mode (long-press for all modes)" aria-label="Cycle Visualizer Mode" aria-haspopup="menu" aria-expanded="false">🌊 Waveform Scope</button>
+                </div>
                 <button id="disconnect-btn" style="display: none;">DISCONNECT</button>
                 <button class="reset-btn" title="Reset all settings to default" aria-label="Reset all settings">↺ Reset</button>
                 <button id="manage-recordings-btn" title="Manage custom samples and recordings" aria-label="Manage recordings">📁 Samples</button>
@@ -428,6 +430,11 @@
                 <label><input id="sample-overlap-toggle" type="checkbox" checked /> Allow overlap</label>
                 <label><input id="sample-retrigger-toggle" type="checkbox" checked /> Retrigger</label>
             </div>
+            <label class="sample-probability-control" for="sample-probability">
+                <span>Probability</span>
+                <input id="sample-probability" type="range" min="0" max="100" step="1" value="100" />
+                <output id="sample-probability-value" for="sample-probability">100%</output>
+            </label>
             <canvas class="oscilloscope-canvas" width="400" height="100"></canvas>
             <div id="sound-sliders-container"></div>
         </div>

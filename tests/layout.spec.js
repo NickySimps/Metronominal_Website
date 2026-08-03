@@ -151,6 +151,223 @@ test.describe('mode controls responsive layout', () => {
     }))).toEqual({ themeClass: true, controlsZ: 1100, paletteZ: 1101, paletteRadius: '50%' });
   });
 
+  test('places the synthwave desktop TAP button above the top controls', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/');
+    await page.evaluate(async () => {
+      for (const registration of await navigator.serviceWorker?.getRegistrations?.() || []) {
+        await registration.unregister();
+      }
+      for (const key of await caches?.keys?.() || []) {
+        await caches.delete(key);
+      }
+    });
+    await page.reload();
+    await page.locator('#theme-menu-toggle').click();
+    await page.locator('[data-theme="synthwave"]').click();
+    const geometry = await page.evaluate(() => {
+      const tapElement = document.querySelector('.tap-tempo-btn');
+      const tap = tapElement.getBoundingClientRect();
+      const controls = document.querySelector('.top-controls-area').getBoundingClientRect();
+      const sync = document.querySelector('#share-btn').getBoundingClientRect();
+      return {
+        tap: tap.toJSON(),
+        controls: controls.toJSON(),
+        sync: sync.toJSON(),
+        tapParent: tapElement.parentElement.className,
+      };
+    });
+    expect(geometry.tapParent).toBe('top-controls-area');
+    expect(Math.abs(geometry.tap.top - geometry.sync.top)).toBeLessThanOrEqual(1);
+    expect(geometry.tap.right).toBeLessThanOrEqual(geometry.sync.left);
+    expect(geometry.tap.top).toBeGreaterThanOrEqual(0);
+    expect(geometry.tap.right).toBeLessThanOrEqual(1280);
+  });
+
+  test('long-pressing the visualizer mode button opens and selects all visualizers', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    await page.goto('/');
+    const button = page.locator('#visualizer-mode-btn');
+    await button.hover();
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await page.mouse.up();
+    await expect(page.locator('#visualizer-mode-menu')).toBeVisible();
+    const menuVisual = await page.locator('#visualizer-mode-menu').evaluate((menu) => ({
+      rect: menu.getBoundingClientRect().toJSON(),
+      background: getComputedStyle(menu).backgroundColor,
+      color: getComputedStyle(menu).color,
+      optionBackground: getComputedStyle(menu.querySelector('[data-mode="reactor"]')).backgroundColor,
+      pageBackground: getComputedStyle(document.body).backgroundColor,
+      zIndex: getComputedStyle(menu).zIndex,
+    }));
+    expect(menuVisual.rect.width).toBeGreaterThan(0);
+    expect(menuVisual.rect.height).toBeGreaterThan(0);
+    expect(menuVisual.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(menuVisual.color).not.toBe('rgba(0, 0, 0, 0)');
+    expect(menuVisual.optionBackground).toBe(menuVisual.pageBackground);
+    expect(Number(menuVisual.zIndex)).toBeGreaterThanOrEqual(1300);
+    const menuGeometry = await page.locator('#visualizer-mode-menu').evaluate((menu) => ({
+      parentIsBody: menu.parentElement === document.body,
+      position: getComputedStyle(menu).position,
+      rect: menu.getBoundingClientRect().toJSON(),
+      controlsScrollHeight: document.querySelector('.top-controls-area').scrollHeight,
+      controlsClientHeight: document.querySelector('.top-controls-area').clientHeight,
+    }));
+    expect(menuGeometry.parentIsBody).toBe(true);
+    expect(menuGeometry.position).toBe('fixed');
+    expect(menuGeometry.rect.height).toBeGreaterThan(0);
+    expect(menuGeometry.controlsScrollHeight).toBe(menuGeometry.controlsClientHeight);
+    await expect(page.locator('#visualizer-mode-menu [role="menuitem"]')).toHaveCount(16);
+    await page.locator('#visualizer-mode-menu [data-mode="mirror"]').click();
+    await expect(page.locator('#visualizer-mode-menu')).toBeHidden();
+    await expect(page.locator('#visualizer-mode-menu [data-mode="mirror"]')).toHaveAttribute('aria-current', 'true');
+    await expect.poll(() => page.evaluate(async () => {
+      const { default: Oscilloscope } = await import(new URL('js/oscilloscope.js', document.baseURI).href);
+      return Oscilloscope.mode;
+    })).toBe('mirror');
+  });
+
+  test('touch-holding the visualizer mode button opens its menu', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(async () => {
+      const button = document.querySelector('#visualizer-mode-btn');
+      button.dispatchEvent(new PointerEvent('pointerdown', { button: 0, pointerId: 11, pointerType: 'touch', bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    });
+    await expect(page.locator('#visualizer-mode-menu')).toBeVisible();
+    await expect(page.locator('#visualizer-mode-menu [role="menuitem"]')).toHaveCount(16);
+    await page.evaluate(() => {
+      const option = document.querySelector('#visualizer-mode-menu [data-mode="mirror"]');
+      option.dispatchEvent(new PointerEvent('pointerenter', { pointerId: 11, pointerType: 'touch', bubbles: false }));
+      option.dispatchEvent(new PointerEvent('pointerup', { button: 0, pointerId: 11, pointerType: 'touch', bubbles: true }));
+    });
+    await expect(page.locator('#visualizer-mode-menu')).toBeHidden();
+    await expect.poll(() => page.evaluate(async () => {
+      const { default: Oscilloscope } = await import(new URL('js/oscilloscope.js', document.baseURI).href);
+      return Oscilloscope.mode;
+    })).toBe('mirror');
+  });
+
+  test('dragging from the visualizer button selects the exact released mode', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    await page.goto('/');
+    const buttonBox = await page.locator('#visualizer-mode-btn').boundingBox();
+    await page.mouse.move(buttonBox.x + buttonBox.width / 2, buttonBox.y + buttonBox.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await expect(page.locator('#visualizer-mode-menu')).toBeVisible();
+    const optionBox = await page.locator('#visualizer-mode-menu [data-mode="mirror"]').boundingBox();
+    await page.mouse.move(optionBox.x + optionBox.width / 2, optionBox.y + optionBox.height / 2);
+    await expect(page.locator('#visualizer-mode-menu')).toBeVisible();
+    await page.mouse.up();
+    await expect(page.locator('#visualizer-mode-menu')).toBeHidden();
+    await expect.poll(() => page.evaluate(async () => {
+      const { default: Oscilloscope } = await import(new URL('js/oscilloscope.js', document.baseURI).href);
+      return Oscilloscope.mode;
+    })).toBe('mirror');
+  });
+
+  test('clicking the background does not change the visualizer', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    await page.goto('/');
+    await page.evaluate(async () => {
+      const { default: Oscilloscope } = await import(new URL('js/oscilloscope.js', document.baseURI).href);
+      Oscilloscope.setMode('mirror');
+    });
+    await page.mouse.click(790, 590);
+    await expect.poll(() => page.evaluate(async () => {
+      const { default: Oscilloscope } = await import(new URL('js/oscilloscope.js', document.baseURI).href);
+      return Oscilloscope.mode;
+    })).toBe('mirror');
+  });
+
+  test('long-pressing the visualizer opens the selected bar subdivision drag menu', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    await page.goto('/');
+    const modeBefore = await page.evaluate(async () => {
+      const { default: Oscilloscope } = await import(new URL('js/oscilloscope.js', document.baseURI).href);
+      Oscilloscope.setMode('mirror');
+      return Oscilloscope.mode;
+    });
+    const backgroundPoint = await page.evaluate(() => {
+      for (let y = 40; y < innerHeight; y += 40) {
+        for (let x = 40; x < innerWidth; x += 40) {
+          const element = document.elementFromPoint(x, y);
+          if (!element.closest('button, a, input, select, textarea, [role="button"], .bar-visual, .beat-square, .theme-controls, .modal')) return { x, y };
+        }
+      }
+      return null;
+    });
+    expect(backgroundPoint).not.toBeNull();
+    await page.mouse.move(backgroundPoint.x, backgroundPoint.y);
+    await page.mouse.down();
+    await page.waitForTimeout(600);
+    await expect(page.locator('.subdivision-options-container.visible')).toHaveCount(2);
+    await page.waitForTimeout(120);
+    const subdivisionLayout = await page.locator('.subdivision-options-container.visible').evaluateAll((containers) => ({
+      viewportWidth: innerWidth,
+      viewportHeight: innerHeight,
+      containers: containers.map((container) => ({
+        rect: container.getBoundingClientRect().toJSON(),
+        overflowY: getComputedStyle(container).overflowY,
+        options: [...container.querySelectorAll('.subdivision-option')].map((option) => option.getBoundingClientRect().toJSON()),
+      })),
+    }));
+    expect(subdivisionLayout.containers[0].rect.bottom).toBeLessThanOrEqual(subdivisionLayout.containers[1].rect.top + 1);
+    for (const container of subdivisionLayout.containers) {
+      expect(container.overflowY).toBe('visible');
+      for (const option of container.options) {
+        expect(option.left).toBeGreaterThanOrEqual(0);
+        expect(option.top).toBeGreaterThanOrEqual(0);
+        expect(option.right).toBeLessThanOrEqual(subdivisionLayout.viewportWidth);
+        expect(option.bottom).toBeLessThanOrEqual(subdivisionLayout.viewportHeight);
+      }
+    }
+    const dragOption = page.locator('.subdivision-options-container.visible .subdivision-option').first();
+    const dragBox = await dragOption.boundingBox();
+    await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
+    await expect(page.locator('.subdivision-options-container.visible')).toHaveCount(2);
+    await page.mouse.up();
+    await expect(page.locator('.subdivision-options-container.visible')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(async () => {
+      const { default: Oscilloscope } = await import(new URL('js/oscilloscope.js', document.baseURI).href);
+      return Oscilloscope.mode;
+    })).toBe(modeBefore);
+  });
+
+  test('touch-holding the visualizer opens the subdivision menu', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const target = [...document.querySelectorAll('body *')].find((element) => {
+        const rect = element.getBoundingClientRect();
+        return element.id !== 'background-oscilloscope'
+          && rect.width > 20 && rect.height > 20
+          && !element.closest('button, a, input, select, textarea, [role="button"], .bar-visual, .beat-square, .theme-controls, .modal');
+      });
+      if (!target) return false;
+      const rect = target.getBoundingClientRect();
+      const point = { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2, button: 0, pointerId: 7, pointerType: 'touch', bubbles: true };
+      target.dispatchEvent(new PointerEvent('pointerdown', point));
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      return {
+        visible: document.querySelectorAll('.subdivision-options-container.visible').length === 2,
+        options: [...document.querySelectorAll('.subdivision-options-container.visible .subdivision-option')].map((option) => option.getBoundingClientRect().toJSON()),
+        overflow: [...document.querySelectorAll('.subdivision-options-container.visible')].map((container) => getComputedStyle(container).overflowY),
+      };
+    });
+    expect(result.visible).toBe(true);
+    expect(result.overflow.every((value) => value === 'visible')).toBe(true);
+    for (const option of result.options) {
+      expect(option.left).toBeGreaterThanOrEqual(0);
+      expect(option.top).toBeGreaterThanOrEqual(0);
+      expect(option.right).toBeLessThanOrEqual(320);
+      expect(option.bottom).toBeLessThanOrEqual(568);
+    }
+    await page.evaluate(() => document.dispatchEvent(new PointerEvent('pointerup', { button: 0, pointerId: 7, pointerType: 'touch', bubbles: true })));
+  });
+
   test('sound edit modals are viewport-safe and use separate main/sub analysers', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
@@ -181,6 +398,9 @@ test.describe('mode controls responsive layout', () => {
         hasScopeModeSelect: Boolean(modal.querySelector('#sound-scope-mode-select')),
         hasWaveformTools: Boolean(modal.querySelector('.waveform-tools')),
         hasPlaybackControls: Boolean(modal.querySelector('.sample-playback-controls')),
+        probabilityValue: Number(modal.querySelector('#sample-probability').value),
+        probabilityLabel: modal.querySelector('#sample-probability-value').textContent,
+        probabilityBeforeOscilloscope: modal.querySelector('#sample-probability').compareDocumentPosition(canvas) & Node.DOCUMENT_POSITION_FOLLOWING,
         overlapChecked: modal.querySelector('#sample-overlap-toggle')?.checked,
         retriggerChecked: modal.querySelector('#sample-retrigger-toggle')?.checked,
         analysersAreSeparate: track.mainAnalyserNode && track.subdivisionAnalyserNode
@@ -202,6 +422,9 @@ test.describe('mode controls responsive layout', () => {
     expect(result.hasPreviewButton).toBe(true);
     expect(result.hasScopeModeSelect).toBe(true);
     expect(result.hasPlaybackControls).toBe(true);
+    expect(result.probabilityValue).toBe(100);
+    expect(result.probabilityLabel).toBe('100%');
+    expect(result.probabilityBeforeOscilloscope).toBeTruthy();
     expect(result.overlapChecked).toBe(true);
     expect(result.retriggerChecked).toBe(true);
     expect(result.analysersAreSeparate).toBe(true);
@@ -276,20 +499,37 @@ test.describe('mode controls responsive layout', () => {
       const modal = document.querySelector('#sound-settings-modal');
       const overlap = modal.querySelector('#sample-overlap-toggle');
       const retrigger = modal.querySelector('#sample-retrigger-toggle');
-      overlap.checked = false;
-      retrigger.checked = false;
-      overlap.dispatchEvent(new Event('change', { bubbles: true }));
-      retrigger.dispatchEvent(new Event('change', { bubbles: true }));
+      const probability = modal.querySelector('#sample-probability');
+      overlap.click();
+      retrigger.click();
+      probability.value = '35';
+      probability.dispatchEvent(new Event('input', { bubbles: true }));
       SoundSettingsModal.hide();
       await SoundSettingsModal.show(0, 'mainBeatSound');
       return {
         overlap: modal.querySelector('#sample-overlap-toggle').checked,
         retrigger: modal.querySelector('#sample-retrigger-toggle').checked,
+        probability: Number(modal.querySelector('#sample-probability').value),
         savedOverlap: AppState.getTracks()[0].mainBeatSound.settings.allowOverlap,
         savedRetrigger: AppState.getTracks()[0].mainBeatSound.settings.retrigger,
+        savedProbability: AppState.getTracks()[0].mainBeatSound.settings.probability,
       };
     });
-    expect(result).toEqual({ overlap: false, retrigger: false, savedOverlap: false, savedRetrigger: false });
+    expect(result).toEqual({ overlap: false, retrigger: false, probability: 35, savedOverlap: false, savedRetrigger: false, savedProbability: 35 });
+  });
+
+  test('probability gate honors boundaries and deterministic random rolls', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const { default: MetronomeEngine } = await import(new URL('js/metronomeEngine.js', document.baseURI).href);
+      return {
+        zero: MetronomeEngine.shouldPlayProbability(0, 0),
+        full: MetronomeEngine.shouldPlayProbability(100, 0.999),
+        accepted: MetronomeEngine.shouldPlayProbability(35, 0.34),
+        rejected: MetronomeEngine.shouldPlayProbability(35, 0.35),
+      };
+    });
+    expect(result).toEqual({ zero: false, full: true, accepted: true, rejected: false });
   });
 
 

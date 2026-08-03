@@ -93,6 +93,17 @@ const SoundSettingsModal = {
     DOM.soundSettingsModal.querySelector("#sound-scope-mode-select").addEventListener("change", (e) => {
         this.scopeMode = e.target.value;
     });
+    DOM.soundSettingsModal.querySelector("#sample-probability").addEventListener("input", (event) => {
+      if (!this.currentSoundSettings) return;
+      const probability = Math.max(0, Math.min(100, Number(event.target.value) || 0));
+      this.currentSoundSettings.probability = probability;
+      const output = DOM.soundSettingsModal.querySelector("#sample-probability-value");
+      output.value = `${probability}%`;
+      output.textContent = `${probability}%`;
+      const track = AppState.getTracks()[this.currentTrackIndex];
+      if (track?.[this.currentSoundType]) track[this.currentSoundType].settings = this.currentSoundSettings;
+      sendState(AppState.getCurrentStateForPreset(true));
+    });
     [
       ["#sample-overlap-toggle", "allowOverlap"],
       ["#sample-retrigger-toggle", "retrigger"],
@@ -643,9 +654,14 @@ const SoundSettingsModal = {
     }
     soundSettings.allowOverlap = soundSettings.allowOverlap !== false;
     soundSettings.retrigger = soundSettings.retrigger !== false;
+    const numericProbability = Number(soundSettings.probability);
+    soundSettings.probability = Number.isFinite(numericProbability) ? Math.max(0, Math.min(100, numericProbability)) : 100;
     this.currentSoundSettings = soundSettings;
     DOM.soundSettingsModal.querySelector("#sample-overlap-toggle").checked = soundSettings.allowOverlap;
     DOM.soundSettingsModal.querySelector("#sample-retrigger-toggle").checked = soundSettings.retrigger;
+    const probabilityInput = DOM.soundSettingsModal.querySelector("#sample-probability");
+    probabilityInput.value = soundSettings.probability;
+    DOM.soundSettingsModal.querySelector("#sample-probability-value").textContent = `${soundSettings.probability}%`;
 
     const slidersContainer = DOM.soundSettingsModal.querySelector("#sound-sliders-container");
     slidersContainer.innerHTML = "";

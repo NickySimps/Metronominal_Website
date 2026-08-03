@@ -104,6 +104,9 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     const soundObject = isAccent ? track.mainBeatSound : track.subdivisionSound;
     if (!soundObject || !soundObject.sound) return;
 
+    const probability = Number(soundObject.settings?.probability);
+    if (!MetronomeEngine.shouldPlayProbability(probability, Math.random())) return;
+
     const soundToPlay = soundObject.sound;
     const defaultVel = isAccent ? 1.0 : 0.7;
     const velocities = currentBarData.velocities || {};
@@ -323,6 +326,12 @@ function performEngineStopActions() {
 }
 
 const MetronomeEngine = {
+    shouldPlayProbability: (probability, roll) => {
+        if (!Number.isFinite(probability)) return true;
+        if (probability <= 0) return false;
+        if (probability >= 100) return true;
+        return roll * 100 < probability;
+    },
     cancelCountIn: () => {
         for (const source of countInSources) {
             try { source.stop(); } catch (_error) { /* The source may already have ended. */ }

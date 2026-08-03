@@ -819,6 +819,48 @@ select {
   }
 }
 
+.visualizer-mode-control {
+  position: relative;
+  display: inline-flex;
+  z-index: 1200;
+}
+.visualizer-mode-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(10rem, 1fr));
+  gap: 4px;
+  width: min(28rem, calc(100vw - 1rem));
+  max-height: min(24rem, calc(100dvh - 1rem));
+  overflow-y: auto;
+  padding: 6px;
+  z-index: 1300;
+  border: 2px solid var(--Main, #fff);
+  border-radius: var(--BorderRadius);
+  background: var(--Background, #111);
+  color: var(--TextPrimary, #fff);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+.visualizer-mode-menu[hidden] { display: none; }
+.visualizer-mode-menu button {
+  min-height: 2.25rem;
+  padding: .35rem .5rem;
+  border: 1px solid var(--Main, #fff);
+  border-radius: .35rem;
+  background: var(--Background);
+  color: var(--TextPrimary, #fff);
+  text-align: left;
+  cursor: pointer;
+}
+.visualizer-mode-menu button:hover,
+.visualizer-mode-menu button:focus-visible,
+.visualizer-mode-menu button[aria-current="true"],
+.visualizer-mode-menu button[data-drag-hover="true"] {
+  background: var(--Main);
+  color: var(--TextOnMain);
+}
+
 /* Styles for the new global application controls panel */
 .global-app-controls {
   display: flex;
@@ -858,6 +900,20 @@ select {
 }
 /* Desktop and larger */
 @media (min-width: 1024px) {
+  body.synthwave-theme .top-controls-area {
+    position: relative;
+    overflow: visible;
+    z-index: 1100;
+  }
+
+  body.synthwave-theme .tap-tempo-btn {
+    position: static;
+  }
+
+  body.synthwave-theme #tap-tempo-feedback {
+    position: static;
+  }
+
   html {
     height: 100vh; /* Ensure html element takes full viewport height */
     overflow: hidden; /* Prevent all scrolling on the html element */
@@ -1825,10 +1881,11 @@ button:active,
 /* Subdivision Options Container */
 .subdivision-options-container {
   position: fixed;
-  z-index: 1002; /* Higher than other elements */
+  z-index: 1500;
   display: flex;
   flex-flow: row wrap;
-  width: clamp(25vw, 90%, 250px);
+  width: min(250px, calc(100vw - 1rem));
+  box-sizing: border-box;
   gap: var(--s2);
   padding: var(--s5);
   background-color: var(--Background);
@@ -1840,6 +1897,14 @@ button:active,
   transform-origin: bottom center;
   transition: opacity 0.2s ease-out, transform 0.2s ease-out;
   pointer-events: none; /* Initially not interactive */
+}
+
+.subdivision-options-container.above {
+  z-index: 1502;
+}
+
+.subdivision-options-container.below {
+  z-index: 1501;
 }
 
 .subdivision-options-container.visible {
@@ -1875,6 +1940,19 @@ button:active,
   background-color: var(--Main);
   color: var(--TextOnMain);
   box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 500px) {
+  .subdivision-options-container {
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .subdivision-option {
+    padding: 10px 8px;
+    margin: 0;
+    font-size: var(--font-1);
+  }
 }
 
 /* Solo track styling */
@@ -3170,12 +3248,18 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
 #sound-settings-modal .sample-playback-controls-title { font-weight: 700; color: var(--TextSecondary, currentColor); }
 #sound-settings-modal .sample-playback-controls label { display: inline-flex; align-items: center; gap: .35rem; min-height: 1.75rem; cursor: pointer; }
 #sound-settings-modal .sample-playback-controls input { width: 1rem; height: 1rem; accent-color: var(--Main); }
+#sound-settings-modal .sample-probability-control { display: flex; align-items: center; gap: .55rem; width: 100%; margin: .55rem 0 .7rem; padding: .45rem .6rem; border: 1px solid color-mix(in srgb, var(--Main) 42%, transparent); border-radius: .55rem; background: color-mix(in srgb, var(--Main) 8%, transparent); }
+#sound-settings-modal .sample-probability-control > span { flex: 0 0 auto; font-weight: 700; color: var(--TextSecondary, currentColor); }
+#sound-settings-modal .sample-probability-control input[type="range"] { flex: 1 1 auto; min-width: 7rem; width: auto; }
+#sound-settings-modal .sample-probability-control output { min-width: 3rem; text-align: right; font-variant-numeric: tabular-nums; }
 
 #sound-settings-modal #sound-preview-btn[aria-pressed="true"] { background: var(--Alt2, #b33); }
 @media (max-width: 640px), (max-height: 700px) {
   #sound-settings-modal .header-right { flex-basis: 100%; justify-content: flex-start; }
   #sound-settings-modal .sound-scope-control { flex: 1 1 9rem; }
   #sound-settings-modal .sound-scope-control select { flex: 1 1 auto; min-width: 0; }
+  #sound-settings-modal .sample-probability-control { min-width: 0; }
+  #sound-settings-modal .sample-probability-control input[type="range"] { min-width: 0; }
   #sound-settings-modal .waveform-tools { gap: .45rem; padding: .4rem .5rem; }
   #sound-settings-modal .waveform-tools label { flex-basis: 100%; min-width: 0; }
   #sound-settings-modal .waveform-tools input[type="range"] { min-width: 0; }

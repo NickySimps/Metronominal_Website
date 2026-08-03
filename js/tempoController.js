@@ -105,6 +105,7 @@ const TempoController = {
   },
 
   initializeTempoControls: () => {
+
     DOM.increaseTempoBtn.addEventListener("click", () => {
       AppState.increaseTempo();
       sendState(AppState.getCurrentStateForPreset(true));

@@ -2,12 +2,23 @@
 
 import AppState from "./appState.js";
 
+const VISUALIZER_LABELS = {
+  waveform: "🌊 Waveform Scope", spectrum: "📊 Frequency RTA", lissajous: "🔮 Lissajous Matrix",
+  radial: "💫 Radial Pulse", spiral: "🌀 Spiral Bloom", orbit: "🪐 Orbit Bands", grid: "▦ Grid Pulse",
+  mirror: "🪞 Mirror Spectrum", stars: "✨ Starfield", ringbar: "🎡 Ring Bars", pulse: "🔆 Pulse Field",
+  ripple: "💧 Water Ripples", shore: "🏖️ Shorebreak", prism: "🌈 Pastel Prism", aurora: "🌌 Aurora Flow", reactor: "⚛️ Reactor Core",
+};
+
 const Oscilloscope = {
   canvas: null,
   canvasCtx: null,
   isDrawing: false,
   mode: "waveform",
   bandEnergy: { low: 0, mid: 0, high: 0 },
+  longPressTimer: null,
+  longPressStart: null,
+  longPressActive: false,
+  suppressNextClick: false,
   modes: ["waveform", "spectrum", "lissajous", "radial", "spiral", "orbit", "grid", "mirror", "stars", "ringbar", "pulse", "ripple", "shore", "prism", "aurora", "reactor"],
   themeModes: {
     default: "waveform",
@@ -30,34 +41,241 @@ const Oscilloscope = {
       return;
     }
     this.canvasCtx = this.canvas.getContext("2d");
-    this.canvas.style.cursor = "pointer";
-    this.canvas.title = "Click to cycle visualizer mode (Waveform -> Spectrum -> Lissajous -> Radial Pulse)";
+    this.canvas.style.cursor = "default";
+    this.canvas.removeAttribute("title");
 
     const btn = document.getElementById("visualizer-mode-btn");
-    if (btn) {
+    let modeMenu = document.getElementById("visualizer-mode-menu");
+    if (btn && !modeMenu) {
+      modeMenu = document.createElement("div");
+      modeMenu.id = "visualizer-mode-menu";
+      modeMenu.className = "visualizer-mode-menu";
+      modeMenu.setAttribute("role", "menu");
+      modeMenu.setAttribute("aria-label", "Visualizer modes");
+      modeMenu.hidden = true;
+      document.body.appendChild(modeMenu);
+    }
+    if (btn && modeMenu) {
+      let modePressTimer = null;
+      let modePressStart = null;
+      let longPressOpened = false;
+      let suppressModeClick = false;
+      let modeDragOption = null;
+
+      const setModeDragOption = (option) => {
+        if (option && !modeMenu.contains(option)) option = null;
+        modeDragOption = option;
+        modeMenu.querySelectorAll("[data-mode]").forEach((item) => item.removeAttribute("data-drag-hover"));
+        option?.setAttribute("data-drag-hover", "true");
+      };
+
+      this.modes.forEach((mode) => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.dataset.mode = mode;
+        option.setAttribute("role", "menuitem");
+        option.textContent = VISUALIZER_LABELS[mode];
+        option.addEventListener("pointerenter", () => {
+          setModeDragOption(option);
+        });
+        option.addEventListener("click", () => {
+          if (modeMenu.hidden) return;
+          this.setMode(mode);
+          modeMenu.hidden = true;
+          modeDragOption = null;
+          btn.setAttribute("aria-expanded", "false");
+          btn.focus();
+        });
+        modeMenu.appendChild(option);
+      });
+
+
+      const updateMenuSelection = () => modeMenu.querySelectorAll("[data-mode]").forEach((option) => {
+        option.setAttribute("aria-current", option.dataset.mode === this.mode ? "true" : "false");
+      });
+      const openModeMenu = () => {
+        longPressOpened = true;
+        suppressModeClick = true;
+        this.suppressNextClick = true;
+        updateMenuSelection();
+        modeMenu.hidden = false;
+        modeMenu.style.position = "fixed";
+        modeMenu.style.left = "0px";
+        modeMenu.style.right = "auto";
+        modeMenu.style.top = "0px";
+        btn.setAttribute("aria-expanded", "true");
+        requestAnimationFrame(() => {
+          const buttonRect = btn.getBoundingClientRect();
+          const menuRect = modeMenu.getBoundingClientRect();
+          const margin = 8;
+          const left = Math.min(Math.max(margin, buttonRect.right - menuRect.width), innerWidth - menuRect.width - margin);
+          const belowTop = buttonRect.bottom + 6;
+          const top = belowTop + menuRect.height <= innerHeight - margin
+            ? belowTop
+            : Math.max(margin, buttonRect.top - menuRect.height - 6);
+          modeMenu.style.left = `${left}px`;
+          modeMenu.style.top = `${top}px`;
+        });
+        modeMenu.querySelector(`[data-mode="${this.mode}"]`)?.focus();
+      };
+      const clearModePress = () => {
+        clearTimeout(modePressTimer);
+        modePressTimer = null;
+        modePressStart = null;
+      };
+
+      btn.addEventListener("click", () => {
+        if (suppressModeClick || longPressOpened) {
+          suppressModeClick = false;
+          longPressOpened = false;
+          return;
+        }
+        this.cycleMode();
+      });
+      btn.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) return;
+        modePressStart = { x: event.clientX, y: event.clientY };
+        clearModePress();
+        modePressStart = { x: event.clientX, y: event.clientY };
+        modePressTimer = setTimeout(openModeMenu, 500);
+      });
+      btn.addEventListener("pointermove", (event) => {
+        if (!modePressStart) return;
+        if (Math.hypot(event.clientX - modePressStart.x, event.clientY - modePressStart.y) > 18) clearModePress();
+      });
+      btn.addEventListener("pointerup", clearModePress);
+      btn.addEventListener("pointercancel", clearModePress);
+      btn.addEventListener("contextmenu", (event) => {
+        event.preventDefault();
+        openModeMenu();
+      });
+      document.addEventListener("pointerup", (event) => {
+        if (modeMenu.hidden) return;
+        const releaseOption = modeDragOption;
+        if (!releaseOption) return;
+        event.preventDefault();
+        this.setMode(releaseOption.dataset.mode);
+        modeMenu.hidden = true;
+        modeDragOption = null;
+        btn.setAttribute("aria-expanded", "false");
+        btn.focus();
+      });
+      document.addEventListener("pointermove", (event) => {
+        if (modeMenu.hidden) return;
+        let hoveredOption = null;
+        modeMenu.querySelectorAll("[data-mode]").forEach((option) => {
+          const rect = option.getBoundingClientRect();
+          if (event.clientX >= rect.left && event.clientX <= rect.right
+            && event.clientY >= rect.top && event.clientY <= rect.bottom) {
+            hoveredOption = option;
+          }
+        });
+        setModeDragOption(hoveredOption);
+      });
+      document.addEventListener("pointerdown", (event) => {
+        if (!modeMenu.hidden && !modeMenu.contains(event.target) && event.target !== btn) {
+          modeMenu.hidden = true;
+          btn.setAttribute("aria-expanded", "false");
+        }
+      });
+    } else if (btn) {
       btn.addEventListener("click", () => this.cycleMode());
     }
 
-    this.canvas.addEventListener("click", () => {
-      this.cycleMode();
+    const isBackgroundTarget = (target) => {
+      if (target === this.canvas || target === document.body || target === document.documentElement) return true;
+      return !target.closest("button, a, input, select, textarea, [role=button], .bar-visual, .beat-square, .theme-controls, .modal");
+    };
+    this.canvas.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      this.longPressStart = { x: event.clientX, y: event.clientY };
+      this.longPressActive = false;
+      this.canvas.setPointerCapture?.(event.pointerId);
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = setTimeout(() => {
+        this.longPressActive = true;
+        this.suppressNextClick = true;
+        document.dispatchEvent(new CustomEvent("visualizerlongpress"));
+      }, 500);
+    });
+    this.canvas.addEventListener("pointermove", (event) => {
+      if (!this.longPressStart || this.longPressActive) return;
+      const distance = Math.hypot(event.clientX - this.longPressStart.x, event.clientY - this.longPressStart.y);
+      if (distance > 18) {
+        clearTimeout(this.longPressTimer);
+        this.longPressTimer = null;
+      }
+    });
+    const finishLongPress = (event) => {
+      if (this.longPressActive) event.preventDefault();
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+      this.longPressStart = null;
+      this.longPressActive = false;
+    };
+    this.canvas.addEventListener("pointerup", finishLongPress);
+    this.canvas.addEventListener("pointercancel", finishLongPress);
+    this.canvas.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      document.dispatchEvent(new CustomEvent("visualizerlongpress"));
+    });
+    document.addEventListener("pointerdown", (event) => {
+      if (!isBackgroundTarget(event.target) || event.target === this.canvas) return;
+      if (event.button !== 0) return;
+      this.longPressStart = { x: event.clientX, y: event.clientY };
+      this.longPressActive = false;
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = setTimeout(() => {
+        this.longPressActive = true;
+        this.suppressNextClick = true;
+        document.dispatchEvent(new CustomEvent("visualizerlongpress"));
+      }, 500);
+    }, true);
+    document.addEventListener("pointermove", (event) => {
+      if (!this.longPressStart || this.longPressActive) return;
+      const distance = Math.hypot(event.clientX - this.longPressStart.x, event.clientY - this.longPressStart.y);
+      if (distance > 18) {
+        clearTimeout(this.longPressTimer);
+        this.longPressTimer = null;
+      }
+    }, true);
+    document.addEventListener("pointerup", (event) => {
+      if (!this.longPressStart) return;
+      if (this.longPressActive) event.preventDefault();
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+      this.longPressStart = null;
+      this.longPressActive = false;
+    }, true);
+    document.addEventListener("pointercancel", () => {
+      if (!this.longPressStart) return;
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+      this.longPressStart = null;
+      this.longPressActive = false;
+    }, true);
+    document.addEventListener("contextmenu", (event) => {
+      if (!isBackgroundTarget(event.target)) return;
+      event.preventDefault();
+      document.dispatchEvent(new CustomEvent("visualizerlongpress"));
     });
     document.addEventListener("themeapplied", (event) => {
       this.setModeForTheme(event.detail?.themeName);
     });
+
   },
 
   setMode(mode) {
     if (!this.modes.includes(mode)) return;
     this.mode = mode;
-    const labels = {
-      waveform: "🌊 Waveform Scope", spectrum: "📊 Frequency RTA", lissajous: "🔮 Lissajous Matrix",
-      radial: "💫 Radial Pulse", spiral: "🌀 Spiral Bloom", orbit: "🪐 Orbit Bands", grid: "▦ Grid Pulse",
-      mirror: "🪞 Mirror Spectrum", stars: "✨ Starfield", ringbar: "🎡 Ring Bars", pulse: "🔆 Pulse Field",
-      ripple: "💧 Water Ripples", shore: "🏖️ Shorebreak", prism: "🌈 Pastel Prism", aurora: "🌌 Aurora Flow", reactor: "⚛️ Reactor Core",
-    };
+    const labels = VISUALIZER_LABELS;
     const btn = document.getElementById("visualizer-mode-btn");
     if (btn) btn.textContent = labels[this.mode];
     if (this.canvas) this.canvas.title = `Visualizer: ${labels[this.mode]}. Click to cycle.`;
+    document.querySelectorAll("#visualizer-mode-menu [data-mode]").forEach((option) => {
+      option.setAttribute("aria-current", option.dataset.mode === this.mode ? "true" : "false");
+      option.removeAttribute("data-drag-hover");
+    });
   },
 
   setModeForTheme(themeName) {

@@ -23,11 +23,23 @@ let isLongPressActive = false;
 let longPressedBarElement = null;
 let longPressInitialPosition = { x: 0, y: 0 };
 let hoveredSubdivisionOption = null;
+let subdivisionSelectionInProgress = false;
 let lastPaintedBeatSquare = null;
 let dragPaintAction = null;
 let dragPaintTargetVel = 0.7;
 const LONG_PRESS_DURATION = 200; // ms
 const POINTER_MOVE_THRESHOLD = 35; // pixels (Forgiving for touch & mouse hold)
+
+function openSubdivisionSelectorForSelectedBar() {
+  const trackIndex = AppState.getSelectedTrackIndex();
+  const barIndex = AppState.getSelectedBarIndexInContainer();
+  const selectedBar = document.querySelector(
+    `.bar-visual[data-container-index="${trackIndex}"][data-bar-index="${barIndex}"]`
+  );
+  if (selectedBar) showSubdivisionSelector(selectedBar);
+}
+
+document.addEventListener("visualizerlongpress", openSubdivisionSelectorForSelectedBar);
 
 // Helper function to calculate total sub-beats needed based on subdivision
 function calculateTotalSubBeats(mainBeatsInBar, subdivision) {
@@ -310,6 +322,7 @@ async function applySubdivisionChange(containerIndex, barIndex, newSubdivision) 
         return;
     }
 
+
     const wasPlaying = AppState.isPlaying();
     if (wasPlaying) {
         await MetronomeEngine.togglePlay();
@@ -332,52 +345,38 @@ async function applySubdivisionChange(containerIndex, barIndex, newSubdivision) 
     }
 }
 
-async function onWindowPointerUp(event) {
-  if (isLongPressActive) {
-    if (hoveredSubdivisionOption) {
-      const newSubdivision = hoveredSubdivisionOption.dataset.value;
-      const barIndex = parseInt(longPressedBarElement.dataset.barIndex, 10);
-      const containerIndex = parseInt(longPressedBarElement.dataset.containerIndex, 10);
-
-      if (newSubdivision && !isNaN(barIndex) && !isNaN(containerIndex)) {
-        const wasPlaying = AppState.isPlaying();
-        if (wasPlaying) {
-          await MetronomeEngine.togglePlay();
-        }
-
-        AppState.setSelectedTrackIndex(containerIndex);
-        AppState.setSelectedBarIndexInContainer(barIndex);
-        AppState.setSubdivisionForSelectedBar(newSubdivision);
-        sendState(AppState.getCurrentStateForPreset(true));
-        
-        BarDisplayController.renderBarsAndControls(-1);
-        BarControlsController.updateBeatControlsDisplay();
-
-        if (wasPlaying && AppState.getBarSettings(containerIndex).length > 0) {
-          await MetronomeEngine.togglePlay();
-        }
-
-        if (ThemeController.is3DSceneActive()) {
-          ThemeController.update3DScenePostStateChange();
-        }
-        await applySubdivisionChange(containerIndex, barIndex, newSubdivision);
-      }
-    }
+async function selectSubdivisionOption(option) {
+  const newSubdivision = option?.dataset.value;
+  const barIndex = parseInt(longPressedBarElement?.dataset.barIndex, 10);
+  const containerIndex = parseInt(longPressedBarElement?.dataset.containerIndex, 10);
+  if (newSubdivision && !isNaN(barIndex) && !isNaN(containerIndex)) {
+    await applySubdivisionChange(containerIndex, barIndex, newSubdivision);
   } else if (longPressTimer) {
-    // This was a short click
+    return;
+  }
+  hideSubdivisionSelector();
+  cleanupPointerListeners();
+  resetLongPressState();
+}
+
+async function onWindowPointerUp(event) {
+  if (isLongPressActive && hoveredSubdivisionOption && !subdivisionSelectionInProgress) {
+    await selectSubdivisionOption(hoveredSubdivisionOption);
+    return;
+  }
+  if (!isLongPressActive && longPressTimer) {
     event.preventDefault();
     clearTimeout(longPressTimer);
     const clickedBarIndex = parseInt(longPressedBarElement.dataset.barIndex, 10);
     const clickedContainerIndex = parseInt(longPressedBarElement.dataset.containerIndex, 10);
-
     if (AppState.getSelectedTrackIndex() !== clickedContainerIndex || AppState.getSelectedBarIndexInContainer() !== clickedBarIndex) {
-        AppState.setSelectedTrackIndex(clickedContainerIndex);
-        AppState.setSelectedBarIndexInContainer(clickedBarIndex);
-        sendState(AppState.getCurrentStateForPreset(true));
-        BarDisplayController.renderBarsAndControls();
-        BarControlsController.updateBeatControlsDisplay();
+      AppState.setSelectedTrackIndex(clickedContainerIndex);
+      AppState.setSelectedBarIndexInContainer(clickedBarIndex);
+      sendState(AppState.getCurrentStateForPreset(true));
+      BarDisplayController.renderBarsAndControls();
+      BarControlsController.updateBeatControlsDisplay();
     } else {
-        sendState(AppState.getCurrentStateForPreset(true));
+      sendState(AppState.getCurrentStateForPreset(true));
     }
   }
 
@@ -396,6 +395,7 @@ function resetLongPressState() {
   longPressTimer = null;
   longPressedBarElement = null;
   hoveredSubdivisionOption = null;
+  subdivisionSelectionInProgress = false;
   lastPaintedBeatSquare = null;
   dragPaintAction = null;
 }
@@ -460,6 +460,7 @@ function showSubdivisionSelector(barElement) {
         }
         const container = document.createElement('div');
         container.className = 'subdivision-options-container';
+        container.classList.add(position);
         container.dataset.forBar = `${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}`;
         if (position === 'below') {
             container.classList.add('below');
@@ -471,9 +472,17 @@ function showSubdivisionSelector(barElement) {
             element.dataset.value = optionData.value;
             element.textContent = optionData.text;
             
+            element.addEventListener('pointerenter', () => {
+                if (!subdivisionSelectionInProgress) {
+                    hoveredSubdivisionOption = element;
+                    element.classList.add('hovered');
+                }
+            });
+
             // Handle click for selection (useful when opened via indicator click)
             element.addEventListener('click', async (e) => {
                 e.stopPropagation();
+                if (subdivisionSelectionInProgress) return;
                 const newSubdivision = element.dataset.value;
                 if (newSubdivision) {
                     const wasPlaying = AppState.isPlaying();
@@ -505,6 +514,12 @@ function showSubdivisionSelector(barElement) {
         });
 
         document.body.appendChild(container);
+        container.addEventListener('pointerup', () => {
+            if (hoveredSubdivisionOption && !subdivisionSelectionInProgress) {
+                subdivisionSelectionInProgress = true;
+                void selectSubdivisionOption(hoveredSubdivisionOption);
+            }
+        });
         container.style.left = `${barRect.left + barRect.width / 2}px`;
         if (position === 'above') {
             container.style.top = `${barRect.top - 10}px`;
@@ -515,8 +530,34 @@ function showSubdivisionSelector(barElement) {
         }
 
         requestAnimationFrame(() => {
+            const margin = 8;
+            const rect = container.getBoundingClientRect();
+            let left = barRect.left + barRect.width / 2;
+            if (rect.left < margin) left += margin - rect.left;
+            if (rect.right > window.innerWidth - margin) left -= rect.right - (window.innerWidth - margin);
+            container.style.left = `${left}px`;
+            if (position === 'above' && (rect.top < margin || rect.bottom > window.innerHeight - margin)) {
+                container.style.top = `${margin}px`;
+                container.style.transform = 'translate(-50%, 0)';
+            } else if (position === 'below' && rect.bottom > window.innerHeight - margin) {
+                container.style.top = `${Math.max(margin, window.innerHeight - rect.height - margin)}px`;
+                container.style.transform = 'translate(-50%, 0)';
+            }
             requestAnimationFrame(() => {
                 container.classList.add("visible");
+                requestAnimationFrame(() => {
+                    const options = [...container.querySelectorAll('.subdivision-option')];
+                    const optionRects = options.map((option) => option.getBoundingClientRect());
+                    const top = Math.min(...optionRects.map((rect) => rect.top));
+                    const bottom = Math.max(...optionRects.map((rect) => rect.bottom));
+                    const currentTop = parseFloat(container.style.top);
+                    let correction = top < margin ? margin - top : 0;
+                    const correctedBottom = bottom + correction;
+                    if (correctedBottom > window.innerHeight - margin) {
+                        correction += window.innerHeight - margin - correctedBottom;
+                    }
+                    if (correction) container.style.top = `${currentTop + correction}px`;
+                });
             });
         });
         
@@ -538,6 +579,29 @@ function showSubdivisionSelector(barElement) {
 
     createContainer(lowerSubdivisions, 'above');
     createContainer(higherSubdivisions, 'below');
+    setTimeout(() => {
+        const panels = [...document.querySelectorAll(`.subdivision-options-container[data-for-bar="${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}"]`)].filter((panel) => panel.classList.contains('visible'));
+        const above = panels.find((panel) => panel.classList.contains('above'));
+        const below = panels.find((panel) => panel.classList.contains('below'));
+        if (!above || !below) return;
+        const aboveRect = above.getBoundingClientRect();
+        const belowRect = below.getBoundingClientRect();
+        if (aboveRect.bottom <= belowRect.top - 8) return;
+
+        const margin = 8;
+        const gap = 8;
+        const aboveHeight = aboveRect.height;
+        const belowHeight = belowRect.height;
+        const totalHeight = aboveHeight + gap + belowHeight;
+        above.style.top = `${margin}px`;
+        above.style.transform = 'translate(-50%, 0)';
+        below.style.top = `${margin + aboveHeight + gap}px`;
+        below.style.transform = 'translate(-50%, 0)';
+        if (totalHeight > window.innerHeight - margin * 2) {
+            below.style.maxHeight = `${Math.max(120, window.innerHeight - margin - (margin + aboveHeight + gap))}px`;
+            below.style.overflowY = 'auto';
+        }
+    }, 75);
 }
 
 let currentHideOnClickOutside = null;
