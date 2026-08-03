@@ -8,6 +8,7 @@ import Oscilloscope from "./oscilloscope.js";
 import { frequencyToNote, noteToFrequency, noteStrings, generateNoteFrequencies, semitonesToInterval } from "./utils.js";
 import { Slider } from './slider.js';
 import SoundSynth from './soundSynth.js';
+import { normalizeFilterSettings, createSoundFilterInput } from './audioEffects.js';
 
 const SoundSettingsModal = {
   isNoteSnapping: false,
@@ -656,6 +657,7 @@ const SoundSettingsModal = {
     soundSettings.allowOverlap = soundSettings.allowOverlap !== false;
     soundSettings.retrigger = soundSettings.retrigger !== false;
     soundSettings.reverse = soundSettings.reverse === true;
+    normalizeFilterSettings(soundSettings);
     const numericProbability = Number(soundSettings.probability);
     soundSettings.probability = Number.isFinite(numericProbability) ? Math.max(0, Math.min(100, numericProbability)) : 100;
     this.currentSoundSettings = soundSettings;
@@ -822,8 +824,11 @@ const SoundSettingsModal = {
         this.createSlider(slidersContainer, "release", 1, 2000, 1, (soundSettings.release || 0.2) * 1000);
     }
 
+    this.createSlider(slidersContainer, "highPassFrequency", 20, 20000, 1, soundSettings.highPassFrequency);
+    this.createSlider(slidersContainer, "lowPassFrequency", 20, 20000, 1, soundSettings.lowPassFrequency);
+
     for (const param in soundSettings) {
-      if (typeof soundSettings[param] === "number" && !["attack", "decay", "sustain", "release", "trimStart", "trimEnd", "pitchShift"].includes(param)) {
+      if (typeof soundSettings[param] === "number" && !["attack", "decay", "sustain", "release", "trimStart", "trimEnd", "pitchShift", "probability", "highPassFrequency", "lowPassFrequency"].includes(param)) {
         const isTimeBased = param === 'pitchEnvelopeTime';
         const isVolume = param.toLowerCase() === 'volume';
         const min = param.toLowerCase().includes("frequency") ? 20 : (isTimeBased ? 1 : (isVolume ? 0 : 0.01));
@@ -888,7 +893,7 @@ const SoundSettingsModal = {
     if (baseSound?.startsWith("Synth")) {
       const functionName = `play${baseSound.replace("Synth ", "").replace(/ /g, "")}`;
       if (SoundSynth[functionName]) {
-        SoundSynth[functionName](audioContext, audioContext.currentTime, { ...settings, volume: settings.volume ?? 1 }, analyser);
+        SoundSynth[functionName](audioContext, audioContext.currentTime, { ...settings, volume: settings.volume ?? 1 }, createSoundFilterInput(audioContext, analyser, settings));
         this.previewSource = { isSynth: true };
       }
     } else {
@@ -899,7 +904,7 @@ const SoundSettingsModal = {
         source.buffer = buffer;
         source.playbackRate.value = Math.pow(2, (settings.pitchShift || 0) / 12);
         source.connect(gain);
-        gain.connect(analyser);
+        gain.connect(createSoundFilterInput(audioContext, analyser, settings));
         const start = settings.trimStart || 0;
         const end = settings.trimEnd || buffer.duration;
         source.start(0, start, Math.max(0, end - start));

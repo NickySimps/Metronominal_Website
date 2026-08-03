@@ -3,6 +3,7 @@ import AppState from './appState.js';
 import TrackController from './tracksController.js';
 import DOM from './domSelectors.js';
 import RecordingVisualizer from './recordingVisualizer.js';
+import { createSoundFilterInput } from './audioEffects.js';
 
 const AudioController = {
     activeRecordingSources: new Map(),
@@ -162,7 +163,7 @@ const AudioController = {
         const gainNode = audioContext.createGain();
         gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
         source.connect(gainNode);
-        gainNode.connect(destination || audioContext.destination);
+        gainNode.connect(createSoundFilterInput(audioContext, destination || audioContext.destination, soundSettings));
 
         const offset = trimStart || 0;
         const end = trimEnd || audioBuffer.duration;

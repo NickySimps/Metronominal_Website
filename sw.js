@@ -1,4 +1,4 @@
-const CACHE_NAME = 'metronominal-v41';
+const CACHE_NAME = 'metronominal-v42';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const ASSETS_TO_CACHE = [
   './manifest.json',
   './js/appState.js',
   './js/audioController.js',
+  './js/audioEffects.js',
   './js/audioSerialization.js',
   './js/barControlsController.js',
   './js/barDisplayController.js',

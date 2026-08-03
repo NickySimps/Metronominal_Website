@@ -434,6 +434,12 @@ test.describe('mode controls responsive layout', () => {
         hasPlaybackControls: Boolean(modal.querySelector('.sample-playback-controls')),
         hasReverseToggle: Boolean(modal.querySelector('#sample-reverse-toggle')),
         probabilityValue: Number(modal.querySelector('#sample-probability').value),
+        probabilitySliderCount: modal.querySelectorAll('#sample-probability').length,
+        genericProbabilitySliderCount: modal.querySelectorAll('[data-param="probability"]').length,
+        highPassSliderCount: modal.querySelectorAll('[data-param="highPassFrequency"]').length,
+        lowPassSliderCount: modal.querySelectorAll('[data-param="lowPassFrequency"]').length,
+        probabilitySliderWidth: modal.querySelector('#sample-probability').getBoundingClientRect().width,
+        probabilityControlWidth: modal.querySelector('.sample-probability-control').getBoundingClientRect().width,
         probabilityLabel: modal.querySelector('#sample-probability-value').textContent,
         probabilityBeforeOscilloscope: modal.querySelector('#sample-probability').compareDocumentPosition(canvas) & Node.DOCUMENT_POSITION_FOLLOWING,
         overlapChecked: modal.querySelector('#sample-overlap-toggle')?.checked,
@@ -459,6 +465,11 @@ test.describe('mode controls responsive layout', () => {
     expect(result.hasPlaybackControls).toBe(true);
     expect(result.hasReverseToggle).toBe(true);
     expect(result.probabilityValue).toBe(100);
+    expect(result.probabilitySliderCount).toBe(1);
+    expect(result.genericProbabilitySliderCount).toBe(0);
+    expect(result.highPassSliderCount).toBe(1);
+    expect(result.lowPassSliderCount).toBe(1);
+    expect(result.probabilitySliderWidth).toBeGreaterThan(result.probabilityControlWidth - 24);
     expect(result.probabilityLabel).toBe('100%');
     expect(result.probabilityBeforeOscilloscope).toBeTruthy();
     expect(result.overlapChecked).toBe(true);

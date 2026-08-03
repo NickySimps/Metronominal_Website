@@ -272,6 +272,8 @@ function normalizeSectionSound(value, fallbackSound, fallbackSettings) {
     settings.allowOverlap = settings.allowOverlap !== false;
     settings.retrigger = settings.retrigger !== false;
     settings.reverse = settings.reverse === true;
+    settings.highPassFrequency = Math.max(20, Math.min(20000, Number(settings.highPassFrequency) || 20));
+    settings.lowPassFrequency = Math.max(settings.highPassFrequency, Math.min(20000, Number(settings.lowPassFrequency) || 20000));
     const probability = Number(settings.probability);
     settings.probability = Number.isFinite(probability) ? Math.max(0, Math.min(100, probability)) : 100;
   return { sound: value.sound.slice(0, 64), settings };

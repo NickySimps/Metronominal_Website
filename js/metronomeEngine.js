@@ -12,6 +12,7 @@ import SoundSynth from './soundSynth.js';
 import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, broadcastSyncPulse, getDesiredHostPlaybackState } from './webrtc.js';
 import AudioController from './audioController.js';
 import MidiController from './midiController.js';
+import { createSoundFilterInput } from './audioEffects.js';
 
 let metronomeWorker = new Worker('js/metronomeWorker.js');
 let metronomeWorkerReady = false;
@@ -145,7 +146,7 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     if (baseSoundName && baseSoundName.startsWith('Synth')) {
         const synthFunctionName = `play${baseSoundName.replace('Synth ', '').replace(/ /g, '')}`;
         if (SoundSynth[synthFunctionName]) {
-            SoundSynth[synthFunctionName](audioContext, actualBeatTime, mergedSettings, destination);
+            SoundSynth[synthFunctionName](audioContext, actualBeatTime, mergedSettings, createSoundFilterInput(audioContext, destination, mergedSettings));
         } else {
             console.warn(`Synth function ${synthFunctionName} not found in SoundSynth.`);
         }

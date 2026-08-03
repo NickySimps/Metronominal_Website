@@ -3418,9 +3418,9 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
 #sound-settings-modal .sample-playback-controls-title { font-weight: 700; color: var(--TextSecondary, currentColor); }
 #sound-settings-modal .sample-playback-controls label { display: inline-flex; align-items: center; gap: .35rem; min-height: 1.75rem; cursor: pointer; }
 #sound-settings-modal .sample-playback-controls input { width: 1rem; height: 1rem; accent-color: var(--Main); }
-#sound-settings-modal .sample-probability-control { display: flex; align-items: center; gap: .55rem; width: 100%; margin: .55rem 0 .7rem; padding: .45rem .6rem; border: 1px solid color-mix(in srgb, var(--Main) 42%, transparent); border-radius: .55rem; background: color-mix(in srgb, var(--Main) 8%, transparent); }
+#sound-settings-modal .sample-probability-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .35rem .55rem; width: 100%; box-sizing: border-box; margin: .55rem 0 .7rem; padding: .45rem .6rem; border: 1px solid color-mix(in srgb, var(--Main) 42%, transparent); border-radius: var(--BorderRadius); background: color-mix(in srgb, var(--Main) 8%, transparent); }
 #sound-settings-modal .sample-probability-control > span { flex: 0 0 auto; font-weight: 700; color: var(--TextSecondary, currentColor); }
-#sound-settings-modal .sample-probability-control input[type="range"] { flex: 1 1 auto; min-width: 7rem; width: auto; }
+#sound-settings-modal .sample-probability-control input[type="range"] { grid-column: 1 / -1; grid-row: 2; width: 100%; min-width: 0; }
 #sound-settings-modal .sample-probability-control output { min-width: 3rem; text-align: right; font-variant-numeric: tabular-nums; }
 
 #sound-settings-modal #sound-preview-btn[aria-pressed="true"] { background: var(--Alt2, #b33); }
