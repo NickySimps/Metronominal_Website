@@ -81,6 +81,8 @@ function getTrackSwingOffsetSec(track) {
   return (track.swing / 100.0) * (secondsPerBeatUnit * 0.5);
 }
 
+const activeSynthVoices = new Map();
+
 function playBeatSound(track, beatTime, trackIndex = 0) {
     const audioContext = AppState.getAudioContext();
     const isAnySoloed = AppState.isAnyTrackSoloed();
@@ -146,7 +148,27 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     if (baseSoundName && baseSoundName.startsWith('Synth')) {
         const synthFunctionName = `play${baseSoundName.replace('Synth ', '').replace(/ /g, '')}`;
         if (SoundSynth[synthFunctionName]) {
-            SoundSynth[synthFunctionName](audioContext, actualBeatTime, mergedSettings, createSoundFilterInput(audioContext, destination, mergedSettings));
+            const synthVoiceKey = mergedSettings.voiceKey;
+            const previousVoice = activeSynthVoices.get(synthVoiceKey);
+            const attack = Number.isFinite(Number(soundSettings.attack)) ? Number(soundSettings.attack) : 0.01;
+            const decay = Number.isFinite(Number(soundSettings.decay)) ? Number(soundSettings.decay) : 0.1;
+            const release = Number.isFinite(Number(soundSettings.release)) ? Number(soundSettings.release) : 0.1;
+            const voiceDuration = Math.max(0.1, attack + decay + release + 0.1);
+            if (previousVoice && actualBeatTime < previousVoice.endTime) {
+                if (soundSettings.retrigger === false) return;
+                if (soundSettings.allowOverlap === false) {
+                    previousVoice.gain.gain.cancelScheduledValues(actualBeatTime);
+                    previousVoice.gain.gain.setValueAtTime(0, actualBeatTime);
+                }
+            }
+            const synthVoiceGain = audioContext.createGain();
+            synthVoiceGain.gain.setValueAtTime(1, actualBeatTime);
+            synthVoiceGain.connect(createSoundFilterInput(audioContext, destination, mergedSettings));
+            SoundSynth[synthFunctionName](audioContext, actualBeatTime, mergedSettings, synthVoiceGain);
+            activeSynthVoices.set(synthVoiceKey, {
+                endTime: actualBeatTime + voiceDuration,
+                gain: synthVoiceGain,
+            });
         } else {
             console.warn(`Synth function ${synthFunctionName} not found in SoundSynth.`);
         }
