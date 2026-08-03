@@ -306,6 +306,23 @@ test.describe('mode controls responsive layout', () => {
     })).toBe('mirror');
   });
 
+  test('keeps beat and bar labels visible inside the measure controls', async ({ page }) => {
+    await page.setViewportSize({ width: 760, height: 300 });
+    await page.goto('/');
+    const result = await page.evaluate(() => {
+      const container = document.querySelector('.measures-container');
+      container.classList.add('showing');
+      const labels = [...container.querySelectorAll('.measures-text, .bars-text')];
+      const containerRect = container.getBoundingClientRect();
+      return {
+        overflow: getComputedStyle(container).overflow,
+        labelsInside: labels.every((label) => label.getBoundingClientRect().bottom <= containerRect.bottom + 1),
+      };
+    });
+    expect(result.overflow).toBe('visible');
+    expect(result.labelsInside).toBe(true);
+  });
+
   test('clicking the background does not change the visualizer', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 600 });
     await page.goto('/');

@@ -384,7 +384,7 @@ input[type="range"]::-webkit-slider-runnable-track {
 .measures-container {
   /* Transition setup for layout only */
   display: flex;
-  overflow: hidden;
+  overflow: visible;
   max-height: 0;
   opacity: 0;
   transform: scale(0.95); /* Initial state */
