@@ -670,19 +670,26 @@ test.describe('mode controls responsive layout', () => {
       const preview = document.querySelector('#sound-preview-btn');
       await SoundSettingsModal.togglePreview();
       const previewActive = preview.getAttribute('aria-pressed') === 'true';
+      const previewLabel = preview.textContent.trim();
       SoundSettingsModal.stopPreview();
       const track = AppState.getTracks()[0];
       track.mainBeatSound.sound = 'Click1.mp3';
+      track.mainBeatSound.settings.reverse = true;
       await SoundSettingsModal.show(0, 'mainBeatSound');
+      await SoundSettingsModal.togglePreview();
+      const previewReverse = SoundSettingsModal.previewSource?.playbackRate?.value < 0;
+      SoundSettingsModal.stopPreview();
       return {
         previewActive,
+        previewLabel,
         previewStopped: preview.getAttribute('aria-pressed') === 'false',
+        previewReverse,
         waveformTools: Boolean(document.querySelector('.waveform-tools')),
         zoomControl: Boolean(document.querySelector('.waveform-zoom')),
         panControl: Boolean(document.querySelector('.waveform-pan')),
       };
     });
-    expect(result).toEqual({ previewActive: true, previewStopped: true, waveformTools: true, zoomControl: true, panControl: true });
+    expect(result).toEqual({ previewActive: true, previewLabel: 'Stop', previewStopped: true, previewReverse: true, waveformTools: true, zoomControl: true, panControl: true });
   });
 
   test('sample overlap and retrigger settings persist when the modal reopens', async ({ page }) => {

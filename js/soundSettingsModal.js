@@ -729,7 +729,7 @@ const SoundSettingsModal = {
         this.drawWaveformAndTrimLines = (buffer) => {
             const visibleSpan = 1 / this.waveformZoom;
             const visibleStart = this.waveformPan * (1 - visibleSpan);
-            RecordingVisualizer.drawWaveform(buffer, waveformCanvas, mainColor, visibleStart, visibleStart + visibleSpan);
+            RecordingVisualizer.drawWaveform(buffer, waveformCanvas, mainColor, visibleStart, visibleStart + visibleSpan, soundSettings.reverse === true);
             const ctx = waveformCanvas.getContext('2d');
 
             if (this.isGridSnapping) {
@@ -771,8 +771,8 @@ const SoundSettingsModal = {
             const trimVisibleStart = this.waveformPan * (1 - trimVisibleSpan);
             const trimVisibleEnd = trimVisibleStart + trimVisibleSpan;
             const toCanvasX = (time) => ((time / buffer.duration - trimVisibleStart) / trimVisibleSpan) * waveformCanvas.width;
-            const startX = toCanvasX(trimStart);
-            const endX = toCanvasX(trimEnd);
+            const startX = soundSettings.reverse ? toCanvasX(buffer.duration - trimEnd) : toCanvasX(trimStart);
+            const endX = soundSettings.reverse ? toCanvasX(buffer.duration - trimStart) : toCanvasX(trimEnd);
 
             ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
             if (startX > 0) ctx.fillRect(0, 0, Math.min(waveformCanvas.width, startX), waveformCanvas.height);
@@ -795,7 +795,8 @@ const SoundSettingsModal = {
             const visibleSpan = 1 / this.waveformZoom;
             const visibleStart = this.waveformPan * (1 - visibleSpan);
             const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-            const time = (visibleStart + ratio * visibleSpan) * soundInfo.audioBuffer.duration;
+            const normalizedTime = visibleStart + ratio * visibleSpan;
+            const time = (soundSettings.reverse ? 1 - normalizedTime : normalizedTime) * soundInfo.audioBuffer.duration;
             const startSlider = this.sliders.find((slider) => slider.sliderElement.dataset.param === "trimStart");
             const endSlider = this.sliders.find((slider) => slider.sliderElement.dataset.param === "trimEnd");
             if (activeTrimHandle === "start" && startSlider) startSlider.setValue(Math.min(time, endSlider?.value ?? time));
@@ -923,12 +924,15 @@ const SoundSettingsModal = {
         const source = audioContext.createBufferSource();
         const gain = audioContext.createGain();
         source.buffer = buffer;
-        source.playbackRate.value = Math.pow(2, (settings.pitchShift || 0) / 12);
+        const playbackRate = Math.pow(2, (settings.pitchShift || 0) / 12);
+        const reverse = settings.reverse === true;
+        source.playbackRate.value = reverse ? -Math.abs(playbackRate) : playbackRate;
+        gain.gain.setValueAtTime(settings.volume ?? 1, audioContext.currentTime);
         source.connect(gain);
         gain.connect(createSoundFilterInput(audioContext, analyser, settings));
         const start = settings.trimStart || 0;
         const end = settings.trimEnd || buffer.duration;
-        source.start(0, start, Math.max(0, end - start));
+        source.start(0, reverse ? end : start, Math.max(0, end - start));
         source.onended = () => this.stopPreview();
         this.previewSource = source;
       }
@@ -936,7 +940,7 @@ const SoundSettingsModal = {
 
     if (this.previewSource) {
       const button = DOM.soundSettingsModal.querySelector("#sound-preview-btn");
-      button.textContent = "■ Stop Preview";
+      button.textContent = "Stop";
       button.setAttribute("aria-pressed", "true");
       this.startDrawing(analyser);
       if (this.previewSource.isSynth) {

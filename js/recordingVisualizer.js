@@ -70,7 +70,7 @@ const RecordingVisualizer = (function() {
                 canvasCtx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
             }
         },
-        drawWaveform: (buffer, canvasElement, color, viewStart = 0, viewEnd = 1) => {
+        drawWaveform: (buffer, canvasElement, color, viewStart = 0, viewEnd = 1, reverse = false) => {
             const canvas = canvasElement;
             const canvasCtx = canvas.getContext('2d');
             const data = buffer.getChannelData(0);
@@ -93,7 +93,8 @@ const RecordingVisualizer = (function() {
             }
 
             for (let i = 0; i < visibleData.length; i++) {
-                const v = (visibleData[i] / max + 1) / 2; //-Normalize to 0-1 range
+                const sampleIndex = reverse ? visibleData.length - 1 - i : i;
+                const v = (visibleData[sampleIndex] / max + 1) / 2; //-Normalize to 0-1 range
                 const y = v * canvas.height;
 
                 if (i === 0) {
