@@ -1834,6 +1834,20 @@ button:active,
   padding: var(--s2);
   box-shadow: var(--Main) 0px var(--s2);
 }
+.track-name-input {
+  min-width: 8rem;
+  max-width: min(14rem, 45vw);
+  margin: var(--s2);
+  padding: var(--s2);
+  border: 2px solid var(--Highlight);
+  border-radius: var(--BorderRadius);
+  background: var(--Accent);
+  color: var(--track-text);
+  font: inherit;
+  font-weight: 700;
+  box-sizing: border-box;
+}
+
 .track-volume-value,
 .track-volume-label {
   font-size: var(--font-1);

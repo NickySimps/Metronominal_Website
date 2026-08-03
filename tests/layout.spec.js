@@ -396,6 +396,27 @@ test.describe('mode controls responsive layout', () => {
     expect(selection.bar).toBe(1);
     expect(selection.selectedBars).toEqual(['1']);
     await expect(page.locator('.subdivision-options-container.visible').first()).toBeVisible();
+    const option = page.locator('.subdivision-option').first();
+    const subdivision = Number(await option.getAttribute('data-value'));
+    await option.click();
+    await expect.poll(() => page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      return AppState.getBarSettings(0)[1].subdivision;
+    })).toBe(subdivision);
+  });
+
+  test('tapping a track name opens an editable name field and saves the new name', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.track-name').first().click();
+    const nameInput = page.locator('.track-name-input').first();
+    await expect(nameInput).toBeFocused();
+    await nameInput.fill('Lead');
+    await nameInput.press('Enter');
+    await expect(page.locator('.track-name').first()).toHaveText('Lead');
+    await expect.poll(() => page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      return AppState.getTracks()[0].name;
+    })).toBe('Lead');
   });
 
   test('clicking the background does not change the visualizer', async ({ page }) => {

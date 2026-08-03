@@ -411,6 +411,7 @@ function resetLongPressState() {
 }
 
 function showSubdivisionSelector(barElement) {
+    longPressedBarElement = barElement;
     const isAlreadyVisible = document.querySelector('.subdivision-options-container.visible');
     const visibleForThisBar = isAlreadyVisible && isAlreadyVisible.dataset.forBar === `${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}`;
     
@@ -495,26 +496,6 @@ function showSubdivisionSelector(barElement) {
                 if (subdivisionSelectionInProgress) return;
                 const newSubdivision = element.dataset.value;
                 if (newSubdivision) {
-                    const wasPlaying = AppState.isPlaying();
-                    if (wasPlaying) {
-                        await MetronomeEngine.togglePlay();
-                    }
-
-                    AppState.setSelectedTrackIndex(containerIndex);
-                    AppState.setSelectedBarIndexInContainer(barIndex);
-                    AppState.setSubdivisionForSelectedBar(newSubdivision);
-                    sendState(AppState.getCurrentStateForPreset(true));
-                    
-                    BarDisplayController.renderBarsAndControls(-1);
-                    BarControlsController.updateBeatControlsDisplay();
-
-                    if (wasPlaying && AppState.getBarSettings(containerIndex).length > 0) {
-                        await MetronomeEngine.togglePlay();
-                    }
-
-                    if (ThemeController.is3DSceneActive()) {
-                        ThemeController.update3DScenePostStateChange();
-                    }
                     await applySubdivisionChange(containerIndex, barIndex, newSubdivision);
                 }
                 hideSubdivisionSelector();

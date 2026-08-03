@@ -128,7 +128,7 @@ function createTrackElement(track, index) {
 
   trackElement.innerHTML = `
     <div class="track-controls">
-      <span class="track-name">Track ${index + 1}</span>
+      <span class="track-name">${track.name || `Track ${index + 1}`}</span>
       <button class="track-mute-btn" title="${track.muted ? "Unmute track" : "Mute track"}"
         aria-label="${track.muted ? "Unmute track" : "Mute track"}" aria-pressed="${track.muted}">⍉</button>
       <button class="track-solo-btn" title="${track.solo ? "Unsolo track" : "Solo track"}"
@@ -205,7 +205,7 @@ function updateTrackElement(trackElement, track, index) {
   soloBtn.setAttribute("aria-pressed", String(track.solo));
 
   // Update track name
-  trackElement.querySelector(".track-name").textContent = `Track ${index + 1}`;
+  trackElement.querySelector(".track-name").textContent = track.name || `Track ${index + 1}`;
 
   // Update volume slider and display
   trackElement.querySelector(".track-volume-slider").value = track.volume;
@@ -332,7 +332,7 @@ const TrackController = {
 
       trackElement.innerHTML = `
         <div class="track-controls">
-          <span class="track-name">Track ${index + 1}</span>
+          <span class="track-name">${track.name || `Track ${index + 1}`}</span>
           <button class="track-mute-btn"
             title="${track.muted ? "Unmute track" : "Mute track"}"
             aria-label="${track.muted ? "Unmute track" : "Mute track"}"
@@ -503,6 +503,44 @@ const TrackController = {
             document.dispatchEvent(new CustomEvent("trackselectionchanged", { detail: { shouldScroll } }));
         }, 0);
     };
+
+    if (target.matches(".track-name")) {
+      event.stopPropagation();
+      updateSelectionUI(false);
+      const track = AppState.getTracks()[containerIndex];
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "track-name-input";
+      input.value = track?.name || `Track ${containerIndex + 1}`;
+      input.maxLength = 64;
+      input.setAttribute("aria-label", "Track name");
+      target.replaceWith(input);
+      input.focus();
+      input.select();
+
+      let finished = false;
+      const finishEdit = (save) => {
+        if (finished) return;
+        finished = true;
+        const name = input.value.trim();
+        if (save && name) {
+          AppState.updateTrack(containerIndex, { name });
+          sendState(AppState.getCurrentStateForPreset(true));
+        }
+        TrackController.renderTracks();
+      };
+      input.addEventListener("keydown", (keyEvent) => {
+        if (keyEvent.key === "Enter") {
+          keyEvent.preventDefault();
+          finishEdit(true);
+        } else if (keyEvent.key === "Escape") {
+          keyEvent.preventDefault();
+          finishEdit(false);
+        }
+      });
+      input.addEventListener("blur", () => finishEdit(true), { once: true });
+      return;
+    }
 
     if (target.matches(".track-mute-btn")) {
       const track = AppState.getTracks()[containerIndex];
