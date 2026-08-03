@@ -128,6 +128,13 @@ test.describe('mode controls responsive layout', () => {
     await page.locator('#theme-menu-toggle').click();
     await expect(page.locator('#theme-menu')).toBeVisible();
     await expect(page.locator('#theme-menu')).toHaveAttribute('role', 'menu');
+    const radii = await page.evaluate(() => ({
+      menu: getComputedStyle(document.querySelector('#theme-menu')).borderRadius,
+      toggle: getComputedStyle(document.querySelector('#theme-menu-toggle')).borderRadius,
+      theme: getComputedStyle(document.documentElement).getPropertyValue('--BorderRadius').trim(),
+    }));
+    expect(radii.menu).toBe(radii.theme);
+    expect(radii.toggle).toBe(radii.theme);
     await expect(page.locator('#theme-menu [role="menuitem"]')).toHaveCount(12);
     const menu = await page.locator('#theme-menu').boundingBox();
     expect(menu.x).toBeGreaterThanOrEqual(0);
@@ -170,7 +177,7 @@ test.describe('mode controls responsive layout', () => {
       controlsZ: Number.parseInt(getComputedStyle(document.querySelector('.theme-controls')).zIndex, 10),
       paletteZ: Number.parseInt(getComputedStyle(document.querySelector('#theme-menu')).zIndex, 10),
       paletteRadius: getComputedStyle(document.querySelector('#theme-menu'), '::before').borderTopLeftRadius,
-    }))).toEqual({ themeClass: true, controlsZ: 1100, paletteZ: 1101, paletteRadius: '50%' });
+    }))).toEqual({ themeClass: true, controlsZ: 3000, paletteZ: 3001, paletteRadius: '50%' });
   });
 
   test('places the synthwave desktop TAP button above the top controls', async ({ page }) => {

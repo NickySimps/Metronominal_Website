@@ -1018,7 +1018,8 @@ select {
   position: fixed;
   top: var(--s3); /* Standardized position (8px) */
   right: var(--s3); /* Standardized position (8px) */
-  z-index: 1100; /* Keep the palette above themed containers and controls */
+  z-index: 3000; /* Keep the palette above themed containers and controls */
+  overflow: visible;
 }
 
 #theme-menu-toggle {
@@ -1049,9 +1050,11 @@ select {
   background-color: transparent;
   border: 0;
   border-radius: var(--BorderRadius);
+  box-sizing: border-box;
+  overflow: visible;
   box-shadow: none;
   isolation: isolate;
-  z-index: 1101;
+  z-index: 3001;
   animation: song-panel-expand 160ms ease-out;
 }
 
@@ -1583,8 +1586,8 @@ select {
   .theme-menu {
     top: auto;
     bottom: calc(100% + var(--s2));
-    max-height: 60vh;
-    overflow-y: auto;
+    max-height: none;
+    overflow: visible;
   }
   /* Add this to your style.css file */
   /* Base styles for all subdivision options */
@@ -3276,7 +3279,8 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
     .theme-controls { right: max(var(--s3), env(safe-area-inset-right)); bottom: max(var(--s3), env(safe-area-inset-bottom)); }
     .theme-menu {
         width: min(92vw, 24rem);
-        max-height: min(70vh, 30rem);
+        max-height: none;
+        overflow: visible;
         padding: var(--s3);
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: var(--s2);
