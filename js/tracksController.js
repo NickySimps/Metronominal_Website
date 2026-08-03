@@ -4,6 +4,84 @@ import { sendState } from "./webrtc.js";
 import BarDisplayController from "./barDisplayController.js";
 import SoundSettingsModal from "./soundSettingsModal.js";
 import AudioController from "./audioController.js";
+import SoundSynth from "./soundSynth.js";
+
+let activeSoundPicker = null;
+
+function getSoundOptions() {
+  const synthSounds = [
+    "Synth Kick", "Synth Snare", "Synth Clap", "Synth HiHat", "Synth Open HiHat",
+    "Synth Shaker", "Synth Claves", "Synth Hi Tom", "Synth Mid Tom", "Synth Low Tom",
+    "Synth Cymbal", "Synth Cowbell", "Synth Woodblock", "Synth Triangle", "Synth Maraca",
+    "Synth Sine", "Synth Square", "Synth Sawtooth", "Synth Ultrasaw", "Synth Noise",
+  ];
+  const editedSounds = AppState.getCustomSounds();
+  const recordings = AppState.getRecordings();
+  const stockSamples = ["Click1.mp3", "Click2.mp3", "Crank1.mp3", "Crank2.mp3"];
+  return [
+    { id: "synth", label: "Synth Sounds", description: "Built-in synthesized drum and tone voices.", sounds: synthSounds },
+    { id: "edited", label: "Edited Sounds", description: "Your saved sound-editor presets.", sounds: editedSounds },
+    { id: "recordings", label: "Recordings", description: "Sounds captured with the loop recorder.", sounds: recordings.filter((name) => /^Recording\s/i.test(name)) },
+    { id: "uploaded", label: "Uploaded Tracks", description: "Imported audio and bundled sample tracks.", sounds: [...stockSamples, ...recordings.filter((name) => !/^Recording\s/i.test(name))] },
+  ].filter((group) => group.sounds.length > 0);
+}
+
+function displaySoundName(soundName) {
+  return soundName.replace(".mp3", "").replace("Synth ", "");
+}
+
+async function previewSound(soundName) {
+  const audioContext = AppState.getAudioContext();
+  if (!audioContext) return;
+  if (audioContext.state === "suspended") await audioContext.resume();
+  const customData = AppState.getCustomSoundData(soundName);
+  const baseSound = customData?.baseSound || soundName;
+  const settings = { ...(AppState.getDefaultSoundSettings(soundName) || customData?.settings || {}), volume: 0.8 };
+  const playTime = audioContext.currentTime + 0.01;
+  if (baseSound.startsWith("Synth")) {
+    const synthFunctionName = `play${baseSound.replace("Synth ", "").replace(/ /g, "")}`;
+    if (SoundSynth[synthFunctionName]) SoundSynth[synthFunctionName](audioContext, playTime, settings);
+  } else if (AppState.getSoundBuffer(baseSound)) {
+    AudioController.playRecording(baseSound, settings, settings.trimStart || 0, settings.trimEnd || null, playTime, 0.8);
+  }
+}
+
+function closeSoundPicker() {
+  const modal = document.getElementById("sound-picker-modal");
+  if (!modal) return;
+  modal.hidden = true;
+  modal.style.display = "none";
+  activeSoundPicker = null;
+}
+
+function openSoundPicker(trackIndex, soundType) {
+  const modal = document.getElementById("sound-picker-modal");
+  const optionsRoot = document.getElementById("sound-picker-options");
+  if (!modal || !optionsRoot) return;
+  activeSoundPicker = { trackIndex, soundType };
+  const selected = AppState.getTracks()[trackIndex]?.[soundType]?.sound;
+  document.getElementById("sound-picker-context").textContent = `Track ${trackIndex + 1} · ${soundType === "mainBeatSound" ? "Main beat" : "Subdivision"}`;
+  optionsRoot.innerHTML = "";
+  getSoundOptions().forEach((group) => {
+    const section = document.createElement("section");
+    section.className = `sound-picker-group sound-picker-group-${group.id}`;
+    section.innerHTML = `<h3>${group.label}</h3><p>${group.description}</p>`;
+    const grid = document.createElement("div");
+    grid.className = "sound-picker-grid";
+    group.sounds.forEach((soundName) => {
+      const card = document.createElement("div");
+      card.className = `sound-picker-card${soundName === selected ? " selected" : ""}`;
+      card.dataset.sound = soundName;
+      card.innerHTML = `<button type="button" class="sound-picker-select" aria-pressed="${soundName === selected}">${displaySoundName(soundName)}</button><button type="button" class="sound-picker-preview" aria-label="Preview ${displaySoundName(soundName)}">▶</button>`;
+      grid.appendChild(card);
+    });
+    section.appendChild(grid);
+    optionsRoot.appendChild(section);
+  });
+  modal.hidden = false;
+  modal.style.display = "flex";
+  document.querySelector(".sound-picker-select[aria-pressed=\"true\"]")?.focus();
+}
 
 
 /**
@@ -117,10 +195,12 @@ function updateTrackElement(trackElement, track, index) {
   ).toFixed(0)}%`;
 
   // Update sound selectors
-  trackElement.querySelector(".main-beat-sound-select").value =
-    track.mainBeatSound.sound;
-  trackElement.querySelector(".subdivision-sound-select").value =
-    track.subdivisionSound.sound;
+  const mainSoundButton = trackElement.querySelector(".main-beat-sound-select");
+  const subSoundButton = trackElement.querySelector(".subdivision-sound-select");
+  mainSoundButton.dataset.sound = track.mainBeatSound.sound;
+  mainSoundButton.textContent = displaySoundName(track.mainBeatSound.sound);
+  subSoundButton.dataset.sound = track.subdivisionSound.sound;
+  subSoundButton.textContent = displaySoundName(track.subdivisionSound.sound);
 
   // Update rest button active state
   trackElement.querySelector(".rest-button").classList.toggle("active", AppState.isRestMode());
@@ -166,6 +246,32 @@ const TrackController = {
     }
     document.addEventListener("soundSaved", () => {
         TrackController.renderTracks();
+    });
+    document.getElementById("sound-picker-close")?.addEventListener("click", closeSoundPicker);
+    document.getElementById("sound-picker-options")?.addEventListener("click", (event) => {
+      const card = event.target.closest(".sound-picker-card");
+      if (!card) return;
+      event.stopPropagation();
+      if (event.target.closest(".sound-picker-preview")) {
+        previewSound(card.dataset.sound);
+        return;
+      }
+      if (!event.target.closest(".sound-picker-select") || !activeSoundPicker) return;
+      const { trackIndex, soundType } = activeSoundPicker;
+      const newSound = card.dataset.sound;
+      const defaultSettings = AppState.getDefaultSoundSettings(newSound);
+      AppState.updateTrack(trackIndex, {
+        [soundType]: { sound: newSound, settings: defaultSettings ? { ...defaultSettings } : {} },
+      });
+      sendState(AppState.getCurrentStateForPreset(true));
+      closeSoundPicker();
+      TrackController.renderTracks();
+    });
+    document.getElementById("sound-picker-modal")?.addEventListener("click", (event) => {
+      if (event.target.id === "sound-picker-modal") closeSoundPicker();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && activeSoundPicker) closeSoundPicker();
     });
     TrackController.renderTracks();
   },
@@ -475,6 +581,28 @@ const TrackController = {
             sendState(AppState.getCurrentStateForPreset(true));
             BarDisplayController.renderBarsAndControls();
         }
+    } else if (target.closest(".sound-picker-preview")) {
+        event.stopPropagation();
+        previewSound(target.closest(".sound-picker-card").dataset.sound);
+    } else if (target.closest(".sound-picker-select")) {
+        event.stopPropagation();
+        const card = target.closest(".sound-picker-card");
+        if (!activeSoundPicker || !card) return;
+        const { trackIndex, soundType } = activeSoundPicker;
+        const newSound = card.dataset.sound;
+        const defaultSettings = AppState.getDefaultSoundSettings(newSound);
+        AppState.updateTrack(trackIndex, {
+          [soundType]: { sound: newSound, settings: defaultSettings ? { ...defaultSettings } : {} },
+        });
+        sendState(AppState.getCurrentStateForPreset(true));
+        closeSoundPicker();
+        TrackController.renderTracks();
+    } else if (target.matches(".sound-selector-trigger") || target.closest(".sound-selector-trigger")) {
+        event.stopPropagation();
+        const trigger = target.closest(".sound-selector-trigger");
+        const trackElement = trigger.closest(".track");
+        const soundType = trigger.classList.contains("main-beat-sound-select") ? "mainBeatSound" : "subdivisionSound";
+        openSoundPicker(parseInt(trackElement.dataset.containerIndex, 10), soundType);
     } else if (target.matches(".sound-label") || target.closest(".sound-label")) {
         const soundLabel = target.closest(".sound-label");
         const isMain = soundLabel.classList.contains("main-sound-label");
@@ -640,55 +768,20 @@ const TrackController = {
 };
 
 /**
- * Creates and configures a <select> element for sound options.
+ * Creates and configures a modal-opening sound selector button.
  * @param {object} selectedSound - The currently selected sound object.
  * @param {string} typeClass - The CSS class to assign to the selector.
- * @returns {HTMLSelectElement} The configured select element.
+ * @returns {HTMLButtonElement} The configured selector button.
  */
 function createSoundSelector(selectedSound, typeClass) {
-  const select = document.createElement("select");
-  select.className = `sound-selector ${typeClass}`;
-
-  const soundOptions = [
-    "Synth Kick",
-    "Synth Snare",
-    "Synth Clap",
-    "Synth HiHat",
-    "Synth Open HiHat",
-    "Synth Shaker",
-    "Synth Claves",
-    "Synth Hi Tom",
-    "Synth Mid Tom",
-    "Synth Low Tom",
-    "Synth Cymbal",
-    "Synth Cowbell",
-    "Synth Woodblock",
-    "Synth Triangle",
-    "Synth Maraca",
-    "Synth Sine",
-    "Synth Square",
-    "Synth Sawtooth",
-    "Synth Ultrasaw",
-    "Synth Noise",
-    ...AppState.getCustomSounds(),
-    "Click1.mp3",
-    "Click2.mp3",
-    "Crank1.mp3",
-    "Crank2.mp3",
-    ...AppState.getRecordings(),
-  ];
-
-  soundOptions.forEach((soundName) => {
-    const option = document.createElement("option");
-    option.value = soundName;
-    option.textContent = soundName.replace(".mp3", "").replace("Synth ", "");
-    if (soundName === selectedSound.sound) {
-      option.selected = true;
-    }
-    select.appendChild(option);
-  });
-
-  return select;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `sound-selector-trigger ${typeClass}`;
+  button.dataset.sound = selectedSound.sound;
+  button.textContent = displaySoundName(selectedSound.sound);
+  button.setAttribute("aria-haspopup", "dialog");
+  button.title = "Choose sound";
+  return button;
 }
 
 export default TrackController;

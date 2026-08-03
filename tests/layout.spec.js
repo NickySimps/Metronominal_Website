@@ -581,7 +581,8 @@ test.describe('mode controls responsive layout', () => {
 
   test('recording playback honors overlap and retrigger settings', async ({ page }) => {
     await page.goto('/');
-    await page.locator('.main-beat-sound-select').selectOption('Click1.mp3');
+    await page.locator('.main-beat-sound-select').click();
+    await page.locator('.sound-picker-card[data-sound="Click1.mp3"] .sound-picker-select').click();
     const result = await page.evaluate(async () => {
       const [{ default: AudioController }, { default: AppState }] = await Promise.all([
         import(new URL('js/audioController.js', document.baseURI).href),
@@ -629,7 +630,8 @@ test.describe('mode controls responsive layout', () => {
   test('recorded sound editor controls remain styled and contained on iPhone SE', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
-    await page.locator('.main-beat-sound-select').selectOption('Click1.mp3');
+    await page.locator('.main-beat-sound-select').click();
+    await page.locator('.sound-picker-card[data-sound="Click1.mp3"] .sound-picker-select').click();
     await page.locator('.main-sound-label').click();
     await expect(page.locator('.waveform-tools')).toBeVisible();
     const layout = await page.evaluate(() => {
@@ -661,6 +663,20 @@ test.describe('mode controls responsive layout', () => {
     expect(layout.rangesUsable).toBe(true);
     expect(layout.headerInside).toBe(true);
     expect(layout.stackedWithoutOverlap).toBe(true);
+  });
+
+  test('sound picker groups sources, previews options, and closes after selection', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.main-beat-sound-select').click();
+    await expect(page.locator('#sound-picker-modal')).toBeVisible();
+    await expect(page.locator('.sound-picker-group-synth')).toBeVisible();
+    await expect(page.locator('.sound-picker-group-uploaded')).toBeVisible();
+    await expect(page.locator('.sound-picker-preview')).toHaveCount(24);
+    await expect(page.locator('.sound-picker-card.selected')).toHaveCount(1);
+    await page.locator('.sound-picker-card[data-sound="Synth Snare"] .sound-picker-preview').click();
+    await page.locator('.sound-picker-card[data-sound="Synth Snare"] .sound-picker-select').click();
+    await expect(page.locator('#sound-picker-modal')).toBeHidden();
+    await expect(page.locator('.main-beat-sound-select')).toHaveAttribute('data-sound', 'Synth Snare');
   });
 
   test('visual regression: mobile theme menu', async ({ page }) => {
