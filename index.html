@@ -303,10 +303,10 @@
                 </div>
                 <div id="song-sections-list" class="song-sections-list"></div>
                 <div class="song-mode-actions">
-                    <button id="add-song-section-btn" type="button">Add Section</button>
-                    <button id="copy-song-link-btn" type="button">Copy Song Link</button>
-                    <button id="share-song-btn" type="button">Share Song</button>
-                    <button id="export-song-btn" type="button">Export Song</button>
+                    <button id="add-song-section-btn" type="button" aria-label="Add song section" title="Add song section">+ Section</button>
+                    <button id="copy-song-link-btn" type="button" aria-label="Copy song link" title="Copy song link">Copy Link</button>
+                    <button id="share-song-btn" type="button" aria-label="Share song" title="Share song">Share</button>
+                    <button id="export-song-btn" type="button" aria-label="Export song" title="Export song">Export</button>
                     <label class="song-import-button">Import Song<input id="import-song-input" type="file" accept=".json,.metronominal.json,application/json"></label>
                 </div>
                 <p id="song-share-status" class="song-share-status" aria-live="polite"></p>
@@ -344,7 +344,7 @@
             <div class="bar-display">
                 <div id="all-tracks-wrapper"></div>
             </div>
-            <button id="add-track-btn">+ Track</button>
+            <button id="add-track-btn" aria-label="Add track" title="Add track">+ Track</button>
             <div class="preset-controls">
                 <h3 id="current-preset-display-heading">Metronominal</h3>
             </div>
@@ -441,7 +441,7 @@
                 </div>
             </div>
             <div id="sound-picker-options" class="sound-picker-options"></div>
-            <button id="sound-picker-bottom-close" class="sound-picker-bottom-close" type="button">Close sound picker</button>
+            <button id="sound-picker-bottom-close" class="sound-picker-bottom-close" type="button" aria-label="Close sound picker">Close</button>
         </div>
     </div>
     <div id="manage-recordings-modal" class="modal manage-recordings-modal">
@@ -450,7 +450,7 @@
             <h2>Manage Recordings & Samples</h2>
 
             <div class="sample-actions">
-                <button id="upload-sample-btn" class="preset-btn">📁 Upload Sample Files</button>
+                <button id="upload-sample-btn" class="preset-btn" aria-label="Upload sample files" title="Upload sample files">+ Upload</button>
                 <input type="file" id="upload-sample-input" accept="audio/*" multiple style="display: none;" />
             </div>
 
@@ -465,7 +465,7 @@
                             <option value="8">8 Bars</option>
                         </select>
                     </label>
-                    <button id="record-loop-btn" class="preset-btn loop-record-btn">⏺ Start Loop Sampler</button>
+                    <button id="record-loop-btn" class="preset-btn loop-record-btn" aria-label="Start loop sampler" title="Start loop sampler">⏺ Record</button>
                 </div>
             </div>
 
