@@ -1,5 +1,27 @@
 const DEFAULT_HIGH_PASS = 20;
 const DEFAULT_LOW_PASS = 20000;
+const reversedBufferCache = new WeakMap();
+
+export function getReversedAudioBuffer(audioContext, audioBuffer) {
+  if (!audioContext || !audioBuffer) return audioBuffer;
+  const cached = reversedBufferCache.get(audioBuffer);
+  if (cached) return cached;
+
+  const reversed = audioContext.createBuffer(
+    audioBuffer.numberOfChannels,
+    audioBuffer.length,
+    audioBuffer.sampleRate,
+  );
+  for (let channel = 0; channel < audioBuffer.numberOfChannels; channel += 1) {
+    const source = audioBuffer.getChannelData(channel);
+    const target = reversed.getChannelData(channel);
+    for (let index = 0; index < source.length; index += 1) {
+      target[index] = source[source.length - 1 - index];
+    }
+  }
+  reversedBufferCache.set(audioBuffer, reversed);
+  return reversed;
+}
 
 function clampFrequency(value, fallback, sampleRate) {
   const nyquist = Math.max(DEFAULT_HIGH_PASS, (sampleRate || 48000) / 2);

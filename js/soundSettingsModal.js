@@ -8,7 +8,7 @@ import Oscilloscope from "./oscilloscope.js";
 import { frequencyToNote, noteToFrequency, noteStrings, generateNoteFrequencies, semitonesToInterval } from "./utils.js";
 import { Slider } from './slider.js';
 import SoundSynth from './soundSynth.js';
-import { normalizeFilterSettings, createSoundFilterInput } from './audioEffects.js';
+import { normalizeFilterSettings, createSoundFilterInput, getReversedAudioBuffer } from './audioEffects.js';
 
 const SoundSettingsModal = {
   isNoteSnapping: false,
@@ -923,16 +923,16 @@ const SoundSettingsModal = {
       if (buffer) {
         const source = audioContext.createBufferSource();
         const gain = audioContext.createGain();
-        source.buffer = buffer;
         const playbackRate = Math.pow(2, (settings.pitchShift || 0) / 12);
         const reverse = settings.reverse === true;
-        source.playbackRate.value = reverse ? -Math.abs(playbackRate) : playbackRate;
+        source.buffer = reverse ? getReversedAudioBuffer(audioContext, buffer) : buffer;
+        source.playbackRate.value = Math.abs(playbackRate);
         gain.gain.setValueAtTime(settings.volume ?? 1, audioContext.currentTime);
         source.connect(gain);
         gain.connect(createSoundFilterInput(audioContext, analyser, settings));
         const start = settings.trimStart || 0;
         const end = settings.trimEnd || buffer.duration;
-        source.start(0, reverse ? end : start, Math.max(0, end - start));
+        source.start(0, reverse ? buffer.duration - end : start, Math.max(0, end - start));
         source.onended = () => this.stopPreview();
         this.previewSource = source;
       }

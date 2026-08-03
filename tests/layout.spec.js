@@ -678,7 +678,7 @@ test.describe('mode controls responsive layout', () => {
       SoundSettingsModal.updateSoundSetting('pitchShift', 12);
       document.querySelector('#sample-reverse-toggle').click();
       await SoundSettingsModal.togglePreview();
-      const previewReverse = SoundSettingsModal.previewSource?.playbackRate?.value < 0;
+      const previewReverse = SoundSettingsModal.previewSource?.buffer !== AppState.getSoundBuffer('Click1.mp3');
       const previewPitch = SoundSettingsModal.previewSource?.playbackRate?.value;
       SoundSettingsModal.stopPreview();
       return {
@@ -692,7 +692,7 @@ test.describe('mode controls responsive layout', () => {
         panControl: Boolean(document.querySelector('.waveform-pan')),
       };
     });
-    expect(result).toEqual({ previewActive: true, previewLabel: 'Stop', previewStopped: true, previewReverse: true, previewPitch: -2, waveformTools: true, zoomControl: true, panControl: true });
+    expect(result).toEqual({ previewActive: true, previewLabel: 'Stop', previewStopped: true, previewReverse: true, previewPitch: 2, waveformTools: true, zoomControl: true, panControl: true });
   });
 
   test('sample overlap and retrigger settings persist when the modal reopens', async ({ page }) => {
@@ -805,7 +805,7 @@ test.describe('mode controls responsive layout', () => {
       const reverseKey = 'test-reverse';
       AudioController.playRecording('Click1.mp3', { reverse: true, voiceKey: reverseKey }, 0, .05, context.currentTime, 1, destination);
       const reverseSource = AudioController.activeRecordingSources.get(reverseKey);
-      return { supported: true, ignored, restarted, reversePlayback: reverseSource?.playbackRate.value < 0 };
+      return { supported: true, ignored, restarted, reversePlayback: reverseSource?.buffer !== buffer };
     });
     expect(result).toEqual({ supported: true, ignored: true, restarted: true, reversePlayback: true });
   });

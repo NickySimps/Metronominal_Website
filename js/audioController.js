@@ -3,7 +3,7 @@ import AppState from './appState.js';
 import TrackController from './tracksController.js';
 import DOM from './domSelectors.js';
 import RecordingVisualizer from './recordingVisualizer.js';
-import { createSoundFilterInput } from './audioEffects.js';
+import { createSoundFilterInput, getReversedAudioBuffer } from './audioEffects.js';
 
 const AudioController = {
     activeRecordingSources: new Map(),
@@ -150,25 +150,24 @@ const AudioController = {
         }
 
         const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
+        const offset = trimStart || 0;
+        const end = trimEnd || audioBuffer.duration;
+        const duration = end - offset;
+        source.buffer = reverse ? getReversedAudioBuffer(audioContext, audioBuffer) : audioBuffer;
 
         // Apply pitch shift if available in soundSettings
         if (soundSettings && typeof soundSettings.pitchShift === 'number') {
             source.playbackRate.value = Math.pow(2, soundSettings.pitchShift / 12);
         }
-        if (reverse) {
-            source.playbackRate.value = -Math.abs(source.playbackRate.value);
-        }
+        const playbackRate = source.playbackRate.value;
+        source.playbackRate.value = Math.abs(playbackRate);
 
         const gainNode = audioContext.createGain();
         gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
         source.connect(gainNode);
         gainNode.connect(createSoundFilterInput(audioContext, destination || audioContext.destination, soundSettings));
 
-        const offset = trimStart || 0;
-        const end = trimEnd || audioBuffer.duration;
-        const duration = end - offset;
-        const startOffset = reverse ? end : offset;
+        const startOffset = reverse ? audioBuffer.duration - end : offset;
 
         source.start(playTime, startOffset, duration > 0 ? duration : 0);
         AudioController.activeRecordingSources.set(voiceKey, source);
