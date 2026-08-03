@@ -526,10 +526,24 @@ function copySection(index) {
   const song = updatedSongFromFields();
   const source = song.sections[index];
   if (!source || song.sections.length >= 32) return;
+  const tracks = AppState.getTracks();
+  let barCount = tracks[0]?.barSettings?.length || 1;
+  const used = new Set(song.sections.map(section => section.startBar));
+  let nextStart = 0;
+  while (used.has(nextStart)) nextStart += 1;
+  if (nextStart >= barCount && barCount < 64) {
+    for (const track of tracks) {
+      if (!track.barSettings?.length || track.barSettings.length >= 64) continue;
+      const lastBar = track.barSettings[track.barSettings.length - 1];
+      track.barSettings.push(JSON.parse(JSON.stringify(lastBar)));
+    }
+    barCount = tracks[0]?.barSettings?.length || barCount;
+  }
+  if (nextStart >= barCount) return;
   song.sections.push({
     ...JSON.parse(JSON.stringify(source)),
     name: `${source.name || `Section ${index + 1}`} Copy`,
-    startBar: source.startBar,
+    startBar: nextStart,
     tracks: source.tracks ? JSON.parse(JSON.stringify(source.tracks)) : [],
   });
   selectedSectionIndex = song.sections.length - 1;
@@ -574,6 +588,7 @@ async function initialize(callback) {
 
   document.getElementById("add-song-section-btn")?.addEventListener("click", () => {
     const song = updatedSongFromFields();
+    if (song.sections.length >= 32) return;
     const tracks = AppState.getTracks();
     let barCount = tracks[0]?.barSettings?.length || 1;
     const used = new Set(song.sections.map(section => section.startBar));
@@ -590,7 +605,7 @@ async function initialize(callback) {
     if (nextStart >= barCount) return;
     song.sections.push({
       name: `Section ${song.sections.length + 1}`,
-      startBar: 0,
+      startBar: nextStart,
       tempo: AppState.getTempo(),
       repeats: 1,
     });
@@ -630,6 +645,7 @@ async function initialize(callback) {
     } else if (action === "remove" && index >= 0 && AppState.getSong().sections.length > 1 && canEditSong && !AppState.isPlaying()) {
       const song = updatedSongFromFields();
       song.sections.splice(index, 1);
+      if (index === 0 && song.sections[0]) song.sections[0].startBar = 0;
       selectedSectionIndex = Math.min(selectedSectionIndex, song.sections.length - 1);
       publishSongChange(song);
     }

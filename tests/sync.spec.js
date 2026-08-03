@@ -211,9 +211,9 @@ test('song mode synchronizes sections and creates a credential-free song link', 
   await expect(host.locator('#add-song-section-btn')).toBeEnabled();
   await host.locator('#add-song-section-btn').click();
   await expect(host.locator('.bar-visual')).toHaveCount(2);
+  await expect(host.locator('[data-song-section-start="1"]')).toHaveValue('2');
   await host.locator('[data-song-section-name="1"]').fill('Chorus');
   await expect(host.locator('[data-song-section-start="1"]')).toHaveJSProperty('tagName', 'SELECT');
-  await expect(host.locator('[data-song-section-start="1"]')).toHaveValue('1');
   await host.locator('[data-song-section-start="1"]').selectOption('2');
   await host.locator('[data-song-section-tempo="1"]').fill('150');
   await host.locator('[data-song-section-tempo="1"]').blur();
@@ -435,6 +435,7 @@ test('section selector captures, previews, and atomically reapplies all section 
   await page.locator('.song-section-row').nth(0).locator('[data-song-section-action="copy"]').click();
   await expect(page.locator('.song-section-row')).toHaveCount(2);
   await expect(page.locator('.song-section-row').nth(1)).toHaveClass(/is-selected/);
+  await expect(page.locator('[data-song-section-start="1"]')).toHaveValue('2');
   await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-action="apply"]')).not.toHaveText('↓');
   await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-action="update"]')).not.toHaveText('↑');
   await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-action="move-up"]')).toHaveText('↑');
@@ -751,7 +752,7 @@ test('removing bars normalizes the host song timeline before synchronization', a
       serialized: (await AppState.getCurrentStateForPreset(true)).song
     };
   });
-  expect(state.local.sections).toHaveLength(2);
+  expect(state.local.sections).toHaveLength(1);
   expect(state.local.sections.every(section => section.startBar === 0)).toBe(true);
   expect(state.serialized).toEqual(state.local);
 });
