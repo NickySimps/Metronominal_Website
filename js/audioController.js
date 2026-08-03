@@ -140,6 +140,7 @@ const AudioController = {
         const activeSource = AudioController.activeRecordingSources.get(voiceKey);
         const allowOverlap = soundSettings?.allowOverlap !== false;
         const retrigger = soundSettings?.retrigger !== false;
+        const reverse = soundSettings?.reverse === true;
         if (activeSource) {
             if (!retrigger) return;
             if (!allowOverlap) {
@@ -154,6 +155,9 @@ const AudioController = {
         if (soundSettings && typeof soundSettings.pitchShift === 'number') {
             source.playbackRate.value = Math.pow(2, soundSettings.pitchShift / 12);
         }
+        if (reverse) {
+            source.playbackRate.value = -Math.abs(source.playbackRate.value);
+        }
 
         const gainNode = audioContext.createGain();
         gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
@@ -161,9 +165,11 @@ const AudioController = {
         gainNode.connect(destination || audioContext.destination);
 
         const offset = trimStart || 0;
-        const duration = (trimEnd || audioBuffer.duration) - offset;
+        const end = trimEnd || audioBuffer.duration;
+        const duration = end - offset;
+        const startOffset = reverse ? end : offset;
 
-        source.start(playTime, offset, duration > 0 ? duration : 0);
+        source.start(playTime, startOffset, duration > 0 ? duration : 0);
         AudioController.activeRecordingSources.set(voiceKey, source);
         source.addEventListener('ended', () => {
             if (AudioController.activeRecordingSources.get(voiceKey) === source) {

@@ -107,6 +107,7 @@ const SoundSettingsModal = {
     [
       ["#sample-overlap-toggle", "allowOverlap"],
       ["#sample-retrigger-toggle", "retrigger"],
+      ["#sample-reverse-toggle", "reverse"],
     ].forEach(([selector, setting]) => {
       DOM.soundSettingsModal.querySelector(selector).addEventListener("change", (event) => {
         if (!this.currentSoundSettings) return;
@@ -654,11 +655,13 @@ const SoundSettingsModal = {
     }
     soundSettings.allowOverlap = soundSettings.allowOverlap !== false;
     soundSettings.retrigger = soundSettings.retrigger !== false;
+    soundSettings.reverse = soundSettings.reverse === true;
     const numericProbability = Number(soundSettings.probability);
     soundSettings.probability = Number.isFinite(numericProbability) ? Math.max(0, Math.min(100, numericProbability)) : 100;
     this.currentSoundSettings = soundSettings;
     DOM.soundSettingsModal.querySelector("#sample-overlap-toggle").checked = soundSettings.allowOverlap;
     DOM.soundSettingsModal.querySelector("#sample-retrigger-toggle").checked = soundSettings.retrigger;
+    DOM.soundSettingsModal.querySelector("#sample-reverse-toggle").checked = soundSettings.reverse;
     const probabilityInput = DOM.soundSettingsModal.querySelector("#sample-probability");
     probabilityInput.value = soundSettings.probability;
     DOM.soundSettingsModal.querySelector("#sample-probability-value").textContent = `${soundSettings.probability}%`;

@@ -433,11 +433,13 @@ test.describe('mode controls responsive layout', () => {
         hasScopeModeSelect: Boolean(modal.querySelector('#sound-scope-mode-select')),
         hasWaveformTools: Boolean(modal.querySelector('.waveform-tools')),
         hasPlaybackControls: Boolean(modal.querySelector('.sample-playback-controls')),
+        hasReverseToggle: Boolean(modal.querySelector('#sample-reverse-toggle')),
         probabilityValue: Number(modal.querySelector('#sample-probability').value),
         probabilityLabel: modal.querySelector('#sample-probability-value').textContent,
         probabilityBeforeOscilloscope: modal.querySelector('#sample-probability').compareDocumentPosition(canvas) & Node.DOCUMENT_POSITION_FOLLOWING,
         overlapChecked: modal.querySelector('#sample-overlap-toggle')?.checked,
         retriggerChecked: modal.querySelector('#sample-retrigger-toggle')?.checked,
+        reverseChecked: modal.querySelector('#sample-reverse-toggle')?.checked,
         analysersAreSeparate: track.mainAnalyserNode && track.subdivisionAnalyserNode
           && track.mainAnalyserNode !== track.subdivisionAnalyserNode,
         secondTrackHasSeparateAnalysers: secondTrack.mainAnalyserNode && secondTrack.subdivisionAnalyserNode
@@ -457,11 +459,13 @@ test.describe('mode controls responsive layout', () => {
     expect(result.hasPreviewButton).toBe(true);
     expect(result.hasScopeModeSelect).toBe(true);
     expect(result.hasPlaybackControls).toBe(true);
+    expect(result.hasReverseToggle).toBe(true);
     expect(result.probabilityValue).toBe(100);
     expect(result.probabilityLabel).toBe('100%');
     expect(result.probabilityBeforeOscilloscope).toBeTruthy();
     expect(result.overlapChecked).toBe(true);
     expect(result.retriggerChecked).toBe(true);
+    expect(result.reverseChecked).toBe(false);
     expect(result.analysersAreSeparate).toBe(true);
     expect(result.secondTrackHasSeparateAnalysers).toBe(true);
     expect(result.thirdTrackHasSeparateAnalysers).toBe(true);
@@ -534,9 +538,11 @@ test.describe('mode controls responsive layout', () => {
       const modal = document.querySelector('#sound-settings-modal');
       const overlap = modal.querySelector('#sample-overlap-toggle');
       const retrigger = modal.querySelector('#sample-retrigger-toggle');
+      const reverse = modal.querySelector('#sample-reverse-toggle');
       const probability = modal.querySelector('#sample-probability');
       overlap.click();
       retrigger.click();
+      reverse.click();
       probability.value = '35';
       probability.dispatchEvent(new Event('input', { bubbles: true }));
       SoundSettingsModal.hide();
@@ -544,13 +550,15 @@ test.describe('mode controls responsive layout', () => {
       return {
         overlap: modal.querySelector('#sample-overlap-toggle').checked,
         retrigger: modal.querySelector('#sample-retrigger-toggle').checked,
+        reverse: modal.querySelector('#sample-reverse-toggle').checked,
         probability: Number(modal.querySelector('#sample-probability').value),
         savedOverlap: AppState.getTracks()[0].mainBeatSound.settings.allowOverlap,
         savedRetrigger: AppState.getTracks()[0].mainBeatSound.settings.retrigger,
+        savedReverse: AppState.getTracks()[0].mainBeatSound.settings.reverse,
         savedProbability: AppState.getTracks()[0].mainBeatSound.settings.probability,
       };
     });
-    expect(result).toEqual({ overlap: false, retrigger: false, probability: 35, savedOverlap: false, savedRetrigger: false, savedProbability: 35 });
+    expect(result).toEqual({ overlap: false, retrigger: false, reverse: true, probability: 35, savedOverlap: false, savedRetrigger: false, savedReverse: true, savedProbability: 35 });
   });
 
   test('probability gate honors boundaries and deterministic random rolls', async ({ page }) => {
@@ -626,9 +634,12 @@ test.describe('mode controls responsive layout', () => {
       const ignored = AudioController.activeRecordingSources.get(key) === first;
       AudioController.playRecording('Click1.mp3', { allowOverlap: false, retrigger: true, voiceKey: key }, 0, .05, context.currentTime, 1, destination);
       const restarted = AudioController.activeRecordingSources.get(key) !== first;
-      return { supported: true, ignored, restarted };
+      const reverseKey = 'test-reverse';
+      AudioController.playRecording('Click1.mp3', { reverse: true, voiceKey: reverseKey }, 0, .05, context.currentTime, 1, destination);
+      const reverseSource = AudioController.activeRecordingSources.get(reverseKey);
+      return { supported: true, ignored, restarted, reversePlayback: reverseSource?.playbackRate.value < 0 };
     });
-    expect(result).toEqual({ supported: true, ignored: true, restarted: true });
+    expect(result).toEqual({ supported: true, ignored: true, restarted: true, reversePlayback: true });
   });
 
   test('shorebreak uses active theme colors', async ({ page }) => {
