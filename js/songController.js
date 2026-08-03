@@ -1,5 +1,6 @@
 import AppState from "./appState.js";
 import { sendState } from "./webrtc.js";
+import MetronomeEngine from "./metronomeEngine.js";
 
 const FORMAT = "metronominal-song";
 const MAX_IMPORT_BYTES = 256 * 1024;
@@ -332,7 +333,7 @@ async function publishSongChange(nextSong, shouldRender = true) {
   sendState(AppState.getCurrentStateForPreset(true));
 }
 
-function goToSection(index) {
+async function goToSection(index) {
   if (!Number.isInteger(index) || !canEditSong || AppState.isPlaying()) return false;
   const section = AppState.getSong().sections[index];
   if (!section) return false;
@@ -345,6 +346,7 @@ function goToSection(index) {
   AppState.setTempo(section.tempo);
   sendState(AppState.getCurrentStateForPreset(true));
   refreshApplicationUI();
+  await MetronomeEngine.togglePlay();
   return true;
 }
 
@@ -444,6 +446,10 @@ function render() {
         <button type="button" data-song-section-action="copy" aria-label="Copy ${section.name || "section"}" title="Copy section">⧉ <span>Copy</span></button>
         <button type="button" data-song-section-action="remove" aria-label="Remove ${section.name || "section"}" title="Remove section"${!editable || song.sections.length === 1 ? " disabled" : ""}>× <span>Remove</span></button>
       </span>
+      <span class="song-section-reorder-actions" aria-label="Reorder ${section.name || `section ${index + 1}`}"${song.sections.length === 1 ? " hidden" : ""}>
+        <button type="button" data-song-section-action="move-up" aria-label="Move ${section.name || "section"} up" title="Move section up"${!editable || index === 0 ? " disabled" : ""}>↑</button>
+        <button type="button" data-song-section-action="move-down" aria-label="Move ${section.name || "section"} down" title="Move section down"${!editable || index === song.sections.length - 1 ? " disabled" : ""}>↓</button>
+      </span>
       ${savedInfo}`;
     const nameInput = row.querySelector(`[data-song-section-name="${index}"]`);
     nameInput.value = section.name;
@@ -531,6 +537,19 @@ function copySection(index) {
   announce(`${source.name || `Section ${index + 1}`} copied.`);
 }
 
+function moveSection(index, direction) {
+  if (!canEditSong || AppState.isPlaying()) return;
+  const song = updatedSongFromFields();
+  const targetIndex = index + direction;
+  if (!song.sections[index] || !song.sections[targetIndex]) return;
+  const startBar = song.sections[index].startBar;
+  song.sections[index].startBar = song.sections[targetIndex].startBar;
+  song.sections[targetIndex].startBar = startBar;
+  selectedSectionIndex = targetIndex;
+  publishSongChange(song);
+  announce(`${song.sections[targetIndex].name} moved ${direction < 0 ? "up" : "down"}.`);
+}
+
 async function initialize(callback) {
   refreshApplicationUI = callback || refreshApplicationUI;
   const panel = document.getElementById("song-mode-panel");
@@ -600,6 +619,10 @@ async function initialize(callback) {
       await updateSection(index);
     } else if (action === "copy") {
       copySection(index);
+    } else if (action === "move-up") {
+      moveSection(index, -1);
+    } else if (action === "move-down") {
+      moveSection(index, 1);
     } else if (action === "remove" && index >= 0 && AppState.getSong().sections.length > 1 && canEditSong && !AppState.isPlaying()) {
       const song = updatedSongFromFields();
       song.sections.splice(index, 1);

@@ -77,7 +77,9 @@ test.describe('mode controls responsive layout', () => {
   test('keeps closed timing and mode cards on one line and hides shortcuts after touch input', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
-    await expect(page.locator('.keyboard-shortcuts')).toBeVisible();
+    const touchCapable = await page.evaluate(() => navigator.maxTouchPoints > 0);
+    if (touchCapable) await expect(page.locator('.keyboard-shortcuts')).toBeHidden();
+    else await expect(page.locator('.keyboard-shortcuts')).toBeVisible();
     const geometry = await page.evaluate(() => {
       const rect = (selector) => document.querySelector(selector).getBoundingClientRect();
       const timing = rect('.timing-controls-group');
@@ -94,6 +96,38 @@ test.describe('mode controls responsive layout', () => {
     expect(geometry.modeOneLine).toBe(true);
     await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch' })));
     await expect(page.locator('.keyboard-shortcuts')).toBeHidden();
+  });
+
+  test('keeps Pixel-width timing controls separated and shows compact labels', async ({ page }) => {
+    await page.setViewportSize({ width: 393, height: 852 });
+    await page.goto('/');
+    const geometry = await page.evaluate(() => {
+      const group = document.querySelector('.timing-controls-group');
+      const children = [...group.querySelectorAll(':scope > .control-group')].map(element => {
+        const rect = element.getBoundingClientRect();
+        const label = element.querySelector('.control-label');
+        return {
+          left: rect.left,
+          right: rect.right,
+          labelContent: getComputedStyle(label, '::after').content,
+          labelWidth: label.getBoundingClientRect().width,
+          selectWidth: element.querySelector('select')?.getBoundingClientRect().width || 0,
+        };
+      });
+      const groupRect = group.getBoundingClientRect();
+      return { children, group: { left: groupRect.left, right: groupRect.right } };
+    });
+    expect(geometry.children).toHaveLength(3);
+    for (const child of geometry.children) {
+      expect(child.left).toBeGreaterThanOrEqual(geometry.group.left - 0.5);
+      expect(child.right).toBeLessThanOrEqual(geometry.group.right + 0.5);
+      expect(child.labelContent).not.toBe('none');
+      expect(child.labelContent).not.toBe('""');
+      expect(child.labelWidth).toBeGreaterThan(0);
+    }
+    expect(geometry.children[0].right).toBeLessThanOrEqual(geometry.children[1].left + 0.5);
+    expect(geometry.children[1].right).toBeLessThanOrEqual(geometry.children[2].left + 0.5);
+    expect(geometry.children[1].selectWidth).toBeGreaterThan(40);
   });
 
   test('supports validated loop ranges, TAP feedback, and keyboard shortcuts', async ({ page }) => {
@@ -833,17 +867,33 @@ test.describe('mode controls responsive layout', () => {
   test('sound picker and saved recording rows contain their content on narrow mobile screens', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
+    await page.locator('#theme-menu-toggle').click();
+    await page.locator('[data-theme="synthwave"]').click();
     await page.locator('.main-beat-sound-select').click();
     const pickerLayout = await page.evaluate(() => {
       const modal = document.querySelector('.sound-picker-content').getBoundingClientRect();
-      const cards = [...document.querySelectorAll('.sound-picker-card')].map((card) => card.getBoundingClientRect());
+      const grid = document.querySelector('.sound-picker-grid');
+      const cards = [...document.querySelectorAll('.sound-picker-card')].map((card) => {
+        const cardRect = card.getBoundingClientRect();
+        const select = card.querySelector('.sound-picker-select');
+        const selectRect = select.getBoundingClientRect();
+        return {
+          card: cardRect,
+          select: selectRect,
+          textFits: select.scrollWidth <= select.clientWidth && select.scrollHeight >= select.clientHeight,
+        };
+      });
       return {
         pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-        cardsInside: cards.every((rect) => rect.left >= modal.left - 1 && rect.right <= modal.right + 1),
+        columns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+        cardsInside: cards.every(({ card, select }) => card.left >= modal.left - 1 && card.right <= modal.right + 1 && select.left >= card.left - 1 && select.right <= card.right + 1),
+        textFits: cards.every(({ textFits }) => textFits),
       };
     });
     expect(pickerLayout.pageOverflow).toBeLessThanOrEqual(1);
+    expect(pickerLayout.columns).toBe(2);
     expect(pickerLayout.cardsInside).toBe(true);
+    expect(pickerLayout.textFits).toBe(true);
     await page.locator('#sound-picker-close').click();
     await page.evaluate(async () => {
       const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);

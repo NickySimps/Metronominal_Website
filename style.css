@@ -1443,7 +1443,8 @@ select {
   }
 
   .timing-controls-group .compact-select {
-    width: 100%;
+    flex: 1 1 0;
+    width: auto;
     min-width: 0;
     padding: 3px 1px !important;
     font-size: 0.68rem !important;
@@ -1453,6 +1454,7 @@ select {
 
   @media (max-width: 420px) {
     .timing-controls-group .control-label {
+      flex: 0 0 0.8rem;
       width: 0.8rem;
       overflow: hidden;
       font-size: 0 !important;
@@ -1462,7 +1464,14 @@ select {
     .timing-controls-group .control-label::after {
       display: inline-block;
       font-size: 0.75rem;
+      font-family: system-ui, "Segoe UI Symbol", "Arial Unicode MS", sans-serif;
+      font-weight: 700;
       line-height: 1;
+    }
+
+    .timing-controls-group .beats-count-wrap .total-beats-display {
+      flex: 1 1 0;
+      min-width: 0;
     }
 
     .timing-controls-group .beats-count-wrap .control-label::after { content: 'Σ'; }
@@ -2555,7 +2564,7 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 .sound-picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
 .sound-picker-card { display: flex; min-width: 0; border: 1px solid color-mix(in srgb, var(--TextPrimary) 16%, transparent); border-radius: var(--BorderRadius); background: color-mix(in srgb, var(--Background) 88%, var(--Main) 12%); }
 .sound-picker-card.selected { border-color: var(--Accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--Accent) 55%, transparent); }
-.sound-picker-select { flex: 1; min-width: 0; padding: 11px 10px; border: 0; background: transparent; color: var(--TextPrimary); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.sound-picker-select { flex: 1 1 auto; min-width: 0; padding: 11px 10px; border: 0; background: transparent; color: var(--TextPrimary); text-align: left; overflow-wrap: anywhere; word-break: break-word; white-space: normal; line-height: 1.25; cursor: pointer; }
 .sound-picker-select:hover, .sound-picker-select:focus-visible { background: var(--Main); color: var(--TextOnMain); }
 .sound-picker-preview { flex: 0 0 42px; border: 0; border-left: 1px solid color-mix(in srgb, var(--TextPrimary) 18%, transparent); background: transparent; color: var(--Accent); cursor: pointer; }
 .sound-picker-preview:hover, .sound-picker-preview:focus-visible { background: var(--Accent); color: var(--TextOnMain); }
@@ -2566,7 +2575,12 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   .sound-picker-group,
   .sound-picker-grid,
   .sound-picker-card { min-width: 0; max-width: 100%; box-sizing: border-box; }
-  .sound-picker-grid { grid-template-columns: 1fr; }
+  .sound-picker-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sound-picker-select { min-height: 52px; padding: 9px 7px; }
+  .sound-picker-preview { flex-basis: 34px; }
+}
+@media (min-width: 480px) and (max-width: 600px) {
+  .sound-picker-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 .track-sound-controls {
   display: flex;
@@ -3195,6 +3209,23 @@ environments: Development, Staging,
 .song-section-actions button[data-song-section-action="update"] { background: var(--Highlight); color: var(--ReadableOnHighlight); }
 .song-section-actions button[data-song-section-action="remove"] { background: var(--Alt2); color: var(--ReadableOnAlt2); }
 .song-section-actions button:disabled { opacity: 0.45; cursor: not-allowed; filter: saturate(0.5); }
+.song-section-reorder-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: auto;
+}
+.song-section-reorder-actions button {
+    min-width: 2rem;
+    padding: var(--s2);
+    border: 1px solid currentColor;
+    border-radius: var(--BorderRadius);
+    background: color-mix(in srgb, var(--Background) 70%, transparent);
+    color: var(--ReadableOnHighlight);
+    text-shadow: none;
+    cursor: pointer;
+}
+.song-section-reorder-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
 .song-section-row.is-selected {
     outline: 3px solid var(--Main);
     outline-offset: 2px;
@@ -3304,9 +3335,10 @@ environments: Development, Staging,
     .song-section-row { align-items: stretch; }
     .song-section-row label { flex: 1 1 120px; }
     .song-section-row input { width: 100%; box-sizing: border-box; }
-    .song-section-actions { width: 100%; margin-left: 0; justify-content: flex-end; }
+    .song-section-actions { width: auto; margin-left: 0; justify-content: flex-end; }
     .song-section-actions button { padding: var(--s2); }
     .song-section-actions button span { display: none; }
+    .song-section-reorder-actions { margin-left: auto; }
 }
 
 .keyboard-shortcuts {

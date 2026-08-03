@@ -252,10 +252,15 @@ test('song mode synchronizes sections and creates a credential-free song link', 
   });
   expect(clientImport).toEqual({ rejected: true, name: 'Band Rehearsal' });
 
+  await host.locator('.song-section-row').nth(0).locator('[data-song-section-action="move-down"]').click();
+  await expect(host.locator('[data-song-section-name="0"]')).toHaveValue('Chorus');
+  await host.locator('.song-section-row').nth(1).locator('[data-song-section-action="move-up"]').click();
+  await expect(host.locator('[data-song-section-name="0"]')).toHaveValue('Intro');
+
   await host.locator('.song-section-row').nth(1).locator('[data-song-section-action="go"]').click();
   await expect(host.locator('#song-now-playing')).toContainText('Chorus');
   await expect.poll(() => host.locator('.tempo-container .slider').inputValue(), { timeout: 2_000 }).toBe('150');
-  await host.locator('#start-stop-btn').click();
+  await expect.poll(async () => (await readState(host)).isPlaying).toBe(true);
   await expect(client.locator('#song-now-playing')).toContainText('Chorus');
   const lateClient = await lateClientContext.newPage();
   await lateClient.goto(host.url());
