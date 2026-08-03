@@ -859,6 +859,14 @@ select {
 .visualizer-mode-menu button[data-drag-hover="true"] {
   background: var(--Main);
   color: var(--TextOnMain);
+  font-weight: 800;
+  outline: 3px solid var(--Accent, #ffff00);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--Background, #111), 0 0 16px var(--Accent, #ffff00);
+  filter: brightness(1.2);
+}
+.visualizer-mode-menu button[data-drag-hover="true"] {
+  transform: scale(1.04);
 }
 
 /* Styles for the new global application controls panel */
@@ -1884,10 +1892,10 @@ button:active,
   z-index: 1500;
   display: flex;
   flex-flow: row wrap;
-  width: min(250px, calc(100vw - 1rem));
+  width: min(320px, calc(100vw - 1rem));
   box-sizing: border-box;
   gap: var(--s2);
-  padding: var(--s5);
+  padding: var(--s3);
   background-color: var(--Background);
   border: 1px solid var(--BorderColor);
   border-radius: var(--BorderRadius);
@@ -1897,6 +1905,7 @@ button:active,
   transform-origin: bottom center;
   transition: opacity 0.2s ease-out, transform 0.2s ease-out;
   pointer-events: none; /* Initially not interactive */
+  overflow: visible;
 }
 
 .subdivision-options-container.above {
@@ -1915,7 +1924,11 @@ button:active,
 
 /* Individual Subdivision Option */
 .subdivision-option {
-  padding: 16px;
+  flex: 0 0 auto;
+  scale: 1;
+  min-width: 88px;
+  min-height: 44px;
+  padding: 10px 16px;
   margin: var(--s1);
   background-color: var(--Highlight);
   color: var(--TextPrimary);
@@ -1923,6 +1936,11 @@ button:active,
   cursor: pointer;
   text-align: center;
   font-size: var(--font-2);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
   transition: background-color 0.15s ease, transform 0.15s ease;
   border: 1px solid transparent;
 }
@@ -1949,6 +1967,9 @@ button:active,
   }
 
   .subdivision-option {
+    scale: 1;
+    min-width: 76px;
+    min-height: 44px;
     padding: 10px 8px;
     margin: 0;
     font-size: var(--font-1);

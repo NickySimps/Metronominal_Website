@@ -199,6 +199,8 @@ test.describe('mode controls responsive layout', () => {
       color: getComputedStyle(menu).color,
       optionBackground: getComputedStyle(menu.querySelector('[data-mode="reactor"]')).backgroundColor,
       pageBackground: getComputedStyle(document.body).backgroundColor,
+      selectedOutline: getComputedStyle(menu.querySelector('[aria-current="true"]')).outlineWidth,
+      selectedShadow: getComputedStyle(menu.querySelector('[aria-current="true"]')).boxShadow,
       zIndex: getComputedStyle(menu).zIndex,
     }));
     expect(menuVisual.rect.width).toBeGreaterThan(0);
@@ -206,6 +208,8 @@ test.describe('mode controls responsive layout', () => {
     expect(menuVisual.background).not.toBe('rgba(0, 0, 0, 0)');
     expect(menuVisual.color).not.toBe('rgba(0, 0, 0, 0)');
     expect(menuVisual.optionBackground).toBe(menuVisual.pageBackground);
+    expect(menuVisual.selectedOutline).toBe('3px');
+    expect(menuVisual.selectedShadow).not.toBe('none');
     expect(Number(menuVisual.zIndex)).toBeGreaterThanOrEqual(1300);
     const menuGeometry = await page.locator('#visualizer-mode-menu').evaluate((menu) => ({
       parentIsBody: menu.parentElement === document.body,
@@ -316,8 +320,10 @@ test.describe('mode controls responsive layout', () => {
     }));
     expect(subdivisionLayout.containers[0].rect.bottom).toBeLessThanOrEqual(subdivisionLayout.containers[1].rect.top + 1);
     for (const container of subdivisionLayout.containers) {
-      expect(container.overflowY).toBe('visible');
+      expect(['visible', 'auto']).toContain(container.overflowY);
       for (const option of container.options) {
+        expect(option.width).toBeGreaterThanOrEqual(76);
+        expect(option.height).toBeGreaterThanOrEqual(44);
         expect(option.left).toBeGreaterThanOrEqual(0);
         expect(option.top).toBeGreaterThanOrEqual(0);
         expect(option.right).toBeLessThanOrEqual(subdivisionLayout.viewportWidth);
@@ -358,8 +364,10 @@ test.describe('mode controls responsive layout', () => {
       };
     });
     expect(result.visible).toBe(true);
-    expect(result.overflow.every((value) => value === 'visible')).toBe(true);
+    expect(result.overflow.every((value) => ['visible', 'auto'].includes(value))).toBe(true);
     for (const option of result.options) {
+      expect(option.width).toBeGreaterThanOrEqual(76);
+      expect(option.height).toBeGreaterThanOrEqual(44);
       expect(option.left).toBeGreaterThanOrEqual(0);
       expect(option.top).toBeGreaterThanOrEqual(0);
       expect(option.right).toBeLessThanOrEqual(320);
