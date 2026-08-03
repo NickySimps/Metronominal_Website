@@ -713,6 +713,7 @@ test.describe('mode controls responsive layout', () => {
       const tools = modal.querySelector('.waveform-tools');
       const labels = [...tools.querySelectorAll('label')];
       const ranges = [...tools.querySelectorAll('input[type="range"]')];
+      const filterRanges = [...modal.querySelectorAll('[data-param="highPassFrequency"], [data-param="lowPassFrequency"]')];
       const header = modal.querySelector('.modal-header');
       const stacked = [
         modal.querySelector('.sample-playback-controls'),
@@ -727,6 +728,7 @@ test.describe('mode controls responsive layout', () => {
         contentWidth: modal.querySelector('.modal-content').getBoundingClientRect().width,
         labelsInside: labels.every((label) => label.getBoundingClientRect().right <= tools.getBoundingClientRect().right + 1),
         rangesUsable: ranges.every((range) => range.getBoundingClientRect().width >= 80),
+        filtersInside: filterRanges.every((range) => range.getBoundingClientRect().right <= modal.querySelector('.modal-content').getBoundingClientRect().right + 1),
         headerInside: header.getBoundingClientRect().right <= viewportWidth + 1,
         stackedWithoutOverlap: stacked.every((rect, index) => index === 0 || rect.top >= stacked[index - 1].bottom - 1),
       };
@@ -735,6 +737,7 @@ test.describe('mode controls responsive layout', () => {
     expect(layout.toolsWidth).toBeLessThanOrEqual(layout.contentWidth);
     expect(layout.labelsInside).toBe(true);
     expect(layout.rangesUsable).toBe(true);
+    expect(layout.filtersInside).toBe(true);
     expect(layout.headerInside).toBe(true);
     expect(layout.stackedWithoutOverlap).toBe(true);
   });
