@@ -213,7 +213,8 @@ test('song mode synchronizes sections and creates a credential-free song link', 
   await expect(host.locator('.bar-visual')).toHaveCount(2);
   await host.locator('[data-song-section-name="1"]').fill('Chorus');
   await expect(host.locator('[data-song-section-start="1"]')).toHaveJSProperty('tagName', 'SELECT');
-  await expect(host.locator('[data-song-section-start="1"] option')).toHaveCount(2);
+  await expect(host.locator('[data-song-section-start="1"]')).toHaveValue('1');
+  await host.locator('[data-song-section-start="1"]').selectOption('2');
   await host.locator('[data-song-section-tempo="1"]').fill('150');
   await host.locator('[data-song-section-tempo="1"]').blur();
 
@@ -424,12 +425,18 @@ test('section selector captures, previews, and atomically reapplies all section 
   });
   await page.locator('.song-section-row').nth(0).locator('[data-song-section-action="update"]').click();
   await expect(page.locator('.song-section-row').nth(0).locator('.song-section-track-preview')).toContainText('1 track');
+  await expect(page.locator('.song-section-row').nth(0).locator('.song-saved-summary')).toContainText('Tempo');
+  await expect(page.locator('.song-section-row').nth(0).locator('.song-saved-track-card')).toContainText('Pitch +7st');
   await page.locator('.song-section-row').nth(0).locator('[data-song-section-action="copy"]').click();
   await expect(page.locator('.song-section-row')).toHaveCount(2);
   await expect(page.locator('.song-section-row').nth(1)).toHaveClass(/is-selected/);
   await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-action="update"]')).toBeEnabled();
   await expect(page.locator('.song-section-row').nth(0).locator('[data-song-section-action="update"]')).toBeDisabled();
   await expect(page.locator('.song-section-row').nth(1).locator('.song-section-track-preview')).toContainText('1 track');
+  await page.locator('.song-section-row').nth(0).locator('.song-section-number').click();
+  await expect(page.locator('.song-section-row').nth(0)).toHaveClass(/is-selected/);
+  await expect(page.locator('.song-section-row').nth(0).locator('.song-section-track-preview')).toContainText('1 track');
+  await expect.poll(() => page.locator('.song-section-row').nth(0).locator('.song-section-track-preview').evaluate(element => getComputedStyle(element).animationDuration)).toBe('0.18s');
   await expect.poll(async () => (await readState(page)).song.sections[0].repeats).toBe(3);
   await expect.poll(async () => (await readState(page)).song.sections[0].tracks?.length).toBe(1);
 
@@ -446,6 +453,9 @@ test('section selector captures, previews, and atomically reapplies all section 
   await expect.poll(() => page.locator('#track-swing-0').inputValue(), { timeout: 2_000 }).toBe('42');
   await expect.poll(() => page.locator('#track-volume-0').inputValue(), { timeout: 2_000 }).toBe('0.63');
   await expect(page.locator('#song-share-status')).toContainText('applied');
+  await expect(page.locator('.song-section-row').nth(0).locator('[data-song-section-action="remove"]')).toBeEnabled();
+  await page.locator('.song-section-row').nth(0).locator('[data-song-section-action="remove"]').click();
+  await expect(page.locator('.song-section-row')).toHaveCount(1);
 });
 
 test('section repeat counts repeat the bounded bar range before advancing', async ({ page }) => {
@@ -728,7 +738,8 @@ test('removing bars normalizes the host song timeline before synchronization', a
       serialized: (await AppState.getCurrentStateForPreset(true)).song
     };
   });
-  expect(state.local.sections).toHaveLength(1);
+  expect(state.local.sections).toHaveLength(2);
+  expect(state.local.sections.every(section => section.startBar === 0)).toBe(true);
   expect(state.serialized).toEqual(state.local);
 });
 

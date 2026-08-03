@@ -204,7 +204,7 @@ function validateImportedState(state) {
   const barCount = state.Tracks[0].barSettings.length;
   for (const section of song.sections) {
     if (!section || typeof section.name !== "string" || section.name.length < 1 || section.name.length > 48) return false;
-    if (!Number.isInteger(section.startBar) || section.startBar <= previousStart || section.startBar >= barCount) return false;
+    if (!Number.isInteger(section.startBar) || section.startBar < previousStart || section.startBar >= barCount) return false;
     if (!Number.isInteger(section.tempo) || section.tempo < 20 || section.tempo > 300) return false;
     if (song.version === 2) {
       if (!Number.isInteger(section.repeats) || section.repeats < 1 || section.repeats > 16) return false;
@@ -348,6 +348,46 @@ function goToSection(index) {
   return true;
 }
 
+function markSelectedSection(index) {
+  selectedSectionIndex = index;
+  document.querySelectorAll(".song-section-row").forEach(row => {
+    const rowIndex = Number.parseInt(row.dataset.sectionIndex, 10);
+    row.classList.toggle("is-selected", rowIndex === index);
+    const updateButton = row.querySelector('[data-song-section-action="update"]');
+    if (updateButton) updateButton.disabled = !canEditSong || rowIndex !== index;
+  });
+}
+
+function selectSection(index) {
+  if (!Number.isInteger(index) || index < 0 || selectedSectionIndex === index) return;
+  selectedSectionIndex = index;
+  render();
+}
+
+function renderSavedSectionDetails(section, tracks) {
+  const trackCards = tracks.map((track, index) => {
+    const bars = track.barSettings || [];
+    const restCount = bars.reduce((total, bar) => total + (bar.rests?.length || 0), 0);
+    const velocityCount = bars.reduce((total, bar) => total + Object.keys(bar.velocities || {}).length, 0);
+    const state = track.muted ? "Muted" : (track.solo ? "Solo" : "Active");
+    return `<li class="song-saved-track-card">
+      <strong>${escapeHtml(track.name || `Track ${index + 1}`)}</strong>
+      <span>${bars.length} bar${bars.length === 1 ? "" : "s"} · ${escapeHtml(track.mainBeatSound?.sound || "No main sound")} / ${escapeHtml(track.subdivisionSound?.sound || "No subdivision sound")}</span>
+      <span>${state} · Vol ${Math.round((track.volume ?? 1) * 100)}% · Pitch ${(track.pitchShift ?? 0) > 0 ? "+" : ""}${track.pitchShift ?? 0}st · Swing ${track.swing ?? 0}%</span>
+      <span>${restCount} rest${restCount === 1 ? "" : "s"} · ${velocityCount} velocity setting${velocityCount === 1 ? "" : "s"}</span>
+    </li>`;
+  }).join("");
+  return `<div class="song-section-saved-details">
+    <div class="song-saved-summary">
+      <span><b>Tempo</b> ${section.tempo} BPM</span>
+      <span><b>Starts</b> bar ${section.startBar + 1}</span>
+      <span><b>Repeats</b> ${section.repeats}×</span>
+      <span><b>Tracks</b> ${tracks.length}</span>
+    </div>
+    <ul class="song-saved-track-list">${trackCards}</ul>
+  </div>`;
+}
+
 function render() {
   const song = AppState.getSong();
   const editable = canEditSong && !AppState.isPlaying();
@@ -387,8 +427,7 @@ function render() {
     const savedInfo = index === selectedSectionIndex && savedTracks.length
       ? `<div class="song-section-track-preview" aria-live="polite">
           <strong>${savedTracks.length} track${savedTracks.length === 1 ? "" : "s"} saved in ${escapeHtml(section.name)}</strong>
-          <ul>${savedTracks.map((track, trackIndex) => `<li>${escapeHtml(track.name || `Track ${trackIndex + 1}`)} · ${track.barSettings.length} bar${track.barSettings.length === 1 ? "" : "s"} · ${escapeHtml(track.mainBeatSound.sound)} / ${escapeHtml(track.subdivisionSound.sound)} · ${track.muted ? "muted" : (track.solo ? "solo" : "active")}</li>`).join("")}</ul>
-          <details class="song-section-saved-info"><summary>Serialized saved info</summary><pre>${escapeHtml(JSON.stringify({ tempo: section.tempo, startBar: section.startBar, repeats: section.repeats, tracks: savedTracks }, null, 2))}</pre></details>
+          ${renderSavedSectionDetails(section, savedTracks)}
         </div>`
       : "";
     row.innerHTML = `
@@ -403,7 +442,7 @@ function render() {
         <button type="button" data-song-section-action="apply" aria-label="Apply ${section.name || "section"} tracks" title="Apply section tracks"${!section.tracks?.length ? " disabled" : ""}>↓ <span>Apply</span></button>
         <button type="button" data-song-section-action="update" aria-label="Update ${section.name || "section"} from current tracks" title="Update section from current tracks"${!editable || index !== selectedSectionIndex ? " disabled" : ""}>↑ <span>Update</span></button>
         <button type="button" data-song-section-action="copy" aria-label="Copy ${section.name || "section"}" title="Copy section">⧉ <span>Copy</span></button>
-        <button type="button" data-song-section-action="remove" aria-label="Remove ${section.name || "section"}" title="Remove section"${!editable || index === 0 ? " disabled" : ""}>× <span>Remove</span></button>
+        <button type="button" data-song-section-action="remove" aria-label="Remove ${section.name || "section"}" title="Remove section"${!editable || song.sections.length === 1 ? " disabled" : ""}>× <span>Remove</span></button>
       </span>
       ${savedInfo}`;
     const nameInput = row.querySelector(`[data-song-section-name="${index}"]`);
@@ -481,23 +520,10 @@ function copySection(index) {
   const song = updatedSongFromFields();
   const source = song.sections[index];
   if (!source || song.sections.length >= 32) return;
-  const tracks = AppState.getTracks();
-  let barCount = tracks[0]?.barSettings?.length || 1;
-  const used = new Set(song.sections.map(section => section.startBar));
-  let nextStart = 0;
-  while (used.has(nextStart)) nextStart += 1;
-  if (nextStart >= barCount && barCount < 64) {
-    for (const track of tracks) {
-      if (!track.barSettings?.length || track.barSettings.length >= 64) continue;
-      track.barSettings.push(JSON.parse(JSON.stringify(track.barSettings[track.barSettings.length - 1])));
-    }
-    barCount = tracks[0]?.barSettings?.length || barCount;
-  }
-  if (nextStart >= barCount) return;
   song.sections.push({
     ...JSON.parse(JSON.stringify(source)),
     name: `${source.name || `Section ${index + 1}`} Copy`,
-    startBar: nextStart,
+    startBar: source.startBar,
     tracks: source.tracks ? JSON.parse(JSON.stringify(source.tracks)) : [],
   });
   selectedSectionIndex = song.sections.length - 1;
@@ -541,7 +567,7 @@ async function initialize(callback) {
     if (nextStart >= barCount) return;
     song.sections.push({
       name: `Section ${song.sections.length + 1}`,
-      startBar: nextStart,
+      startBar: 0,
       tempo: AppState.getTempo(),
       repeats: 1,
     });
@@ -549,12 +575,22 @@ async function initialize(callback) {
     publishSongChange(song);
     refreshApplicationUI();
   });
-  document.getElementById("song-sections-list")?.addEventListener("click", async event => {
+  const sectionList = document.getElementById("song-sections-list");
+  sectionList?.addEventListener("focusin", event => {
+    const row = event.target.closest(".song-section-row");
+    if (!row || !event.target.matches("input, select")) return;
+    markSelectedSection(Number.parseInt(row.dataset.sectionIndex, 10));
+  });
+  sectionList?.addEventListener("click", async event => {
+    const row = event.target.closest(".song-section-row");
+    if (!row) return;
     const button = event.target.closest("button[data-song-section-action]");
-    if (!button) return;
-    const row = button.closest(".song-section-row");
     const index = Number.parseInt(row?.dataset.sectionIndex, 10);
     if (!Number.isInteger(index)) return;
+    if (!button) {
+      if (!event.target.closest("input, select, summary")) selectSection(index);
+      return;
+    }
     const action = button.dataset.songSectionAction;
     if (action === "go") {
       goToSection(index);
@@ -564,7 +600,7 @@ async function initialize(callback) {
       await updateSection(index);
     } else if (action === "copy") {
       copySection(index);
-    } else if (action === "remove" && index > 0 && canEditSong && !AppState.isPlaying()) {
+    } else if (action === "remove" && index >= 0 && AppState.getSong().sections.length > 1 && canEditSong && !AppState.isPlaying()) {
       const song = updatedSongFromFields();
       song.sections.splice(index, 1);
       selectedSectionIndex = Math.min(selectedSectionIndex, song.sections.length - 1);

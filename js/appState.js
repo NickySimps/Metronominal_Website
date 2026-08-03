@@ -324,16 +324,19 @@ function normalizeSong(value, barCount, fallbackTempo = 120) {
       const snapshotTracks = Array.isArray(section?.tracks)
         ? section.tracks.slice(0, 16).map(normalizeSectionTrack).filter(Boolean)
         : [];
+      const rawStartBar = Number.parseInt(section?.startBar, 10);
       return {
         name: String(section?.name || `Section ${index + 1}`).trim().slice(0, 48) || `Section ${index + 1}`,
         startBar: Math.max(0, Math.min(Number.parseInt(section?.startBar, 10) || 0, safeBarCount - 1)),
         tempo: Math.max(20, Math.min(Number.parseInt(section?.tempo, 10) || fallbackTempo, 300)),
         repeats: Math.max(1, Math.min(Number.parseInt(section?.repeats, 10) || 1, 16)),
+        __clampedStart: Number.isInteger(rawStartBar) && rawStartBar >= safeBarCount,
         ...(snapshotTracks.length ? { tracks: snapshotTracks } : {}),
       };
     })
     .sort((a, b) => a.startBar - b.startBar)
-    .filter((section, index, all) => index === 0 || section.startBar !== all[index - 1].startBar);
+    .filter((section, index, all) => !section.__clampedStart || index === 0 || section.startBar !== all[index - 1].startBar)
+    .map(({ __clampedStart, ...section }) => section);
   if (!normalizedSections.length || normalizedSections[0].startBar !== 0) {
     normalizedSections.unshift({ name: "Section 1", startBar: 0, tempo: fallbackTempo, repeats: 1 });
   }

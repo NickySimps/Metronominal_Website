@@ -3146,6 +3146,7 @@ environments: Development, Staging,
     border-radius: var(--BorderRadius);
     color: var(--ReadableOnBackground);
     font-size: var(--font-1);
+    animation: song-section-preview-expand 180ms ease-out;
 }
 .song-section-track-preview ul {
     display: grid;
@@ -3198,29 +3199,49 @@ environments: Development, Staging,
     outline: 3px solid var(--Main);
     outline-offset: 2px;
 }
-.song-section-saved-info {
-    flex-basis: 100%;
-    margin-top: 2px;
-    font-size: var(--font-1);
+.song-section-saved-details {
+    margin-top: var(--s2);
 }
-.song-section-saved-info summary {
-    cursor: pointer;
-    font-weight: 700;
+.song-saved-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: var(--s2);
+    margin-bottom: var(--s2);
 }
-.song-section-saved-info pre {
-    max-width: 100%;
-    max-height: 14rem;
-    margin: var(--s2) 0 0;
+.song-saved-summary span,
+.song-saved-track-card span {
+    display: block;
+    color: color-mix(in srgb, var(--ReadableOnBackground) 78%, transparent);
+}
+.song-saved-summary span {
     padding: var(--s2);
-    overflow: auto;
-    box-sizing: border-box;
-    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
-    border-radius: var(--BorderRadius);
-    background: color-mix(in srgb, var(--Background) 85%, transparent);
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    font: 0.7rem/1.35 ui-monospace, SFMono-Regular, Consolas, monospace;
+    border-radius: calc(var(--BorderRadius) / 2);
+    background: color-mix(in srgb, var(--Highlight) 55%, transparent);
 }
+.song-saved-summary b {
+    display: block;
+    color: var(--ReadableOnBackground);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+}
+.song-saved-track-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+    gap: var(--s2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.song-saved-track-card {
+    display: grid;
+    gap: 2px;
+    padding: var(--s2);
+    border: 1px solid color-mix(in srgb, var(--ReadableOnBackground) 25%, transparent);
+    border-radius: calc(var(--BorderRadius) / 2);
+    background: color-mix(in srgb, var(--Background) 65%, transparent);
+}
+.song-saved-track-card strong { color: var(--ReadableOnBackground); }
+.song-saved-track-card span { font-size: 0.76rem; }
 .song-section-row [data-remove-song-section] {
     background-color: var(--Alt2);
     color: var(--ReadableOnAlt2);
@@ -3268,6 +3289,15 @@ environments: Development, Staging,
 .song-import-button:focus-within { outline: 3px solid var(--Highlight); outline-offset: 2px; }
 .song-share-status { min-height: 1.3em; margin: 8px 0 0; }
 .song-share-status.error { color: #d33; }
+
+@keyframes song-section-preview-expand {
+    from { opacity: 0; transform: translateY(-6px); max-height: 0; }
+    to { opacity: 1; transform: translateY(0); max-height: 40rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .song-section-track-preview { animation: none; }
+}
 
 @media (max-width: 640px) {
     .song-mode-panel { padding: var(--s3); }
