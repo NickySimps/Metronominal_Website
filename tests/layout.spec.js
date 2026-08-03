@@ -678,6 +678,17 @@ test.describe('mode controls responsive layout', () => {
       theme: getComputedStyle(document.documentElement).getPropertyValue('--BorderRadius').trim(),
     }));
     expect(radii.picker).toBe(radii.theme);
+    const verticalContainment = await page.evaluate(() => {
+      const content = document.querySelector('.sound-picker-content').getBoundingClientRect();
+      const options = document.querySelector('.sound-picker-options');
+      const optionsRect = options.getBoundingClientRect();
+      return {
+        insideContent: optionsRect.top >= content.top - 1 && optionsRect.bottom <= content.bottom + 1,
+        hasInternalScroll: options.scrollHeight >= options.clientHeight,
+      };
+    });
+    expect(verticalContainment.insideContent).toBe(true);
+    expect(verticalContainment.hasInternalScroll).toBe(true);
     await page.locator('.sound-picker-card[data-sound="Synth Snare"] .sound-picker-preview').click();
     await page.locator('.sound-picker-card[data-sound="Synth Snare"] .sound-picker-select').click();
     await expect(page.locator('#sound-picker-modal')).toBeHidden();
@@ -708,6 +719,38 @@ test.describe('mode controls responsive layout', () => {
       expect(layout.themedRadius).toBe(true);
       await page.locator('#manage-recordings-modal .close-button').click();
     }
+  });
+
+  test('sound picker and saved recording rows contain their content on narrow mobile screens', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    await page.locator('.main-beat-sound-select').click();
+    const pickerLayout = await page.evaluate(() => {
+      const modal = document.querySelector('.sound-picker-content').getBoundingClientRect();
+      const cards = [...document.querySelectorAll('.sound-picker-card')].map((card) => card.getBoundingClientRect());
+      return {
+        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        cardsInside: cards.every((rect) => rect.left >= modal.left - 1 && rect.right <= modal.right + 1),
+      };
+    });
+    expect(pickerLayout.pageOverflow).toBeLessThanOrEqual(1);
+    expect(pickerLayout.cardsInside).toBe(true);
+    await page.locator('#sound-picker-close').click();
+    await page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      AppState.addRecording('A very long uploaded sample name for mobile layout testing');
+    });
+    await page.locator('#manage-recordings-btn').click();
+    const recordingLayout = await page.evaluate(() => {
+      const modal = document.querySelector('.manage-recordings-content').getBoundingClientRect();
+      const rows = [...document.querySelectorAll('.recording-item')].map((row) => row.getBoundingClientRect());
+      return {
+        pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        rowsInside: rows.every((rect) => rect.left >= modal.left - 1 && rect.right <= modal.right + 1),
+      };
+    });
+    expect(recordingLayout.pageOverflow).toBeLessThanOrEqual(1);
+    expect(recordingLayout.rowsInside).toBe(true);
   });
 
   test('visual regression: mobile theme menu', async ({ page }) => {
