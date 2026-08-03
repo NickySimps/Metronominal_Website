@@ -6,6 +6,25 @@ import SoundSettingsModal from "./soundSettingsModal.js";
 import AudioController from "./audioController.js";
 import SoundSynth from "./soundSynth.js";
 
+function animateRangeValue(input, targetValue, duration = 300) {
+  if (!input) return;
+  const target = Number(targetValue);
+  const start = Number(input.value);
+  if (!Number.isFinite(target) || !Number.isFinite(start) || start === target) {
+    input.value = String(targetValue);
+    return;
+  }
+  let startTime = null;
+  const step = currentTime => {
+    if (startTime === null) startTime = currentTime;
+    const progress = Math.min((currentTime - startTime) / duration, 1);
+    input.value = String(start + (target - start) * progress);
+    if (progress < 1) requestAnimationFrame(step);
+    else input.value = String(targetValue);
+  };
+  requestAnimationFrame(step);
+}
+
 let activeSoundPicker = null;
 
 function getSoundOptions() {
@@ -284,6 +303,9 @@ const TrackController = {
     const trackWrapper = document.getElementById("all-tracks-wrapper");
     if (!trackWrapper) return;
 
+    const previousSliderValues = new Map(
+      [...trackWrapper.querySelectorAll("input[type=range]")].map(input => [input.id, input.value])
+    );
     trackWrapper.innerHTML = ""; // Clear existing track elements
 
     tracks.forEach((track, index) => {
@@ -405,6 +427,14 @@ const TrackController = {
       }
 
       trackWrapper.appendChild(trackElement);
+      for (const slider of trackElement.querySelectorAll("input[type=range]")) {
+        const previousValue = previousSliderValues.get(slider.id);
+        if (previousValue !== undefined && previousValue !== slider.value) {
+          const targetValue = slider.value;
+          slider.value = previousValue;
+          animateRangeValue(slider, targetValue);
+        }
+      }
 
       // Check for modified sounds and apply outline if necessary
       const mainSoundModified = AppState.isSoundModified(index, 'mainBeatSound');

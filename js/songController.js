@@ -342,8 +342,9 @@ function goToSection(index) {
     track.songRepeatIteration = 0;
   }
   selectedSectionIndex = index;
+  AppState.setTempo(section.tempo);
   sendState(AppState.getCurrentStateForPreset(true));
-  render();
+  refreshApplicationUI();
   return true;
 }
 
@@ -499,6 +500,7 @@ async function initialize(callback) {
       ...song.sections.map(item => item.startBar + 1)
     );
     const state = await AppState.getCurrentStateForPreset(true);
+    state.tempo = section.tempo;
     state.Tracks = runtimeTracksFromSnapshot(expandSnapshotBars(section.tracks, requiredBars));
     state.song = song;
     await AppState.loadPresetData(state);

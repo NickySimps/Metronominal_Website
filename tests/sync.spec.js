@@ -253,6 +253,7 @@ test('song mode synchronizes sections and creates a credential-free song link', 
 
   await host.locator('[data-go-song-section="1"]').click();
   await expect(host.locator('#song-now-playing')).toContainText('Chorus');
+  await expect.poll(() => host.locator('.tempo-container .slider').inputValue(), { timeout: 2_000 }).toBe('150');
   await host.locator('#start-stop-btn').click();
   await expect(client.locator('#song-now-playing')).toContainText('Chorus');
   const lateClient = await lateClientContext.newPage();
@@ -431,6 +432,9 @@ test('section selector captures, previews, and atomically reapplies all section 
   expect(appliedTrack.barSettings[0]).toMatchObject({ rests: [2], velocities: { 0: 1, 1: 0.3 } });
   expect(appliedTrack.mainBeatSound.settings.attack).toBe(0.17);
   await expect(page.locator('.track')).toHaveCount(1);
+  await expect.poll(() => page.locator('#track-pitch-0').inputValue(), { timeout: 2_000 }).toBe('7');
+  await expect.poll(() => page.locator('#track-swing-0').inputValue(), { timeout: 2_000 }).toBe('42');
+  await expect.poll(() => page.locator('#track-volume-0').inputValue(), { timeout: 2_000 }).toBe('0.63');
   await expect(page.locator('#song-share-status')).toContainText('applied');
 });
 
