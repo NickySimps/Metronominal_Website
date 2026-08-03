@@ -468,7 +468,8 @@ async function initialize(callback) {
   });
   panel.addEventListener("change", event => {
     if (event.target.matches("#song-name-input, [data-song-section-name], [data-song-section-start], [data-song-section-tempo], [data-song-section-repeats]")) {
-      publishSongChange(updatedSongFromFields(), false);
+      const shouldRender = !event.target.matches("#song-name-input, [data-song-section-name]");
+      publishSongChange(updatedSongFromFields(), shouldRender);
     }
   });
   document.getElementById("song-section-select")?.addEventListener("change", event => {

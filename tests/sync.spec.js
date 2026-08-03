@@ -390,6 +390,16 @@ test('song v2 normalizes snapshots, repeats section ranges, and derives a missin
   ]);
 });
 
+test('song section edits immediately update the displayed BPM', async ({ page }) => {
+  await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await page.locator('#song-mode-enabled').click();
+  await expect(page.locator('#song-now-playing')).toContainText('120 BPM');
+  await page.locator('[data-song-section-tempo="0"]').fill('180');
+  await page.locator('[data-song-section-tempo="0"]').blur();
+  await expect(page.locator('#song-now-playing')).toContainText('180 BPM');
+});
+
 test('section selector captures, previews, and atomically reapplies all section tracks', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#share-btn')).toHaveClass(/connected/);
