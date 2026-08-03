@@ -396,6 +396,17 @@ test('section selector captures, previews, and atomically reapplies all section 
   await page.locator('#song-mode-enabled').click();
   await expect(page.locator('#song-section-select')).toBeVisible();
   await page.locator('[data-song-section-repeats="0"]').selectOption('3');
+  await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const track = AppState.getTracks()[0];
+    track.pitchShift = 7;
+    track.swing = 42;
+    track.volume = 0.63;
+    track.muted = true;
+    track.barSettings[0].rests = [2];
+    track.barSettings[0].velocities = { 0: 1, 1: 0.3 };
+    track.mainBeatSound.settings = { ...(track.mainBeatSound.settings || {}), attack: 0.17 };
+  });
   await page.locator('#capture-section-tracks-btn').click();
   await expect(page.locator('#song-section-track-preview')).toContainText('1 track');
   await expect.poll(async () => (await readState(page)).song.sections[0].repeats).toBe(3);
@@ -405,6 +416,11 @@ test('section selector captures, previews, and atomically reapplies all section 
   await expect.poll(async () => (await readState(page)).tracks.length).toBe(2);
   await page.locator('#apply-section-tracks-btn').click();
   await expect.poll(async () => (await readState(page)).tracks.length).toBe(1);
+  const appliedTrack = await readState(page).then(state => state.tracks[0]);
+  expect(appliedTrack).toMatchObject({ pitchShift: 7, swing: 42, volume: 0.63, muted: true });
+  expect(appliedTrack.barSettings[0]).toMatchObject({ rests: [2], velocities: { 0: 1, 1: 0.3 } });
+  expect(appliedTrack.mainBeatSound.settings.attack).toBe(0.17);
+  await expect(page.locator('.track')).toHaveCount(1);
   await expect(page.locator('#song-share-status')).toContainText('applied');
 });
 

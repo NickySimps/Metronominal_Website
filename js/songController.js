@@ -14,7 +14,7 @@ let canEditSong = true;
 let selectedSectionIndex = 0;
 
 const SNAPSHOT_TRACK_KEYS = new Set([
-  "name", "barSettings", "muted", "solo", "volume", "mainBeatSound", "subdivisionSound"
+  "name", "barSettings", "muted", "solo", "volume", "pitchShift", "swing", "mainBeatSound", "subdivisionSound"
 ]);
 
 function hasOnlyKeys(value, keys) {
@@ -97,11 +97,14 @@ function isSafeSnapshotTrack(track) {
   if (!isSafeSound(track.mainBeatSound) || !isSafeSound(track.subdivisionSound)
     || /^Recording:/i.test(track.mainBeatSound.sound) || /^Recording:/i.test(track.subdivisionSound.sound)) return false;
   return track.barSettings.every(bar => bar && typeof bar === "object" && !Array.isArray(bar)
-    && hasOnlyKeys(bar, new Set(["beats", "subdivision", "rests"]))
+    && hasOnlyKeys(bar, new Set(["beats", "subdivision", "rests", "velocities"]))
     && Number.isInteger(bar.beats) && bar.beats >= 1 && bar.beats <= 32
     && isFiniteInRange(Number(bar.subdivision), 0.25, 16)
     && Array.isArray(bar.rests) && bar.rests.length <= 256
-    && bar.rests.every(rest => Number.isInteger(rest) && rest >= 0 && rest <= 511));
+    && bar.rests.every(rest => Number.isInteger(rest) && rest >= 0 && rest <= 511)
+    && (bar.velocities === undefined || (bar.velocities && typeof bar.velocities === "object" && !Array.isArray(bar.velocities)
+      && Object.entries(bar.velocities).every(([index, velocity]) => Number.isInteger(Number(index)) && Number(index) >= 0 && Number(index) <= 511
+        && isFiniteInRange(Number(velocity), 0, 1)))));
 }
 
 function privateSoundNames() {
@@ -127,10 +130,13 @@ function snapshotCurrentTracks() {
       beats: bar.beats,
       subdivision: Number(bar.subdivision),
       rests: [...(bar.rests || [])].slice(0, 256),
+      velocities: { ...(bar.velocities || {}) },
     })),
     muted: track.muted === true,
     solo: track.solo === true,
     volume: isFiniteInRange(track.volume, 0, 1) ? track.volume : 1,
+    pitchShift: Number.isInteger(track.pitchShift) ? track.pitchShift : 0,
+    swing: Number.isFinite(track.swing) ? track.swing : 0,
     mainBeatSound: {
       sound: privateSounds.has(track.mainBeatSound?.sound) ? "Synth Kick" : track.mainBeatSound.sound,
       settings: JSON.parse(JSON.stringify(track.mainBeatSound?.settings || {})),
@@ -150,6 +156,19 @@ function runtimeTracksFromSnapshot(tracks) {
     songRepeatIteration: 0,
     nextBeatTime: 0,
   }));
+}
+
+function expandSnapshotBars(tracks, requiredBars) {
+  return tracks.map(track => {
+    const bars = track.barSettings.map(bar => ({
+      ...bar,
+      rests: [...(bar.rests || [])],
+      velocities: { ...(bar.velocities || {}) },
+    }));
+    const lastBar = bars[bars.length - 1];
+    while (bars.length < requiredBars) bars.push(JSON.parse(JSON.stringify(lastBar)));
+    return { ...track, barSettings: bars };
+  });
 }
 
 function validateImportedState(state) {
@@ -227,11 +246,13 @@ function reconstructImportedState(state) {
           ? { tracks: section.tracks.map(track => ({
             ...(typeof track.name === "string" ? { name: track.name } : {}),
             barSettings: track.barSettings.map(bar => ({
-              beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests]
+              beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests], velocities: { ...(bar.velocities || {}) }
             })),
             muted: track.muted,
             solo: track.solo,
             volume: track.volume,
+            pitchShift: track.pitchShift,
+            swing: track.swing,
             mainBeatSound: reconstructSound(track.mainBeatSound),
             subdivisionSound: reconstructSound(track.subdivisionSound)
           })) }
@@ -240,10 +261,12 @@ function reconstructImportedState(state) {
     },
     Tracks: state.Tracks.map(track => ({
       ...(typeof track.name === "string" ? { name: track.name } : {}),
-      barSettings: track.barSettings.map(bar => ({ beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests] })),
+      barSettings: track.barSettings.map(bar => ({ beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests], velocities: { ...(bar.velocities || {}) } })),
       muted: track.muted === true,
       solo: track.solo === true,
       volume: isFiniteInRange(track.volume, 0, 1) ? track.volume : 1,
+      pitchShift: track.pitchShift,
+      swing: track.swing,
       currentBar: 0,
       currentBeat: 0,
       mainBeatSound: reconstructSound(track.mainBeatSound),
@@ -469,13 +492,13 @@ async function initialize(callback) {
     const song = updatedSongFromFields();
     const section = song.sections[selectedSectionIndex];
     if (!section?.tracks?.length) return;
-    const requiredBars = Math.max(...song.sections.map(item => item.startBar)) + 1;
-    if (section.tracks[0].barSettings.length < requiredBars) {
-      announce("This snapshot does not contain enough bars for the current section layout. Update it first.", true);
-      return;
-    }
+    const requiredBars = Math.max(
+      1,
+      ...AppState.getTracks().map(track => track.barSettings?.length || 1),
+      ...song.sections.map(item => item.startBar + 1)
+    );
     const state = await AppState.getCurrentStateForPreset(true);
-    state.Tracks = runtimeTracksFromSnapshot(section.tracks);
+    state.Tracks = runtimeTracksFromSnapshot(expandSnapshotBars(section.tracks, requiredBars));
     state.song = song;
     await AppState.loadPresetData(state);
     refreshApplicationUI();
