@@ -1033,7 +1033,7 @@ select {
   cursor: pointer;
   background-color: var(--Highlight);
   border: var(--s0) solid var(--BorderColor);
-  border-radius: 50%;
+  border-radius: var(--BorderRadius);
   box-shadow: 0 var(--s1) var(--s2) rgba(0, 0, 0, 0.1);
 }
 #theme-menu-toggle:hover { background-color: var(--Accent); }
@@ -1048,7 +1048,7 @@ select {
   padding: var(--s3);
   background-color: transparent;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--BorderRadius);
   box-shadow: none;
   isolation: isolate;
   z-index: 1101;

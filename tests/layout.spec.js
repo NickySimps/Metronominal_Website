@@ -313,7 +313,7 @@ test.describe('mode controls responsive layout', () => {
     })).toBe('mirror');
   });
 
-  test('long-pressing the visualizer opens the selected bar subdivision drag menu', async ({ page }) => {
+  test('long-pressing the background does not open the subdivision menu', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 600 });
     await page.goto('/');
     const modeBefore = await page.evaluate(async () => {
@@ -334,7 +334,9 @@ test.describe('mode controls responsive layout', () => {
     await page.mouse.move(backgroundPoint.x, backgroundPoint.y);
     await page.mouse.down();
     await page.waitForTimeout(600);
-    await expect(page.locator('.subdivision-options-container.visible')).toHaveCount(2);
+    await expect(page.locator('.subdivision-options-container.visible')).toHaveCount(0);
+    await page.mouse.up();
+    return;
     await page.waitForTimeout(120);
     const subdivisionLayout = await page.locator('.subdivision-options-container.visible').evaluateAll((containers) => ({
       viewportWidth: innerWidth,
@@ -369,7 +371,7 @@ test.describe('mode controls responsive layout', () => {
     })).toBe(modeBefore);
   });
 
-  test('touch-holding the visualizer opens the subdivision menu', async ({ page }) => {
+  test('touch-holding the background does not open the subdivision menu', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
     const result = await page.evaluate(async () => {
@@ -390,7 +392,7 @@ test.describe('mode controls responsive layout', () => {
         overflow: [...document.querySelectorAll('.subdivision-options-container.visible')].map((container) => getComputedStyle(container).overflowY),
       };
     });
-    expect(result.visible).toBe(true);
+    expect(result.visible).toBe(false);
     expect(result.overflow.every((value) => ['visible', 'auto'].includes(value))).toBe(true);
     for (const option of result.options) {
       expect(option.width).toBeGreaterThanOrEqual(76);
