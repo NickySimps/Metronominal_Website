@@ -1292,7 +1292,6 @@ select {
   background-color: color-mix(in srgb, var(--Accent) 60%, #ffaa00);
 }
 
-/* Suggestion for your CSS file */
 .top-controls-area {
   position: relative;
   width: 100%;
@@ -1322,9 +1321,8 @@ select {
   border-color: color-mix(in srgb, var(--Alt1) 60%, var(--TextPrimary)) !important;
 }
 
-.top-controls-area button { flex: 0 0 auto; }
-
 .top-controls-area button {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   justify-content: center;
