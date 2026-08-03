@@ -439,6 +439,10 @@ test('section selector captures, previews, and atomically reapplies all section 
   await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-action="update"]')).not.toHaveText('↑');
   await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-action="move-up"]')).toHaveText('↑');
   await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-action="move-down"]')).toHaveText('↓');
+  await page.locator('.song-section-row').nth(1).locator('[data-song-section-action="move-up"]').click();
+  await expect(page.locator('[data-song-section-name="0"]')).toHaveValue('Section 1 Copy');
+  await page.locator('.song-section-row').nth(0).locator('[data-song-section-action="move-down"]').click();
+  await expect(page.locator('[data-song-section-name="0"]')).toHaveValue('Section 1');
   await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-action="update"]')).toBeEnabled();
   await expect(page.locator('.song-section-row').nth(0).locator('[data-song-section-action="update"]')).toBeDisabled();
   await expect(page.locator('.song-section-row').nth(1).locator('.song-section-track-preview')).toContainText('1 track');

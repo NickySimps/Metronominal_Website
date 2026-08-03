@@ -542,9 +542,13 @@ function moveSection(index, direction) {
   const song = updatedSongFromFields();
   const targetIndex = index + direction;
   if (!song.sections[index] || !song.sections[targetIndex]) return;
-  const startBar = song.sections[index].startBar;
-  song.sections[index].startBar = song.sections[targetIndex].startBar;
-  song.sections[targetIndex].startBar = startBar;
+  if (song.sections[index].startBar === song.sections[targetIndex].startBar) {
+    [song.sections[index], song.sections[targetIndex]] = [song.sections[targetIndex], song.sections[index]];
+  } else {
+    const startBar = song.sections[index].startBar;
+    song.sections[index].startBar = song.sections[targetIndex].startBar;
+    song.sections[targetIndex].startBar = startBar;
+  }
   selectedSectionIndex = targetIndex;
   publishSongChange(song);
   announce(`${song.sections[targetIndex].name} moved ${direction < 0 ? "up" : "down"}.`);
