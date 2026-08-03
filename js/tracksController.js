@@ -267,6 +267,7 @@ const TrackController = {
         TrackController.renderTracks();
     });
     document.getElementById("sound-picker-close")?.addEventListener("click", closeSoundPicker);
+    document.getElementById("sound-picker-bottom-close")?.addEventListener("click", closeSoundPicker);
     document.getElementById("sound-picker-options")?.addEventListener("click", (event) => {
       const card = event.target.closest(".sound-picker-card");
       if (!card) return;
@@ -359,7 +360,7 @@ const TrackController = {
           <div class="mode-buttons-col">
             <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode"><span class="control-icon">𝄽</span> Rest</button>
             <button class="accent-button ${AppState.isAccentMode() ? 'active' : ''}" aria-label="Toggle accent mode" title="Toggle Accent & Ghost Note Mode">⚡ Accent</button>
-            <button class="record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon">●</span> Rec</button>
+            <button class="record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon">⏺</span> Rec</button>
             <button class="random-btn" aria-label="Randomize pattern" title="Randomize accents, rests & dynamics for this track">❓ Rand</button>
           </div>
         </div>

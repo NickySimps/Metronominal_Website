@@ -1957,7 +1957,7 @@ button:active,
 /* Subdivision Options Container */
 .subdivision-options-container {
   position: fixed;
-  z-index: 1500;
+  z-index: 5000;
   display: flex;
   flex-flow: row wrap;
   width: min(320px, calc(100vw - 1rem));
@@ -1977,11 +1977,11 @@ button:active,
 }
 
 .subdivision-options-container.above {
-  z-index: 1502;
+  z-index: 5002;
 }
 
 .subdivision-options-container.below {
-  z-index: 1501;
+  z-index: 5001;
 }
 
 .subdivision-options-container.visible {
@@ -2582,6 +2582,21 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 .sound-picker-select:hover, .sound-picker-select:focus-visible { background: var(--Main); color: var(--TextOnMain); }
 .sound-picker-preview { flex: 0 0 42px; border: 0; border-left: 1px solid color-mix(in srgb, var(--TextPrimary) 18%, transparent); background: transparent; color: var(--Accent); cursor: pointer; }
 .sound-picker-preview:hover, .sound-picker-preview:focus-visible { background: var(--Accent); color: var(--TextOnMain); }
+.sound-picker-bottom-close {
+  width: 100%;
+  min-height: 56px;
+  margin-top: 14px;
+  padding: 12px 18px;
+  border: 1px solid var(--BorderColor);
+  border-radius: var(--BorderRadius);
+  background: var(--Highlight);
+  color: var(--TextPrimary);
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.sound-picker-bottom-close:hover,
+.sound-picker-bottom-close:focus-visible { background: var(--Accent); color: var(--TextOnMain); }
 @media (max-width: 600px) {
   .sound-picker-content { width: 100%; max-width: 100%; max-height: 100vh; margin: 0; border-radius: 0; min-height: 100vh; box-sizing: border-box; }
   .sound-picker-options { max-height: calc(100dvh - 180px); }
@@ -3488,7 +3503,7 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
 .track .rest-button,
 .track .record-btn { font-size: 0; }
 .track .rest-button .control-icon,
-.track .record-btn .control-icon { font-size: 1rem; }
+.track .record-btn .control-icon { font-size: 1.25rem; }
 
 /* Sound editor: keep the oscilloscope modal usable on iOS and short viewports. */
 #sound-settings-modal {

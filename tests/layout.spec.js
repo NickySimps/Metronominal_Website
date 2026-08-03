@@ -894,6 +894,11 @@ test.describe('mode controls responsive layout', () => {
     });
     expect(verticalContainment.insideContent).toBe(true);
     expect(verticalContainment.hasInternalScroll).toBe(true);
+    await expect(page.locator('#sound-picker-bottom-close')).toBeVisible();
+    await page.locator('#sound-picker-bottom-close').click();
+    await expect(page.locator('#sound-picker-modal')).toBeHidden();
+    await page.locator('.main-beat-sound-select').click();
+    await expect(page.locator('#sound-picker-modal')).toBeVisible();
     await page.locator('.sound-picker-card[data-sound="Synth Snare"] .sound-picker-preview').click();
     await page.locator('.sound-picker-card[data-sound="Synth Snare"] .sound-picker-select').click();
     await expect(page.locator('#sound-picker-modal')).toBeHidden();
