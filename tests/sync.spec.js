@@ -251,7 +251,7 @@ test('song mode synchronizes sections and creates a credential-free song link', 
   });
   expect(clientImport).toEqual({ rejected: true, name: 'Band Rehearsal' });
 
-  await host.locator('[data-go-song-section="1"]').click();
+  await host.locator('.song-section-row').nth(1).locator('[data-song-section-action="go"]').click();
   await expect(host.locator('#song-now-playing')).toContainText('Chorus');
   await expect.poll(() => host.locator('.tempo-container .slider').inputValue(), { timeout: 2_000 }).toBe('150');
   await host.locator('#start-stop-btn').click();
@@ -400,7 +400,7 @@ test('song section edits immediately update the displayed BPM', async ({ page })
   await page.locator('[data-song-section-tempo="0"]').blur();
   await expect(page.locator('#song-now-playing')).toContainText('180 BPM');
   await page.locator('.tempo-container .slider').fill('210');
-  await page.locator('#capture-section-tracks-btn').click();
+  await page.locator('.song-section-row').nth(0).locator('[data-song-section-action="update"]').click();
   await expect(page.locator('[data-song-section-tempo="0"]')).toHaveValue('210');
   await expect(page.locator('#song-now-playing')).toContainText('210 BPM');
 });
@@ -409,7 +409,7 @@ test('section selector captures, previews, and atomically reapplies all section 
   await page.goto('./');
   await expect(page.locator('#share-btn')).toHaveClass(/connected/);
   await page.locator('#song-mode-enabled').click();
-  await expect(page.locator('#song-section-select')).toBeVisible();
+  await expect(page.locator('.song-section-row')).toHaveCount(1);
   await page.locator('[data-song-section-repeats="0"]').selectOption('3');
   await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
@@ -422,14 +422,20 @@ test('section selector captures, previews, and atomically reapplies all section 
     track.barSettings[0].velocities = { 0: 1, 1: 0.3 };
     track.mainBeatSound.settings = { ...(track.mainBeatSound.settings || {}), attack: 0.17 };
   });
-  await page.locator('#capture-section-tracks-btn').click();
-  await expect(page.locator('#song-section-track-preview')).toContainText('1 track');
+  await page.locator('.song-section-row').nth(0).locator('[data-song-section-action="update"]').click();
+  await expect(page.locator('.song-section-row').nth(0).locator('.song-section-track-preview')).toContainText('1 track');
+  await page.locator('.song-section-row').nth(0).locator('[data-song-section-action="copy"]').click();
+  await expect(page.locator('.song-section-row')).toHaveCount(2);
+  await expect(page.locator('.song-section-row').nth(1)).toHaveClass(/is-selected/);
+  await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-action="update"]')).toBeEnabled();
+  await expect(page.locator('.song-section-row').nth(0).locator('[data-song-section-action="update"]')).toBeDisabled();
+  await expect(page.locator('.song-section-row').nth(1).locator('.song-section-track-preview')).toContainText('1 track');
   await expect.poll(async () => (await readState(page)).song.sections[0].repeats).toBe(3);
   await expect.poll(async () => (await readState(page)).song.sections[0].tracks?.length).toBe(1);
 
   await page.locator('#add-track-btn').click();
   await expect.poll(async () => (await readState(page)).tracks.length).toBe(2);
-  await page.locator('#apply-section-tracks-btn').click();
+  await page.locator('.song-section-row').nth(0).locator('[data-song-section-action="apply"]').click();
   await expect.poll(async () => (await readState(page)).tracks.length).toBe(1);
   const appliedTrack = await readState(page).then(state => state.tracks[0]);
   expect(appliedTrack).toMatchObject({ pitchShift: 7, swing: 42, volume: 0.63, muted: true });
@@ -508,8 +514,7 @@ test('song, rest, and recording controls keep readable contrast in every theme',
       '.record-btn',
       '.song-mode-panel input',
       '.song-mode-actions button',
-      '[data-go-song-section]',
-      '[data-remove-song-section]',
+      '.song-section-actions button',
       '.sticky-btn',
       '.sticky-play-btn'
     ];
