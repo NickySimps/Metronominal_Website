@@ -485,6 +485,7 @@ async function initialize(callback) {
     const song = updatedSongFromFields();
     const section = song.sections[selectedSectionIndex];
     if (!section) return;
+    section.tempo = AppState.getTempo();
     section.tracks = snapshotCurrentTracks();
     await publishSongChange(song);
     announce(`${section.tracks.length} track${section.tracks.length === 1 ? "" : "s"} captured for ${section.name}.`);

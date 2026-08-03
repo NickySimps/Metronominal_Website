@@ -399,6 +399,10 @@ test('song section edits immediately update the displayed BPM', async ({ page })
   await page.locator('[data-song-section-tempo="0"]').fill('180');
   await page.locator('[data-song-section-tempo="0"]').blur();
   await expect(page.locator('#song-now-playing')).toContainText('180 BPM');
+  await page.locator('.tempo-container .slider').fill('210');
+  await page.locator('#capture-section-tracks-btn').click();
+  await expect(page.locator('[data-song-section-tempo="0"]')).toHaveValue('210');
+  await expect(page.locator('#song-now-playing')).toContainText('210 BPM');
 });
 
 test('section selector captures, previews, and atomically reapplies all section tracks', async ({ page }) => {
