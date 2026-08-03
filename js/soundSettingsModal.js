@@ -458,9 +458,28 @@ const SoundSettingsModal = {
   createSlider(slidersContainer, param, min, max, step, value) {
     const sliderContainer = document.createElement("div");
     sliderContainer.className = "slider-container";
+    if (["highPassFrequency", "lowPassFrequency"].includes(param)) {
+      sliderContainer.classList.add("filter-slider-container");
+    }
 
     const label = document.createElement("label");
-    label.textContent = param;
+    const displayLabels = {
+      attack: "Attack",
+      decay: "Decay",
+      sustain: "Sustain",
+      release: "Release",
+      highPassFrequency: "High-pass",
+      lowPassFrequency: "Low-pass",
+      volume: "Volume",
+      startFrequency: "Start frequency",
+      endFrequency: "End frequency",
+      pitchEnvelopeTime: "Pitch envelope",
+      pitchShift: "Pitch shift",
+      trimStart: "Trim start",
+      trimEnd: "Trim end",
+    };
+    label.textContent = displayLabels[param] || param;
+    label.title = param;
     sliderContainer.appendChild(label);
 
     const sliderWrapper = document.createElement("div");
@@ -488,7 +507,9 @@ const SoundSettingsModal = {
     sliderContainer.appendChild(sliderWrapper);
 
     const valueDisplay = document.createElement("span");
-    if (param.toLowerCase().includes("frequency")) {
+    if (param === "highPassFrequency" || param === "lowPassFrequency") {
+        valueDisplay.textContent = `${Math.round(value)} Hz`;
+    } else if (param.toLowerCase().includes("frequency")) {
         valueDisplay.textContent = `${value.toFixed(2)} Hz (${frequencyToNote(value)})`;
     } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd"].includes(param)) {
         valueDisplay.textContent = `${value.toFixed(0)} ms`;

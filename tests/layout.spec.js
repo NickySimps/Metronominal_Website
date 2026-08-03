@@ -714,6 +714,8 @@ test.describe('mode controls responsive layout', () => {
       const labels = [...tools.querySelectorAll('label')];
       const ranges = [...tools.querySelectorAll('input[type="range"]')];
       const filterRanges = [...modal.querySelectorAll('[data-param="highPassFrequency"], [data-param="lowPassFrequency"]')];
+      const filterLabels = [...modal.querySelectorAll('.filter-slider-container label')];
+      const sliderWrappers = [...modal.querySelectorAll('#sound-sliders-container .slider-wrapper')].map((element) => element.getBoundingClientRect().width);
       const header = modal.querySelector('.modal-header');
       const stacked = [
         modal.querySelector('.sample-playback-controls'),
@@ -729,6 +731,8 @@ test.describe('mode controls responsive layout', () => {
         labelsInside: labels.every((label) => label.getBoundingClientRect().right <= tools.getBoundingClientRect().right + 1),
         rangesUsable: ranges.every((range) => range.getBoundingClientRect().width >= 80),
         filtersInside: filterRanges.every((range) => range.getBoundingClientRect().right <= modal.querySelector('.modal-content').getBoundingClientRect().right + 1),
+        filterLabelsInside: filterLabels.every((label) => label.getBoundingClientRect().right <= modal.querySelector('.modal-content').getBoundingClientRect().right + 1),
+        sliderWidthsMatch: sliderWrappers.every((width) => Math.abs(width - sliderWrappers[0]) < 0.5),
         headerInside: header.getBoundingClientRect().right <= viewportWidth + 1,
         stackedWithoutOverlap: stacked.every((rect, index) => index === 0 || rect.top >= stacked[index - 1].bottom - 1),
       };
@@ -738,6 +742,8 @@ test.describe('mode controls responsive layout', () => {
     expect(layout.labelsInside).toBe(true);
     expect(layout.rangesUsable).toBe(true);
     expect(layout.filtersInside).toBe(true);
+    expect(layout.filterLabelsInside).toBe(true);
+    expect(layout.sliderWidthsMatch).toBe(true);
     expect(layout.headerInside).toBe(true);
     expect(layout.stackedWithoutOverlap).toBe(true);
   });
