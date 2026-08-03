@@ -126,7 +126,26 @@ function syncPlaybackState() {
 /**
  * Initializes the entire application.
  */
+function hideKeyboardShortcutsOnTouch() {
+  const shortcuts = document.querySelector('.keyboard-shortcuts');
+  if (!shortcuts) return;
+
+  const hide = () => {
+    if (window.matchMedia('(max-width: 767px)').matches) {
+      shortcuts.hidden = true;
+      shortcuts.setAttribute('aria-hidden', 'true');
+    }
+  };
+
+  if (navigator.maxTouchPoints > 0 && window.matchMedia('(max-width: 767px)').matches) hide();
+  window.addEventListener('pointerdown', (event) => {
+    if ((navigator.maxTouchPoints > 0 || event.target === window)
+      && (event.pointerType === 'touch' || event.pointerType === 'pen')) hide();
+  }, { passive: true });
+}
+
 async function initialize() {
+  hideKeyboardShortcutsOnTouch();
   // 1. Initialize AudioContext and handle its state.
   const audioContext = AppState.initializeAudioContext();
 

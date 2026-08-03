@@ -74,6 +74,28 @@ test.describe('mode controls responsive layout', () => {
     });
   }
 
+  test('keeps closed timing and mode cards on one line and hides shortcuts after touch input', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    await expect(page.locator('.keyboard-shortcuts')).toBeVisible();
+    const geometry = await page.evaluate(() => {
+      const rect = (selector) => document.querySelector(selector).getBoundingClientRect();
+      const timing = rect('.timing-controls-group');
+      const mode = rect('.mode-controls-group');
+      const timingChildren = [...document.querySelectorAll('.timing-controls-group > .control-group')].map((element) => element.getBoundingClientRect());
+      const ab = rect('.ab-loop-controls');
+      const song = rect('.song-mode-toggle-wrap');
+      return {
+        timingOneLine: timingChildren.every((child) => child.top >= timing.top - 1 && child.bottom <= timing.bottom + 1),
+        modeOneLine: ab.right <= song.x + 1 && ab.bottom <= mode.bottom + 1 && song.bottom <= mode.bottom + 1,
+      };
+    });
+    expect(geometry.timingOneLine).toBe(true);
+    expect(geometry.modeOneLine).toBe(true);
+    await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch' })));
+    await expect(page.locator('.keyboard-shortcuts')).toBeHidden();
+  });
+
   test('supports validated loop ranges, TAP feedback, and keyboard shortcuts', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/');

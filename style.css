@@ -1418,54 +1418,82 @@ select {
   .timing-controls-group {
     display: flex !important;
     flex-direction: row !important;
-    flex-wrap: wrap !important;
+    flex-wrap: nowrap !important;
     align-items: center !important;
     justify-content: space-between !important;
-    gap: 4px 6px !important;
+    gap: 3px !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
   }
 
   .timing-controls-group .control-group {
-    flex: 0 1 auto;
-    gap: 3px;
-    max-width: 100%;
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 2px;
+    max-width: none;
   }
 
+  .timing-controls-group .beats-count-wrap { flex-grow: .7; }
+
   .timing-controls-group .control-label {
-    font-size: 0.72rem !important;
+    font-size: 0.64rem !important;
     white-space: nowrap;
   }
 
   .timing-controls-group .compact-select {
-    padding: 3px 2px !important;
-    font-size: 0.78rem !important;
-    max-width: 100%;
+    width: 100%;
+    min-width: 0;
+    padding: 3px 1px !important;
+    font-size: 0.68rem !important;
+    max-width: none;
+    text-overflow: ellipsis;
+  }
+
+  @media (max-width: 340px) {
+    .timing-controls-group .control-label {
+      width: 0.8rem;
+      overflow: hidden;
+      font-size: 0 !important;
+      text-align: center;
+    }
+
+    .timing-controls-group .control-label::after {
+      display: inline-block;
+      font-size: 0.75rem;
+      line-height: 1;
+    }
+
+    .timing-controls-group .beats-count-wrap .control-label::after { content: 'Σ'; }
+    .timing-controls-group > .control-group:nth-child(2) .control-label::after { content: '÷'; }
+    .timing-controls-group > .control-group:nth-child(3) .control-label::after { content: '⏱'; }
   }
 
   /* Group 2: Modes (A/B Loop & Song Mode) */
   .mode-controls-group {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     align-items: center !important;
-    gap: 6px !important;
+    gap: 4px !important;
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box !important;
   }
 
   .mode-controls-group .ab-loop-controls {
-    width: 100%;
+    width: auto;
+    flex: 1 1 auto;
     min-width: 0;
     display: flex;
     align-items: center;
     gap: 4px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     box-sizing: border-box;
   }
 
   .mode-controls-group .song-mode-toggle-wrap {
-    width: 100%;
+    width: auto;
+    flex: 0 0 auto;
     min-width: 0;
     display: flex;
     align-items: center;
@@ -1473,6 +1501,15 @@ select {
     margin-left: 0;
     white-space: nowrap;
     box-sizing: border-box;
+  }
+
+  .mode-controls-group:has(.ab-loop-inputs.open) {
+    flex-wrap: wrap !important;
+  }
+
+  .mode-controls-group:has(.ab-loop-inputs.open) .ab-loop-controls {
+    flex-basis: 100%;
+    flex-wrap: wrap;
   }
 
   .ab-loop-inputs.open {
@@ -3416,7 +3453,8 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
   align-items: stretch;
   gap: 14px;
   border-radius: var(--BorderRadius);
-  overflow: visible;
+  overflow-x: hidden;
+  overflow-y: auto;
   box-sizing: border-box;
 }
 .manage-recordings-content > h2,
