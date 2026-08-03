@@ -684,6 +684,32 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('.main-beat-sound-select')).toHaveAttribute('data-sound', 'Synth Snare');
   });
 
+  test('manage recordings modal stays centered and contained on desktop and mobile', async ({ page }) => {
+    for (const viewport of [{ width: 1280, height: 720 }, { width: 320, height: 568 }]) {
+      await page.setViewportSize(viewport);
+      await page.goto('/');
+      await page.locator('#manage-recordings-btn').click();
+      await expect(page.locator('#manage-recordings-modal')).toBeVisible();
+      const layout = await page.evaluate(() => {
+        const modal = document.querySelector('#manage-recordings-modal');
+        const content = modal.querySelector('.manage-recordings-content').getBoundingClientRect();
+        const buttons = [...modal.querySelectorAll('button')].map((button) => button.getBoundingClientRect());
+        const viewportWidth = document.documentElement.clientWidth;
+        return {
+          pageOverflow: document.documentElement.scrollWidth - viewportWidth,
+          contentInside: content.left >= -1 && content.right <= viewportWidth + 1,
+          buttonsInside: buttons.every((rect) => rect.left >= content.left - 1 && rect.right <= content.right + 1),
+          themedRadius: getComputedStyle(modal.querySelector('.manage-recordings-content')).borderRadius === getComputedStyle(document.documentElement).getPropertyValue('--BorderRadius').trim(),
+        };
+      });
+      expect(layout.pageOverflow).toBeLessThanOrEqual(1);
+      expect(layout.contentInside).toBe(true);
+      expect(layout.buttonsInside).toBe(true);
+      expect(layout.themedRadius).toBe(true);
+      await page.locator('#manage-recordings-modal .close-button').click();
+    }
+  });
+
   test('visual regression: mobile theme menu', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');

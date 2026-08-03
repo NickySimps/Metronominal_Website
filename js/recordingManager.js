@@ -158,7 +158,7 @@ const RecordingManager = {
     const modal = document.getElementById("manage-recordings-modal");
     if (modal) {
       RecordingManager.populateModal();
-      modal.style.display = "block";
+      modal.style.display = "flex";
     }
   },
 
@@ -248,15 +248,10 @@ const RecordingManager = {
     recordings.forEach((recordingName) => {
       const recordingItem = document.createElement("div");
       recordingItem.className = "recording-item";
-      recordingItem.style.display = "flex";
-      recordingItem.style.alignItems = "center";
-      recordingItem.style.gap = "8px";
-      recordingItem.style.margin = "6px 0";
 
       const nameSpan = document.createElement("span");
       nameSpan.textContent = recordingName;
       nameSpan.className = "recording-name-display";
-      nameSpan.style.flex = "1";
       recordingItem.appendChild(nameSpan);
 
       const audioBuffer = AppState.getSoundBuffer(recordingName);

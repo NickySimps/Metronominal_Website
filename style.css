@@ -2440,6 +2440,7 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   white-space: nowrap;
   cursor: pointer;
   position: relative;
+  text-align: center;
 }
 .sound-selector-trigger::after {
   content: "▾";
@@ -3381,4 +3382,106 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
   #sound-settings-modal .waveform-tools { gap: .45rem; padding: .4rem .5rem; }
   #sound-settings-modal .waveform-tools label { flex-basis: 100%; min-width: 0; }
   #sound-settings-modal .waveform-tools input[type="range"] { min-width: 0; }
+}
+
+/* Manage Recordings: keep the themed surface, but let the modal layer own scrolling. */
+.manage-recordings-modal {
+  z-index: 2500;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 12px;
+  box-sizing: border-box;
+}
+.manage-recordings-content {
+  width: min(760px, calc(100vw - 24px));
+  max-width: 760px;
+  max-height: calc(100dvh - 24px);
+  margin: auto;
+  padding: clamp(18px, 3vw, 30px);
+  align-items: stretch;
+  gap: 14px;
+  border-radius: var(--BorderRadius);
+  overflow: visible;
+  box-sizing: border-box;
+}
+.manage-recordings-content > h2,
+.manage-recordings-content > h3 { margin: 0; color: var(--TextPrimary); }
+.manage-recordings-content > h3 { margin-top: 4px; }
+.sample-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0;
+}
+.loop-sampler-box {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--BorderColor, #444);
+  border-radius: var(--BorderRadius);
+  background: color-mix(in srgb, var(--Background) 82%, var(--Main) 18%);
+}
+.loop-sampler-box h3 { margin: 0; color: var(--TextPrimary); }
+.loop-sampler-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.loop-sampler-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--TextPrimary);
+  font-weight: 600;
+}
+.loop-record-btn { background: var(--Alt2); color: var(--TextOnMain); }
+#recordings-list {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+#recordings-list > p { margin: 0; color: var(--TextSecondary); }
+.recording-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto repeat(4, auto);
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--TextPrimary) 18%, transparent);
+  border-radius: var(--BorderRadius);
+  background: color-mix(in srgb, var(--Background) 88%, var(--Main) 12%);
+  box-sizing: border-box;
+}
+.recording-name-display,
+.recording-name-input {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--TextPrimary);
+}
+.recording-duration { color: var(--TextSecondary); white-space: nowrap; }
+.recording-item .preset-btn {
+  min-width: 42px;
+  min-height: 38px;
+  padding: 7px 9px;
+  margin: 0;
+}
+@media (max-width: 560px) {
+  .manage-recordings-modal { align-items: flex-start; }
+  .manage-recordings-content {
+    width: 100%;
+    max-height: calc(100dvh - 12px);
+    margin: 6px auto;
+    padding: 16px;
+  }
+  .recording-name-display,
+  .recording-name-input { grid-column: 1 / -1; }
+  .recording-duration { grid-column: 1; }
 }

@@ -451,19 +451,19 @@
             <div id="sound-picker-options" class="sound-picker-options"></div>
         </div>
     </div>
-    <div id="manage-recordings-modal" class="modal">
-        <div class="modal-content">
+    <div id="manage-recordings-modal" class="modal manage-recordings-modal">
+        <div class="modal-content manage-recordings-content">
             <span class="close-button">&times;</span>
             <h2>Manage Recordings & Samples</h2>
 
-            <div class="sample-actions" style="display: flex; gap: 10px; margin: 15px 0; align-items: center; flex-wrap: wrap;">
+            <div class="sample-actions">
                 <button id="upload-sample-btn" class="preset-btn">📁 Upload Sample Files</button>
                 <input type="file" id="upload-sample-input" accept="audio/*" multiple style="display: none;" />
             </div>
 
-            <div class="loop-sampler-box" style="margin: 15px 0; padding: 12px; border: 1px solid var(--BorderColor, #444); border-radius: var(--BorderRadius); background: rgba(0,0,0,0.15);">
+            <div class="loop-sampler-box">
                 <h3 style="margin-top:0;">⏺ Multi-Bar Self-Sampling Loop Recorder</h3>
-                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                <div class="loop-sampler-controls">
                     <label for="loop-bars-select">Bars to record:
                         <select id="loop-bars-select" class="compact-select">
                             <option value="1">1 Bar</option>
@@ -472,7 +472,7 @@
                             <option value="8">8 Bars</option>
                         </select>
                     </label>
-                    <button id="record-loop-btn" class="preset-btn" style="background: var(--Alt2); color: var(--TextOnMain);">⏺ Start Loop Sampler</button>
+                    <button id="record-loop-btn" class="preset-btn loop-record-btn">⏺ Start Loop Sampler</button>
                 </div>
             </div>
 
