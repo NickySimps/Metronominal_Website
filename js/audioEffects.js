@@ -62,8 +62,88 @@ export function createSoundFilterInput(audioContext, destination, settings = {})
     clampFrequency(settings.lowPassFrequency, DEFAULT_LOW_PASS, audioContext.sampleRate),
   );
   highPass.connect(lowPass);
-  lowPass.connect(destination || audioContext.destination);
+  lowPass.connect(createEffectRackInput(audioContext, destination || audioContext.destination, settings));
   return highPass;
+}
+
+function makeDistortionCurve(amount = 0) {
+  const samples = 44100;
+  const curve = new Float32Array(samples);
+  const drive = Math.max(0, Math.min(1, Number(amount) || 0));
+  const k = drive * 400;
+  for (let index = 0; index < samples; index += 1) {
+    const x = (index * 2) / samples - 1;
+    curve[index] = k === 0 ? x : ((3 + k) * x * 20 * Math.PI / 180) / (Math.PI + k * Math.abs(x));
+  }
+  return curve;
+}
+
+function createImpulseResponse(audioContext, seconds = 1.2) {
+  const length = Math.ceil(audioContext.sampleRate * seconds);
+  const impulse = audioContext.createBuffer(2, length, audioContext.sampleRate);
+  for (let channel = 0; channel < impulse.numberOfChannels; channel += 1) {
+    const data = impulse.getChannelData(channel);
+    for (let index = 0; index < length; index += 1) {
+      data[index] = (Math.random() * 2 - 1) * Math.pow(1 - index / length, 2.5);
+    }
+  }
+  return impulse;
+}
+
+export function normalizeEffectSettings(settings = {}) {
+  settings.distortion = Math.max(0, Math.min(1, Number(settings.distortion) || 0));
+  settings.delayMix = Math.max(0, Math.min(1, Number(settings.delayMix) || 0));
+  settings.delayTime = Math.max(0, Math.min(1, Number(settings.delayTime) || 0));
+  settings.reverbMix = Math.max(0, Math.min(1, Number(settings.reverbMix) || 0));
+  return settings;
+}
+
+export function createEffectRackInput(audioContext, destination, settings = {}) {
+  normalizeEffectSettings(settings);
+  const input = audioContext.createGain();
+  const dry = audioContext.createGain();
+  const output = audioContext.createGain();
+  input.connect(dry);
+  dry.connect(output);
+  dry.gain.value = 1;
+
+  if (settings.distortion > 0) {
+    const shaper = audioContext.createWaveShaper();
+    const wet = audioContext.createGain();
+    shaper.curve = makeDistortionCurve(settings.distortion);
+    shaper.oversample = "4x";
+    wet.gain.value = settings.distortion;
+    input.connect(shaper);
+    shaper.connect(wet);
+    wet.connect(output);
+  }
+
+  if (settings.delayMix > 0) {
+    const delay = audioContext.createDelay(1);
+    const wet = audioContext.createGain();
+    const feedback = audioContext.createGain();
+    delay.delayTime.value = settings.delayTime;
+    feedback.gain.value = Math.min(0.85, 0.25 + settings.delayMix * 0.5);
+    wet.gain.value = settings.delayMix;
+    input.connect(delay);
+    delay.connect(feedback);
+    feedback.connect(delay);
+    delay.connect(wet);
+    wet.connect(output);
+  }
+
+  if (settings.reverbMix > 0) {
+    const convolver = audioContext.createConvolver();
+    const wet = audioContext.createGain();
+    convolver.buffer = createImpulseResponse(audioContext);
+    wet.gain.value = settings.reverbMix;
+    input.connect(convolver);
+    convolver.connect(wet);
+    wet.connect(output);
+  }
+
+  output.connect(destination || audioContext.destination);
+  return input;
 }
 
 export function normalizeFilterSettings(settings = {}) {

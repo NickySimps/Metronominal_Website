@@ -8,7 +8,7 @@ import Oscilloscope from "./oscilloscope.js";
 import { frequencyToNote, noteToFrequency, noteStrings, generateNoteFrequencies, semitonesToInterval } from "./utils.js";
 import { Slider } from './slider.js';
 import SoundSynth from './soundSynth.js';
-import { normalizeFilterSettings, createSoundFilterInput, getReversedAudioBuffer, renderSynthAudioBuffer } from './audioEffects.js';
+import { normalizeFilterSettings, normalizeEffectSettings, createSoundFilterInput, getReversedAudioBuffer, renderSynthAudioBuffer } from './audioEffects.js';
 
 const SoundSettingsModal = {
   isNoteSnapping: false,
@@ -347,6 +347,10 @@ const SoundSettingsModal = {
         valueToSave = value / 100;
     } else if (param === "pitchShift") {
         valueToSave = value;
+    } else if (param === "delayTime") {
+        valueToSave = value / 1000;
+    } else if (["distortion", "delayMix", "reverbMix"].includes(param)) {
+        valueToSave = value / 100;
     }
 
     const soundInfo = this.getCurrentSoundInfo();
@@ -381,8 +385,10 @@ const SoundSettingsModal = {
         const valueDisplay = slider.parentElement.nextElementSibling;
         if (param.toLowerCase().includes("frequency")) {
             valueDisplay.textContent = `${parseFloat(displayValue).toFixed(2)} Hz (${frequencyToNote(displayValue)})`;
-        } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd"].includes(param)) {
+        } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd", "delayTime"].includes(param)) {
             valueDisplay.textContent = `${slider.value} ms`;
+        } else if (["distortion", "delayMix", "reverbMix"].includes(param)) {
+            valueDisplay.textContent = `${slider.value}%`;
         } else if (param.toLowerCase() === "volume") {
             valueDisplay.textContent = `${slider.value}%`;
         } else {
@@ -480,6 +486,10 @@ const SoundSettingsModal = {
       endFrequency: "End frequency",
       pitchEnvelopeTime: "Pitch envelope",
       pitchShift: "Pitch shift",
+      distortion: "Distortion",
+      delayMix: "Delay mix",
+      delayTime: "Delay time",
+      reverbMix: "Reverb mix",
       trimStart: "Trim start",
       trimEnd: "Trim end",
     };
@@ -516,8 +526,10 @@ const SoundSettingsModal = {
         valueDisplay.textContent = `${Math.round(value)} Hz`;
     } else if (param.toLowerCase().includes("frequency")) {
         valueDisplay.textContent = `${value.toFixed(2)} Hz (${frequencyToNote(value)})`;
-    } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd"].includes(param)) {
+    } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd", "delayTime"].includes(param)) {
         valueDisplay.textContent = `${value.toFixed(0)} ms`;
+    } else if (["distortion", "delayMix", "reverbMix"].includes(param)) {
+        valueDisplay.textContent = `${value.toFixed(0)}%`;
     } else if (param.toLowerCase() === "volume") {
         valueDisplay.textContent = `${value}%`;
     } else if (param === "pitchShift") {
@@ -740,6 +752,7 @@ const SoundSettingsModal = {
     soundSettings.retrigger = soundSettings.retrigger !== false;
     soundSettings.reverse = soundSettings.reverse === true;
     normalizeFilterSettings(soundSettings);
+    normalizeEffectSettings(soundSettings);
     const numericProbability = Number(soundSettings.probability);
     soundSettings.probability = Number.isFinite(numericProbability) ? Math.max(0, Math.min(100, numericProbability)) : 100;
     this.currentSoundSettings = soundSettings;
@@ -930,9 +943,13 @@ const SoundSettingsModal = {
     filterFeedback.setAttribute("role", "status");
     slidersContainer.appendChild(filterFeedback);
     this.updateFilterFeedback();
+    this.createSlider(slidersContainer, "distortion", 0, 100, 1, soundSettings.distortion * 100);
+    this.createSlider(slidersContainer, "delayMix", 0, 100, 1, soundSettings.delayMix * 100);
+    this.createSlider(slidersContainer, "delayTime", 0, 1000, 1, soundSettings.delayTime * 1000);
+    this.createSlider(slidersContainer, "reverbMix", 0, 100, 1, soundSettings.reverbMix * 100);
 
     for (const param in soundSettings) {
-      if (typeof soundSettings[param] === "number" && !["attack", "decay", "sustain", "release", "trimStart", "trimEnd", "pitchShift", "probability", "highPassFrequency", "lowPassFrequency"].includes(param)) {
+      if (typeof soundSettings[param] === "number" && !["attack", "decay", "sustain", "release", "trimStart", "trimEnd", "pitchShift", "probability", "highPassFrequency", "lowPassFrequency", "distortion", "delayMix", "delayTime", "reverbMix"].includes(param)) {
         const isTimeBased = param === 'pitchEnvelopeTime';
         const isVolume = param.toLowerCase() === 'volume';
         const min = param.toLowerCase().includes("frequency") ? 20 : (isTimeBased ? 1 : (isVolume ? 0 : 0.01));

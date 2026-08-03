@@ -654,6 +654,31 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('.filter-feedback')).toContainText('LP 5000 Hz');
   });
 
+  test('effects rack builds a live Web Audio chain and exposes its controls', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const [{ default: AppState }, { createEffectRackInput }] = await Promise.all([
+        import(new URL('js/appState.js', document.baseURI).href),
+        import(new URL('js/audioEffects.js', document.baseURI).href),
+      ]);
+      const audioContext = AppState.getAudioContext();
+      const destination = audioContext.createGain();
+      const settings = { distortion: 0.4, delayMix: 0.3, delayTime: 0.18, reverbMix: 0.5 };
+      const input = createEffectRackInput(audioContext, destination, settings);
+      return { inputType: input.constructor.name, settings };
+    });
+    expect(result.inputType).toBe('GainNode');
+    expect(result.settings).toEqual({ distortion: 0.4, delayMix: 0.3, delayTime: 0.18, reverbMix: 0.5 });
+
+    const track = page.locator('.track').first();
+    await track.locator('.beat-edit-btn').click();
+    await track.locator('.beat-square').first().click();
+    await expect(page.locator('[data-param="distortion"]')).toBeVisible();
+    await expect(page.locator('[data-param="delayMix"]')).toBeVisible();
+    await expect(page.locator('[data-param="delayTime"]')).toBeVisible();
+    await expect(page.locator('[data-param="reverbMix"]')).toBeVisible();
+  });
+
   test('sound modal traps keyboard focus and restores the opener', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 600 });
     await page.goto('/');
