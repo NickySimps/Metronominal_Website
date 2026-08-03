@@ -134,6 +134,7 @@ const Oscilloscope = {
       });
       btn.addEventListener("pointerdown", (event) => {
         if (event.button !== 0) return;
+        if (event.pointerType === "touch") event.preventDefault();
         modePressStart = { x: event.clientX, y: event.clientY };
         clearModePress();
         modePressStart = { x: event.clientX, y: event.clientY };
@@ -162,6 +163,7 @@ const Oscilloscope = {
       });
       document.addEventListener("pointermove", (event) => {
         if (modeMenu.hidden) return;
+        if (event.pointerType === "touch") event.preventDefault();
         let hoveredOption = null;
         modeMenu.querySelectorAll("[data-mode]").forEach((option) => {
           const rect = option.getBoundingClientRect();

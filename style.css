@@ -823,6 +823,8 @@ select {
   position: relative;
   display: inline-flex;
   z-index: 1200;
+  touch-action: none;
+  user-select: none;
 }
 .visualizer-mode-menu {
   position: absolute;
@@ -841,6 +843,8 @@ select {
   background: var(--Background, #111);
   color: var(--TextPrimary, #fff);
   box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+  touch-action: none;
+  user-select: none;
 }
 .visualizer-mode-menu[hidden] { display: none; }
 .visualizer-mode-menu button {
@@ -852,6 +856,8 @@ select {
   color: var(--TextPrimary, #fff);
   text-align: left;
   cursor: pointer;
+  touch-action: none;
+  user-select: none;
 }
 .visualizer-mode-menu button:hover,
 .visualizer-mode-menu button:focus-visible,
