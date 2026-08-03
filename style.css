@@ -2455,7 +2455,13 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   outline-offset: 1px;
 }
 .sound-picker-modal {
-  z-index: 2100;
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  box-sizing: border-box;
   background: color-mix(in srgb, var(--Background) 78%, black 22%);
 }
 .sound-picker-modal[hidden] { display: none; }
@@ -2466,6 +2472,9 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   margin: 4vh auto;
   align-items: stretch;
   padding: clamp(18px, 3vw, 34px);
+  border-radius: var(--BorderRadius);
+  overflow: visible;
+  box-sizing: border-box;
 }
 .sound-picker-close {
   position: absolute;

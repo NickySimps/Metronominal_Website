@@ -673,6 +673,11 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('.sound-picker-group-uploaded')).toBeVisible();
     await expect(page.locator('.sound-picker-preview')).toHaveCount(24);
     await expect(page.locator('.sound-picker-card.selected')).toHaveCount(1);
+    const radii = await page.evaluate(() => ({
+      picker: getComputedStyle(document.querySelector('.sound-picker-content')).borderRadius,
+      theme: getComputedStyle(document.documentElement).getPropertyValue('--BorderRadius').trim(),
+    }));
+    expect(radii.picker).toBe(radii.theme);
     await page.locator('.sound-picker-card[data-sound="Synth Snare"] .sound-picker-preview').click();
     await page.locator('.sound-picker-card[data-sound="Synth Snare"] .sound-picker-select').click();
     await expect(page.locator('#sound-picker-modal')).toBeHidden();
