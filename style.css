@@ -3505,6 +3505,24 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
 .track .rest-button .control-icon,
 .track .record-btn .control-icon { font-size: 1.25rem; }
 
+.track-controls .track-record-btn {
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  margin: 0;
+  font-size: 0;
+}
+.track-controls .track-record-btn .control-icon { font-size: 1.45rem; }
+.beat-edit-btn.active,
+body.beat-edit-mode .beat-square {
+  outline: 2px solid var(--Alt2);
+  outline-offset: 2px;
+}
+body.beat-edit-mode .beat-square {
+  cursor: pointer;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--Alt2) 42%, transparent);
+}
+
 /* Sound editor: keep the oscilloscope modal usable on iOS and short viewports. */
 #sound-settings-modal {
   z-index: 4000;
@@ -3740,4 +3758,29 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
   }
   .recording-duration { flex: 1 1 auto; }
   .recording-item .preset-btn { flex: 0 0 auto; }
+}
+
+#sound-settings-modal .synth-waveform-canvas {
+  display: block;
+  width: 100%;
+  height: clamp(72px, 18vh, 140px);
+  margin: 0 0 .65rem;
+  border: 1px solid var(--Border, var(--Main));
+  border-radius: var(--BorderRadius);
+  background: color-mix(in srgb, var(--Background) 82%, var(--Main));
+}
+#sound-settings-modal .filter-feedback {
+  display: block;
+  margin: .35rem 0 .65rem;
+  padding: .35rem .55rem;
+  border: 1px solid var(--Border, var(--Main));
+  border-radius: var(--BorderRadius);
+  color: var(--Alt2);
+  font-size: .8rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+#sound-settings-modal .filter-feedback.high-pass-active,
+#sound-settings-modal .filter-feedback.low-pass-active {
+  color: var(--Highlight);
 }

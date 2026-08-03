@@ -290,6 +290,9 @@ function normalizeSectionTrack(value, index) {
     velocities: bar?.velocities && typeof bar.velocities === "object"
       ? bar.velocities
       : {},
+    beatSounds: bar?.beatSounds && typeof bar.beatSounds === "object" && !Array.isArray(bar.beatSounds)
+      ? JSON.parse(JSON.stringify(bar.beatSounds))
+      : {},
   })) : [];
   if (!bars.length) return null;
   return {
@@ -1159,6 +1162,24 @@ const AppState = (function () {
           return customSounds[sound].settings;
       }
       return defaultSoundSettings[sound];
+    },
+    getBeatSound: (trackIndex, barIndex, beatIndex, soundType) => {
+      const track = Tracks[trackIndex];
+      const bar = track?.barSettings?.[barIndex];
+      return bar?.beatSounds?.[beatIndex]?.[soundType] || track?.[soundType] || null;
+    },
+    setBeatSound: (trackIndex, barIndex, beatIndex, soundType, soundInfo) => {
+      const track = Tracks[trackIndex];
+      const bar = track?.barSettings?.[barIndex];
+      if (!bar || !soundInfo?.sound) return false;
+      if (!bar.beatSounds || typeof bar.beatSounds !== "object" || Array.isArray(bar.beatSounds)) {
+        bar.beatSounds = {};
+      }
+      const beatOverrides = { ...(bar.beatSounds[beatIndex] || {}) };
+      beatOverrides[soundType] = JSON.parse(JSON.stringify(soundInfo));
+      bar.beatSounds[beatIndex] = beatOverrides;
+      saveState();
+      return true;
     },
 
     isSoundModified: (trackIndex, soundType) => {

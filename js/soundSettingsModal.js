@@ -18,6 +18,8 @@ const SoundSettingsModal = {
   currentAudioBuffer: null,
   currentTrackIndex: null,
   currentSoundType: null,
+  currentBarIndex: null,
+  currentBeatIndex: null,
   currentSoundSettings: null,
   originalSoundName: "", // The name of the sound when modal opened (e.g., "Synth Kick", "My Preset")
   displaySoundName: "", // The name currently displayed/edited
@@ -101,8 +103,8 @@ const SoundSettingsModal = {
       const output = DOM.soundSettingsModal.querySelector("#sample-probability-value");
       output.value = `${probability}%`;
       output.textContent = `${probability}%`;
-      const track = AppState.getTracks()[this.currentTrackIndex];
-      if (track?.[this.currentSoundType]) track[this.currentSoundType].settings = this.currentSoundSettings;
+      const soundInfo = this.getCurrentSoundInfo();
+      if (soundInfo) this.saveCurrentSoundInfo({ ...soundInfo, settings: this.currentSoundSettings });
       sendState(AppState.getCurrentStateForPreset(true));
     });
     [
@@ -113,11 +115,13 @@ const SoundSettingsModal = {
       DOM.soundSettingsModal.querySelector(selector).addEventListener("change", (event) => {
         if (!this.currentSoundSettings) return;
         this.currentSoundSettings[setting] = event.target.checked;
-        const track = AppState.getTracks()[this.currentTrackIndex];
-        if (track?.[this.currentSoundType]) track[this.currentSoundType].settings = this.currentSoundSettings;
+        const soundInfo = this.getCurrentSoundInfo();
+        if (soundInfo) this.saveCurrentSoundInfo({ ...soundInfo, settings: this.currentSoundSettings });
         sendState(AppState.getCurrentStateForPreset(true));
         if (setting === "reverse" && this.currentAudioBuffer && this.drawWaveformAndTrimLines) {
           this.drawWaveformAndTrimLines(this.currentAudioBuffer);
+        } else if (setting === "reverse" && this.drawSynthWaveform) {
+          this.drawSynthWaveform(this.currentSynthWaveformBuffer);
         }
       });
     });
@@ -297,8 +301,8 @@ const SoundSettingsModal = {
   },
 
   resetSoundSettings() {
-    const track = AppState.getTracks()[this.currentTrackIndex];
-    const soundInfo = track[this.currentSoundType];
+    const soundInfo = this.getCurrentSoundInfo();
+    if (!soundInfo) return;
 
     let newSettings = {};
 
@@ -321,12 +325,10 @@ const SoundSettingsModal = {
 
     soundInfo.settings = newSettings;
 
-    AppState.updateTrack(this.currentTrackIndex, {
-      [this.currentSoundType]: soundInfo,
-    });
+    this.saveCurrentSoundInfo(soundInfo);
     sendState(AppState.getCurrentStateForPreset(true));
 
-    this.show(this.currentTrackIndex, this.currentSoundType);
+    this.show(this.currentTrackIndex, this.currentSoundType, this.getCurrentBeatContext());
 
     const trackElement = document.querySelector(`.track[data-container-index="${this.currentTrackIndex}"]`);
     if (trackElement) {
@@ -347,8 +349,8 @@ const SoundSettingsModal = {
         valueToSave = value;
     }
 
-    const track = AppState.getTracks()[this.currentTrackIndex];
-    const soundInfo = track[this.currentSoundType];
+    const soundInfo = this.getCurrentSoundInfo();
+    if (!soundInfo) return;
 
     if (this.isNoteSnapping && param.toLowerCase().includes("frequency")) {
         const note = frequencyToNote(valueToSave);
@@ -357,10 +359,10 @@ const SoundSettingsModal = {
 
     soundInfo.settings[param] = valueToSave;
 
-    AppState.updateTrack(this.currentTrackIndex, {
-      [this.currentSoundType]: soundInfo,
-    });
+    this.saveCurrentSoundInfo(soundInfo);
     sendState(AppState.getCurrentStateForPreset(true));
+    if (param === "highPassFrequency" || param === "lowPassFrequency") this.updateFilterFeedback();
+    if (this.drawSynthWaveform) this.refreshSynthWaveform();
 
     if (["trimStart", "trimEnd"].includes(param)) {
         if (this.drawWaveformAndTrimLines) {
@@ -602,15 +604,68 @@ const SoundSettingsModal = {
     this.sliders.push(sliderInstance);
   },
 
-  show(trackIndex, soundType) {
+  getCurrentBeatContext() {
+    return Number.isInteger(this.currentBarIndex) && Number.isInteger(this.currentBeatIndex)
+      ? { barIndex: this.currentBarIndex, beatIndex: this.currentBeatIndex }
+      : null;
+  },
+
+  getCurrentSoundInfo() {
+    const track = AppState.getTracks()[this.currentTrackIndex];
+    if (!track) return null;
+    return this.getCurrentBeatContext()
+      ? AppState.getBeatSound(this.currentTrackIndex, this.currentBarIndex, this.currentBeatIndex, this.currentSoundType)
+      : track[this.currentSoundType];
+  },
+
+  saveCurrentSoundInfo(soundInfo) {
+    if (!soundInfo?.sound) return;
+    if (this.getCurrentBeatContext()) {
+      AppState.setBeatSound(this.currentTrackIndex, this.currentBarIndex, this.currentBeatIndex, this.currentSoundType, soundInfo);
+    } else {
+      AppState.updateTrack(this.currentTrackIndex, { [this.currentSoundType]: soundInfo });
+    }
+  },
+
+  updateFilterFeedback() {
+    const feedback = DOM.soundSettingsModal.querySelector(".filter-feedback");
+    if (!feedback || !this.currentSoundSettings) return;
+    const highPass = Number(this.currentSoundSettings.highPassFrequency) > 20;
+    const lowPass = Number(this.currentSoundSettings.lowPassFrequency) < 20000;
+    feedback.classList.toggle("high-pass-active", highPass);
+    feedback.classList.toggle("low-pass-active", lowPass);
+    feedback.textContent = `Filters: ${highPass ? `HP ${Math.round(this.currentSoundSettings.highPassFrequency)} Hz` : "HP off"} · ${lowPass ? `LP ${Math.round(this.currentSoundSettings.lowPassFrequency)} Hz` : "LP off"}`;
+    feedback.setAttribute("aria-label", feedback.textContent);
+  },
+
+  async refreshSynthWaveform() {
+    if (!this.currentSynthWaveformCanvas || !this.currentSoundSettings) return;
+    const soundInfo = this.getCurrentSoundInfo();
+    const baseSound = AppState.getCustomSoundData(soundInfo?.sound)?.baseSound || soundInfo?.sound;
+    const functionName = `play${baseSound?.replace("Synth ", "").replace(/ /g, "")}`;
+    if (!baseSound?.startsWith("Synth") || !SoundSynth[functionName]) return;
+    const rendered = await renderSynthAudioBuffer(AppState.getAudioContext(), SoundSynth[functionName], { ...this.currentSoundSettings, volume: 1 });
+    if (!rendered || !this.drawSynthWaveform) return;
+    this.currentSynthWaveformBuffer = rendered;
+    this.drawSynthWaveform(rendered);
+  },
+
+  show(trackIndex, soundType, beatContext = null) {
     this.stopPreview();
     this.previouslyFocusedElement = document.activeElement;
     this.currentTrackIndex = trackIndex;
     this.currentSoundType = soundType;
+    this.currentBarIndex = Number.isInteger(beatContext?.barIndex) ? beatContext.barIndex : null;
+    this.currentBeatIndex = Number.isInteger(beatContext?.beatIndex) ? beatContext.beatIndex : null;
 
     const track = AppState.getTracks()[trackIndex];
-    if (!track || !track[soundType]) return;
-    const soundInfo = track[soundType];
+    const sourceSoundInfo = this.getCurrentSoundInfo();
+    if (!track || !sourceSoundInfo) return;
+    const soundInfo = {
+      sound: sourceSoundInfo.sound,
+      settings: JSON.parse(JSON.stringify(sourceSoundInfo.settings || {})),
+    };
+    this.saveCurrentSoundInfo(soundInfo);
     
     // Auto-repair if sound data is corrupted/missing
     if (!soundInfo.sound) {
@@ -671,7 +726,10 @@ const SoundSettingsModal = {
       modalTitle.textContent = `Editing: ${this.displaySoundName}`;
     }
     if (modalContext) {
-      modalContext.textContent = `Track ${trackIndex + 1} · ${soundType === "mainBeatSound" ? "Main Beat Sound" : "Subdivision Sound"}`;
+      const beatText = this.getCurrentBeatContext()
+        ? ` · Bar ${this.currentBarIndex + 1}, Beat ${this.currentBeatIndex + 1}`
+        : "";
+      modalContext.textContent = `Track ${trackIndex + 1} · ${soundType === "mainBeatSound" ? "Main Beat Sound" : "Subdivision Sound"}${beatText}`;
     }
 
     if (!soundSettings) {
@@ -685,6 +743,9 @@ const SoundSettingsModal = {
     const numericProbability = Number(soundSettings.probability);
     soundSettings.probability = Number.isFinite(numericProbability) ? Math.max(0, Math.min(100, numericProbability)) : 100;
     this.currentSoundSettings = soundSettings;
+    this.currentSynthWaveformBuffer = null;
+    this.currentSynthWaveformCanvas = null;
+    this.drawSynthWaveform = null;
     DOM.soundSettingsModal.querySelector("#sample-overlap-toggle").checked = soundSettings.allowOverlap;
     DOM.soundSettingsModal.querySelector("#sample-retrigger-toggle").checked = soundSettings.retrigger;
     DOM.soundSettingsModal.querySelector("#sample-reverse-toggle").checked = soundSettings.reverse;
@@ -834,6 +895,19 @@ const SoundSettingsModal = {
         this.createSlider(slidersContainer, "pitchShift", -48, 48, 1, (soundSettings.pitchShift || 0));
     } else {
         // Synth sound
+        const synthWaveformCanvas = document.createElement("canvas");
+        synthWaveformCanvas.className = "waveform-canvas synth-waveform-canvas";
+        synthWaveformCanvas.setAttribute("aria-label", "Synthesized sound waveform");
+        slidersContainer.appendChild(synthWaveformCanvas);
+        this.currentSynthWaveformCanvas = synthWaveformCanvas;
+        const waveformColor = getComputedStyle(document.documentElement).getPropertyValue("--Main").trim();
+        this.drawSynthWaveform = (buffer) => {
+            if (!buffer) return;
+            RecordingVisualizer.drawWaveform(buffer, synthWaveformCanvas, waveformColor, 0, 1, soundSettings.reverse === true);
+        };
+        // Synths are rendered offline so the displayed shape matches Reverse playback.
+        this.refreshSynthWaveform();
+
         noteSnapBtn.style.display = 'inline-block';
         quantizeBtn.style.display = 'none';
         gridSnapBtn.style.display = 'none';
@@ -851,6 +925,11 @@ const SoundSettingsModal = {
 
     this.createSlider(slidersContainer, "highPassFrequency", 20, 20000, 1, soundSettings.highPassFrequency);
     this.createSlider(slidersContainer, "lowPassFrequency", 20, 20000, 1, soundSettings.lowPassFrequency);
+    const filterFeedback = document.createElement("div");
+    filterFeedback.className = "filter-feedback";
+    filterFeedback.setAttribute("role", "status");
+    slidersContainer.appendChild(filterFeedback);
+    this.updateFilterFeedback();
 
     for (const param in soundSettings) {
       if (typeof soundSettings[param] === "number" && !["attack", "decay", "sustain", "release", "trimStart", "trimEnd", "pitchShift", "probability", "highPassFrequency", "lowPassFrequency"].includes(param)) {

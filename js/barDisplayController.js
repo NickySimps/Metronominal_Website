@@ -12,6 +12,7 @@ import BarControlsController from "./barControlsController.js";
 import MetronomeEngine from "./metronomeEngine.js";
 import { sendState } from "./webrtc.js";
 import ThemeController from "./themeController.js";
+import SoundSettingsModal from "./soundSettingsModal.js";
 
 // State variables related to display highlighting
 let previousHighlightedBeatElements = []; // To keep track of the previously highlighted beat
@@ -80,6 +81,19 @@ function createBeatSquareElement(
   const beatSquare = document.createElement("div");
   beatSquare.classList.add("beat-square", "newly-added-beat-animation");
   beatSquare.dataset.beatIndex = indexInBar; // Add data-beat-index
+  beatSquare.addEventListener("click", (event) => {
+    if (!document.body.classList.contains("beat-edit-mode")) return;
+    event.stopPropagation();
+    const barDiv = beatSquare.closest(".bar-visual");
+    if (!barDiv) return;
+    const trackIndex = Number.parseInt(barDiv.dataset.containerIndex, 10);
+    const barIndex = Number.parseInt(barDiv.dataset.barIndex, 10);
+    const beatIndex = Number.parseInt(beatSquare.dataset.beatIndex, 10);
+    const soundType = beatSquare.classList.contains("main-beat-marker")
+      ? "mainBeatSound"
+      : "subdivisionSound";
+    SoundSettingsModal.show(trackIndex, soundType, { barIndex, beatIndex });
+  });
   if (isRested) {
     beatSquare.classList.add("rested");
   }

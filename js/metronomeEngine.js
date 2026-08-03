@@ -104,7 +104,10 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     const beatMultiplier = parseFloat(currentBarData.subdivision || 1);
     const isAccent = (beatIndex === 0) || (beatMultiplier > 1 && beatIndex % beatMultiplier === 0);
 
-    const soundObject = isAccent ? track.mainBeatSound : track.subdivisionSound;
+    const soundType = isAccent ? 'mainBeatSound' : 'subdivisionSound';
+    const soundObject = AppState.getBeatSound
+        ? AppState.getBeatSound(trackIndex, track.currentBar, beatIndex, soundType)
+        : track[soundType];
     if (!soundObject || !soundObject.sound) return;
 
     const probability = Number(soundObject.settings?.probability);

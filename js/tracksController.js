@@ -26,6 +26,7 @@ function animateRangeValue(input, targetValue, duration = 300) {
 }
 
 let activeSoundPicker = null;
+let isBeatEditMode = false;
 
 function getSoundOptions() {
   const synthSounds = [
@@ -129,6 +130,7 @@ function createTrackElement(track, index) {
   trackElement.innerHTML = `
     <div class="track-controls">
       <span class="track-name">${track.name || `Track ${index + 1}`}</span>
+      <button class="record-btn track-record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon">⏺</span><span class="record-label">Rec</span></button>
       <button class="track-mute-btn" title="${track.muted ? "Unmute track" : "Mute track"}"
         aria-label="${track.muted ? "Unmute track" : "Mute track"}" aria-pressed="${track.muted}">⍉</button>
       <button class="track-solo-btn" title="${track.solo ? "Unsolo track" : "Solo track"}"
@@ -334,6 +336,7 @@ const TrackController = {
       trackElement.innerHTML = `
         <div class="track-controls">
           <span class="track-name">${track.name || `Track ${index + 1}`}</span>
+          <button class="record-btn track-record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon">⏺</span><span class="record-label">Rec</span></button>
           <button class="track-mute-btn"
             title="${track.muted ? "Unmute track" : "Mute track"}"
             aria-label="${track.muted ? "Unmute track" : "Mute track"}"
@@ -360,7 +363,7 @@ const TrackController = {
           <div class="mode-buttons-col">
             <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode"><span class="control-icon">𝄽</span> Rest</button>
             <button class="accent-button ${AppState.isAccentMode() ? 'active' : ''}" aria-label="Toggle accent mode" title="Toggle Accent & Ghost Note Mode">⚡ Accent</button>
-            <button class="record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon">⏺</span> Rec</button>
+            <button class="beat-edit-btn ${isBeatEditMode ? 'active' : ''}" aria-label="Toggle Beat Edit mode" aria-pressed="${isBeatEditMode}" title="Click a beat to edit its sound">✎ Beat Edit</button>
             <button class="random-btn" aria-label="Randomize pattern" title="Randomize accents, rests & dynamics for this track">❓ Rand</button>
           </div>
         </div>
@@ -464,7 +467,7 @@ const TrackController = {
     // Buttons contain inner icon spans, so resolve the intended control from
     // the nearest matching ancestor instead of relying on event.target alone.
     const target = event.target.closest(
-      ".track-mute-btn, .track-solo-btn, .track-remove-btn, .rest-button, .record-btn"
+      ".track-mute-btn, .track-solo-btn, .track-remove-btn, .rest-button, .record-btn, .beat-edit-btn"
     ) || event.target;
     const trackElement = target.closest(".track");
 
@@ -627,6 +630,14 @@ const TrackController = {
         updateSelectionUI();
     } else if (target.matches(".record-btn") || target.closest(".record-btn")) {
         AudioController.toggleRecording(containerIndex);
+    } else if (target.matches(".beat-edit-btn") || target.closest(".beat-edit-btn")) {
+        isBeatEditMode = !isBeatEditMode;
+        document.body.classList.toggle("beat-edit-mode", isBeatEditMode);
+        document.querySelectorAll(".beat-edit-btn").forEach(button => {
+          button.classList.toggle("active", isBeatEditMode);
+          button.setAttribute("aria-pressed", String(isBeatEditMode));
+        });
+        BarDisplayController.renderBarsAndControls();
     } else if (target.matches(".random-btn") || target.closest(".random-btn")) {
         const track = AppState.getTracks()[containerIndex];
         if (track && track.barSettings) {

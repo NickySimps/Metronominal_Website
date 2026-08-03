@@ -603,6 +603,57 @@ test.describe('mode controls responsive layout', () => {
     expect(result.lastTrackHasSeparateAnalysers).toBe(true);
   });
 
+  test('Beat Edit opens a beat-specific sound editor and preserves its settings', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    await page.goto('/');
+
+    const track = page.locator('.track').first();
+    await track.locator('.beat-edit-btn').click();
+    await expect(track.locator('.beat-edit-btn')).toHaveAttribute('aria-pressed', 'true');
+
+    const controlOrder = await track.locator('.track-controls > button').evaluateAll((buttons) => buttons.map((button) => button.className));
+    expect(controlOrder.indexOf('track-record-btn')).toBeLessThan(controlOrder.indexOf('track-mute-btn'));
+    expect(controlOrder.indexOf('track-record-btn')).toBeLessThan(controlOrder.indexOf('track-solo-btn'));
+
+    await track.locator('.beat-square').first().click();
+    await expect(page.locator('#sound-settings-modal')).toBeVisible();
+    await expect(page.locator('.sound-modal-context')).toContainText('Bar 1, Beat 1');
+
+    const probability = page.locator('#sample-probability');
+    await probability.fill('42');
+    await page.locator('#sound-settings-modal .close-button').click();
+    await expect(page.locator('#sound-settings-modal')).toBeHidden();
+
+    await track.locator('.beat-square').first().click();
+    await expect(probability).toHaveValue('42');
+  });
+
+  test('synth editors show a waveform and live filter cutoff feedback', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const [{ default: SoundSettingsModal }, { default: AppState }] = await Promise.all([
+        import(new URL('js/soundSettingsModal.js', document.baseURI).href),
+        import(new URL('js/appState.js', document.baseURI).href),
+      ]);
+      AppState.updateTrack(0, { mainBeatSound: { sound: 'Synth Sine', settings: {} } });
+      await SoundSettingsModal.show(0, 'mainBeatSound');
+      return {
+        waveform: Boolean(document.querySelector('.synth-waveform-canvas')),
+        feedback: document.querySelector('.filter-feedback')?.textContent,
+      };
+    });
+    expect(result.waveform).toBe(true);
+    expect(result.feedback).toContain('HP off');
+    expect(result.feedback).toContain('LP off');
+    const highPass = page.locator('#sound-sliders-container [data-param="highPassFrequency"]');
+    const lowPass = page.locator('#sound-sliders-container [data-param="lowPassFrequency"]');
+    await highPass.fill('300');
+    await lowPass.fill('5000');
+    await expect(page.locator('.filter-feedback')).toContainText('HP 300 Hz');
+    await expect(page.locator('.filter-feedback')).toContainText('LP 5000 Hz');
+  });
+
   test('sound modal traps keyboard focus and restores the opener', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 600 });
     await page.goto('/');
