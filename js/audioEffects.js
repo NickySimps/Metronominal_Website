@@ -1,6 +1,7 @@
 const DEFAULT_HIGH_PASS = 20;
 const DEFAULT_LOW_PASS = 20000;
 const reversedBufferCache = new WeakMap();
+const renderedSynthCache = new WeakMap();
 
 export function getReversedAudioBuffer(audioContext, audioBuffer) {
   if (!audioContext || !audioBuffer) return audioBuffer;
@@ -23,19 +24,26 @@ export function getReversedAudioBuffer(audioContext, audioBuffer) {
   return reversed;
 }
 
-function getReversedSynthSettings(settings = {}) {
-  if (settings.reverse !== true) return settings;
-  const reversed = { ...settings };
-  [["attack", "release"], ["startFrequency", "endFrequency"], ["bodyFrequencyStart", "bodyFrequencyEnd"]].forEach(([first, second]) => {
-    if (settings[first] !== undefined || settings[second] !== undefined) {
-      reversed[first] = settings[second];
-      reversed[second] = settings[first];
-    }
-  });
-  return reversed;
-}
+export async function renderSynthAudioBuffer(audioContext, synthFunction, settings = {}) {
+  if (!audioContext || typeof synthFunction !== 'function' || typeof OfflineAudioContext === 'undefined') return null;
+  let contextCache = renderedSynthCache.get(audioContext);
+  if (!contextCache) {
+    contextCache = new Map();
+    renderedSynthCache.set(audioContext, contextCache);
+  }
+  const cacheKey = JSON.stringify(settings);
+  if (contextCache.has(cacheKey)) return contextCache.get(cacheKey);
 
-export { getReversedSynthSettings };
+  const attack = Number(settings.attack) || 0.01;
+  const decay = Number(settings.decay) || 0.1;
+  const release = Number(settings.release) || 0.1;
+  const duration = Math.max(0.2, attack + decay + release + 0.1);
+  const offline = new OfflineAudioContext(1, Math.ceil(duration * audioContext.sampleRate), audioContext.sampleRate);
+  synthFunction(offline, 0, { ...settings, reverse: false }, offline.destination);
+  const rendering = offline.startRendering();
+  contextCache.set(cacheKey, rendering);
+  return rendering;
+}
 
 function clampFrequency(value, fallback, sampleRate) {
   const nyquist = Math.max(DEFAULT_HIGH_PASS, (sampleRate || 48000) / 2);

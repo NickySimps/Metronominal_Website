@@ -8,7 +8,7 @@ import Oscilloscope from "./oscilloscope.js";
 import { frequencyToNote, noteToFrequency, noteStrings, generateNoteFrequencies, semitonesToInterval } from "./utils.js";
 import { Slider } from './slider.js';
 import SoundSynth from './soundSynth.js';
-import { normalizeFilterSettings, createSoundFilterInput, getReversedAudioBuffer, getReversedSynthSettings } from './audioEffects.js';
+import { normalizeFilterSettings, createSoundFilterInput, getReversedAudioBuffer, renderSynthAudioBuffer } from './audioEffects.js';
 
 const SoundSettingsModal = {
   isNoteSnapping: false,
@@ -116,6 +116,9 @@ const SoundSettingsModal = {
         const track = AppState.getTracks()[this.currentTrackIndex];
         if (track?.[this.currentSoundType]) track[this.currentSoundType].settings = this.currentSoundSettings;
         sendState(AppState.getCurrentStateForPreset(true));
+        if (setting === "reverse" && this.currentAudioBuffer && this.drawWaveformAndTrimLines) {
+          this.drawWaveformAndTrimLines(this.currentAudioBuffer);
+        }
       });
     });
 
@@ -915,8 +918,21 @@ const SoundSettingsModal = {
     if (baseSound?.startsWith("Synth")) {
       const functionName = `play${baseSound.replace("Synth ", "").replace(/ /g, "")}`;
       if (SoundSynth[functionName]) {
-        SoundSynth[functionName](audioContext, audioContext.currentTime, getReversedSynthSettings({ ...settings, volume: settings.volume ?? 1 }), createSoundFilterInput(audioContext, analyser, settings));
-        this.previewSource = { isSynth: true };
+        const synthSettings = { ...settings, volume: settings.volume ?? 1 };
+        if (settings.reverse === true) {
+          const rendered = await renderSynthAudioBuffer(audioContext, SoundSynth[functionName], synthSettings);
+          if (rendered) {
+            const source = audioContext.createBufferSource();
+            source.buffer = getReversedAudioBuffer(audioContext, rendered);
+            source.connect(createSoundFilterInput(audioContext, analyser, settings));
+            source.start();
+            source.onended = () => this.stopPreview();
+            this.previewSource = source;
+          }
+        } else {
+          SoundSynth[functionName](audioContext, audioContext.currentTime, synthSettings, createSoundFilterInput(audioContext, analyser, settings));
+          this.previewSource = { isSynth: true };
+        }
       }
     } else {
       const buffer = AppState.getSoundBuffer(baseSound);

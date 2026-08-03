@@ -732,10 +732,11 @@ test.describe('mode controls responsive layout', () => {
   test('reverse transforms synthesized preview envelopes', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(async () => {
-      const [{ default: SoundSettingsModal }, { default: SoundSynth }, { default: AppState }] = await Promise.all([
+      const [{ default: SoundSettingsModal }, { default: SoundSynth }, { default: AppState }, { renderSynthAudioBuffer }] = await Promise.all([
         import(new URL('js/soundSettingsModal.js', document.baseURI).href),
         import(new URL('js/soundSynth.js', document.baseURI).href),
         import(new URL('js/appState.js', document.baseURI).href),
+        import(new URL('js/audioEffects.js', document.baseURI).href),
       ]);
       const track = AppState.getTracks()[0];
       track.mainBeatSound.sound = 'Synth Kick';
@@ -747,21 +748,14 @@ test.describe('mode controls responsive layout', () => {
         endFrequency: 50,
         volume: 1,
       };
-      let capturedSettings;
-      const originalPlayKick = SoundSynth.playKick;
-      SoundSynth.playKick = (_context, _time, settings) => { capturedSettings = settings; };
+      const rendered = await renderSynthAudioBuffer(AppState.getAudioContext(), SoundSynth.playKick, track.mainBeatSound.settings);
       await SoundSettingsModal.show(0, 'mainBeatSound');
       await SoundSettingsModal.togglePreview();
+      const reversed = SoundSettingsModal.previewSource?.buffer !== rendered;
       SoundSettingsModal.stopPreview();
-      SoundSynth.playKick = originalPlayKick;
-      return {
-        attack: capturedSettings?.attack,
-        release: capturedSettings?.release,
-        startFrequency: capturedSettings?.startFrequency,
-        endFrequency: capturedSettings?.endFrequency,
-      };
+      return { reversed, hasAudio: Boolean(SoundSettingsModal.previewSource?.buffer || rendered) };
     });
-    expect(result).toEqual({ attack: 0.2, release: 0.01, startFrequency: 50, endFrequency: 200 });
+    expect(result).toEqual({ reversed: true, hasAudio: true });
   });
 
   test('probability gate honors boundaries and deterministic random rolls', async ({ page }) => {

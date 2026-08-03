@@ -12,7 +12,7 @@ import SoundSynth from './soundSynth.js';
 import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, broadcastSyncPulse, getDesiredHostPlaybackState } from './webrtc.js';
 import AudioController from './audioController.js';
 import MidiController from './midiController.js';
-import { createSoundFilterInput, getReversedSynthSettings } from './audioEffects.js';
+import { createSoundFilterInput, getReversedAudioBuffer, renderSynthAudioBuffer } from './audioEffects.js';
 
 let metronomeWorker = new Worker('js/metronomeWorker.js');
 let metronomeWorkerReady = false;
@@ -164,7 +164,17 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
             const synthVoiceGain = audioContext.createGain();
             synthVoiceGain.gain.setValueAtTime(1, actualBeatTime);
             synthVoiceGain.connect(createSoundFilterInput(audioContext, destination, mergedSettings));
-            SoundSynth[synthFunctionName](audioContext, actualBeatTime, getReversedSynthSettings(mergedSettings), synthVoiceGain);
+            if (soundSettings.reverse === true) {
+                renderSynthAudioBuffer(audioContext, SoundSynth[synthFunctionName], mergedSettings).then((rendered) => {
+                    if (!rendered) return;
+                    const source = audioContext.createBufferSource();
+                    source.buffer = getReversedAudioBuffer(audioContext, rendered);
+                    source.connect(synthVoiceGain);
+                    source.start(Math.max(actualBeatTime, audioContext.currentTime));
+                });
+            } else {
+                SoundSynth[synthFunctionName](audioContext, actualBeatTime, mergedSettings, synthVoiceGain);
+            }
             activeSynthVoices.set(synthVoiceKey, {
                 endTime: actualBeatTime + voiceDuration,
                 gain: synthVoiceGain,
