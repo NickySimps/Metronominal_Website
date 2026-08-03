@@ -426,8 +426,7 @@ test.describe('mode controls responsive layout', () => {
       const thirdTrack = tracks[2];
       const lastTrack = tracks[tracks.length - 1];
       return {
-        contentFitsViewport: content.getBoundingClientRect().height <= window.innerHeight,
-        contentScrolls: content.scrollHeight >= content.clientHeight,
+        modalScrolls: modal.scrollHeight > modal.clientHeight,
         canvasHeight: canvas.getBoundingClientRect().height,
         hasPreviewButton: Boolean(modal.querySelector('#sound-preview-btn')),
         hasScopeModeSelect: Boolean(modal.querySelector('#sound-scope-mode-select')),
@@ -453,8 +452,7 @@ test.describe('mode controls responsive layout', () => {
           && lastTrack.mainAnalyserNode !== lastTrack.analyserNode,
       };
     });
-    expect(result.contentFitsViewport).toBe(true);
-    expect(result.contentScrolls).toBe(true);
+    expect(result.modalScrolls).toBe(true);
     expect(result.canvasHeight).toBeLessThanOrEqual(100);
     expect(result.hasPreviewButton).toBe(true);
     expect(result.hasScopeModeSelect).toBe(true);
@@ -499,6 +497,33 @@ test.describe('mode controls responsive layout', () => {
       };
     });
     expect(result).toEqual({ dialog: 'dialog', ariaModal: 'true', focusedInside: true, restoredFocus: true });
+  });
+
+  test('sound editor stays above themed containers without oval clipping', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      document.querySelector('#theme-menu-toggle')?.click();
+      document.querySelector('[data-theme="synthwave"]')?.click();
+      const [{ default: SoundSettingsModal }] = await Promise.all([
+        import(new URL('js/soundSettingsModal.js', document.baseURI).href),
+      ]);
+      await SoundSettingsModal.show(0, 'mainBeatSound');
+      const modal = document.querySelector('#sound-settings-modal');
+      const content = modal.querySelector('.modal-content');
+      const modalStyle = getComputedStyle(modal);
+      const contentStyle = getComputedStyle(content);
+      return {
+        modalZIndex: Number(modalStyle.zIndex),
+        contentZIndex: Number(contentStyle.zIndex) || 0,
+        contentRadius: contentStyle.borderRadius,
+        themeRadius: getComputedStyle(document.documentElement).getPropertyValue('--BorderRadius').trim(),
+        contentOverflowX: contentStyle.overflowX,
+      };
+    });
+    expect(result.modalZIndex).toBeGreaterThanOrEqual(3000);
+    expect(result.contentZIndex).toBeGreaterThanOrEqual(0);
+    expect(result.contentRadius).toBe(result.themeRadius);
+    expect(result.contentOverflowX).toBe('visible');
   });
 
   test('sound preview and recorded waveform controls are available', async ({ page }) => {

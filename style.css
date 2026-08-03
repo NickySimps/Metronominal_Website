@@ -3315,6 +3315,7 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
 
 /* Sound editor: keep the oscilloscope modal usable on iOS and short viewports. */
 #sound-settings-modal {
+  z-index: 4000;
   align-items: center;
   justify-content: center;
   overflow-y: auto;
@@ -3324,15 +3325,15 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
 #sound-settings-modal .modal-content {
   width: min(700px, 100%);
   max-width: 100%;
-  max-height: calc(100vh - 24px);
-  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
+  max-height: none;
   margin: auto;
   padding: clamp(.75rem, 2vw, 1.25rem);
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: visible;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
+  border-radius: var(--BorderRadius);
+  z-index: 1;
 }
 #sound-settings-modal .oscilloscope-canvas {
   display: block;
@@ -3354,7 +3355,7 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
   #sound-settings-modal { align-items: flex-start; }
   #sound-settings-modal .modal-content {
     width: 100%;
-    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 12px);
+    max-height: none;
     margin-top: 6px;
     margin-bottom: 6px;
     padding: .7rem;
