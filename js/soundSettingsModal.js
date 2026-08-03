@@ -910,7 +910,7 @@ const SoundSettingsModal = {
     this.previewAnalyserNode = analyser;
     const soundData = AppState.getCustomSoundData(soundInfo.sound);
     const baseSound = soundData?.baseSound || soundInfo.sound;
-    const settings = { ...(soundInfo.settings || {}) };
+    const settings = { ...(this.currentSoundSettings || soundInfo.settings || {}) };
 
     if (baseSound?.startsWith("Synth")) {
       const functionName = `play${baseSound.replace("Synth ", "").replace(/ /g, "")}`;
