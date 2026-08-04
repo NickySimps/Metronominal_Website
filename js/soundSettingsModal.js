@@ -910,13 +910,15 @@ const SoundSettingsModal = {
 
   reorderMainSoundCategories() {
     if (!this.mainSlidersContainer) return;
-    const filters = this.mainSlidersContainer.querySelector('[data-control-category="filters"]');
-    const playback = this.mainSlidersContainer.querySelector('[data-control-category="playback"]');
-    const firstContent = this.mainSlidersContainer.querySelector(':scope > *');
-    if (filters && firstContent && filters !== firstContent) this.mainSlidersContainer.insertBefore(filters, firstContent);
-    if (filters && playback && playback !== filters && playback.previousElementSibling !== filters) {
-      this.mainSlidersContainer.insertBefore(playback, filters.nextElementSibling);
-    }
+    const container = this.mainSlidersContainer;
+    const children = [...container.children];
+    const filters = container.querySelector('[data-control-category="filters"]');
+    const playback = container.querySelector('[data-control-category="playback"]');
+    const waveform = children.find((child) => child.classList.contains('waveform-container') || child.classList.contains('filter-visualization-stage'));
+    const waveformTools = children.find((child) => child.classList.contains('waveform-tools'));
+    const ordered = [filters, waveform, waveformTools, playback].filter(Boolean);
+    const remaining = children.filter((child) => !ordered.includes(child));
+    [...ordered, ...remaining].forEach((child) => container.appendChild(child));
   },
 
   async refreshSynthWaveform() {
@@ -1088,7 +1090,6 @@ const SoundSettingsModal = {
         const waveformCanvas = document.createElement("canvas");
         waveformCanvas.className = "waveform-canvas";
         waveformContainer.appendChild(waveformCanvas);
-        waveformContainer.appendChild(createFilterVisualizationOverlay());
         slidersContainer.appendChild(waveformContainer);
         const waveformTools = document.createElement("div");
         waveformTools.className = "waveform-tools";
@@ -1217,7 +1218,6 @@ const SoundSettingsModal = {
         const synthWaveformStage = document.createElement("div");
         synthWaveformStage.className = "filter-visualization-stage";
         synthWaveformStage.appendChild(synthWaveformCanvas);
-        synthWaveformStage.appendChild(createFilterVisualizationOverlay());
         slidersContainer.appendChild(synthWaveformStage);
         this.currentSynthWaveformCanvas = synthWaveformCanvas;
         const waveformColor = getComputedStyle(document.documentElement).getPropertyValue("--Main").trim();

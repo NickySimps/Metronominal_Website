@@ -3965,6 +3965,42 @@ body.beat-edit-mode .beat-square {
   touch-action: none;
   cursor: ew-resize;
 }
+.sound-control-category[data-control-category="synth"] {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .45rem .75rem;
+}
+.sound-control-category[data-control-category="synth"] > .slider-container {
+  margin-bottom: 0;
+}
+.sound-control-category[data-control-category="synth"] > .sound-control-category-title {
+  display: none;
+}
+@media (max-width: 520px) {
+  .sound-control-category[data-control-category="synth"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+#sound-settings-modal .sound-effects-actions-slot #delay-quantize-btn,
+#sound-effects-modal .sound-effects-actions-slot #delay-quantize-btn {
+  min-height: 2rem;
+  padding: .35rem .65rem;
+  border: 1px solid var(--Main);
+  border-radius: var(--BorderRadius);
+  background: color-mix(in srgb, var(--Main) 18%, var(--Background, transparent));
+  color: var(--TextPrimary, currentColor);
+  font-size: .78rem;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+}
+#sound-settings-modal .sound-effects-actions-slot #delay-quantize-btn:hover,
+#sound-effects-modal .sound-effects-actions-slot #delay-quantize-btn:hover,
+#sound-settings-modal .sound-effects-actions-slot #delay-quantize-btn.active,
+#sound-effects-modal .sound-effects-actions-slot #delay-quantize-btn.active {
+  background: var(--Alt2);
+  color: var(--TextOnMain);
+}
 #sound-settings-modal .sample-playback-controls {
   display: flex;
   flex-wrap: wrap;

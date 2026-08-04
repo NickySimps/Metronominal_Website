@@ -778,7 +778,7 @@ test.describe('mode controls responsive layout', () => {
       overlayColor: getComputedStyle(overlay).getPropertyValue('--filter-overlay-color').trim(),
       oscilloscopeColors: ['--Main', '--Accent', '--Highlight'].map((name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()),
     })));
-    expect(overlayState).toHaveLength(2);
+    expect(overlayState).toHaveLength(1);
     expect(overlayState.every((state) => state.highPassActive && state.lowPassActive)).toBe(true);
     expect(overlayState.every((state) => state.highPass !== '0%' && state.lowPass !== '0%')).toBe(true);
     expect(overlayState.every((state) => !state.oscilloscopeColors.includes(state.overlayColor))).toBe(true);
