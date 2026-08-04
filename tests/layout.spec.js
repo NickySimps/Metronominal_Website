@@ -1323,7 +1323,7 @@ test.describe('mode controls responsive layout', () => {
     }
   });
 
-  test('triplet and other non-four subdivisions use contained flex bars', async ({ page }) => {
+  test('triplet and other non-four subdivisions use aligned contained grids', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
     const result = await page.evaluate(async () => {
