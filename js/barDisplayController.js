@@ -32,7 +32,7 @@ let subdivisionShield = null;
 let subdivisionTriggerElement = null;
 let subdivisionKeydownHandler = null;
 const LONG_PRESS_DURATION = 200; // ms
-const TOUCH_LONG_PRESS_DURATION = 450; // Require a deliberate touch hold instead of opening during a swipe
+const TOUCH_LONG_PRESS_DURATION = 350; // Require a deliberate touch hold instead of opening during a swipe
 const POINTER_MOVE_THRESHOLD = 45; // pixels
 
 function clearBeatSoundOverride(barData, beatIndex) {
