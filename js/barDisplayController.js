@@ -724,7 +724,8 @@ const BarDisplayController = {
 
         const mainBeatsInBar = barData.beats;
         const subdivision = barData.subdivision;
-        
+        barDiv.classList.toggle("flex-subdivision", ![1, 2, 4].includes(Number(subdivision)));
+
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
         const totalSubBeatsNeeded = calculateTotalSubBeats(mainBeatsInBar, subdivision);
@@ -742,7 +743,7 @@ const BarDisplayController = {
         const allBeatSquares = barDiv.querySelectorAll(".beat-square");
         const flexBasis = 100 / totalSubBeatsNeeded * 0.9;
         allBeatSquares.forEach(sq => {
-          sq.style.flexBasis = `${flexBasis}%`;
+          sq.style.flexBasis = barDiv.classList.contains("flex-subdivision") ? "" : `${flexBasis}%`;
         });
 
         targetBarDisplayContainer.appendChild(barDiv);
@@ -779,6 +780,7 @@ const BarDisplayController = {
 
         const mainBeatsInBar = barData.beats;
         const subdivision = barData.subdivision;
+        barDiv.classList.toggle("flex-subdivision", ![1, 2, 4].includes(Number(subdivision)));
 
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
@@ -836,7 +838,7 @@ const BarDisplayController = {
 
         const flexBasis = 100 / totalSubBeatsNeeded * 0.9;
         allBeatSquares.forEach(sq => {
-          sq.style.flexBasis = `${flexBasis}%`;
+          sq.style.flexBasis = barDiv.classList.contains("flex-subdivision") ? "" : `${flexBasis}%`;
         });
     },
 
@@ -1017,7 +1019,7 @@ const BarDisplayController = {
         const allBeatSquares = barDiv.querySelectorAll(".beat-square");
         const flexBasis = 100 / totalSubBeatsNeeded * 0.9;
         allBeatSquares.forEach(sq => {
-          sq.style.flexBasis = `${flexBasis}%`;
+          sq.style.flexBasis = barDiv.classList.contains("flex-subdivision") ? "" : `${flexBasis}%`;
         });
 
         if (containerIndex === selectedTrackIndex && barIndex === selectedBarIndexInContainer) {

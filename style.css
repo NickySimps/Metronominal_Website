@@ -1874,6 +1874,19 @@ button:active,
   justify-content: center;
 }
 
+.bar-visual.flex-subdivision {
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: center;
+  align-content: center;
+  gap: var(--s1);
+}
+.bar-visual.flex-subdivision .beat-square {
+  flex: 1 1 clamp(2rem, 8vw, 3.5rem);
+  width: auto;
+  max-width: 3.5rem;
+}
+
 .beat-square {
   width: 100%;
   min-width: 0;

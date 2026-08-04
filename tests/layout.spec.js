@@ -1302,6 +1302,35 @@ test.describe('mode controls responsive layout', () => {
     }
   });
 
+  test('triplet and other non-four subdivisions use contained flex bars', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const [{ default: AppState }, { default: BarDisplayController }] = await Promise.all([
+        import(new URL('js/appState.js', document.baseURI).href),
+        import(new URL('js/barDisplayController.js', document.baseURI).href),
+      ]);
+      const bar = AppState.getTracks()[0].barSettings[0];
+      const values = [3, 5, 6, 7];
+      const checks = [];
+      for (const subdivision of values) {
+        bar.subdivision = subdivision;
+        BarDisplayController.updateBar(0, 0);
+        await new Promise(requestAnimationFrame);
+        const element = document.querySelector('.bar-visual[data-bar-index="0"]');
+        const barRect = element.getBoundingClientRect();
+        const trackRect = element.closest('.track').getBoundingClientRect();
+        checks.push({ subdivision, display: getComputedStyle(element).display, flex: element.classList.contains('flex-subdivision'), contained: barRect.left >= trackRect.left - .5 && barRect.right <= trackRect.right + .5 });
+      }
+      return checks;
+    });
+    for (const check of result) {
+      expect(check.display).toBe('flex');
+      expect(check.flex).toBe(true);
+      expect(check.contained).toBe(true);
+    }
+  });
+
   test('desktop Song Mode track changes use a blurred right-to-left whip transition', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(() => {
