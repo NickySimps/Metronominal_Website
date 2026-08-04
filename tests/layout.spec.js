@@ -1286,9 +1286,15 @@ test.describe('mode controls responsive layout', () => {
       const rows = new Set(tracks.map(track => Math.round(track.getBoundingClientRect().top)));
       const controlHeights = tracks.map(track => track.querySelector('.track-controls').getBoundingClientRect().height);
       const volumeHeights = tracks.map(track => track.querySelector('.track-volume-controls').getBoundingClientRect().height);
+      const headerGeometry = tracks.map(track => {
+        const trackRect = track.getBoundingClientRect();
+        const controls = track.querySelector('.track-controls').getBoundingClientRect();
+        const remove = track.querySelector('.track-remove-btn').getBoundingClientRect();
+        return { contained: controls.left >= trackRect.left && controls.right <= trackRect.right && remove.right <= trackRect.right, removeRight: remove.right, trackRight: trackRect.right };
+      });
       const squares = [...document.querySelectorAll('.bar-visual[data-bar-index="0"] .beat-square')].map(square => square.getBoundingClientRect());
       const overlaps = squares.some((a, i) => squares.slice(i + 1).some(b => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom));
-      return { trackCount: tracks.length, columns: columns.size, rows: rows.size, widths: tracks.map(track => track.getBoundingClientRect().width), controlHeights, volumeHeights, overlaps };
+      return { trackCount: tracks.length, columns: columns.size, rows: rows.size, widths: tracks.map(track => track.getBoundingClientRect().width), controlHeights, volumeHeights, headerGeometry, overlaps };
     });
     expect(result.trackCount).toBe(8);
     expect(result.columns).toBe(4);
@@ -1298,6 +1304,7 @@ test.describe('mode controls responsive layout', () => {
     expect(result.volumeHeights[0]).toBeLessThanOrEqual(30);
     expect(Math.min(...result.widths)).toBeGreaterThan(250);
     expect(result.overlaps).toBe(false);
+    expect(result.headerGeometry.every(({ contained }) => contained)).toBe(true);
   });
 
   test('bars and beats stay centered and contained at desktop and mobile widths', async ({ page }) => {

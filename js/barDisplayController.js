@@ -695,7 +695,6 @@ function hideSubdivisionSelector() {
 }
 
 function handleBeatSquareClick(event) {
-  console.log("handleBeatSquareClick called.");
   const beatSquare = event.currentTarget;
   const barDiv = beatSquare.closest(".bar-visual");
 
@@ -707,8 +706,6 @@ function handleBeatSquareClick(event) {
   const trackIndex = parseInt(barDiv.dataset.containerIndex, 10);
   const barIndex = parseInt(barDiv.dataset.barIndex, 10);
   const beatIndex = parseInt(beatSquare.dataset.beatIndex, 10);
-
-  console.log("Clicked beat square - Track:", trackIndex, "Bar:", barIndex, "Beat:", beatIndex);
 
   if (isNaN(trackIndex) || isNaN(barIndex) || isNaN(beatIndex)) {
     console.error("Invalid indices for beat square click:", { trackIndex, barIndex, beatIndex });
