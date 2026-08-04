@@ -557,7 +557,7 @@ button {
   gap: var(--s1); /* Standardized gap (4px) */
   border-radius: var(--BorderRadius); /* Keep border radius */
   align-items: center; /* Vertically align squares */
-  touch-action: none; /* Prevent browser default touch actions like scrolling on mobile */
+  touch-action: pan-y; /* Preserve vertical page scrolling while allowing beat taps */
   justify-content: space-around;
 }
 .bar-visual:hover {

@@ -1332,11 +1332,13 @@ test.describe('mode controls responsive layout', () => {
             track: trackRect,
             bar: barRect,
             beats,
+            touchAction: getComputedStyle(bar).touchAction,
             occupiedRatio: (beatRight - beatLeft) / barRect.width,
           };
         }));
-        const contained = bars.every(({ track, bar, beats, occupiedRatio }) =>
-          bar.left >= track.left - 0.5 && bar.right <= track.right + 0.5 &&
+        const contained = bars.every(({ track, bar, beats, touchAction, occupiedRatio }) =>
+          touchAction === 'pan-y' &&
+          bar.left >= track.left - 0.5 &&
           Math.abs((bar.left + bar.width / 2) - (track.left + track.width / 2)) <= 0.5 &&
           occupiedRatio >= 0.87 && occupiedRatio <= 0.93 &&
           beats.every(beat => beat.left >= bar.left - 0.5 && beat.right <= bar.right + 0.5 && beat.top >= bar.top - 0.5 && beat.bottom <= bar.bottom + 0.5)
