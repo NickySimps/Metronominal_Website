@@ -2913,8 +2913,10 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 }
 .sound-effects-content {
   position: relative;
-  width: min(34rem, calc(100vw - 1.5rem));
-  max-height: min(88vh, 42rem);
+  box-sizing: border-box;
+  width: min(40rem, calc(100vw - 2rem));
+  max-height: min(90vh, 46rem);
+  padding: clamp(1.25rem, 4vw, 2rem);
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--Accent) 70%, var(--Border));
   box-shadow: 0 1rem 3rem color-mix(in srgb, var(--Main) 45%, transparent);
@@ -2938,11 +2940,19 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   line-height: 1;
 }
 .sound-effects-heading {
-  margin-bottom: var(--s4);
-  padding-right: 3rem;
+  margin: 0 3.25rem var(--s5) 0;
+  max-width: 34rem;
 }
-.sound-effects-heading h2 { margin: 0; color: var(--Accent); }
-.sound-effects-heading p { margin: var(--s2) 0 0; color: var(--TextSecondary); }
+.sound-effects-heading h2 {
+  margin: 0;
+  color: var(--Accent);
+  line-height: 1.05;
+}
+.sound-effects-heading p {
+  margin: var(--s2) 0 0;
+  color: var(--TextSecondary);
+  line-height: 1.35;
+}
 .sound-effects-sliders-container { width: 100%; min-width: 0; }
 .sound-effects-sliders-container .sound-control-category[data-control-category="effects"] {
   display: flex;
@@ -2973,12 +2983,14 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 .vertical-slider-container label { grid-row: 1; }
 .vertical-slider-container .slider-wrapper {
   grid-row: 2;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto 8rem auto;
+  width: auto;
+  height: auto;
+  min-height: 0;
   align-items: center;
-  justify-content: center;
+  justify-items: center;
   gap: var(--s2);
-  height: 10rem;
 }
 .vertical-slider-container > span { grid-row: 3; justify-self: center; }
 .sound-effects-modal .vertical-slider {
@@ -2990,7 +3002,23 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 }
 .sound-effects-modal .vertical-slider-container .slider-button-decrement,
 .sound-effects-modal .vertical-slider-container .slider-button-increment {
+  margin: 0;
+  width: 2.25rem;
+  height: 2.25rem;
   line-height: 1;
+}
+@media (max-width: 34rem) {
+  .sound-effects-sliders-container .sound-control-category[data-control-category="effects"] {
+    gap: var(--s4);
+  }
+  .sound-effects-sliders-container .sound-control-category[data-control-category="effects"] > .vertical-slider-container {
+    flex-basis: calc(50% - var(--s4));
+    min-width: 7.5rem;
+  }
+  .sound-effects-content {
+    width: min(100% - 1rem, 30rem);
+    padding: 1rem;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .sound-effects-modal,

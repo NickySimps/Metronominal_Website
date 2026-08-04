@@ -767,6 +767,26 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('[data-param="reverbMix"]')).toBeVisible();
     await expect(page.locator('[data-param="pitchShift"]')).toHaveClass(/vertical-slider/);
     await expect(page.locator('[data-param="distortion"]')).toHaveClass(/vertical-slider/);
+    const verticalGeometry = await page.locator('#sound-effects-modal .vertical-slider-container').evaluateAll((containers) => containers.map((container) => {
+      const rect = (selector) => container.querySelector(selector).getBoundingClientRect();
+      const label = rect('label');
+      const wrapper = rect('.slider-wrapper');
+      const value = rect(':scope > span');
+      const contentRight = container.closest('.sound-effects-content').getBoundingClientRect().right;
+      return {
+        labelBottom: label.bottom,
+        wrapperTop: wrapper.top,
+        wrapperBottom: wrapper.bottom,
+        valueTop: value.top,
+        right: Math.max(label.right, wrapper.right, value.right),
+        contentRight,
+      };
+    }));
+    for (const geometry of verticalGeometry) {
+      expect(geometry.labelBottom).toBeLessThanOrEqual(geometry.wrapperTop + 0.5);
+      expect(geometry.wrapperBottom).toBeLessThanOrEqual(geometry.valueTop + 0.5);
+      expect(geometry.right).toBeLessThanOrEqual(geometry.contentRight + 0.5);
+    }
     await expect(page.locator('#sound-effects-modal .sound-control-category-title')).toHaveCount(1);
     await expect(page.locator('#sound-effects-modal .sound-control-category-title')).toHaveCSS('width', '1px');
     await page.locator('#sound-effects-close').click();
@@ -774,6 +794,38 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('[data-control-category="synth"] h3')).toHaveText('Synth envelope');
     await expect(page.locator('[data-control-category="filters"] h3')).toHaveText('Filters');
     await expect(page.locator('[data-control-category="effects"] h3')).toHaveText('Effects rack');
+  });
+
+  test('effects modal stays readable and contained at iPhone SE width', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    await page.locator('.main-sound-label').click();
+    await page.locator('#sound-effects-btn').click();
+    const geometry = await page.locator('#sound-effects-modal').evaluate((modal) => {
+      const content = modal.querySelector('.sound-effects-content').getBoundingClientRect();
+      const vertical = [...modal.querySelectorAll('.vertical-slider-container')].map((container) => {
+        const label = container.querySelector('label').getBoundingClientRect();
+        const wrapper = container.querySelector('.slider-wrapper').getBoundingClientRect();
+        const value = container.querySelector(':scope > span').getBoundingClientRect();
+        return { label, wrapper, value };
+      });
+      const horizontal = [...modal.querySelectorAll('[data-param="delayMix"], [data-param="delayTime"], [data-param="reverbMix"]')]
+        .map((input) => input.closest('.slider-container').getBoundingClientRect());
+      return { content, vertical, horizontal, scrollable: content.height < content.scrollHeight };
+    });
+    expect(geometry.content.left).toBeGreaterThanOrEqual(0);
+    expect(geometry.content.right).toBeLessThanOrEqual(320);
+    expect(geometry.content.bottom).toBeLessThanOrEqual(568 + 0.5);
+    expect(geometry.content.height <= 568 || geometry.scrollable).toBe(true);
+    for (const control of geometry.vertical) {
+      expect(control.label.bottom).toBeLessThanOrEqual(control.wrapper.top + 0.5);
+      expect(control.wrapper.bottom).toBeLessThanOrEqual(control.value.top + 0.5);
+      expect(control.value.right).toBeLessThanOrEqual(geometry.content.right + 0.5);
+    }
+    for (const row of geometry.horizontal) {
+      expect(row.left).toBeGreaterThanOrEqual(geometry.content.left - 0.5);
+      expect(row.right).toBeLessThanOrEqual(geometry.content.right + 0.5);
+    }
   });
 
   test('sound modal traps keyboard focus and restores the opener', async ({ page }) => {
