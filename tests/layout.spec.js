@@ -1398,11 +1398,14 @@ test.describe('mode controls responsive layout', () => {
     await page.goto('/');
     const mobile = await page.evaluate(() => {
       const track = document.querySelector('.track');
+      const name = track.querySelector('.track-name');
       const controller = track.querySelector('.track-sound-controls');
       const soundButtons = [...controller.querySelectorAll('button, .sound-label')];
       const trackRect = track.getBoundingClientRect();
       const controllerRect = controller.getBoundingClientRect();
       return {
+        nameVisible: name.scrollWidth <= name.clientWidth + 1,
+        nameWidth: name.getBoundingClientRect().width,
         controllerWidth: controllerRect.width,
         controllerRight: controllerRect.right,
         trackRight: trackRect.right,
@@ -1412,6 +1415,8 @@ test.describe('mode controls responsive layout', () => {
         }),
       };
     });
+    expect(mobile.nameVisible).toBe(true);
+    expect(mobile.nameWidth).toBeGreaterThanOrEqual(80);
     expect(mobile.controllerWidth).toBeGreaterThan(0);
     expect(mobile.controllerRight).toBeLessThanOrEqual(mobile.trackRight + .5);
     expect(mobile.childrenContained).toBe(true);

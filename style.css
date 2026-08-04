@@ -4444,8 +4444,15 @@ body.beat-edit-mode .beat-square {
     margin-inline: 0;
   }
   .track-controls {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(5rem, 1.25fr) minmax(3.25rem, 1.5fr) repeat(3, minmax(2.1rem, 1fr));
     column-gap: .25rem;
+  }
+  .track-controls > .track-name {
+    min-width: 5rem;
+    max-width: 10rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .track-controls > button {
     min-width: 0;
