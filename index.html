@@ -408,13 +408,15 @@
                     </label>
                     <button id="sound-preview-btn" type="button" class="preset-btn" aria-pressed="false">▶ Preview</button>
                     <button id="sound-effects-btn" type="button" class="preset-btn sound-effects-btn" aria-haspopup="dialog" aria-expanded="false" title="Open pitch, distortion, delay, and reverb controls">Open Effects</button>
-                    <button id="note-snap-btn">Note Snap</button>
-                    <button id="quantize-btn" style="display: none;">Quantize</button>
-                    <button id="grid-snap-btn" style="display: none;">Grid</button>
-                    <button id="reset-sound-btn">Reset</button>
-                    <button id="rename-sound-btn" title="Rename Sound" aria-label="Rename sound">Rename</button>
-                    <button id="save-sound-btn" title="Save Sound" aria-label="Save sound">Save</button>
-                    <button id="delete-sound-btn" title="Delete Sound" aria-label="Delete sound" style="display: none;">Delete</button>
+                    <div id="sound-editor-actions" class="sound-editor-actions">
+                        <button id="note-snap-btn">Note Snap</button>
+                        <button id="quantize-btn" style="display: none;">Quantize</button>
+                        <button id="grid-snap-btn" style="display: none;">Grid</button>
+                        <button id="reset-sound-btn">Reset</button>
+                        <button id="rename-sound-btn" title="Rename Sound" aria-label="Rename sound">Rename</button>
+                        <button id="save-sound-btn" title="Save Sound" aria-label="Save sound">Save</button>
+                        <button id="delete-sound-btn" title="Delete Sound" aria-label="Delete sound" style="display: none;">Delete</button>
+                    </div>
                 </div>
             </div>
             <section class="sound-control-category sound-behavior-category" data-control-category="behavior" aria-labelledby="sound-behavior-title">
@@ -424,7 +426,7 @@
                     <label><input id="sample-overlap-toggle" type="checkbox" checked /> Allow overlap</label>
                     <label><input id="sample-retrigger-toggle" type="checkbox" checked /> Retrigger</label>
                     <label><input id="sample-reverse-toggle" type="checkbox" /> Reverse</label>
-                    <button id="sample-fx-toggle" type="button" class="fx-bypass-btn" aria-pressed="false" title="Toggle all filters and effects">FX</button>
+                    <label><input id="sample-fx-toggle" type="checkbox" /> Bypass FX</label>
                 </div>
                 <label class="sample-probability-control" for="sample-probability">
                     <span>Probability</span>
@@ -436,7 +438,6 @@
                 <h3 id="sound-visualization-title" class="sound-control-category-title">Visualization</h3>
                 <div class="filter-visualization-stage">
                     <canvas class="oscilloscope-canvas" width="400" height="100"></canvas>
-                    <span class="scope-signal-status" aria-live="polite">Live processed signal</span>
                     <div class="filter-visualization-overlay" aria-hidden="true">
                         <span class="filter-overlay-region filter-overlay-high-pass"></span>
                         <span class="filter-overlay-region filter-overlay-low-pass"></span>
@@ -455,6 +456,7 @@
                 <div>
                     <h2 id="sound-effects-title">Effects</h2>
                     <p>Shape pitch, distortion, delay, and reverb.</p>
+                    <div id="sound-effects-actions-slot" class="sound-effects-actions-slot"></div>
                 </div>
             </div>
             <div id="sound-effects-sliders-container" class="sound-effects-sliders-container"></div>

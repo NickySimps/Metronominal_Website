@@ -78,6 +78,9 @@ const SoundSettingsModal = {
     const effectsModal = document.getElementById("sound-effects-modal");
     const effectsButton = DOM.soundSettingsModal.querySelector("#sound-effects-btn");
     const effectsCloseButton = effectsModal?.querySelector("#sound-effects-close");
+    this.effectsActionGroup = DOM.soundSettingsModal.querySelector("#sound-editor-actions");
+    this.effectsActionOrigin = this.effectsActionGroup?.parentElement || null;
+    this.effectsActionSlot = effectsModal?.querySelector("#sound-effects-actions-slot") || null;
     effectsButton?.addEventListener("click", () => this.showEffectsModal());
     effectsCloseButton?.addEventListener("click", () => this.hideEffectsModal());
     effectsModal?.addEventListener("click", (event) => {
@@ -429,25 +432,27 @@ const SoundSettingsModal = {
         }
     }
 
-    const slider = DOM.soundSettingsModal.querySelector(`[data-param="${param}"]`);
+    const slider = document.querySelector(`[data-param="${param}"]`);
     if (slider) {
         let displayValue = value;
         if (this.isNoteSnapping && param.toLowerCase().includes("frequency")) {
             displayValue = valueToSave;
         }
         slider.value = displayValue;
-
-        const valueDisplay = slider.parentElement.nextElementSibling;
-        if (param.toLowerCase().includes("frequency")) {
-            valueDisplay.textContent = `${parseFloat(displayValue).toFixed(2)} Hz (${frequencyToNote(displayValue)})`;
-        } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd", "delayTime"].includes(param)) {
-            valueDisplay.textContent = `${slider.value} ms`;
-        } else if (["distortion", "delayMix", "reverbMix"].includes(param)) {
-            valueDisplay.textContent = `${slider.value}%`;
-        } else if (param.toLowerCase() === "volume") {
-            valueDisplay.textContent = `${slider.value}%`;
-        } else {
-            valueDisplay.textContent = `${slider.value} semitones (${semitonesToInterval(slider.value)})`;
+        slider.setAttribute("aria-valuenow", String(displayValue));
+        const valueDisplay = slider.closest(".slider-container")?.querySelector(":scope > span");
+        if (valueDisplay) {
+            if (param.toLowerCase().includes("frequency")) {
+                valueDisplay.textContent = `${parseFloat(displayValue).toFixed(2)} Hz (${frequencyToNote(displayValue)})`;
+            } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd", "delayTime"].includes(param)) {
+                valueDisplay.textContent = `${Number(displayValue).toFixed(0)} ms`;
+            } else if (["distortion", "delayMix", "reverbMix"].includes(param)) {
+                valueDisplay.textContent = `${Number(displayValue).toFixed(0)}%`;
+            } else if (param.toLowerCase() === "volume") {
+                valueDisplay.textContent = `${displayValue}%`;
+            } else {
+                valueDisplay.textContent = `${displayValue} semitones (${semitonesToInterval(displayValue)})`;
+            }
         }
     }
 
@@ -521,6 +526,21 @@ const SoundSettingsModal = {
       return Math.round(valueMs / gridInterval) * gridInterval;
   },
 
+  getDelaySubdivisionValues(maxMs = 1000) {
+      const bpm = Number(AppState.getTempo());
+      if (!Number.isFinite(bpm) || bpm <= 0) return [];
+      const beatMs = 60000 / bpm;
+      const values = new Set([0]);
+      for (const denominator of [1, 2, 4, 8, 16]) {
+          const subdivisionMs = beatMs / denominator;
+          for (let multiple = 1; multiple <= denominator * 4; multiple += 1) {
+              const value = Math.round(subdivisionMs * multiple);
+              if (value > 0 && value <= maxMs) values.add(value);
+          }
+      }
+      return [...values].sort((a, b) => a - b);
+  },
+
   createSlider(slidersContainer, param, min, max, step, value) {
     const effectParams = new Set(["pitchShift", "distortion", "delayMix", "delayTime", "reverbMix"]);
     const targetContainer = effectParams.has(param)
@@ -555,10 +575,6 @@ const SoundSettingsModal = {
     }
     const sliderContainer = document.createElement("div");
     sliderContainer.className = "slider-container";
-    if (["pitchShift", "distortion"].includes(param)) sliderContainer.classList.add("vertical-slider-container");
-    if (["highPassFrequency", "lowPassFrequency"].includes(param)) {
-      sliderContainer.classList.add("filter-slider-container");
-    }
 
     const label = document.createElement("label");
     const displayLabels = {
@@ -594,7 +610,6 @@ const SoundSettingsModal = {
 
     const slider = document.createElement("input");
     slider.type = "range";
-    if (["pitchShift", "distortion"].includes(param)) slider.classList.add("vertical-slider");
     slider.min = min;
     slider.max = max;
     slider.step = step;
@@ -608,6 +623,30 @@ const SoundSettingsModal = {
     sliderWrapper.appendChild(incrementButton);
 
     sliderContainer.appendChild(sliderWrapper);
+
+    let delayQuantizeButton = null;
+    let delayDatalist = null;
+    if (param === "delayTime") {
+      const datalist = document.createElement("datalist");
+      delayDatalist = datalist;
+      datalist.id = `delay-time-subdivisions-${this.currentTrackIndex ?? "sound"}`;
+      const subdivisionValues = this.getDelaySubdivisionValues(max);
+      subdivisionValues.forEach((subdivision) => {
+        const option = document.createElement("option");
+        option.value = String(subdivision);
+        option.label = `${subdivision} ms`;
+        datalist.appendChild(option);
+      });
+      slider.setAttribute("list", datalist.id);
+      sliderContainer.appendChild(datalist);
+      delayQuantizeButton = document.createElement("button");
+      delayQuantizeButton.type = "button";
+      delayQuantizeButton.className = "delay-quantize-button";
+      delayQuantizeButton.textContent = "Quantize to BPM";
+      delayQuantizeButton.setAttribute("aria-pressed", "false");
+      delayQuantizeButton.title = "Snap delay time to subdivisions of the current BPM";
+      sliderContainer.appendChild(delayQuantizeButton);
+    }
 
     const valueDisplay = document.createElement("span");
     if (param === "highPassFrequency" || param === "lowPassFrequency") {
@@ -701,6 +740,33 @@ const SoundSettingsModal = {
             }
         }
     });
+    if (delayQuantizeButton) {
+      delayQuantizeButton.addEventListener("click", () => {
+        const enabled = delayQuantizeButton.getAttribute("aria-pressed") !== "true";
+        const points = enabled ? this.getDelaySubdivisionValues(max) : null;
+        delayQuantizeButton.setAttribute("aria-pressed", String(enabled));
+        delayQuantizeButton.classList.toggle("active", enabled);
+        sliderInstance.updateSnapPoints(points);
+        if (enabled && points?.length) {
+          const nearest = points.reduce((best, point) => Math.abs(point - sliderInstance.value) < Math.abs(best - sliderInstance.value) ? point : best, points[0]);
+          sliderInstance.setValue(nearest);
+        }
+      });
+      const refreshDelayQuantization = () => {
+        const values = this.getDelaySubdivisionValues(max);
+        if (delayDatalist) {
+          delayDatalist.replaceChildren(...values.map((subdivision) => {
+            const option = document.createElement("option");
+            option.value = String(subdivision);
+            option.label = `${subdivision} ms`;
+            return option;
+          }));
+        }
+        if (delayQuantizeButton?.getAttribute("aria-pressed") === "true") sliderInstance.updateSnapPoints(values);
+      };
+      document.addEventListener("tempochange", refreshDelayQuantization);
+      (this.delayQuantizeRefreshers ||= []).push(refreshDelayQuantization);
+    }
     this.sliders.push(sliderInstance);
   },
 
@@ -747,7 +813,7 @@ const SoundSettingsModal = {
     const lowPassPosition = lowPassActive ? toPosition(this.currentSoundSettings.lowPassFrequency) : "100%";
     overlays.forEach((overlay) => {
       overlay.style.setProperty("--filter-high-pass-position", highPassPosition);
-      overlay.style.setProperty("--filter-low-pass-position", `calc(100% - ${lowPassPosition})`);
+      overlay.style.setProperty("--filter-low-pass-position", lowPassPosition);
       overlay.classList.toggle("high-pass-active", highPassActive);
       overlay.classList.toggle("low-pass-active", lowPassActive);
       overlay.querySelector(".filter-overlay-high-pass-label")?.replaceChildren(document.createTextNode(`HP ${Math.round(this.currentSoundSettings.highPassFrequency)} Hz`));
@@ -760,6 +826,7 @@ const SoundSettingsModal = {
     const trigger = DOM.soundSettingsModal.querySelector("#sound-effects-btn");
     if (!modal || !this.currentSoundSettings) return;
     this.effectsPreviouslyFocusedElement = document.activeElement;
+    if (this.effectsActionGroup && this.effectsActionSlot) this.effectsActionSlot.appendChild(this.effectsActionGroup);
     modal.hidden = false;
     modal.style.display = "flex";
     requestAnimationFrame(() => modal.classList.add("is-open"));
@@ -774,6 +841,7 @@ const SoundSettingsModal = {
     modal.classList.remove("is-open");
     modal.style.display = "none";
     modal.hidden = true;
+    if (this.effectsActionGroup && this.effectsActionOrigin) this.effectsActionOrigin.appendChild(this.effectsActionGroup);
     trigger?.setAttribute("aria-expanded", "false");
     const restoreTarget = this.effectsPreviouslyFocusedElement;
     this.effectsPreviouslyFocusedElement = null;
@@ -795,6 +863,11 @@ const SoundSettingsModal = {
       this.currentSoundSettings.trimEnd = Math.min(durationMs, Number(this.currentSoundSettings.trimEnd) || durationMs) / 1000;
       this.createSlider(this.mainSlidersContainer, "trimStart", 0, durationMs, 1, this.currentSoundSettings.trimStart * 1000);
       this.createSlider(this.mainSlidersContainer, "trimEnd", 0, durationMs, 1, this.currentSoundSettings.trimEnd * 1000);
+      const playbackCategory = this.mainSlidersContainer.querySelector('[data-control-category="playback"]');
+      const firstCategory = this.mainSlidersContainer.querySelector('.sound-control-category');
+      if (playbackCategory && firstCategory && playbackCategory !== firstCategory) {
+        this.mainSlidersContainer.insertBefore(playbackCategory, firstCategory);
+      }
     }
     this.drawSynthWaveform(rendered);
   },
@@ -906,8 +979,8 @@ const SoundSettingsModal = {
     DOM.soundSettingsModal.querySelector("#sample-reverse-toggle").checked = soundSettings.reverse;
     const fxToggle = DOM.soundSettingsModal.querySelector("#sample-fx-toggle");
     if (fxToggle) {
-      fxToggle.setAttribute("aria-pressed", String(soundSettings.fxBypass === true));
-      fxToggle.title = soundSettings.fxBypass === true ? "Turn effects back on" : "Turn all filters and effects off";
+      fxToggle.checked = soundSettings.fxBypass === true;
+      fxToggle.title = "Bypass all filters and effects";
     }
     const probabilityInput = DOM.soundSettingsModal.querySelector("#sample-probability");
     probabilityInput.value = soundSettings.probability;
@@ -916,11 +989,11 @@ const SoundSettingsModal = {
     const slidersContainer = DOM.soundSettingsModal.querySelector("#sound-sliders-container");
     const effectsSlidersContainer = document.getElementById("sound-effects-sliders-container");
     this.mainSlidersContainer = slidersContainer;
+    (this.delayQuantizeRefreshers || []).forEach((refresh) => document.removeEventListener("tempochange", refresh));
+    this.delayQuantizeRefreshers = [];
     slidersContainer.innerHTML = "";
     if (effectsSlidersContainer) effectsSlidersContainer.innerHTML = "";
     this.sliders = [];
-    this.createSlider(slidersContainer, "highPassFrequency", 20, 20000, 1, soundSettings.highPassFrequency);
-    this.createSlider(slidersContainer, "lowPassFrequency", 20, 20000, 1, soundSettings.lowPassFrequency);
 
     if (soundInfo.audioBuffer instanceof AudioBuffer) {
         // Recorded sound
@@ -943,13 +1016,15 @@ const SoundSettingsModal = {
         slidersContainer.appendChild(waveformContainer);
         const waveformTools = document.createElement("div");
         waveformTools.className = "waveform-tools";
-        waveformTools.innerHTML = `<label>Zoom <input class="waveform-zoom" type="range" min="1" max="8" step="0.25" value="1" /></label><label>Pan <input class="waveform-pan" type="range" min="0" max="1" step="0.01" value="0" /></label>`;
+        waveformTools.innerHTML = `<label>Zoom <input class="waveform-zoom" type="range" min="1" max="8" step="0.25" value="1" /><output class="waveform-zoom-value">1×</output></label><label>Pan <input class="waveform-pan" type="range" min="0" max="1" step="0.01" value="0" /><output class="waveform-pan-value">0%</output></label>`;
         slidersContainer.appendChild(waveformTools);
         const zoomInput = waveformTools.querySelector(".waveform-zoom");
         const panInput = waveformTools.querySelector(".waveform-pan");
         const redrawZoomedWaveform = () => {
             this.waveformZoom = Number(zoomInput.value);
             this.waveformPan = Number(panInput.value);
+            waveformTools.querySelector('.waveform-zoom-value').textContent = `${this.waveformZoom}×`;
+            waveformTools.querySelector('.waveform-pan-value').textContent = `${Math.round(this.waveformPan * 100)}%`;
             if (this.drawWaveformAndTrimLines) this.drawWaveformAndTrimLines(this.currentAudioBuffer);
         };
         zoomInput.addEventListener("input", redrawZoomedWaveform);
@@ -1100,6 +1175,8 @@ const SoundSettingsModal = {
         this.createSlider(slidersContainer, "release", 1, 2000, 1, (soundSettings.release || 0.2) * 1000);
     }
 
+    this.createSlider(slidersContainer, "highPassFrequency", 20, 20000, 1, soundSettings.highPassFrequency);
+    this.createSlider(slidersContainer, "lowPassFrequency", 20, 20000, 1, soundSettings.lowPassFrequency);
     this.createSlider(slidersContainer, "pitchShift", -48, 48, 1, (soundSettings.pitchShift || 0));
     this.updateFilterOverlay();
     this.createSlider(slidersContainer, "distortion", 0, 100, 1, soundSettings.distortion * 100);

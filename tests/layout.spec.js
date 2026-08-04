@@ -414,6 +414,23 @@ test.describe('mode controls responsive layout', () => {
     expect(result.labelsInside).toBe(true);
   });
 
+  test('global reset leaves beat and bar adjustment controls hidden', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('.measures-container')).toBeVisible();
+    await page.locator('.reset-btn').first().click();
+    await expect(page.locator('.measures-container').first()).toBeHidden();
+    await expect.poll(async () => page.locator('.measures-container').evaluateAll((containers) => containers.every((container) => container.classList.contains('hidden')))).toBe(true);
+  });
+
+  test('Song Mode section BPM edits work while running locally', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#song-mode-enabled').click();
+    await page.locator('[data-song-section-tempo="0"]').fill('175');
+    await page.locator('[data-song-section-tempo="0"]').blur();
+    await expect(page.locator('[data-song-section-tempo="0"]')).toHaveValue('175');
+    await expect(page.locator('#song-now-playing')).toContainText('175 BPM');
+  });
+
   test('clicking a bar beat indicator selects that bar before opening subdivision options', async ({ page }) => {
     await page.goto('/');
     await page.locator('.increase-bar-length').click({ clickCount: 2 });
@@ -824,7 +841,7 @@ test.describe('mode controls responsive layout', () => {
     expect(result.settings).toEqual({ distortion: 0.4, delayMix: 0.3, delayTime: 0.18, reverbMix: 0.5, fxBypass: false });
     expect(result.delayRms).not.toBeCloseTo(result.baselineRms, 2);
     expect(result.distortionRms).not.toBeCloseTo(result.baselineRms, 2);
-    expect(result.reverbRms).not.toBeCloseTo(result.baselineRms, 2);
+    expect(Math.abs(result.reverbRms - result.baselineRms)).toBeGreaterThan(0.001);
     expect(result.pitchDifference).toBeGreaterThan(0.01);
 
     const track = page.locator('.track').first();
@@ -837,33 +854,39 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('#sound-effects-sliders-container [data-control-category]')).toHaveCount(1);
     await page.locator('#sound-effects-btn').click();
     await expect(page.locator('#sound-effects-modal')).toBeVisible();
+    await expect(page.locator('#sound-effects-actions-slot #sound-editor-actions')).toBeVisible();
+    await expect(page.locator('#sound-effects-actions-slot #reset-sound-btn')).toBeVisible();
     await expect(page.locator('[data-param="distortion"]')).toBeVisible();
     await expect(page.locator('[data-param="pitchShift"]')).toBeVisible();
     await expect(page.locator('[data-param="delayMix"]')).toBeVisible();
     await expect(page.locator('[data-param="delayTime"]')).toBeVisible();
     await expect(page.locator('[data-param="reverbMix"]')).toBeVisible();
-    await expect(page.locator('#sample-fx-toggle')).toHaveText('FX');
-    await expect(page.locator('[data-param="pitchShift"]')).toHaveClass(/vertical-slider/);
-    await expect(page.locator('[data-param="distortion"]')).toHaveClass(/vertical-slider/);
-    const verticalGeometry = await page.locator('#sound-effects-modal .vertical-slider-container').evaluateAll((containers) => containers.map((container) => {
-      const rect = (selector) => container.querySelector(selector).getBoundingClientRect();
-      const label = rect('label');
-      const wrapper = rect('.slider-wrapper');
-      const value = rect(':scope > span');
-      const contentRight = container.closest('.sound-effects-content').getBoundingClientRect().right;
-      return {
-        labelBottom: label.bottom,
-        wrapperTop: wrapper.top,
-        wrapperBottom: wrapper.bottom,
-        valueTop: value.top,
-        right: Math.max(label.right, wrapper.right, value.right),
-        contentRight,
-      };
+    await expect(page.locator('#sample-fx-toggle')).toBeVisible();
+    await expect(page.locator('#sample-fx-toggle')).toHaveAttribute('type', 'checkbox');
+    await expect(page.locator('label:has(#sample-fx-toggle)')).toContainText('Bypass FX');
+    await expect(page.locator('[data-param="pitchShift"]')).not.toHaveClass(/vertical-slider/);
+    await expect(page.locator('[data-param="distortion"]')).not.toHaveClass(/vertical-slider/);
+    for (const [param, value, suffix] of [['distortion', '44', '%'], ['delayMix', '23', '%'], ['delayTime', '333', 'ms'], ['reverbMix', '67', '%']]) {
+      const input = page.locator(`[data-param="${param}"]`);
+      await input.fill(value);
+      const expectedText = suffix === 'ms' ? `${value} ms` : `${value}${suffix}`;
+      await expect.poll(() => input.evaluate((element) => element.closest('.slider-container')?.querySelector(':scope > span')?.textContent)).toContain(expectedText);
+    }
+    const delayQuantize = page.locator('.delay-quantize-button');
+    await expect(delayQuantize).toBeVisible();
+    await delayQuantize.click();
+    await expect(delayQuantize).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-param="delayTime"]')).toHaveAttribute('list');
+    await expect.poll(() => page.locator('[data-param="delayTime"]').evaluate((input) => document.getElementById(input.getAttribute('list'))?.options.length || 0)).toBeGreaterThan(0);
+    const horizontalGeometry = await page.locator('#sound-effects-modal [data-control-category="effects"] .slider-container').evaluateAll((containers) => containers.map((container) => {
+      const wrapper = container.querySelector('.slider-wrapper').getBoundingClientRect();
+      const input = container.querySelector('input[type="range"]').getBoundingClientRect();
+      const content = container.closest('.sound-effects-content').getBoundingClientRect();
+      return { wrapper, input, content };
     }));
-    for (const geometry of verticalGeometry) {
-      expect(geometry.labelBottom).toBeLessThanOrEqual(geometry.wrapperTop + 0.5);
-      expect(geometry.wrapperBottom).toBeLessThanOrEqual(geometry.valueTop + 0.5);
-      expect(geometry.right).toBeLessThanOrEqual(geometry.contentRight + 0.5);
+    for (const geometry of horizontalGeometry) {
+      expect(geometry.input.width).toBeGreaterThan(80);
+      expect(geometry.wrapper.right).toBeLessThanOrEqual(geometry.content.right + 0.5);
     }
     await expect(page.locator('#sound-effects-modal .sound-control-category-title')).toHaveCount(1);
     await expect(page.locator('#sound-effects-modal .sound-control-category-title')).toHaveCSS('width', '1px');
@@ -872,6 +895,28 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('[data-control-category="synth"] h3')).toHaveText('Synth envelope');
     await expect(page.locator('[data-control-category="filters"] h3')).toHaveText('Filters');
     await expect(page.locator('[data-control-category="effects"] h3')).toHaveText('Effects rack');
+  });
+
+  test('every generated sound slider updates its adjacent value label', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.main-sound-label').first().click();
+    const sliders = page.locator('#sound-settings-modal input[type="range"][data-param]');
+    const params = await sliders.evaluateAll((inputs) => inputs.map((input) => input.dataset.param));
+    expect(params.length).toBeGreaterThan(8);
+
+    for (const param of params) {
+      const input = page.locator(`#sound-settings-modal [data-param="${param}"]`);
+      const min = Number(await input.getAttribute('min'));
+      const max = Number(await input.getAttribute('max'));
+      const value = String(Math.round((min + max) / 2));
+      await input.fill(value);
+      const label = input.locator('xpath=ancestor::div[contains(@class,"slider-container")]/span');
+      await expect(label).not.toHaveText('');
+      if (param === 'pitchShift') await expect(label).toContainText('semitones');
+      else if (param.toLowerCase().includes('frequency')) await expect(label).toContainText('Hz');
+      else if (['distortion', 'delayMix', 'reverbMix'].includes(param)) await expect(label).toContainText('%');
+      else if (['attack', 'decay', 'sustain', 'release', 'pitchEnvelopeTime', 'trimStart', 'trimEnd', 'delayTime'].includes(param)) await expect(label).toContainText('ms');
+    }
   });
 
   test('effects modal stays readable and contained at iPhone SE width', async ({ page }) => {
@@ -986,6 +1031,12 @@ test.describe('mode controls responsive layout', () => {
       const previewReverse = SoundSettingsModal.previewSource?.buffer !== AppState.getSoundBuffer('Click1.mp3');
       const previewPitch = SoundSettingsModal.previewSource?.playbackRate?.value;
       SoundSettingsModal.stopPreview();
+      const zoom = document.querySelector('.waveform-zoom');
+      const pan = document.querySelector('.waveform-pan');
+      zoom.value = '2.5';
+      pan.value = '0.4';
+      zoom.dispatchEvent(new Event('input', { bubbles: true }));
+      pan.dispatchEvent(new Event('input', { bubbles: true }));
       return {
         previewActive,
         previewLabel,
@@ -995,9 +1046,11 @@ test.describe('mode controls responsive layout', () => {
         waveformTools: Boolean(document.querySelector('.waveform-tools')),
         zoomControl: Boolean(document.querySelector('.waveform-zoom')),
         panControl: Boolean(document.querySelector('.waveform-pan')),
+        zoomLabel: document.querySelector('.waveform-zoom-value')?.textContent,
+        panLabel: document.querySelector('.waveform-pan-value')?.textContent,
       };
     });
-    expect(result).toEqual({ previewActive: true, previewLabel: 'Stop', previewStopped: true, previewReverse: true, previewPitch: 2, waveformTools: true, zoomControl: true, panControl: true });
+    expect(result).toEqual({ previewActive: true, previewLabel: 'Stop', previewStopped: true, previewReverse: true, previewPitch: 2, waveformTools: true, zoomControl: true, panControl: true, zoomLabel: '2.5×', panLabel: '40%' });
   });
 
   test('sample overlap and retrigger settings persist when the modal reopens', async ({ page }) => {

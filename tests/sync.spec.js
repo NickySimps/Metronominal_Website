@@ -432,7 +432,6 @@ test('song section edits immediately update the displayed BPM', async ({ page })
   await expect(page.locator('[data-song-section-tempo="0"]')).toHaveValue('210');
   await expect(page.locator('#song-now-playing')).toContainText('210 BPM');
 });
-
 test('section selector captures, previews, and atomically reapplies all section tracks', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#share-btn')).toHaveClass(/connected/);

@@ -1,5 +1,5 @@
 import AppState from "./appState.js";
-import { sendState } from "./webrtc.js";
+import { sendState, getSyncDiagnostics } from "./webrtc.js";
 import MetronomeEngine from "./metronomeEngine.js";
 
 const FORMAT = "metronominal-song";
@@ -325,7 +325,9 @@ function announce(message, isError = false) {
 }
 
 async function publishSongChange(nextSong, shouldRender = true) {
-  if (!window.isHost || !canEditSong || AppState.isPlaying()) {
+  const syncRole = getSyncDiagnostics().role;
+  const connectedClient = syncRole === "client";
+  if (connectedClient || !canEditSong || AppState.isPlaying()) {
     render();
     return;
   }
