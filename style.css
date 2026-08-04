@@ -1805,22 +1805,22 @@ button:active,
 @media (min-width: 769px) and (pointer: fine) {
   .track-container { overflow-x: clip; }
   #all-tracks-wrapper.song-whip-out {
-    animation: song-track-whip-out 85ms cubic-bezier(.18,.8,.32,1) both;
+    animation: song-track-whip-out var(--song-whip-out-duration, 85ms) cubic-bezier(.18,.8,.32,1) both;
     transform-origin: center left;
   }
   #all-tracks-wrapper.song-whip-wrap {
-    animation: song-track-whip-wrap 85ms cubic-bezier(.12,.82,.25,1) both;
+    animation: song-track-whip-wrap var(--song-whip-out-duration, 85ms) cubic-bezier(.12,.82,.25,1) both;
     transform-origin: center left;
   }
   #all-tracks-wrapper.song-whip-in {
-    animation: song-track-whip-in 115ms cubic-bezier(.16,.8,.24,1) both;
+    animation: song-track-whip-in var(--song-whip-in-duration, 115ms) cubic-bezier(.16,.8,.24,1) both;
     transform-origin: center right;
   }
 }
 
 @media (max-width: 768px), (pointer: coarse) {
   #all-tracks-wrapper.song-mobile-swoop {
-    animation: song-mobile-swoop 250ms cubic-bezier(.2,.8,.25,1) both;
+    animation: song-mobile-swoop var(--song-transition-duration, 250ms) cubic-bezier(.2,.8,.25,1) both;
     transform-origin: center;
   }
 }

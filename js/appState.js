@@ -615,7 +615,7 @@ const AppState = (function () {
       Tracks.length = section.tracks.length;
       if (typeof document !== "undefined") {
         document.dispatchEvent(new CustomEvent("songtracksectionchange", {
-          detail: { sectionIndex: section.index, trackCount: section.tracks.length },
+          detail: { sectionIndex: section.index, trackCount: section.tracks.length, tempo: section.tempo || tempo },
         }));
       }
       return true;

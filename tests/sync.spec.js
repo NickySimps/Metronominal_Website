@@ -468,14 +468,16 @@ test('mobile Song Mode track DOM follows the active section snapshot', async ({ 
     await new Promise(requestAnimationFrame);
     const full = [...document.querySelectorAll('#all-tracks-wrapper .track-name')].map(node => node.textContent);
     const mobileAnimation = document.querySelector('#all-tracks-wrapper')?.classList.contains('song-mobile-swoop');
+    const mobileAnimationDuration = getComputedStyle(document.querySelector('#all-tracks-wrapper')).animationDuration;
     AppState.applySongSectionForBar(1);
     await new Promise(resolve => setTimeout(resolve, 100));
     const reduced = [...document.querySelectorAll('#all-tracks-wrapper .track-name')].map(node => node.textContent);
-    return { full, reduced, mobileAnimation, runtimeCount: AppState.getTracks().length, sectionTrackCount: AppState.getSong().sections[1]?.tracks?.length };
+    return { full, reduced, mobileAnimation, mobileAnimationDuration, runtimeCount: AppState.getTracks().length, sectionTrackCount: AppState.getSong().sections[1]?.tracks?.length };
   });
   expect(result.full).toHaveLength(2);
   expect(result.full).toContain('Mobile section track');
   expect(result.mobileAnimation).toBe(true);
+  expect(result.mobileAnimationDuration).toBe('0.125s');
   expect(result.runtimeCount).toBe(1);
   expect(result.sectionTrackCount).toBe(1);
   expect(result.reduced).toHaveLength(1);

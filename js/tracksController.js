@@ -236,6 +236,15 @@ function updateTrackElement(trackElement, track, index) {
 let songWhipTimer = null;
 let songMobileSwoopTimer = null;
 
+function setSongTransitionDuration(wrapper, tempo) {
+  const safeTempo = Math.max(20, Number(tempo) || 120);
+  const duration = Math.min(250, 60000 / safeTempo / 4);
+  wrapper.style.setProperty("--song-transition-duration", `${duration}ms`);
+  wrapper.style.setProperty("--song-whip-out-duration", `${duration * 0.3}ms`);
+  wrapper.style.setProperty("--song-whip-in-duration", `${duration * 0.7}ms`);
+  return duration;
+}
+
 function animateSongTrackWhip(event) {
   const wrapper = document.getElementById("all-tracks-wrapper");
   if (!wrapper || !window.matchMedia("(min-width: 769px) and (pointer: fine)").matches) return;
@@ -244,6 +253,9 @@ function animateSongTrackWhip(event) {
 
   if (songWhipTimer) window.clearTimeout(songWhipTimer);
   wrapper.classList.remove("song-whip-in", "song-whip-out", "song-whip-wrap");
+  const duration = setSongTransitionDuration(wrapper, event.detail?.tempo || AppState.getTempo?.());
+  const outDuration = duration * 0.3;
+  const inDuration = duration - outDuration;
   wrapper.classList.add(event.detail?.sectionIndex === 0 ? "song-whip-wrap" : "song-whip-out");
   songWhipTimer = window.setTimeout(() => {
     TrackController.renderTracks();
@@ -252,8 +264,8 @@ function animateSongTrackWhip(event) {
     songWhipTimer = window.setTimeout(() => {
       wrapper.classList.remove("song-whip-in");
       songWhipTimer = null;
-    }, 115);
-  }, 85);
+    }, inDuration);
+  }, outDuration);
 }
 const TrackController = {
   longPressTimer: null,
@@ -296,16 +308,16 @@ const TrackController = {
         return;
       }
       if (songMobileSwoopTimer) window.clearTimeout(songMobileSwoopTimer);
-      if (wrapper) {
-        wrapper.classList.remove("song-mobile-swoop");
-        void wrapper.offsetWidth;
-        wrapper.classList.add("song-mobile-swoop");
-      }
+      if (!wrapper) return;
+      const duration = setSongTransitionDuration(wrapper, event.detail?.tempo || AppState.getTempo?.());
+      wrapper.classList.remove("song-mobile-swoop");
+      void wrapper.offsetWidth;
+      wrapper.classList.add("song-mobile-swoop");
       TrackController.renderTracks();
       songMobileSwoopTimer = window.setTimeout(() => {
-        wrapper?.classList.remove("song-mobile-swoop");
+        wrapper.classList.remove("song-mobile-swoop");
         songMobileSwoopTimer = null;
-      }, 250);
+      }, duration);
     });
     document.addEventListener("soundSaved", () => {
         TrackController.renderTracks();
