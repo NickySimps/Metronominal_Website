@@ -1902,10 +1902,11 @@ button:active,
   }
 
   #all-tracks-wrapper .track {
-    width: 100%;
+    width: min(100%, 54rem);
     height: auto;
     min-height: 0;
     margin: 0;
+    justify-self: center;
   }
 }
 
