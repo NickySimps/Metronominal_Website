@@ -32,7 +32,8 @@ let subdivisionShield = null;
 let subdivisionTriggerElement = null;
 let subdivisionKeydownHandler = null;
 const LONG_PRESS_DURATION = 200; // ms
-const POINTER_MOVE_THRESHOLD = 35; // pixels (Forgiving for touch & mouse hold)
+const TOUCH_LONG_PRESS_DURATION = 450; // Require a deliberate touch hold instead of opening during a swipe
+const POINTER_MOVE_THRESHOLD = 45; // pixels
 
 function openSubdivisionSelectorForSelectedBar() {
   const trackIndex = AppState.getSelectedTrackIndex();
@@ -284,6 +285,9 @@ function onBarPointerDown(event) {
     }
   }
 
+  const pressDuration = event.pointerType === "touch"
+    ? TOUCH_LONG_PRESS_DURATION
+    : LONG_PRESS_DURATION;
   longPressTimer = setTimeout(() => {
     isLongPressActive = true;
     longPressTimer = null;
@@ -293,10 +297,11 @@ function onBarPointerDown(event) {
       resetLongPressState();
       cleanupPointerListeners();
     }
-  }, LONG_PRESS_DURATION);
+  }, pressDuration);
 
   window.addEventListener("pointermove", onWindowPointerMove);
   window.addEventListener("pointerup", onWindowPointerUp);
+  window.addEventListener("pointercancel", onWindowPointerCancel);
 }
 
 function onWindowPointerMove(event) {
@@ -461,9 +466,19 @@ async function onWindowPointerUp(event) {
   resetLongPressState();
 }
 
+function onWindowPointerCancel() {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+  }
+  cleanupPointerListeners();
+  hideSubdivisionSelector();
+  resetLongPressState();
+}
+
 function cleanupPointerListeners() {
   window.removeEventListener("pointermove", onWindowPointerMove);
   window.removeEventListener("pointerup", onWindowPointerUp);
+  window.removeEventListener("pointercancel", onWindowPointerCancel);
 }
 
 function resetLongPressState() {
