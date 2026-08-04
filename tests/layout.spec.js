@@ -850,7 +850,7 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('#sound-effects-modal')).toBeHidden();
     await page.locator('#reset-sound-btn').click();
     await page.locator('#reset-sound-btn').click();
-    await expect(page.locator('#sound-sliders-container [data-control-category]')).toHaveCount(4);
+    await expect(page.locator('#sound-sliders-container [data-control-category]')).toHaveCount(3);
     await expect(page.locator('#sound-effects-sliders-container [data-control-category]')).toHaveCount(1);
     await page.locator('#sound-effects-btn').click();
     await expect(page.locator('#sound-effects-modal')).toBeVisible();
@@ -872,7 +872,7 @@ test.describe('mode controls responsive layout', () => {
       const expectedText = suffix === 'ms' ? `${value} ms` : `${value}${suffix}`;
       await expect.poll(() => input.evaluate((element) => element.closest('.slider-container')?.querySelector(':scope > span')?.textContent)).toContain(expectedText);
     }
-    const delayQuantize = page.locator('.delay-quantize-button');
+    const delayQuantize = page.locator('#delay-quantize-btn');
     await expect(delayQuantize).toBeVisible();
     await delayQuantize.click();
     await expect(delayQuantize).toHaveAttribute('aria-pressed', 'true');
@@ -895,6 +895,55 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('[data-control-category="synth"] h3')).toHaveText('Synth envelope');
     await expect(page.locator('[data-control-category="filters"] h3')).toHaveText('Filters');
     await expect(page.locator('[data-control-category="effects"] h3')).toHaveText('Effects rack');
+  });
+
+  test('limits pitch and filter ranges and orders filters before trim controls', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.main-sound-label').first().click();
+    await expect(page.locator('[data-param="pitchShift"]')).toHaveAttribute('min', '-24');
+    await expect(page.locator('[data-param="pitchShift"]')).toHaveAttribute('max', '24');
+    await expect(page.locator('[data-param="highPassFrequency"]')).toHaveAttribute('max', '8000');
+    await expect(page.locator('[data-param="lowPassFrequency"]')).toHaveAttribute('max', '20000');
+    await expect(page.locator('[data-param="trimStart"]')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => {
+      const container = document.querySelector('#sound-sliders-container');
+      const categories = [...container.querySelectorAll(':scope > .sound-control-category')];
+      return {
+        waveform: container.querySelector(':scope > .filter-visualization-stage, :scope > .waveform-container')?.getBoundingClientRect().bottom,
+        filters: categories.findIndex((category) => category.dataset.controlCategory === 'filters'),
+        playback: categories.findIndex((category) => category.dataset.controlCategory === 'playback'),
+      };
+    })).toMatchObject({ filters: 0 });
+    await expect.poll(() => page.evaluate(() => {
+      const categories = [...document.querySelectorAll('#sound-sliders-container > .sound-control-category')];
+      return categories.findIndex((category) => category.dataset.controlCategory === 'filters') < categories.findIndex((category) => category.dataset.controlCategory === 'playback');
+    })).toBe(true);
+  });
+
+  test('puts Delay Quantize beside Note Snap and switches to note-value labels', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.main-sound-label').first().click();
+    await page.locator('#sound-effects-btn').click();
+    const delayQuantize = page.locator('#delay-quantize-btn');
+    await expect(delayQuantize).toBeVisible();
+    await expect(page.locator('#sound-effects-actions-slot #note-snap-btn')).toBeVisible();
+    await expect(page.locator('#sound-effects-actions-slot #grid-snap-btn')).toHaveCount(0);
+    await expect(page.locator('#sound-effects-actions-slot #quantize-btn')).toHaveCount(0);
+    await delayQuantize.click();
+    await expect(delayQuantize).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-param="delayTime"]').locator('xpath=ancestor::div[contains(@class,"slider-container")]/span')).toContainText(/note/);
+  });
+
+  test('synth trim controls clamp without hanging when handles cross', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.main-sound-label').first().click();
+    const start = page.locator('[data-param="trimStart"]');
+    const end = page.locator('[data-param="trimEnd"]');
+    await expect(start).toBeVisible();
+    await start.fill(await start.getAttribute('max'));
+    await expect.poll(() => end.inputValue()).toBe(await start.inputValue());
+    await end.fill(await end.getAttribute('min'));
+    await expect.poll(() => start.inputValue()).toBe(await end.inputValue());
   });
 
   test('every generated sound slider updates its adjacent value label', async ({ page }) => {
@@ -1381,5 +1430,26 @@ test.describe('mode controls responsive layout', () => {
     await page.goto('/');
     await page.locator('#theme-menu-toggle').click();
     await expect(page).toHaveScreenshot('theme-menu-mobile.png', { animations: 'disabled' });
+  });
+
+  test('beat edit rerenders ASDR and filter feedback and keeps element volume below probability', async ({ page }) => {
+  await page.goto('/');
+  const track = page.locator('.track').first();
+  await track.locator('.beat-edit-btn').click();
+  await track.locator('.beat-square').first().click();
+  await expect(page.locator('#sound-settings-modal')).toBeVisible();
+  const waveformBefore = await page.locator('.synth-waveform-canvas').evaluate((canvas) => canvas.toDataURL());
+  await page.locator('[data-param="attack"]').fill('1800');
+  await expect.poll(() => page.locator('.synth-waveform-canvas').evaluate((canvas) => canvas.toDataURL())).not.toBe(waveformBefore);
+  const overlay = page.locator('.sound-visualization-category .filter-visualization-overlay');
+  const beforePosition = await overlay.evaluate((element) => getComputedStyle(element).getPropertyValue('--filter-high-pass-position'));
+  await page.locator('[data-param="highPassFrequency"]').fill('4000');
+  await expect.poll(() => overlay.evaluate((element) => getComputedStyle(element).getPropertyValue('--filter-high-pass-position'))).not.toBe(beforePosition);
+  const behaviorControls = page.locator('.sound-behavior-category .slider-container');
+  await expect(behaviorControls).toHaveCount(1);
+  await expect(behaviorControls.locator('label')).toContainText('Volume');
+  const probabilityBox = await page.locator('#sample-probability').boundingBox();
+  const volumeBox = await behaviorControls.locator('input[type="range"]').boundingBox();
+  expect(volumeBox.y).toBeGreaterThan(probabilityBox.y);
   });
 });

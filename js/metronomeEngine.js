@@ -230,6 +230,7 @@ function advanceTrackBeat(track) {
             );
             track.currentBar = nextPosition.bar;
             track.songRepeatIteration = nextPosition.repeatIteration;
+            if (track === AppState.getTracks()[0]) AppState.applySongSectionForBar(track.currentBar);
         }
     }
 }
@@ -437,6 +438,7 @@ const MetronomeEngine = {
         }
 
         // Standard Toggle Logic (offline host fallback or an authoritative forced stop).
+        if (!wasPlayingBeforeToggle) AppState.applySongSectionForBar(0);
         const isNowPlaying = await AppState.togglePlay();
 
         // If forceStop is true and we are still playing, toggle again to stop

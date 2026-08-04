@@ -122,17 +122,6 @@ const SoundSettingsModal = {
             }
         });
     });
-    DOM.soundSettingsModal.querySelector("#quantize-btn").addEventListener("click", (e) => {
-        this.isQuantizing = !this.isQuantizing;
-        e.target.classList.toggle("active", this.isQuantizing);
-    });
-    DOM.soundSettingsModal.querySelector("#grid-snap-btn").addEventListener("click", (e) => {
-        this.isGridSnapping = !this.isGridSnapping;
-        e.target.classList.toggle("active", this.isGridSnapping);
-        if (this.currentAudioBuffer && this.drawWaveformAndTrimLines) {
-            this.drawWaveformAndTrimLines(this.currentAudioBuffer);
-        }
-    });
 
     DOM.soundSettingsModal.querySelector("#sound-preview-btn").addEventListener("click", () => this.togglePreview());
     DOM.soundSettingsModal.querySelector("#sound-scope-mode-select").addEventListener("change", (e) => {
@@ -414,12 +403,24 @@ const SoundSettingsModal = {
     const soundInfo = this.getCurrentSoundInfo();
     if (!soundInfo) return;
 
+    if (["trimStart", "trimEnd"].includes(param)) {
+        const otherParam = param === "trimStart" ? "trimEnd" : "trimStart";
+        const currentOther = Number(soundInfo.settings[otherParam]);
+        if (Number.isFinite(currentOther)) {
+            if (param === "trimStart" && valueToSave > currentOther) {
+                valueToSave = currentOther;
+            } else if (param === "trimEnd" && valueToSave < currentOther) {
+                valueToSave = currentOther;
+            }
+        }
+    }
     if (this.isNoteSnapping && param.toLowerCase().includes("frequency")) {
         const note = frequencyToNote(valueToSave);
         valueToSave = noteToFrequency(note);
     }
 
     soundInfo.settings[param] = valueToSave;
+    this.currentSoundSettings = soundInfo.settings;
 
     this.saveCurrentSoundInfo(soundInfo);
     sendState(AppState.getCurrentStateForPreset(true));
@@ -435,6 +436,9 @@ const SoundSettingsModal = {
     const slider = document.querySelector(`[data-param="${param}"]`);
     if (slider) {
         let displayValue = value;
+        if (["trimStart", "trimEnd"].includes(param)) {
+            displayValue = valueToSave * 1000;
+        }
         if (this.isNoteSnapping && param.toLowerCase().includes("frequency")) {
             displayValue = valueToSave;
         }
@@ -444,8 +448,10 @@ const SoundSettingsModal = {
         if (valueDisplay) {
             if (param.toLowerCase().includes("frequency")) {
                 valueDisplay.textContent = `${parseFloat(displayValue).toFixed(2)} Hz (${frequencyToNote(displayValue)})`;
-            } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd", "delayTime"].includes(param)) {
+            } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd"].includes(param)) {
                 valueDisplay.textContent = `${Number(displayValue).toFixed(0)} ms`;
+            } else if (param === "delayTime") {
+                valueDisplay.textContent = this.formatDelayTimeDisplay(displayValue, Number(slider.max));
             } else if (["distortion", "delayMix", "reverbMix"].includes(param)) {
                 valueDisplay.textContent = `${Number(displayValue).toFixed(0)}%`;
             } else if (param.toLowerCase() === "volume") {
@@ -526,26 +532,39 @@ const SoundSettingsModal = {
       return Math.round(valueMs / gridInterval) * gridInterval;
   },
 
-  getDelaySubdivisionValues(maxMs = 1000) {
+  formatDelayTimeDisplay(value, maxMs = 1000) {
+      if (!this.delayQuantizeEnabled) return `${Number(value).toFixed(0)} ms`;
+      const options = this.getDelaySubdivisionOptions(maxMs);
+      if (!options.length) return `${Number(value).toFixed(0)} ms`;
+      return options.reduce((best, option) => Math.abs(option.ms - value) < Math.abs(best.ms - value) ? option : best, options[0]).label;
+  },
+
+  getDelaySubdivisionOptions(maxMs = 1000) {
       const bpm = Number(AppState.getTempo());
       if (!Number.isFinite(bpm) || bpm <= 0) return [];
       const beatMs = 60000 / bpm;
-      const values = new Set([0]);
-      for (const denominator of [1, 2, 4, 8, 16]) {
-          const subdivisionMs = beatMs / denominator;
-          for (let multiple = 1; multiple <= denominator * 4; multiple += 1) {
-              const value = Math.round(subdivisionMs * multiple);
-              if (value > 0 && value <= maxMs) values.add(value);
-          }
-      }
-      return [...values].sort((a, b) => a - b);
+      return [
+          [4, '1/4 note'],
+          [8, '1/8 note'],
+          [16, '1/16 note'],
+          [32, '1/32 note'],
+          [64, '1/64 note'],
+      ].map(([denominator, label]) => ({ ms: Math.round(beatMs * 4 / denominator), label }))
+          .filter(({ ms }) => ms > 0 && ms <= maxMs);
+  },
+
+  getDelaySubdivisionValues(maxMs = 1000) {
+      return this.getDelaySubdivisionOptions(maxMs).map(({ ms }) => ms);
   },
 
   createSlider(slidersContainer, param, min, max, step, value) {
     const effectParams = new Set(["pitchShift", "distortion", "delayMix", "delayTime", "reverbMix"]);
-    const targetContainer = effectParams.has(param)
-      ? (document.getElementById("sound-effects-sliders-container") || slidersContainer)
-      : slidersContainer;
+    const behaviorContainer = document.querySelector(".sound-behavior-category");
+    const targetContainer = param === "volume" && behaviorContainer
+      ? behaviorContainer
+      : effectParams.has(param)
+        ? (document.getElementById("sound-effects-sliders-container") || slidersContainer)
+        : slidersContainer;
     const categoryByParam = {
       trimStart: "playback", trimEnd: "playback", pitchShift: "effects",
       attack: "synth", decay: "synth", sustain: "synth", release: "synth",
@@ -562,7 +581,9 @@ const SoundSettingsModal = {
       behavior: "Behavior",
     };
     const categoryKey = categoryByParam[param] || "sound";
-    let controlGroup = targetContainer.querySelector(`[data-control-category="${categoryKey}"]`);
+    let controlGroup = param === "volume" && behaviorContainer
+      ? behaviorContainer
+      : targetContainer.querySelector(`[data-control-category="${categoryKey}"]`);
     if (!controlGroup) {
       controlGroup = document.createElement("section");
       controlGroup.className = "sound-control-category";
@@ -630,22 +651,16 @@ const SoundSettingsModal = {
       const datalist = document.createElement("datalist");
       delayDatalist = datalist;
       datalist.id = `delay-time-subdivisions-${this.currentTrackIndex ?? "sound"}`;
-      const subdivisionValues = this.getDelaySubdivisionValues(max);
-      subdivisionValues.forEach((subdivision) => {
+      const subdivisionOptions = this.getDelaySubdivisionOptions(max);
+      subdivisionOptions.forEach(({ ms, label }) => {
         const option = document.createElement("option");
-        option.value = String(subdivision);
-        option.label = `${subdivision} ms`;
+        option.value = String(ms);
+        option.label = label;
         datalist.appendChild(option);
       });
       slider.setAttribute("list", datalist.id);
       sliderContainer.appendChild(datalist);
-      delayQuantizeButton = document.createElement("button");
-      delayQuantizeButton.type = "button";
-      delayQuantizeButton.className = "delay-quantize-button";
-      delayQuantizeButton.textContent = "Quantize to BPM";
-      delayQuantizeButton.setAttribute("aria-pressed", "false");
-      delayQuantizeButton.title = "Snap delay time to subdivisions of the current BPM";
-      sliderContainer.appendChild(delayQuantizeButton);
+      delayQuantizeButton = document.getElementById("delay-quantize-btn");
     }
 
     const valueDisplay = document.createElement("span");
@@ -653,8 +668,10 @@ const SoundSettingsModal = {
         valueDisplay.textContent = `${Math.round(value)} Hz`;
     } else if (param.toLowerCase().includes("frequency")) {
         valueDisplay.textContent = `${value.toFixed(2)} Hz (${frequencyToNote(value)})`;
-    } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd", "delayTime"].includes(param)) {
+    } else if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd"].includes(param)) {
         valueDisplay.textContent = `${value.toFixed(0)} ms`;
+    } else if (param === "delayTime") {
+        valueDisplay.textContent = this.formatDelayTimeDisplay(value, max);
     } else if (["distortion", "delayMix", "reverbMix"].includes(param)) {
         valueDisplay.textContent = `${value.toFixed(0)}%`;
     } else if (param.toLowerCase() === "volume") {
@@ -743,26 +760,31 @@ const SoundSettingsModal = {
     if (delayQuantizeButton) {
       delayQuantizeButton.addEventListener("click", () => {
         const enabled = delayQuantizeButton.getAttribute("aria-pressed") !== "true";
+        this.delayQuantizeEnabled = enabled;
         const points = enabled ? this.getDelaySubdivisionValues(max) : null;
         delayQuantizeButton.setAttribute("aria-pressed", String(enabled));
         delayQuantizeButton.classList.toggle("active", enabled);
+        delayQuantizeButton.textContent = enabled ? "Quantized delay" : "Quantize delay";
         sliderInstance.updateSnapPoints(points);
         if (enabled && points?.length) {
           const nearest = points.reduce((best, point) => Math.abs(point - sliderInstance.value) < Math.abs(best - sliderInstance.value) ? point : best, points[0]);
           sliderInstance.setValue(nearest);
+        } else {
+          const display = sliderContainer.querySelector(":scope > span");
+          if (display) display.textContent = this.formatDelayTimeDisplay(sliderInstance.value, max);
         }
       });
       const refreshDelayQuantization = () => {
-        const values = this.getDelaySubdivisionValues(max);
+        const options = this.getDelaySubdivisionOptions(max);
         if (delayDatalist) {
-          delayDatalist.replaceChildren(...values.map((subdivision) => {
+          delayDatalist.replaceChildren(...options.map(({ ms, label }) => {
             const option = document.createElement("option");
-            option.value = String(subdivision);
-            option.label = `${subdivision} ms`;
+            option.value = String(ms);
+            option.label = label;
             return option;
           }));
         }
-        if (delayQuantizeButton?.getAttribute("aria-pressed") === "true") sliderInstance.updateSnapPoints(values);
+        if (delayQuantizeButton?.getAttribute("aria-pressed") === "true") sliderInstance.updateSnapPoints(options.map(({ ms }) => ms));
       };
       document.addEventListener("tempochange", refreshDelayQuantization);
       (this.delayQuantizeRefreshers ||= []).push(refreshDelayQuantization);
@@ -848,6 +870,17 @@ const SoundSettingsModal = {
     if (restoreTarget && typeof restoreTarget.focus === "function") requestAnimationFrame(() => restoreTarget.focus());
   },
 
+  reorderMainSoundCategories() {
+    if (!this.mainSlidersContainer) return;
+    const filters = this.mainSlidersContainer.querySelector('[data-control-category="filters"]');
+    const playback = this.mainSlidersContainer.querySelector('[data-control-category="playback"]');
+    const firstCategory = this.mainSlidersContainer.querySelector(':scope > .sound-control-category');
+    if (filters && firstCategory && filters !== firstCategory) this.mainSlidersContainer.insertBefore(filters, firstCategory);
+    if (filters && playback && playback !== filters && playback.previousElementSibling !== filters) {
+      this.mainSlidersContainer.insertBefore(playback, filters.nextElementSibling);
+    }
+  },
+
   async refreshSynthWaveform() {
     if (!this.currentSynthWaveformCanvas || !this.currentSoundSettings) return;
     const soundInfo = this.getCurrentSoundInfo();
@@ -859,16 +892,15 @@ const SoundSettingsModal = {
     this.currentSynthWaveformBuffer = rendered;
     if (!this.mainSlidersContainer.querySelector('[data-param="trimStart"]')) {
       const durationMs = rendered.duration * 1000;
-      this.currentSoundSettings.trimStart = Math.max(0, Number(this.currentSoundSettings.trimStart) || 0);
-      this.currentSoundSettings.trimEnd = Math.min(durationMs, Number(this.currentSoundSettings.trimEnd) || durationMs) / 1000;
-      this.createSlider(this.mainSlidersContainer, "trimStart", 0, durationMs, 1, this.currentSoundSettings.trimStart * 1000);
-      this.createSlider(this.mainSlidersContainer, "trimEnd", 0, durationMs, 1, this.currentSoundSettings.trimEnd * 1000);
-      const playbackCategory = this.mainSlidersContainer.querySelector('[data-control-category="playback"]');
-      const firstCategory = this.mainSlidersContainer.querySelector('.sound-control-category');
-      if (playbackCategory && firstCategory && playbackCategory !== firstCategory) {
-        this.mainSlidersContainer.insertBefore(playbackCategory, firstCategory);
-      }
+      const durationSeconds = rendered.duration;
+      const trimStartSeconds = Math.max(0, Math.min(durationSeconds, Number(this.currentSoundSettings.trimStart) || 0));
+      const trimEndSeconds = Math.max(trimStartSeconds, Math.min(durationSeconds, Number(this.currentSoundSettings.trimEnd) || durationSeconds));
+      this.currentSoundSettings.trimStart = trimStartSeconds;
+      this.currentSoundSettings.trimEnd = trimEndSeconds;
+      this.createSlider(this.mainSlidersContainer, "trimStart", 0, durationMs, 1, trimStartSeconds * 1000);
+      this.createSlider(this.mainSlidersContainer, "trimEnd", 0, durationMs, 1, trimEndSeconds * 1000);
     }
+    this.reorderMainSoundCategories();
     this.drawSynthWaveform(rendered);
   },
 
@@ -924,8 +956,7 @@ const SoundSettingsModal = {
     const modalTitle = DOM.soundSettingsModal.querySelector(".modal-header h2");
     const modalContext = DOM.soundSettingsModal.querySelector(".sound-modal-context");
     const noteSnapBtn = DOM.soundSettingsModal.querySelector("#note-snap-btn");
-    const quantizeBtn = DOM.soundSettingsModal.querySelector("#quantize-btn");
-    const gridSnapBtn = DOM.soundSettingsModal.querySelector("#grid-snap-btn");
+    const delayQuantizeBtn = DOM.soundSettingsModal.querySelector("#delay-quantize-btn");
     const deleteBtn = DOM.soundSettingsModal.querySelector("#delete-sound-btn");
 
     // Clean name for display/state
@@ -991,6 +1022,12 @@ const SoundSettingsModal = {
     this.mainSlidersContainer = slidersContainer;
     (this.delayQuantizeRefreshers || []).forEach((refresh) => document.removeEventListener("tempochange", refresh));
     this.delayQuantizeRefreshers = [];
+    delayQuantizeBtn.style.display = 'inline-block';
+    delayQuantizeBtn.setAttribute('aria-pressed', 'false');
+    delayQuantizeBtn.classList.remove('active');
+    this.delayQuantizeEnabled = false;
+    this.isQuantizing = false;
+    this.isGridSnapping = false;
     slidersContainer.innerHTML = "";
     if (effectsSlidersContainer) effectsSlidersContainer.innerHTML = "";
     this.sliders = [];
@@ -998,14 +1035,9 @@ const SoundSettingsModal = {
     if (soundInfo.audioBuffer instanceof AudioBuffer) {
         // Recorded sound
         noteSnapBtn.style.display = 'none';
-        
-        quantizeBtn.style.display = 'inline-block';
-        this.isQuantizing = quantizeBtn.classList.contains('active');
-        
-        gridSnapBtn.style.display = 'inline-block';
-        this.isGridSnapping = gridSnapBtn.classList.contains('active');
-
-        this.isNoteSnapping = false; // Ensure note snapping is off for recorded sounds
+        this.isNoteSnapping = false;
+        this.isQuantizing = false;
+        this.isGridSnapping = false;
 
         const waveformContainer = document.createElement("div");
         waveformContainer.className = "waveform-container";
@@ -1153,20 +1185,23 @@ const SoundSettingsModal = {
         };
         const synthWaveformTools = document.createElement("div");
         synthWaveformTools.className = "waveform-tools";
-        synthWaveformTools.innerHTML = '<label>Zoom <input class="waveform-zoom" type="range" min="1" max="8" step="0.25" value="1" /></label><label>Pan <input class="waveform-pan" type="range" min="0" max="1" step="0.01" value="0" /></label>';
+        synthWaveformTools.innerHTML = '<label>Zoom <input class="waveform-zoom" type="range" min="1" max="8" step="0.25" value="1" /><output class="waveform-zoom-value">1×</output></label><label>Pan <input class="waveform-pan" type="range" min="0" max="1" step="0.01" value="0" /><output class="waveform-pan-value">0%</output></label>';
         slidersContainer.appendChild(synthWaveformTools);
-        synthWaveformTools.querySelector('.waveform-zoom').addEventListener('input', (event) => { this.waveformZoom = Number(event.target.value); this.drawSynthWaveform(this.currentSynthWaveformBuffer); });
-        synthWaveformTools.querySelector('.waveform-pan').addEventListener('input', (event) => { this.waveformPan = Number(event.target.value); this.drawSynthWaveform(this.currentSynthWaveformBuffer); });
+        const synthZoom = synthWaveformTools.querySelector('.waveform-zoom');
+        const synthPan = synthWaveformTools.querySelector('.waveform-pan');
+        const updateSynthWaveformToolLabels = () => {
+            synthWaveformTools.querySelector('.waveform-zoom-value').textContent = `${Number(synthZoom.value).toFixed(2).replace(/\.00$/, '')}×`;
+            synthWaveformTools.querySelector('.waveform-pan-value').textContent = `${Math.round(Number(synthPan.value) * 100)}%`;
+        };
+        synthWaveformTools.querySelector('.waveform-zoom').addEventListener('input', (event) => { this.waveformZoom = Number(event.target.value); updateSynthWaveformToolLabels(); this.drawSynthWaveform(this.currentSynthWaveformBuffer); });
+        synthWaveformTools.querySelector('.waveform-pan').addEventListener('input', (event) => { this.waveformPan = Number(event.target.value); updateSynthWaveformToolLabels(); this.drawSynthWaveform(this.currentSynthWaveformBuffer); });
         // Synths are rendered offline so the displayed shape matches Reverse playback.
         this.refreshSynthWaveform();
 
         noteSnapBtn.style.display = 'inline-block';
-        quantizeBtn.style.display = 'none';
-        gridSnapBtn.style.display = 'none';
-        
-        this.isNoteSnapping = noteSnapBtn.classList.contains('active');
-        this.isQuantizing = false; 
+        this.isQuantizing = false;
         this.isGridSnapping = false;
+        this.isNoteSnapping = noteSnapBtn.classList.contains('active');
 
         oscilloscopeCanvas.style.display = 'block';
         this.createSlider(slidersContainer, "attack", 1, 2000, 1, (soundSettings.attack || 0.01) * 1000);
@@ -1175,9 +1210,9 @@ const SoundSettingsModal = {
         this.createSlider(slidersContainer, "release", 1, 2000, 1, (soundSettings.release || 0.2) * 1000);
     }
 
-    this.createSlider(slidersContainer, "highPassFrequency", 20, 20000, 1, soundSettings.highPassFrequency);
+    this.createSlider(slidersContainer, "highPassFrequency", 20, 8000, 1, Math.min(soundSettings.highPassFrequency, 8000));
     this.createSlider(slidersContainer, "lowPassFrequency", 20, 20000, 1, soundSettings.lowPassFrequency);
-    this.createSlider(slidersContainer, "pitchShift", -48, 48, 1, (soundSettings.pitchShift || 0));
+    this.createSlider(slidersContainer, "pitchShift", -24, 24, 1, Math.max(-24, Math.min(24, soundSettings.pitchShift || 0)));
     this.updateFilterOverlay();
     this.createSlider(slidersContainer, "distortion", 0, 100, 1, soundSettings.distortion * 100);
     this.createSlider(slidersContainer, "delayMix", 0, 100, 1, soundSettings.delayMix * 100);
@@ -1196,6 +1231,7 @@ const SoundSettingsModal = {
       }
     }
 
+    this.reorderMainSoundCategories();
     DOM.soundSettingsModal.style.display = "block";
     if (AppState.createTrackAnalysers) AppState.createTrackAnalysers();
     const modalAnalyser = soundType === "mainBeatSound"

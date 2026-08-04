@@ -574,6 +574,28 @@ const AppState = (function () {
       }
       return { index: activeIndex, ...song.sections[activeIndex] };
     },
+    applySongSectionForBar: (barIndex = 0) => {
+      if (!song.enabled) return false;
+      const section = publicAPI.getSongSectionForBar(barIndex);
+      if (!Array.isArray(section?.tracks) || !section.tracks.length) return false;
+      Tracks.forEach((track, index) => {
+        const snapshot = section.tracks[index];
+        if (!snapshot) return;
+        const currentBar = track.currentBar;
+        track.name = snapshot.name || track.name;
+        track.barSettings = JSON.parse(JSON.stringify(snapshot.barSettings || track.barSettings));
+        track.muted = snapshot.muted === true;
+        track.solo = snapshot.solo === true;
+        track.volume = Number.isFinite(snapshot.volume) ? snapshot.volume : track.volume;
+        track.pitchShift = Number.isFinite(snapshot.pitchShift) ? snapshot.pitchShift : track.pitchShift;
+        track.swing = Number.isFinite(snapshot.swing) ? snapshot.swing : track.swing;
+        track.mainBeatSound = JSON.parse(JSON.stringify(snapshot.mainBeatSound || track.mainBeatSound));
+        track.subdivisionSound = JSON.parse(JSON.stringify(snapshot.subdivisionSound || track.subdivisionSound));
+        track.currentBar = Math.min(currentBar, Math.max(0, track.barSettings.length - 1));
+        track.currentBeat = 0;
+      });
+      return true;
+    },
     getNextSongPosition: (barIndex = 0, repeatIteration = 0, barCount = Tracks[0]?.barSettings?.length || 1) => {
       const safeBarCount = Math.max(1, Math.min(Number.parseInt(barCount, 10) || 1, 64));
       const currentBar = Math.max(0, Math.min(Number.parseInt(barIndex, 10) || 0, safeBarCount - 1));

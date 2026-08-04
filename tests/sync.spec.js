@@ -371,6 +371,48 @@ test('song section tempo automation changes the scheduled beat grid', async ({ p
   expect(Math.abs(trackAlignment[1].next - trackAlignment[0].next)).toBeLessThan(0.01);
 });
 
+test('song section playback applies section track content at the boundary', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const state = await AppState.getCurrentStateForPreset(true);
+    state.tempo = 300;
+    state.Tracks[0].barSettings = [
+      { beats: 1, subdivision: 1, rests: [], velocities: {} },
+      { beats: 1, subdivision: 1, rests: [], velocities: {} },
+    ];
+    const sectionTrack = {
+      name: state.Tracks[0].name,
+      barSettings: [
+        { beats: 1, subdivision: 1, rests: [], velocities: {} },
+        { beats: 1, subdivision: 1, rests: [0], velocities: {} },
+      ],
+      muted: false,
+      solo: false,
+      volume: 1,
+      pitchShift: 0,
+      swing: 0,
+      mainBeatSound: structuredClone(state.Tracks[0].mainBeatSound),
+      subdivisionSound: structuredClone(state.Tracks[0].subdivisionSound),
+    };
+    state.song = {
+      version: 2,
+      enabled: true,
+      name: 'Track Content Map',
+      sections: [
+        { name: 'Intro', startBar: 0, tempo: 300, repeats: 1, tracks: [structuredClone(state.Tracks[0])] },
+        { name: 'Drop', startBar: 1, tempo: 300, repeats: 1, tracks: [sectionTrack] },
+      ],
+    };
+    await AppState.loadPresetData(state);
+  });
+  await page.locator('#start-stop-btn').click();
+  await expect.poll(() => page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const track = AppState.getTracks()[0];
+    return { bar: track.currentBar, rests: track.barSettings[1]?.rests || [] };
+  }), { timeout: 5000 }).toMatchObject({ bar: 1, rests: [0] });
+});
 test('song v2 normalizes snapshots, repeats section ranges, and derives a missing song name from its preset', async ({ page }) => {
   await page.goto('./');
   const result = await page.evaluate(async () => {
