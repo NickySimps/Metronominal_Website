@@ -233,6 +233,27 @@ function updateTrackElement(trackElement, track, index) {
   if (barDisplayContainer) barDisplayContainer.dataset.containerIndex = index;
 }
 
+let songWhipTimer = null;
+
+function animateSongTrackWhip(event) {
+  const wrapper = document.getElementById("all-tracks-wrapper");
+  if (!wrapper || !window.matchMedia("(min-width: 769px) and (pointer: fine)").matches) return;
+  const nextCount = Number(event.detail?.trackCount);
+  if (!Number.isFinite(nextCount) || wrapper.children.length === nextCount) return;
+
+  if (songWhipTimer) window.clearTimeout(songWhipTimer);
+  wrapper.classList.remove("song-whip-in", "song-whip-out", "song-whip-wrap");
+  wrapper.classList.add(event.detail?.sectionIndex === 0 ? "song-whip-wrap" : "song-whip-out");
+  songWhipTimer = window.setTimeout(() => {
+    TrackController.renderTracks();
+    wrapper.classList.remove("song-whip-out", "song-whip-wrap");
+    wrapper.classList.add("song-whip-in");
+    songWhipTimer = window.setTimeout(() => {
+      wrapper.classList.remove("song-whip-in");
+      songWhipTimer = null;
+    }, 115);
+  }, 85);
+}
 const TrackController = {
   longPressTimer: null,
 
@@ -265,6 +286,7 @@ const TrackController = {
       );
       trackWrapper.addEventListener("mouseup", TrackController.handleMouseUp);
     }
+    document.addEventListener("songtracksectionchange", animateSongTrackWhip);
     document.addEventListener("soundSaved", () => {
         TrackController.renderTracks();
     });

@@ -604,6 +604,11 @@ const AppState = (function () {
         track.currentBeat = 0;
       });
       Tracks.length = section.tracks.length;
+      if (typeof document !== "undefined") {
+        document.dispatchEvent(new CustomEvent("songtracksectionchange", {
+          detail: { sectionIndex: section.index, trackCount: section.tracks.length },
+        }));
+      }
       return true;
     },
     getNextSongPosition: (barIndex = 0, repeatIteration = 0, barCount = Tracks[0]?.barSettings?.length || 1) => {

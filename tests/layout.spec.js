@@ -1235,6 +1235,23 @@ test.describe('mode controls responsive layout', () => {
   });
 
 
+  test('desktop Song Mode track changes use a blurred right-to-left whip transition', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(() => {
+      const wrapper = document.querySelector('#all-tracks-wrapper');
+      wrapper.innerHTML = '<div class="track"></div>';
+      document.dispatchEvent(new CustomEvent('songtracksectionchange', { detail: { sectionIndex: 1, trackCount: 2 } }));
+      const outgoing = wrapper.className;
+      return new Promise(resolve => setTimeout(() => resolve({
+        outgoing,
+        incoming: wrapper.className,
+        animation: getComputedStyle(wrapper).animationName,
+      }), 100));
+    });
+    expect(result.outgoing).toContain('song-whip-out');
+    expect(result.incoming).toContain('song-whip-in');
+    expect(result.animation).toBe('song-track-whip-in');
+  });
   test('FX reset restores effect controls without changing sound-editor settings', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(async () => {

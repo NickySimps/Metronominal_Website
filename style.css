@@ -1801,6 +1801,49 @@ button:active,
   min-width: 0;
   justify-content: center;
 }
+
+@media (min-width: 769px) and (pointer: fine) {
+  .track-container { overflow-x: clip; }
+  #all-tracks-wrapper.song-whip-out {
+    animation: song-track-whip-out 85ms cubic-bezier(.18,.8,.32,1) both;
+    transform-origin: center left;
+  }
+  #all-tracks-wrapper.song-whip-wrap {
+    animation: song-track-whip-wrap 85ms cubic-bezier(.12,.82,.25,1) both;
+    transform-origin: center left;
+  }
+  #all-tracks-wrapper.song-whip-in {
+    animation: song-track-whip-in 115ms cubic-bezier(.16,.8,.24,1) both;
+    transform-origin: center right;
+  }
+}
+
+@keyframes song-track-whip-out {
+  from { transform: translate3d(0, 0, 0); filter: blur(0); }
+  to { transform: translate3d(-115%, 0, 0); filter: blur(5px); }
+}
+
+@keyframes song-track-whip-wrap {
+  from { transform: translate3d(0, 0, 0); filter: blur(0); }
+  to { transform: translate3d(-155%, 0, 0); filter: blur(8px); }
+}
+
+@keyframes song-track-whip-in {
+  from { transform: translate3d(115%, 0, 0); filter: blur(6px); }
+  62% { filter: blur(2px); }
+  to { transform: translate3d(0, 0, 0); filter: blur(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #all-tracks-wrapper.song-whip-out,
+  #all-tracks-wrapper.song-whip-wrap,
+  #all-tracks-wrapper.song-whip-in {
+    animation: none;
+    filter: none;
+    transform: none;
+  }
+}
+
 .track-container {
   display: flex;
   flex-direction: column;
