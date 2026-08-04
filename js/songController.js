@@ -335,9 +335,11 @@ async function publishSongChange(nextSong, shouldRender = true) {
 }
 
 async function goToSection(index) {
-  if (!Number.isInteger(index) || !canEditSong || AppState.isPlaying()) return false;
+  if (!Number.isInteger(index) || !canEditSong) return false;
   const section = AppState.getSong().sections[index];
   if (!section) return false;
+  if (AppState.isPlaying()) await MetronomeEngine.togglePlay(true);
+  AppState.setSelectedTrackIndex(0);
   for (const track of AppState.getTracks()) {
     track.currentBar = section.startBar % track.barSettings.length;
     track.currentBeat = 0;
@@ -347,7 +349,6 @@ async function goToSection(index) {
   AppState.setTempo(section.tempo);
   sendState(AppState.getCurrentStateForPreset(true));
   refreshApplicationUI();
-  await MetronomeEngine.togglePlay();
   return true;
 }
 

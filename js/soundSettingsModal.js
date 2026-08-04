@@ -10,6 +10,14 @@ import { Slider } from './slider.js';
 import SoundSynth from './soundSynth.js';
 import { normalizeFilterSettings, normalizeEffectSettings, createSoundFilterInput, getReversedAudioBuffer, renderSynthAudioBuffer } from './audioEffects.js';
 
+function createFilterVisualizationOverlay() {
+  const overlay = document.createElement("div");
+  overlay.className = "filter-visualization-overlay";
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.innerHTML = '<span class="filter-overlay-region filter-overlay-high-pass"></span><span class="filter-overlay-region filter-overlay-low-pass"></span><span class="filter-overlay-label filter-overlay-high-pass-label">HP</span><span class="filter-overlay-label filter-overlay-low-pass-label">LP</span>';
+  return overlay;
+}
+
 const SoundSettingsModal = {
   isNoteSnapping: false,
   isQuantizing: false,
@@ -31,6 +39,7 @@ const SoundSettingsModal = {
   waveformPan: 0,
   previewTimer: null,
   previouslyFocusedElement: null,
+  effectsPreviouslyFocusedElement: null,
   init() {
     const closeButton = DOM.soundSettingsModal.querySelector(".close-button");
     closeButton.addEventListener("click", () => this.hide());
@@ -52,6 +61,35 @@ const SoundSettingsModal = {
       }
       if (event.key !== "Tab") return;
       const focusable = [...DOM.soundSettingsModal.querySelectorAll("button, select, input, [tabindex]:not([tabindex='-1'])")]
+        .filter((element) => !element.disabled && element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+
+    const effectsModal = document.getElementById("sound-effects-modal");
+    const effectsButton = DOM.soundSettingsModal.querySelector("#sound-effects-btn");
+    const effectsCloseButton = effectsModal?.querySelector("#sound-effects-close");
+    effectsButton?.addEventListener("click", () => this.showEffectsModal());
+    effectsCloseButton?.addEventListener("click", () => this.hideEffectsModal());
+    effectsModal?.addEventListener("click", (event) => {
+      if (event.target === effectsModal) this.hideEffectsModal();
+    });
+    effectsModal?.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        this.hideEffectsModal();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [...effectsModal.querySelectorAll("button, select, input, [tabindex]:not([tabindex='-1'])")]
         .filter((element) => !element.disabled && element.offsetParent !== null);
       if (!focusable.length) return;
       const first = focusable[0];
@@ -467,8 +505,40 @@ const SoundSettingsModal = {
   },
 
   createSlider(slidersContainer, param, min, max, step, value) {
+    const effectParams = new Set(["pitchShift", "distortion", "delayMix", "delayTime", "reverbMix"]);
+    const targetContainer = effectParams.has(param)
+      ? (document.getElementById("sound-effects-sliders-container") || slidersContainer)
+      : slidersContainer;
+    const categoryByParam = {
+      trimStart: "playback", trimEnd: "playback", pitchShift: "effects",
+      attack: "synth", decay: "synth", sustain: "synth", release: "synth",
+      startFrequency: "synth", endFrequency: "synth", pitchEnvelopeTime: "synth",
+      highPassFrequency: "filters", lowPassFrequency: "filters",
+      distortion: "effects", delayMix: "effects", delayTime: "effects", reverbMix: "effects",
+      probability: "behavior", allowOverlap: "behavior", retrigger: "behavior",
+    };
+    const categoryLabels = {
+      playback: "Playback & pitch",
+      synth: "Synth envelope",
+      filters: "Filters",
+      effects: "Effects rack",
+      behavior: "Behavior",
+    };
+    const categoryKey = categoryByParam[param] || "sound";
+    let controlGroup = targetContainer.querySelector(`[data-control-category="${categoryKey}"]`);
+    if (!controlGroup) {
+      controlGroup = document.createElement("section");
+      controlGroup.className = "sound-control-category";
+      controlGroup.dataset.controlCategory = categoryKey;
+      const heading = document.createElement("h3");
+      heading.className = "sound-control-category-title";
+      heading.textContent = categoryLabels[categoryKey] || "Sound controls";
+      controlGroup.appendChild(heading);
+      targetContainer.appendChild(controlGroup);
+    }
     const sliderContainer = document.createElement("div");
     sliderContainer.className = "slider-container";
+    if (["pitchShift", "distortion"].includes(param)) sliderContainer.classList.add("vertical-slider-container");
     if (["highPassFrequency", "lowPassFrequency"].includes(param)) {
       sliderContainer.classList.add("filter-slider-container");
     }
@@ -507,6 +577,7 @@ const SoundSettingsModal = {
 
     const slider = document.createElement("input");
     slider.type = "range";
+    if (["pitchShift", "distortion"].includes(param)) slider.classList.add("vertical-slider");
     slider.min = min;
     slider.max = max;
     slider.step = step;
@@ -536,9 +607,9 @@ const SoundSettingsModal = {
         valueDisplay.textContent = `${value} semitones (${semitonesToInterval(value)})`;
     } else {
         valueDisplay.textContent = value;
-    }    sliderContainer.appendChild(valueDisplay);
-
-    slidersContainer.appendChild(sliderContainer);
+    }
+    sliderContainer.appendChild(valueDisplay);
+    controlGroup.appendChild(sliderContainer);
 
     const snapPoints = this.isNoteSnapping && param.toLowerCase().includes("frequency")
         ? generateNoteFrequencies(min, max)
@@ -640,14 +711,56 @@ const SoundSettingsModal = {
   },
 
   updateFilterFeedback() {
-    const feedback = DOM.soundSettingsModal.querySelector(".filter-feedback");
-    if (!feedback || !this.currentSoundSettings) return;
-    const highPass = Number(this.currentSoundSettings.highPassFrequency) > 20;
-    const lowPass = Number(this.currentSoundSettings.lowPassFrequency) < 20000;
-    feedback.classList.toggle("high-pass-active", highPass);
-    feedback.classList.toggle("low-pass-active", lowPass);
-    feedback.textContent = `Filters: ${highPass ? `HP ${Math.round(this.currentSoundSettings.highPassFrequency)} Hz` : "HP off"} · ${lowPass ? `LP ${Math.round(this.currentSoundSettings.lowPassFrequency)} Hz` : "LP off"}`;
-    feedback.setAttribute("aria-label", feedback.textContent);
+    this.updateFilterOverlay();
+  },
+
+  updateFilterOverlay() {
+    const overlays = DOM.soundSettingsModal.querySelectorAll(".filter-visualization-overlay");
+    if (!overlays.length || !this.currentSoundSettings) return;
+    const minFrequency = 20;
+    const maxFrequency = 20000;
+    const toPosition = (frequency) => {
+      const ratio = (Math.log10(Math.max(minFrequency, Math.min(maxFrequency, Number(frequency)))) - Math.log10(minFrequency))
+        / (Math.log10(maxFrequency) - Math.log10(minFrequency));
+      return `${Math.round(ratio * 1000) / 10}%`;
+    };
+    const highPassActive = Number(this.currentSoundSettings.highPassFrequency) > minFrequency;
+    const lowPassActive = Number(this.currentSoundSettings.lowPassFrequency) < maxFrequency;
+    const highPassPosition = highPassActive ? toPosition(this.currentSoundSettings.highPassFrequency) : "0%";
+    const lowPassPosition = lowPassActive ? toPosition(this.currentSoundSettings.lowPassFrequency) : "100%";
+    overlays.forEach((overlay) => {
+      overlay.style.setProperty("--filter-high-pass-position", highPassPosition);
+      overlay.style.setProperty("--filter-low-pass-position", `calc(100% - ${lowPassPosition})`);
+      overlay.classList.toggle("high-pass-active", highPassActive);
+      overlay.classList.toggle("low-pass-active", lowPassActive);
+      overlay.querySelector(".filter-overlay-high-pass-label")?.replaceChildren(document.createTextNode(`HP ${Math.round(this.currentSoundSettings.highPassFrequency)} Hz`));
+      overlay.querySelector(".filter-overlay-low-pass-label")?.replaceChildren(document.createTextNode(`LP ${Math.round(this.currentSoundSettings.lowPassFrequency)} Hz`));
+    });
+  },
+
+  showEffectsModal() {
+    const modal = document.getElementById("sound-effects-modal");
+    const trigger = DOM.soundSettingsModal.querySelector("#sound-effects-btn");
+    if (!modal || !this.currentSoundSettings) return;
+    this.effectsPreviouslyFocusedElement = document.activeElement;
+    modal.hidden = false;
+    modal.style.display = "flex";
+    requestAnimationFrame(() => modal.classList.add("is-open"));
+    trigger?.setAttribute("aria-expanded", "true");
+    requestAnimationFrame(() => modal.querySelector("button, input")?.focus());
+  },
+
+  hideEffectsModal() {
+    const modal = document.getElementById("sound-effects-modal");
+    const trigger = DOM.soundSettingsModal.querySelector("#sound-effects-btn");
+    if (!modal) return;
+    modal.classList.remove("is-open");
+    modal.style.display = "none";
+    modal.hidden = true;
+    trigger?.setAttribute("aria-expanded", "false");
+    const restoreTarget = this.effectsPreviouslyFocusedElement;
+    this.effectsPreviouslyFocusedElement = null;
+    if (restoreTarget && typeof restoreTarget.focus === "function") requestAnimationFrame(() => restoreTarget.focus());
   },
 
   async refreshSynthWaveform() {
@@ -663,6 +776,7 @@ const SoundSettingsModal = {
   },
 
   show(trackIndex, soundType, beatContext = null) {
+    this.hideEffectsModal();
     this.stopPreview();
     this.previouslyFocusedElement = document.activeElement;
     this.currentTrackIndex = trackIndex;
@@ -767,7 +881,9 @@ const SoundSettingsModal = {
     DOM.soundSettingsModal.querySelector("#sample-probability-value").textContent = `${soundSettings.probability}%`;
 
     const slidersContainer = DOM.soundSettingsModal.querySelector("#sound-sliders-container");
+    const effectsSlidersContainer = document.getElementById("sound-effects-sliders-container");
     slidersContainer.innerHTML = "";
+    if (effectsSlidersContainer) effectsSlidersContainer.innerHTML = "";
     this.sliders = [];
 
     if (soundInfo.audioBuffer instanceof AudioBuffer) {
@@ -787,7 +903,8 @@ const SoundSettingsModal = {
         const waveformCanvas = document.createElement("canvas");
         waveformCanvas.className = "waveform-canvas";
         waveformContainer.appendChild(waveformCanvas);
-        slidersContainer.appendChild(waveformCanvas);
+        waveformContainer.appendChild(createFilterVisualizationOverlay());
+        slidersContainer.appendChild(waveformContainer);
         const waveformTools = document.createElement("div");
         waveformTools.className = "waveform-tools";
         waveformTools.innerHTML = `<label>Zoom <input class="waveform-zoom" type="range" min="1" max="8" step="0.25" value="1" /></label><label>Pan <input class="waveform-pan" type="range" min="0" max="1" step="0.01" value="0" /></label>`;
@@ -905,13 +1022,16 @@ const SoundSettingsModal = {
 
         this.createSlider(slidersContainer, "trimStart", 0, soundInfo.audioBuffer.duration * 1000, 1, trimStart);
         this.createSlider(slidersContainer, "trimEnd", 0, soundInfo.audioBuffer.duration * 1000, 1, trimEnd);
-        this.createSlider(slidersContainer, "pitchShift", -48, 48, 1, (soundSettings.pitchShift || 0));
     } else {
         // Synth sound
         const synthWaveformCanvas = document.createElement("canvas");
         synthWaveformCanvas.className = "waveform-canvas synth-waveform-canvas";
         synthWaveformCanvas.setAttribute("aria-label", "Synthesized sound waveform");
-        slidersContainer.appendChild(synthWaveformCanvas);
+        const synthWaveformStage = document.createElement("div");
+        synthWaveformStage.className = "filter-visualization-stage";
+        synthWaveformStage.appendChild(synthWaveformCanvas);
+        synthWaveformStage.appendChild(createFilterVisualizationOverlay());
+        slidersContainer.appendChild(synthWaveformStage);
         this.currentSynthWaveformCanvas = synthWaveformCanvas;
         const waveformColor = getComputedStyle(document.documentElement).getPropertyValue("--Main").trim();
         this.drawSynthWaveform = (buffer) => {
@@ -936,13 +1056,10 @@ const SoundSettingsModal = {
         this.createSlider(slidersContainer, "release", 1, 2000, 1, (soundSettings.release || 0.2) * 1000);
     }
 
+    this.createSlider(slidersContainer, "pitchShift", -48, 48, 1, (soundSettings.pitchShift || 0));
     this.createSlider(slidersContainer, "highPassFrequency", 20, 20000, 1, soundSettings.highPassFrequency);
     this.createSlider(slidersContainer, "lowPassFrequency", 20, 20000, 1, soundSettings.lowPassFrequency);
-    const filterFeedback = document.createElement("div");
-    filterFeedback.className = "filter-feedback";
-    filterFeedback.setAttribute("role", "status");
-    slidersContainer.appendChild(filterFeedback);
-    this.updateFilterFeedback();
+    this.updateFilterOverlay();
     this.createSlider(slidersContainer, "distortion", 0, 100, 1, soundSettings.distortion * 100);
     this.createSlider(slidersContainer, "delayMix", 0, 100, 1, soundSettings.delayMix * 100);
     this.createSlider(slidersContainer, "delayTime", 0, 1000, 1, soundSettings.delayTime * 1000);
@@ -983,6 +1100,7 @@ const SoundSettingsModal = {
   },
 
   hide() {
+    this.hideEffectsModal();
     this.stopPreview();
     DOM.soundSettingsModal.style.display = "none";
     this.stopDrawing();

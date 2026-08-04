@@ -519,12 +519,12 @@ const AppState = (function () {
 
     // Tempo
     getTempo: () => tempo,
-    setTempo: (newTempo) => {
+    setTempo: (newTempo, options = {}) => {
       const oldTempo = tempo;
       const parsedTempo = Math.max(20, Math.min(parseInt(newTempo, 10) || 120, 300));
       tempo = parsedTempo;
       
-      if (isPlaying && audioContext && oldTempo !== parsedTempo) {
+      if (isPlaying && audioContext && oldTempo !== parsedTempo && options.reschedule !== false) {
           const currentTime = audioContext.currentTime;
           const ratio = oldTempo / parsedTempo;
           
@@ -536,7 +536,10 @@ const AppState = (function () {
              }
           });
       }
-      saveState();
+      if (options.persist !== false) saveState();
+      if (typeof document !== "undefined" && oldTempo !== parsedTempo) {
+        document.dispatchEvent(new CustomEvent("tempochange", { detail: { tempo: parsedTempo } }));
+      }
     },
     increaseTempo: () => publicAPI.setTempo(tempo + 1),
     decreaseTempo: () => publicAPI.setTempo(tempo - 1),

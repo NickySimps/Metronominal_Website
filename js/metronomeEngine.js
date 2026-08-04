@@ -260,6 +260,9 @@ function scheduler() {
                 let tempo;
                 if (trackIndex === 0) {
                     tempo = AppState.getPlaybackTempo(track.currentBar);
+                    if (trackIndex === 0 && tempo !== AppState.getTempo()) {
+                        AppState.setTempo(tempo, { reschedule: false, persist: false });
+                    }
                     if (tempoSegments[tempoSegments.length - 1].tempo !== tempo) {
                         tempoSegments.push({ time: track.nextBeatTime, tempo });
                     }

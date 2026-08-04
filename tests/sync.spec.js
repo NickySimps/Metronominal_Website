@@ -189,15 +189,21 @@ test('song mode synchronizes sections and creates a credential-free song link', 
   await expect(host.locator('#song-mode-panel')).toBeHidden();
   await expect(host.locator('.global-app-controls #song-mode-enabled')).toBeVisible();
   await expect(host.locator('#song-mode-enabled')).toHaveAttribute('aria-pressed', 'false');
-  await expect.poll(() => host.evaluate(() => [...document.querySelectorAll('.rest-button, .record-btn')].every(button => {
-    const icon = button.querySelector('.control-icon');
-    if (!icon) return false;
-    const buttonRect = button.getBoundingClientRect();
-    const iconRect = icon.getBoundingClientRect();
-    const horizontalOffset = Math.abs((buttonRect.left + buttonRect.width / 2) - (iconRect.left + iconRect.width / 2));
-    const verticalOffset = Math.abs((buttonRect.top + buttonRect.height / 2) - (iconRect.top + iconRect.height / 2));
-    return horizontalOffset <= 1 && verticalOffset <= 1;
-  }))).toBe(true);
+  await expect.poll(() => host.evaluate(() => {
+    const restButtons = [...document.querySelectorAll('.rest-button')];
+    const recordButtons = [...document.querySelectorAll('.record-btn')];
+    const restLabelsPresent = restButtons.every(button => button.textContent.includes('Rest') && button.querySelector('.control-icon'));
+    const recordIconsCentered = recordButtons.every(button => {
+      const icon = button.querySelector('.control-icon');
+      if (!icon) return false;
+      const buttonRect = button.getBoundingClientRect();
+      const iconRect = icon.getBoundingClientRect();
+      const horizontalOffset = Math.abs((buttonRect.left + buttonRect.width / 2) - (iconRect.left + iconRect.width / 2));
+      const verticalOffset = Math.abs((buttonRect.top + buttonRect.height / 2) - (iconRect.top + iconRect.height / 2));
+      return horizontalOffset <= 1 && verticalOffset <= 1;
+    });
+    return restLabelsPresent && recordIconsCentered;
+  })).toBe(true);
   await host.locator('#song-mode-enabled').click();
   await expect(host.locator('#song-mode-enabled')).toHaveAttribute('aria-pressed', 'true');
   await expect(host.locator('#song-mode-panel')).toBeVisible();
@@ -260,6 +266,12 @@ test('song mode synchronizes sections and creates a credential-free song link', 
   await host.locator('.song-section-row').nth(1).locator('[data-song-section-action="go"]').click();
   await expect(host.locator('#song-now-playing')).toContainText('Chorus');
   await expect.poll(() => host.locator('.tempo-container .slider').inputValue(), { timeout: 2_000 }).toBe('150');
+  await expect.poll(async () => (await readState(host)).isPlaying).toBe(false);
+  await expect.poll(async () => host.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    return AppState.getSelectedTrackIndex();
+  })).toBe(0);
+  await host.locator('#start-stop-btn').click();
   await expect.poll(async () => (await readState(host)).isPlaying).toBe(true);
   await expect(client.locator('#song-now-playing')).toContainText('Chorus');
   const lateClient = await lateClientContext.newPage();
@@ -340,6 +352,16 @@ test('song section tempo automation changes the scheduled beat grid', async ({ p
   });
   expect(deltas[0]).toBeCloseTo(0.2, 1);
   expect(deltas[1]).toBeCloseTo(0.4, 1);
+  await expect.poll(() => page.evaluate(() => ({
+    main: document.querySelector('.tempo')?.textContent,
+    slider: document.querySelector('.tempo-container .slider')?.value,
+    sticky: document.querySelector('#sticky-bpm-display')?.textContent,
+    song: document.querySelector('#song-now-playing')?.textContent,
+  })), { timeout: 5_000 }).toMatchObject({
+    main: '150',
+    slider: '150',
+    sticky: '150',
+  });
   const trackAlignment = await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     return AppState.getTracks().map(track => ({ bar: track.currentBar, beat: track.currentBeat, next: track.nextBeatTime }));

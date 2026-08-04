@@ -407,6 +407,7 @@
                         </select>
                     </label>
                     <button id="sound-preview-btn" type="button" class="preset-btn" aria-pressed="false">▶ Preview</button>
+                    <button id="sound-effects-btn" type="button" class="preset-btn sound-effects-btn" aria-haspopup="dialog" aria-expanded="false" title="Open pitch, distortion, delay, and reverb controls">Open Effects</button>
                     <button id="note-snap-btn">Note Snap</button>
                     <button id="quantize-btn" style="display: none;">Quantize</button>
                     <button id="grid-snap-btn" style="display: none;">Grid</button>
@@ -416,19 +417,45 @@
                     <button id="delete-sound-btn" title="Delete Sound" aria-label="Delete sound" style="display: none;">Delete</button>
                 </div>
             </div>
-            <div class="sample-playback-controls" aria-label="Sample playback behavior">
-                <span class="sample-playback-controls-title">Playback</span>
-                <label><input id="sample-overlap-toggle" type="checkbox" checked /> Allow overlap</label>
-                <label><input id="sample-retrigger-toggle" type="checkbox" checked /> Retrigger</label>
-                <label><input id="sample-reverse-toggle" type="checkbox" /> Reverse</label>
-            </div>
-            <label class="sample-probability-control" for="sample-probability">
-                <span>Probability</span>
-                <input id="sample-probability" type="range" min="0" max="100" step="1" value="100" />
-                <output id="sample-probability-value" for="sample-probability">100%</output>
-            </label>
-            <canvas class="oscilloscope-canvas" width="400" height="100"></canvas>
+            <section class="sound-control-category sound-behavior-category" data-control-category="behavior" aria-labelledby="sound-behavior-title">
+                <h3 id="sound-behavior-title" class="sound-control-category-title">Playback & probability</h3>
+                <div class="sample-playback-controls" aria-label="Sample playback behavior">
+                    <span class="sample-playback-controls-title">Playback</span>
+                    <label><input id="sample-overlap-toggle" type="checkbox" checked /> Allow overlap</label>
+                    <label><input id="sample-retrigger-toggle" type="checkbox" checked /> Retrigger</label>
+                    <label><input id="sample-reverse-toggle" type="checkbox" /> Reverse</label>
+                </div>
+                <label class="sample-probability-control" for="sample-probability">
+                    <span>Probability</span>
+                    <input id="sample-probability" type="range" min="0" max="100" step="1" value="100" />
+                    <output id="sample-probability-value" for="sample-probability">100%</output>
+                </label>
+            </section>
+            <section class="sound-control-category sound-visualization-category" aria-labelledby="sound-visualization-title">
+                <h3 id="sound-visualization-title" class="sound-control-category-title">Visualization</h3>
+                <div class="filter-visualization-stage">
+                    <canvas class="oscilloscope-canvas" width="400" height="100"></canvas>
+                    <div class="filter-visualization-overlay" aria-hidden="true">
+                        <span class="filter-overlay-region filter-overlay-high-pass"></span>
+                        <span class="filter-overlay-region filter-overlay-low-pass"></span>
+                        <span class="filter-overlay-label filter-overlay-high-pass-label">HP</span>
+                        <span class="filter-overlay-label filter-overlay-low-pass-label">LP</span>
+                    </div>
+                </div>
+            </section>
             <div id="sound-sliders-container"></div>
+        </div>
+    </div>
+    <div id="sound-effects-modal" class="modal sound-effects-modal" role="dialog" aria-modal="true" aria-labelledby="sound-effects-title" hidden>
+        <div class="modal-content sound-effects-content">
+            <button id="sound-effects-close" class="sound-effects-close" type="button" aria-label="Close effects editor">&times;</button>
+            <div class="sound-effects-heading">
+                <div>
+                    <h2 id="sound-effects-title">Effects</h2>
+                    <p>Shape pitch, distortion, delay, and reverb.</p>
+                </div>
+            </div>
+            <div id="sound-effects-sliders-container" class="sound-effects-sliders-container"></div>
         </div>
     </div>
     <div id="sound-picker-modal" class="modal sound-picker-modal" role="dialog" aria-modal="true" aria-labelledby="sound-picker-title" hidden>

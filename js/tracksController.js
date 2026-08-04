@@ -130,7 +130,7 @@ function createTrackElement(track, index) {
   trackElement.innerHTML = `
     <div class="track-controls">
       <span class="track-name">${track.name || `Track ${index + 1}`}</span>
-      <button class="record-btn track-record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon">⏺</span><span class="record-label">Rec</span></button>
+      <button class="record-btn track-record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon" aria-hidden="true">●</span><span class="record-label">Rec</span></button>
       <button class="track-mute-btn" title="${track.muted ? "Unmute track" : "Mute track"}"
         aria-label="${track.muted ? "Unmute track" : "Mute track"}" aria-pressed="${track.muted}">⍉</button>
       <button class="track-solo-btn" title="${track.solo ? "Unsolo track" : "Solo track"}"
@@ -150,7 +150,7 @@ function createTrackElement(track, index) {
       <div class="sound-selection">
         <span class="sound-label">Main:</span>
       </div>
-      <button class="rest-button"><span class="control-icon">𝄽</span></button>
+      <button class="rest-button"><span class="control-icon" aria-hidden="true">○</span> Rest</button>
       <div class="sound-selection">
         <span class="sound-label">Sub:</span>
       </div>
@@ -336,7 +336,7 @@ const TrackController = {
       trackElement.innerHTML = `
         <div class="track-controls">
           <span class="track-name">${track.name || `Track ${index + 1}`}</span>
-          <button class="record-btn track-record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon">⏺</span><span class="record-label">Rec</span></button>
+          <button class="record-btn track-record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon" aria-hidden="true">●</span><span class="record-label">Rec</span></button>
           <button class="track-mute-btn"
             title="${track.muted ? "Unmute track" : "Mute track"}"
             aria-label="${track.muted ? "Unmute track" : "Mute track"}"
@@ -345,11 +345,11 @@ const TrackController = {
             title="${track.solo ? "Unsolo track" : "Solo track"}"
             aria-pressed="${track.solo}">${track.solo ? "Unsolo" : "Solo"}</button>
           <button class="track-remove-btn" title="Remove track" aria-label="Remove track">✖</button>
-          <div class="track-volume-controls">
-            <span class="track-volume-label">Vol:</span>
-            <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${track.volume ?? 1.0}" title="Track Volume">
-            <span class="track-slider-value track-volume-value">${((track.volume ?? 1) * 100).toFixed(0)}%</span>
-          </div>
+        </div>
+        <div class="track-volume-controls">
+          <span class="track-volume-label">Vol:</span>
+          <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${track.volume ?? 1.0}" title="Track Volume">
+          <span class="track-slider-value track-volume-value">${((track.volume ?? 1) * 100).toFixed(0)}%</span>
         </div>
         <div class="track-sound-controls">
           <div class="edit-buttons-col">
@@ -361,10 +361,10 @@ const TrackController = {
             <div class="sound-selection sub-sound-selection"></div>
           </div>
           <div class="mode-buttons-col">
-            <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode"><span class="control-icon">𝄽</span> Rest</button>
-            <button class="accent-button ${AppState.isAccentMode() ? 'active' : ''}" aria-label="Toggle accent mode" title="Toggle Accent & Ghost Note Mode">⚡ Accent</button>
-            <button class="beat-edit-btn ${isBeatEditMode ? 'active' : ''}" aria-label="Toggle Beat Edit mode" aria-pressed="${isBeatEditMode}" title="Click a beat to edit its sound">✎ Beat Edit</button>
-            <button class="random-btn" aria-label="Randomize pattern" title="Randomize accents, rests & dynamics for this track">❓ Rand</button>
+            <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode"><span class="control-icon" aria-hidden="true">○</span> Rest</button>
+            <button class="accent-button ${AppState.isAccentMode() ? 'active' : ''}" aria-label="Toggle accent mode" title="Toggle Accent & Ghost Note Mode"><span class="control-icon" aria-hidden="true">▲</span> Accent</button>
+            <button class="beat-edit-btn ${isBeatEditMode ? 'active' : ''}" aria-label="Toggle Beat Edit mode" aria-pressed="${isBeatEditMode}" title="Click a beat to edit its sound">Edit</button>
+            <button class="random-btn" aria-label="Randomize pattern" title="Randomize accents, rests & dynamics for this track"><span class="control-icon" aria-hidden="true">↻</span> Rand</button>
           </div>
         </div>
         <div class="track-bottom-sliders-row">

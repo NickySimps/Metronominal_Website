@@ -610,10 +610,38 @@ test.describe('mode controls responsive layout', () => {
     const track = page.locator('.track').first();
     await track.locator('.beat-edit-btn').click();
     await expect(track.locator('.beat-edit-btn')).toHaveAttribute('aria-pressed', 'true');
+    await expect(track.locator('.beat-edit-btn')).toHaveText('Edit');
+    await expect(track.locator('.rest-button')).toContainText('Rest');
+    const modeButtonStyle = await track.evaluate((element) => ({
+      editBackground: getComputedStyle(element.querySelector('.beat-edit-btn')).backgroundColor,
+      restBackground: getComputedStyle(element.querySelector('.rest-button')).backgroundColor,
+      restText: element.querySelector('.rest-button').textContent.trim(),
+      accentText: element.querySelector('.accent-button').textContent.trim(),
+      randomText: element.querySelector('.random-btn').textContent.trim(),
+    }));
+    expect(modeButtonStyle.editBackground).toBe(modeButtonStyle.restBackground);
+    expect(modeButtonStyle.restText).toContain('Rest');
+    expect(modeButtonStyle.accentText).toContain('Accent');
+    expect(modeButtonStyle.randomText).toContain('Rand');
+    const editGeometry = await track.locator('.beat-edit-btn').evaluate((button) => {
+      const buttonBox = button.getBoundingClientRect();
+      const trackBox = button.closest('.track').getBoundingClientRect();
+      return { right: buttonBox.right, trackRight: trackBox.right, width: buttonBox.width };
+    });
+    expect(editGeometry.width).toBeGreaterThan(0);
+    expect(editGeometry.right).toBeLessThanOrEqual(editGeometry.trackRight + 1);
 
     const controlOrder = await track.locator('.track-controls > button').evaluateAll((buttons) => buttons.map((button) => button.className));
     expect(controlOrder.indexOf('track-record-btn')).toBeLessThan(controlOrder.indexOf('track-mute-btn'));
     expect(controlOrder.indexOf('track-record-btn')).toBeLessThan(controlOrder.indexOf('track-solo-btn'));
+    const inlineControls = await track.locator('.track-controls').evaluate((controls) => {
+      const record = controls.querySelector('.track-record-btn').getBoundingClientRect();
+      const mute = controls.querySelector('.track-mute-btn').getBoundingClientRect();
+      const style = getComputedStyle(controls);
+      return { flexWrap: style.flexWrap, sameRow: Math.abs(record.top - mute.top) < 1 };
+    });
+    expect(inlineControls.flexWrap).toBe('nowrap');
+    expect(inlineControls.sameRow).toBe(true);
 
     await track.locator('.beat-square').first().click();
     await expect(page.locator('#sound-settings-modal')).toBeVisible();
@@ -640,18 +668,70 @@ test.describe('mode controls responsive layout', () => {
       await SoundSettingsModal.show(0, 'mainBeatSound');
       return {
         waveform: Boolean(document.querySelector('.synth-waveform-canvas')),
-        feedback: document.querySelector('.filter-feedback')?.textContent,
+        filterFeedback: Boolean(document.querySelector('.filter-feedback')),
       };
     });
     expect(result.waveform).toBe(true);
-    expect(result.feedback).toContain('HP off');
-    expect(result.feedback).toContain('LP off');
+    expect(result.filterFeedback).toBe(false);
+    const initialOverlayPositions = await page.locator('.filter-visualization-overlay').first().evaluate((overlay) => ({
+      highPass: overlay.querySelector('.filter-overlay-high-pass-label').getBoundingClientRect().left,
+      lowPass: overlay.querySelector('.filter-overlay-low-pass-label').getBoundingClientRect().left,
+    }));
     const highPass = page.locator('#sound-sliders-container [data-param="highPassFrequency"]');
     const lowPass = page.locator('#sound-sliders-container [data-param="lowPassFrequency"]');
     await highPass.fill('300');
     await lowPass.fill('5000');
-    await expect(page.locator('.filter-feedback')).toContainText('HP 300 Hz');
-    await expect(page.locator('.filter-feedback')).toContainText('LP 5000 Hz');
+    await expect(page.locator('.filter-visualization-overlay .filter-overlay-high-pass-label').first()).toContainText('HP 300 Hz');
+    await expect(page.locator('.filter-visualization-overlay .filter-overlay-low-pass-label').first()).toContainText('LP 5000 Hz');
+    const updatedOverlayPositions = await page.locator('.filter-visualization-overlay').first().evaluate((overlay) => ({
+      highPass: overlay.querySelector('.filter-overlay-high-pass-label').getBoundingClientRect().left,
+      lowPass: overlay.querySelector('.filter-overlay-low-pass-label').getBoundingClientRect().left,
+    }));
+    expect(updatedOverlayPositions.highPass).not.toBe(initialOverlayPositions.highPass);
+    expect(updatedOverlayPositions.lowPass).not.toBe(initialOverlayPositions.lowPass);
+    const overlayState = await page.locator('.filter-visualization-overlay').evaluateAll((overlays) => overlays.map((overlay) => ({
+      highPass: getComputedStyle(overlay).getPropertyValue('--filter-high-pass-position').trim(),
+      lowPass: getComputedStyle(overlay).getPropertyValue('--filter-low-pass-position').trim(),
+      highPassActive: overlay.classList.contains('high-pass-active'),
+      lowPassActive: overlay.classList.contains('low-pass-active'),
+      overlayColor: getComputedStyle(overlay).getPropertyValue('--filter-overlay-color').trim(),
+      oscilloscopeColors: ['--Main', '--Accent', '--Highlight'].map((name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()),
+    })));
+    expect(overlayState).toHaveLength(2);
+    expect(overlayState.every((state) => state.highPassActive && state.lowPassActive)).toBe(true);
+    expect(overlayState.every((state) => state.highPass !== '0%' && state.lowPass !== '0%')).toBe(true);
+    expect(overlayState.every((state) => !state.oscilloscopeColors.includes(state.overlayColor))).toBe(true);
+  });
+
+  test('beat visuals distinguish rests, dynamics, and individually edited beats', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    await page.goto('/');
+    const state = await page.evaluate(async () => {
+      const [{ default: AppState }, { default: BarDisplayController }] = await Promise.all([
+        import(new URL('js/appState.js', document.baseURI).href),
+        import(new URL('js/barDisplayController.js', document.baseURI).href),
+      ]);
+      const bar = AppState.getTracks()[0].barSettings[0];
+      bar.rests = [2];
+      bar.velocities = { 0: 1, 1: 0.3, 3: 0.7 };
+      bar.beatSounds = { 1: { mainBeatSound: { sound: 'Synth Snare', settings: {} } } };
+      BarDisplayController.renderBarsAndControls();
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      return [...document.querySelectorAll('.track:first-child .beat-square')].slice(0, 4).map((beat) => ({
+        classes: beat.className,
+        opacity: getComputedStyle(beat).opacity,
+        transform: getComputedStyle(beat).transform,
+        backgroundImage: getComputedStyle(beat).backgroundImage,
+      }));
+    });
+    expect(state[0].classes).toContain('accent-note');
+    expect(state[1].classes).toContain('ghost-note');
+    expect(state[1].classes).toContain('beat-edited');
+    expect(state[1].backgroundImage).toContain('gradient');
+    expect(state[2].classes).toContain('rested');
+    expect(state[2].classes).not.toContain('accent-note');
+    expect(state[0].transform).not.toBe(state[1].transform);
+    expect(state[0].opacity).not.toBe(state[1].opacity);
   });
 
   test('effects rack builds a live Web Audio chain and exposes its controls', async ({ page }) => {
@@ -673,10 +753,27 @@ test.describe('mode controls responsive layout', () => {
     const track = page.locator('.track').first();
     await track.locator('.beat-edit-btn').click();
     await track.locator('.beat-square').first().click();
+    await expect(page.locator('#sound-effects-modal')).toBeHidden();
+    await page.locator('#reset-sound-btn').click();
+    await page.locator('#reset-sound-btn').click();
+    await expect(page.locator('#sound-sliders-container [data-control-category]')).toHaveCount(3);
+    await expect(page.locator('#sound-effects-sliders-container [data-control-category]')).toHaveCount(1);
+    await page.locator('#sound-effects-btn').click();
+    await expect(page.locator('#sound-effects-modal')).toBeVisible();
     await expect(page.locator('[data-param="distortion"]')).toBeVisible();
+    await expect(page.locator('[data-param="pitchShift"]')).toBeVisible();
     await expect(page.locator('[data-param="delayMix"]')).toBeVisible();
     await expect(page.locator('[data-param="delayTime"]')).toBeVisible();
     await expect(page.locator('[data-param="reverbMix"]')).toBeVisible();
+    await expect(page.locator('[data-param="pitchShift"]')).toHaveClass(/vertical-slider/);
+    await expect(page.locator('[data-param="distortion"]')).toHaveClass(/vertical-slider/);
+    await expect(page.locator('#sound-effects-modal .sound-control-category-title')).toHaveCount(1);
+    await expect(page.locator('#sound-effects-modal .sound-control-category-title')).toHaveCSS('width', '1px');
+    await page.locator('#sound-effects-close').click();
+    await expect(page.locator('#sound-effects-modal')).toBeHidden();
+    await expect(page.locator('[data-control-category="synth"] h3')).toHaveText('Synth envelope');
+    await expect(page.locator('[data-control-category="filters"] h3')).toHaveText('Filters');
+    await expect(page.locator('[data-control-category="effects"] h3')).toHaveText('Effects rack');
   });
 
   test('sound modal traps keyboard focus and restores the opener', async ({ page }) => {

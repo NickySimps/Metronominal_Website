@@ -222,6 +222,10 @@ async function initialize() {
   
   // Register Sticky Controls listeners
   TempoController.registerTempoChangeListener(() => StickyControls.updateDisplay());
+  document.addEventListener("tempochange", () => {
+    TempoController.updateTempoDisplay({ animate: true });
+    StickyControls.updateDisplay();
+  });
   VolumeController.registerVolumeChangeListener(() => StickyControls.updateDisplay());
   MetronomeEngine.registerPlayStateChangeListener(() => StickyControls.updatePlayButtonState());
 

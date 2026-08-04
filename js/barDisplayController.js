@@ -76,7 +76,9 @@ function createBeatSquareElement(
   indexInBar,
   currentBeatMultiplier,
   mainBeatsInBar,
-  isRested = false
+  isRested = false,
+  velocity = null,
+  isIndividuallyEdited = false
 ) {
   const beatSquare = document.createElement("div");
   beatSquare.classList.add("beat-square", "newly-added-beat-animation");
@@ -103,6 +105,7 @@ function createBeatSquareElement(
     currentBeatMultiplier,
     mainBeatsInBar
   );
+  applyBeatStateClasses(beatSquare, indexInBar, isRested, velocity, isIndividuallyEdited);
   // beatSquare.addEventListener("click", handleBeatSquareClick); // Add click listener
 
   // Optional: remove animation class after it plays to clean up DOM, if not using 'forwards' or for other reasons
@@ -141,6 +144,16 @@ function updateBeatSquareClasses(
       }
     }
   }
+}
+
+function applyBeatStateClasses(beatSquare, beatIndex, isRested, velocity, isIndividuallyEdited) {
+  const effectiveVelocity = Number.isFinite(Number(velocity))
+    ? Number(velocity)
+    : (beatIndex === 0 ? 1 : 0.7);
+  beatSquare.classList.toggle("rested", isRested);
+  beatSquare.classList.toggle("ghost-note", !isRested && effectiveVelocity <= 0.3);
+  beatSquare.classList.toggle("accent-note", !isRested && effectiveVelocity >= 1);
+  beatSquare.classList.toggle("beat-edited", isIndividuallyEdited);
 }
 
 // Helper function to create or update the beat indicator icon
@@ -692,7 +705,9 @@ const BarDisplayController = {
 
         for (let i = 0; i < totalSubBeatsNeeded; i++) {
             const isRested = rests.includes(i);
-            const beatSquare = createBeatSquareElement(i, subdivision, mainBeatsInBar, isRested);
+            const velocity = barData.velocities?.[i];
+            const isIndividuallyEdited = Boolean(barData.beatSounds?.[i]);
+            const beatSquare = createBeatSquareElement(i, subdivision, mainBeatsInBar, isRested, velocity, isIndividuallyEdited);
             barDiv.appendChild(beatSquare);
         }
 
@@ -754,7 +769,9 @@ const BarDisplayController = {
                     i,
                     subdivision,
                     mainBeatsInBar,
-                    isRested
+                    isRested,
+                    barData.velocities?.[i],
+                    Boolean(barData.beatSounds?.[i])
                 );
                 barDiv.appendChild(beatSquare);
             }
@@ -779,17 +796,13 @@ const BarDisplayController = {
         const allBeatSquares = barDiv.querySelectorAll(".beat-square");
         allBeatSquares.forEach((sq, beatIdx) => {
             updateBeatSquareClasses(sq, beatIdx, subdivision, mainBeatsInBar);
-            if (rests.includes(beatIdx)) {
-                sq.classList.add("rested");
-                sq.classList.remove("ghost-note", "accent-note");
-            } else {
-                sq.classList.remove("rested");
-                const velocities = barData.velocities || {};
-                const defaultVel = (beatIdx === 0) ? 1.0 : 0.7;
-                const vel = velocities[beatIdx] !== undefined ? velocities[beatIdx] : defaultVel;
-                sq.classList.toggle("ghost-note", vel === 0.3);
-                sq.classList.toggle("accent-note", vel === 1.0);
-            }
+            applyBeatStateClasses(
+              sq,
+              beatIdx,
+              rests.includes(beatIdx),
+              barData.velocities?.[beatIdx],
+              Boolean(barData.beatSounds?.[beatIdx])
+            );
         });
 
         const flexBasis = 100 / totalSubBeatsNeeded * 0.9;
@@ -906,10 +919,12 @@ const BarDisplayController = {
           for (let i = 0; i < totalSubBeatsNeeded; i++) {
             const isRested = rests.includes(i);
             const beatSquare = createBeatSquareElement(
-              i,
-              subdivision,
-              mainBeatsInBar,
-              isRested
+                i,
+                subdivision,
+                mainBeatsInBar,
+                isRested,
+                barData.velocities?.[i],
+                Boolean(barData.beatSounds?.[i])
             );
             barDiv.appendChild(beatSquare);
           }
@@ -923,10 +938,12 @@ const BarDisplayController = {
             for (let i = currentSubBeatCountInDom; i < totalSubBeatsNeeded; i++) {
               const isRested = rests.includes(i);
               const beatSquare = createBeatSquareElement(
-                i,
-                subdivision,
-                mainBeatsInBar,
-                isRested
+                  i,
+                  subdivision,
+                  mainBeatsInBar,
+                  isRested,
+                  barData.velocities?.[i],
+                  Boolean(barData.beatSounds?.[i])
               );
               barDiv.appendChild(beatSquare);
             }
@@ -958,11 +975,13 @@ const BarDisplayController = {
           const allBeatSquares = barDiv.querySelectorAll(".beat-square");
           allBeatSquares.forEach((sq, beatIdx) => {
             updateBeatSquareClasses(sq, beatIdx, subdivision, mainBeatsInBar);
-            if (rests.includes(beatIdx)) {
-                sq.classList.add("rested");
-            } else {
-                sq.classList.remove("rested");
-            }
+            applyBeatStateClasses(
+              sq,
+              beatIdx,
+              rests.includes(beatIdx),
+              barData.velocities?.[beatIdx],
+              Boolean(barData.beatSounds?.[beatIdx])
+            );
           });
         }
 
