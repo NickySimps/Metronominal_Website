@@ -654,6 +654,14 @@ test.describe('mode controls responsive layout', () => {
 
     await track.locator('.beat-square').first().click();
     await expect(probability).toHaveValue('42');
+    await page.locator('#reset-sound-btn').click();
+    await expect(probability).toHaveValue('100');
+    await expect(track.locator('.beat-square').first()).not.toHaveClass(/beat-edited/);
+    const resetBeatState = await page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      return AppState.getTracks()[0].barSettings[0].beatSounds || {};
+    });
+    expect(resetBeatState[0]).toBeUndefined();
   });
 
   test('synth editors show a waveform and live filter cutoff feedback', async ({ page }) => {

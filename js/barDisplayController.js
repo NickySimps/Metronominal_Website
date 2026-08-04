@@ -146,6 +146,11 @@ function updateBeatSquareClasses(
   }
 }
 
+function hasBeatSoundOverride(beatOverride) {
+  return Boolean(beatOverride && typeof beatOverride === "object"
+    && Object.values(beatOverride).some((soundInfo) => soundInfo && typeof soundInfo.sound === "string" && soundInfo.sound));
+}
+
 function applyBeatStateClasses(beatSquare, beatIndex, isRested, velocity, isIndividuallyEdited) {
   const effectiveVelocity = Number.isFinite(Number(velocity))
     ? Number(velocity)
@@ -706,7 +711,7 @@ const BarDisplayController = {
         for (let i = 0; i < totalSubBeatsNeeded; i++) {
             const isRested = rests.includes(i);
             const velocity = barData.velocities?.[i];
-            const isIndividuallyEdited = Boolean(barData.beatSounds?.[i]);
+            const isIndividuallyEdited = hasBeatSoundOverride(barData.beatSounds?.[i]);
             const beatSquare = createBeatSquareElement(i, subdivision, mainBeatsInBar, isRested, velocity, isIndividuallyEdited);
             barDiv.appendChild(beatSquare);
         }
@@ -771,7 +776,7 @@ const BarDisplayController = {
                     mainBeatsInBar,
                     isRested,
                     barData.velocities?.[i],
-                    Boolean(barData.beatSounds?.[i])
+                    hasBeatSoundOverride(barData.beatSounds?.[i])
                 );
                 barDiv.appendChild(beatSquare);
             }
@@ -801,7 +806,7 @@ const BarDisplayController = {
               beatIdx,
               rests.includes(beatIdx),
               barData.velocities?.[beatIdx],
-              Boolean(barData.beatSounds?.[beatIdx])
+              hasBeatSoundOverride(barData.beatSounds?.[beatIdx])
             );
         });
 
@@ -924,7 +929,7 @@ const BarDisplayController = {
                 mainBeatsInBar,
                 isRested,
                 barData.velocities?.[i],
-                Boolean(barData.beatSounds?.[i])
+                hasBeatSoundOverride(barData.beatSounds?.[i])
             );
             barDiv.appendChild(beatSquare);
           }
@@ -943,7 +948,7 @@ const BarDisplayController = {
                   mainBeatsInBar,
                   isRested,
                   barData.velocities?.[i],
-                  Boolean(barData.beatSounds?.[i])
+                  hasBeatSoundOverride(barData.beatSounds?.[i])
               );
               barDiv.appendChild(beatSquare);
             }
@@ -980,7 +985,7 @@ const BarDisplayController = {
               beatIdx,
               rests.includes(beatIdx),
               barData.velocities?.[beatIdx],
-              Boolean(barData.beatSounds?.[beatIdx])
+              hasBeatSoundOverride(barData.beatSounds?.[beatIdx])
             );
           });
         }

@@ -1185,6 +1185,18 @@ const AppState = (function () {
       return true;
     },
 
+    clearBeatSound: (trackIndex, barIndex, beatIndex, soundType) => {
+      const track = Tracks[trackIndex];
+      const bar = track?.barSettings?.[barIndex];
+      const beatOverrides = bar?.beatSounds?.[beatIndex];
+      if (!beatOverrides || typeof beatOverrides !== "object") return false;
+      delete beatOverrides[soundType];
+      if (Object.keys(beatOverrides).length === 0) delete bar.beatSounds[beatIndex];
+      if (Object.keys(bar.beatSounds).length === 0) delete bar.beatSounds;
+      saveState();
+      return true;
+    },
+
     isSoundModified: (trackIndex, soundType) => {
       const track = Tracks[trackIndex];
       if (!track) return false;

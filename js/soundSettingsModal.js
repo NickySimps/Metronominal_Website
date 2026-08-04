@@ -28,6 +28,7 @@ const SoundSettingsModal = {
   currentSoundType: null,
   currentBarIndex: null,
   currentBeatIndex: null,
+  skipBeatOverrideSave: false,
   currentSoundSettings: null,
   originalSoundName: "", // The name of the sound when modal opened (e.g., "Synth Kick", "My Preset")
   displaySoundName: "", // The name currently displayed/edited
@@ -341,6 +342,21 @@ const SoundSettingsModal = {
   resetSoundSettings() {
     const soundInfo = this.getCurrentSoundInfo();
     if (!soundInfo) return;
+
+    const beatContext = this.getCurrentBeatContext();
+    if (beatContext) {
+      AppState.clearBeatSound(
+        this.currentTrackIndex,
+        beatContext.barIndex,
+        beatContext.beatIndex,
+        this.currentSoundType,
+      );
+      sendState(AppState.getCurrentStateForPreset(true));
+      document.dispatchEvent(new CustomEvent("soundSaved"));
+      this.skipBeatOverrideSave = true;
+      this.show(this.currentTrackIndex, this.currentSoundType, beatContext);
+      return;
+    }
 
     let newSettings = {};
 
@@ -791,7 +807,11 @@ const SoundSettingsModal = {
       sound: sourceSoundInfo.sound,
       settings: JSON.parse(JSON.stringify(sourceSoundInfo.settings || {})),
     };
-    this.saveCurrentSoundInfo(soundInfo);
+    if (this.skipBeatOverrideSave) {
+      this.skipBeatOverrideSave = false;
+    } else {
+      this.saveCurrentSoundInfo(soundInfo);
+    }
     
     // Auto-repair if sound data is corrupted/missing
     if (!soundInfo.sound) {
