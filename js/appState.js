@@ -583,7 +583,12 @@ const AppState = (function () {
         if (!snapshot) return;
         const currentBar = track.currentBar;
         track.name = snapshot.name || track.name;
-        track.barSettings = JSON.parse(JSON.stringify(snapshot.barSettings || track.barSettings));
+        const existingBars = track.barSettings || [];
+        const snapshotBars = Array.isArray(snapshot.barSettings) ? snapshot.barSettings : existingBars;
+        const targetBarCount = Math.max(existingBars.length, snapshotBars.length, 1);
+        track.barSettings = Array.from({ length: targetBarCount }, (_, barIndex) => JSON.parse(JSON.stringify(
+          snapshotBars[barIndex] || existingBars[barIndex] || snapshotBars[snapshotBars.length - 1] || existingBars[existingBars.length - 1]
+        )));
         track.muted = snapshot.muted === true;
         track.solo = snapshot.solo === true;
         track.volume = Number.isFinite(snapshot.volume) ? snapshot.volume : track.volume;

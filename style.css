@@ -3801,6 +3801,20 @@ body.beat-edit-mode .beat-square {
   border-radius: var(--BorderRadius);
   z-index: 1;
 }
+#sound-settings-modal .slider-container label {
+  font-size: clamp(.85rem, 3.6vw, 1.15rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+#sound-settings-modal .slider-container > span {
+  font-size: clamp(.72rem, 3vw, 1rem);
+  white-space: nowrap;
+}
+#sound-settings-modal #sound-sliders-container,
+#sound-settings-modal #sound-effects-sliders-container {
+  width: 100%;
+  min-width: 0;
+}
 #sound-settings-modal .oscilloscope-canvas {
   display: block;
   width: 100%;

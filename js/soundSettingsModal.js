@@ -123,6 +123,18 @@ const SoundSettingsModal = {
         });
     });
 
+    const quantizeButton = DOM.soundSettingsModal.querySelector("#quantize-btn");
+    quantizeButton?.addEventListener("click", (event) => {
+      this.isQuantizing = !this.isQuantizing;
+      event.currentTarget.classList.toggle("active", this.isQuantizing);
+    });
+    const gridSnapButton = DOM.soundSettingsModal.querySelector("#grid-snap-btn");
+    gridSnapButton?.addEventListener("click", (event) => {
+      this.isGridSnapping = !this.isGridSnapping;
+      event.currentTarget.classList.toggle("active", this.isGridSnapping);
+      if (this.currentAudioBuffer && this.drawWaveformAndTrimLines) this.drawWaveformAndTrimLines(this.currentAudioBuffer);
+    });
+
     DOM.soundSettingsModal.querySelector("#sound-preview-btn").addEventListener("click", () => this.togglePreview());
     DOM.soundSettingsModal.querySelector("#sound-scope-mode-select").addEventListener("change", (e) => {
         this.scopeMode = e.target.value;
@@ -431,6 +443,9 @@ const SoundSettingsModal = {
         if (this.drawWaveformAndTrimLines) {
             this.drawWaveformAndTrimLines(soundInfo.audioBuffer);
         }
+        if (this.drawSynthWaveform && this.currentSynthWaveformBuffer) {
+            this.drawSynthWaveform(this.currentSynthWaveformBuffer);
+        }
     }
 
     const slider = document.querySelector(`[data-param="${param}"]`);
@@ -544,13 +559,18 @@ const SoundSettingsModal = {
       if (!Number.isFinite(bpm) || bpm <= 0) return [];
       const beatMs = 60000 / bpm;
       return [
+          [1, '1/1 note'],
+          [2, '1/2 note'],
           [4, '1/4 note'],
           [8, '1/8 note'],
           [16, '1/16 note'],
           [32, '1/32 note'],
           [64, '1/64 note'],
+          [128, '1/128 note'],
       ].map(([denominator, label]) => ({ ms: Math.round(beatMs * 4 / denominator), label }))
-          .filter(({ ms }) => ms > 0 && ms <= maxMs);
+          .filter(({ ms }) => ms > 0 && ms <= maxMs)
+          .filter((option, index, options) => index === options.findIndex((candidate) => candidate.ms === option.ms))
+          .sort((a, b) => a.ms - b.ms);
   },
 
   getDelaySubdivisionValues(maxMs = 1000) {
@@ -605,6 +625,7 @@ const SoundSettingsModal = {
       release: "Release",
       highPassFrequency: "High-pass",
       lowPassFrequency: "Low-pass",
+      filterFrequency: "Filter frequency",
       volume: "Volume",
       startFrequency: "Start frequency",
       endFrequency: "End frequency",
@@ -849,6 +870,8 @@ const SoundSettingsModal = {
     if (!modal || !this.currentSoundSettings) return;
     this.effectsPreviouslyFocusedElement = document.activeElement;
     if (this.effectsActionGroup && this.effectsActionSlot) this.effectsActionSlot.appendChild(this.effectsActionGroup);
+    const delayQuantizeButton = this.effectsActionGroup?.querySelector("#delay-quantize-btn");
+    if (delayQuantizeButton) delayQuantizeButton.style.display = "inline-block";
     modal.hidden = false;
     modal.style.display = "flex";
     requestAnimationFrame(() => modal.classList.add("is-open"));
@@ -864,6 +887,8 @@ const SoundSettingsModal = {
     modal.style.display = "none";
     modal.hidden = true;
     if (this.effectsActionGroup && this.effectsActionOrigin) this.effectsActionOrigin.appendChild(this.effectsActionGroup);
+    const delayQuantizeButton = this.effectsActionGroup?.querySelector("#delay-quantize-btn");
+    if (delayQuantizeButton) delayQuantizeButton.style.display = "none";
     trigger?.setAttribute("aria-expanded", "false");
     const restoreTarget = this.effectsPreviouslyFocusedElement;
     this.effectsPreviouslyFocusedElement = null;
@@ -874,8 +899,8 @@ const SoundSettingsModal = {
     if (!this.mainSlidersContainer) return;
     const filters = this.mainSlidersContainer.querySelector('[data-control-category="filters"]');
     const playback = this.mainSlidersContainer.querySelector('[data-control-category="playback"]');
-    const firstCategory = this.mainSlidersContainer.querySelector(':scope > .sound-control-category');
-    if (filters && firstCategory && filters !== firstCategory) this.mainSlidersContainer.insertBefore(filters, firstCategory);
+    const firstContent = this.mainSlidersContainer.querySelector(':scope > *');
+    if (filters && firstContent && filters !== firstContent) this.mainSlidersContainer.insertBefore(filters, firstContent);
     if (filters && playback && playback !== filters && playback.previousElementSibling !== filters) {
       this.mainSlidersContainer.insertBefore(playback, filters.nextElementSibling);
     }
@@ -956,6 +981,8 @@ const SoundSettingsModal = {
     const modalTitle = DOM.soundSettingsModal.querySelector(".modal-header h2");
     const modalContext = DOM.soundSettingsModal.querySelector(".sound-modal-context");
     const noteSnapBtn = DOM.soundSettingsModal.querySelector("#note-snap-btn");
+    const quantizeBtn = DOM.soundSettingsModal.querySelector("#quantize-btn");
+    const gridSnapBtn = DOM.soundSettingsModal.querySelector("#grid-snap-btn");
     const delayQuantizeBtn = DOM.soundSettingsModal.querySelector("#delay-quantize-btn");
     const deleteBtn = DOM.soundSettingsModal.querySelector("#delete-sound-btn");
 
@@ -1022,7 +1049,7 @@ const SoundSettingsModal = {
     this.mainSlidersContainer = slidersContainer;
     (this.delayQuantizeRefreshers || []).forEach((refresh) => document.removeEventListener("tempochange", refresh));
     this.delayQuantizeRefreshers = [];
-    delayQuantizeBtn.style.display = 'inline-block';
+    delayQuantizeBtn.style.display = 'none';
     delayQuantizeBtn.setAttribute('aria-pressed', 'false');
     delayQuantizeBtn.classList.remove('active');
     this.delayQuantizeEnabled = false;
@@ -1035,6 +1062,8 @@ const SoundSettingsModal = {
     if (soundInfo.audioBuffer instanceof AudioBuffer) {
         // Recorded sound
         noteSnapBtn.style.display = 'none';
+        quantizeBtn.style.display = 'inline-block';
+        gridSnapBtn.style.display = 'inline-block';
         this.isNoteSnapping = false;
         this.isQuantizing = false;
         this.isGridSnapping = false;
@@ -1182,6 +1211,26 @@ const SoundSettingsModal = {
             const visibleSpan = 1 / this.waveformZoom;
             const visibleStart = this.waveformPan * (1 - visibleSpan);
             RecordingVisualizer.drawWaveform(buffer, synthWaveformCanvas, waveformColor, visibleStart, visibleStart + visibleSpan, soundSettings.reverse === true);
+            const context = synthWaveformCanvas.getContext("2d");
+            const duration = Math.max(buffer.duration, 0.001);
+            const trimStart = Math.max(0, Math.min(duration, Number(this.currentSoundSettings.trimStart) || 0));
+            const trimEnd = Math.max(trimStart, Math.min(duration, Number(this.currentSoundSettings.trimEnd) || duration));
+            const toCanvasX = (time) => ((time / duration - visibleStart) / visibleSpan) * synthWaveformCanvas.width;
+            const startX = soundSettings.reverse ? toCanvasX(duration - trimEnd) : toCanvasX(trimStart);
+            const endX = soundSettings.reverse ? toCanvasX(duration - trimStart) : toCanvasX(trimEnd);
+            context.fillStyle = "rgba(0, 0, 0, 0.5)";
+            if (startX > 0) context.fillRect(0, 0, Math.min(synthWaveformCanvas.width, startX), synthWaveformCanvas.height);
+            if (endX < synthWaveformCanvas.width) context.fillRect(Math.max(0, endX), 0, synthWaveformCanvas.width - Math.max(0, endX), synthWaveformCanvas.height);
+            context.strokeStyle = "#fff";
+            context.lineWidth = 2;
+            [startX, endX].forEach((x) => {
+                if (x >= 0 && x <= synthWaveformCanvas.width) {
+                    context.beginPath();
+                    context.moveTo(x, 0);
+                    context.lineTo(x, synthWaveformCanvas.height);
+                    context.stroke();
+                }
+            });
         };
         const synthWaveformTools = document.createElement("div");
         synthWaveformTools.className = "waveform-tools";
@@ -1199,6 +1248,8 @@ const SoundSettingsModal = {
         this.refreshSynthWaveform();
 
         noteSnapBtn.style.display = 'inline-block';
+        quantizeBtn.style.display = 'none';
+        gridSnapBtn.style.display = 'none';
         this.isQuantizing = false;
         this.isGridSnapping = false;
         this.isNoteSnapping = noteSnapBtn.classList.contains('active');

@@ -564,6 +564,10 @@ test('section repeat counts repeat the bounded bar range before advancing', asyn
   await expect.poll(() => page.evaluate(() => window.__songBars.length), { timeout: 5_000 }).toBeGreaterThanOrEqual(3);
   const bars = await page.evaluate(() => window.__songBars.slice(0, 3));
   expect(bars).toEqual([0, 0, 1]);
+  await expect.poll(async () => page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    return AppState.getSong().sections.map((section) => section.name);
+  })).toEqual(['A', 'B']);
 });
 
 test('rest and record buttons toggle even when their inner icon is clicked', async ({ page }) => {

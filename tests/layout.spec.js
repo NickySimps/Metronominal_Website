@@ -923,15 +923,28 @@ test.describe('mode controls responsive layout', () => {
   test('puts Delay Quantize beside Note Snap and switches to note-value labels', async ({ page }) => {
     await page.goto('/');
     await page.locator('.main-sound-label').first().click();
+    await expect(page.locator('#delay-quantize-btn')).toBeHidden();
+    await expect(page.locator('#quantize-btn')).toBeHidden();
+    await expect(page.locator('#grid-snap-btn')).toBeHidden();
     await page.locator('#sound-effects-btn').click();
     const delayQuantize = page.locator('#delay-quantize-btn');
     await expect(delayQuantize).toBeVisible();
     await expect(page.locator('#sound-effects-actions-slot #note-snap-btn')).toBeVisible();
-    await expect(page.locator('#sound-effects-actions-slot #grid-snap-btn')).toHaveCount(0);
-    await expect(page.locator('#sound-effects-actions-slot #quantize-btn')).toHaveCount(0);
+    await expect(page.locator('#sound-effects-actions-slot #grid-snap-btn')).toBeHidden();
+    await expect(page.locator('#sound-effects-actions-slot #quantize-btn')).toBeHidden();
     await delayQuantize.click();
     await expect(delayQuantize).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('[data-param="delayTime"]').locator('xpath=ancestor::div[contains(@class,"slider-container")]/span')).toContainText(/note/);
+    const delaySlider = page.locator('[data-param="delayTime"]');
+    const delayOptions = await delaySlider.locator('xpath=ancestor::div[contains(@class,"slider-container")]').locator('datalist option').evaluateAll((options) => options.map((option) => option.label));
+    expect(delayOptions).toEqual(expect.arrayContaining(['1/2 note', '1/4 note', '1/8 note', '1/16 note', '1/32 note', '1/64 note']));
+    const delayIncrement = delaySlider.locator('xpath=ancestor::div[contains(@class,"slider-container")]').locator('.slider-button-increment');
+    const beforeIncrement = Number(await delaySlider.inputValue());
+    await delayIncrement.click();
+    expect(Number(await delaySlider.inputValue())).toBeGreaterThan(beforeIncrement);
+    const delayDecrement = delaySlider.locator('xpath=ancestor::div[contains(@class,"slider-container")]').locator('.slider-button-decrement');
+    await delayDecrement.click();
+    expect(Number(await delaySlider.inputValue())).toBe(beforeIncrement);
   });
 
   test('synth trim controls clamp without hanging when handles cross', async ({ page }) => {
@@ -944,6 +957,16 @@ test.describe('mode controls responsive layout', () => {
     await expect.poll(() => end.inputValue()).toBe(await start.inputValue());
     await end.fill(await end.getAttribute('min'));
     await expect.poll(() => start.inputValue()).toBe(await end.inputValue());
+  });
+
+  test('synth waveform visibly updates its trim boundaries', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.main-sound-label').first().click();
+    const canvas = page.locator('.synth-waveform-canvas');
+    const before = await canvas.evaluate((element) => element.toDataURL());
+    const start = page.locator('[data-param="trimStart"]');
+    await start.fill(String(Math.round(Number(await start.getAttribute('max')) * 0.35)));
+    await expect.poll(() => canvas.evaluate((element) => element.toDataURL())).not.toBe(before);
   });
 
   test('every generated sound slider updates its adjacent value label', async ({ page }) => {
