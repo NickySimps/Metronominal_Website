@@ -2844,7 +2844,7 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 .track-pitch-slider::-moz-range-track,
 .track-swing-slider::-moz-range-track {
   width: 100%;
-  height: var(--s1);
+  height: 1px;
   cursor: pointer;
 }
 
@@ -3380,14 +3380,6 @@ environments: Development, Staging,
     color: var(--TextPrimary);
 }
 
-.bar-visual.rest-mode-active .bar-beat-indicator {
-    background-color: var(--Alt2);
-}
-
-.bar-visual.rest-mode-active .bar-beat-indicator:hover {
-    background-color: var(--Accent);
-    color: var(--TextPrimary);
-}
 
 /* Confirmation Modal Styling */
 #confirmation-modal .confirmation-modal-content {
@@ -3873,11 +3865,7 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
   font-size: 0;
 }
 .track-controls .track-record-btn .control-icon { font-size: 1.45rem; }
-.beat-edit-btn.active,
-body.beat-edit-mode .beat-square {
-  outline: 2px solid var(--Alt2);
-  outline-offset: 2px;
-}
+/* Beat Edit keeps the beat gradient unobstructed. */
 .beat-edit-btn {
   min-width: 0;
   max-width: 100%;
@@ -3887,7 +3875,6 @@ body.beat-edit-mode .beat-square {
 }
 body.beat-edit-mode .beat-square {
   cursor: pointer;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--Alt2) 42%, transparent);
 }
 .beat-square.beat-edited {
   background-image: repeating-linear-gradient(
