@@ -361,9 +361,19 @@ const SoundSettingsModal = {
       reverbFeedback: Number.isFinite(Number(defaults.reverbFeedback)) ? Number(defaults.reverbFeedback) : 0.25,
     });
     this.saveCurrentSoundInfo(soundInfo);
+    this.currentSoundSettings = soundInfo.settings;
+    const effectValues = { distortion: soundInfo.settings.distortion, delayMix: soundInfo.settings.delayMix, delayTime: soundInfo.settings.delayTime, delayFeedback: soundInfo.settings.delayFeedback, reverbMix: soundInfo.settings.reverbMix, reverbFeedback: soundInfo.settings.reverbFeedback };
+    Object.entries(effectValues).forEach(([param, value]) => {
+      const slider = this.sliders.find((item) => item.sliderElement?.dataset.param === param);
+      if (!slider?.sliderElement) return;
+      slider.sliderElement.value = String(value);
+      const output = slider.sliderElement.closest('.slider-container')?.querySelector(':scope > span');
+      if (output) output.textContent = param === 'delayTime'
+        ? this.formatDelayTimeDisplay(value, Number(slider.sliderElement.max))
+        : `${Math.round(Number(value) * 100)}%`;
+    });
+    this.updateFilterFeedback();
     sendState(AppState.getCurrentStateForPreset(true));
-    this.show(this.currentTrackIndex, this.currentSoundType, this.getCurrentBeatContext());
-    this.showEffectsModal();
   },
 
   resetSoundSettings() {

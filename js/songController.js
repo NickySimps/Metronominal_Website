@@ -343,7 +343,7 @@ async function goToSection(index) {
   if (AppState.isPlaying()) await MetronomeEngine.togglePlay(true);
   AppState.setSelectedTrackIndex(0);
   for (const track of AppState.getTracks()) {
-    track.currentBar = section.startBar % track.barSettings.length;
+    track.currentBar = 0;
     track.currentBeat = 0;
     track.songRepeatIteration = 0;
   }
@@ -392,6 +392,21 @@ function renderSavedSectionDetails(section, tracks) {
     </div>
     <ul class="song-saved-track-list">${trackCards}</ul>
   </div>`;
+}
+
+function updateNowPlaying() {
+  const song = AppState.getSong();
+  const referenceBar = AppState.getTracks()[0]?.currentBar || 0;
+  const active = !AppState.isPlaying() && song.sections[selectedSectionIndex]
+    ? song.sections[selectedSectionIndex]
+    : AppState.getSongSectionForBar(referenceBar);
+  const displayBar = !AppState.isPlaying() && song.sections[selectedSectionIndex]
+    ? 0
+    : referenceBar;
+  const now = document.getElementById("song-now-playing");
+  if (now) now.textContent = song.enabled
+    ? `${active.name} · bar ${displayBar + 1} · ${active.tempo} BPM`
+    : "Song mode off";
 }
 
 function render() {
@@ -461,12 +476,7 @@ function render() {
     list.appendChild(row);
   });
 
-  const referenceBar = AppState.getTracks()[0]?.currentBar || 0;
-  const active = AppState.getSongSectionForBar(referenceBar);
-  const now = document.getElementById("song-now-playing");
-  if (now) now.textContent = song.enabled
-    ? `${active.name} · bar ${referenceBar + 1} · ${active.tempo} BPM`
-    : "Song mode off";
+  updateNowPlaying();
 }
 
 function updatedSongFromFields() {
@@ -520,7 +530,7 @@ async function applySection(index) {
   state.Tracks = runtimeTracksFromSnapshot(expandSnapshotBars(section.tracks, requiredBars));
   state.song = song;
   await AppState.loadPresetData(state);
-  refreshApplicationUI();
+  refreshApplicationUI({ animate: false });
   sendState(AppState.getCurrentStateForPreset(true));
   announce(`${section.name} tracks applied.`);
 }
@@ -688,7 +698,7 @@ async function initialize(callback) {
     event.target.value = "";
   });
   document.addEventListener("appstatechange", render);
-  document.addEventListener("songpositionchange", render);
+  document.addEventListener("songpositionchange", updateNowPlaying);
   document.addEventListener("playbackstatechange", render);
   document.addEventListener("syncrolechange", event => {
     canEditSong = !event.detail || event.detail.state !== "connected" || event.detail.isHost === true;

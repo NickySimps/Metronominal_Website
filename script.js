@@ -67,9 +67,10 @@ function syncAbLoopOptions() {
 /**
  * Refreshes all relevant UI components to reflect the current AppState.
  */
-function refreshUIFromState() {
-  TempoController.updateTempoDisplay({ animate: true });
-  VolumeController.updateVolumeDisplay({ animate: true });
+function refreshUIFromState(options = {}) {
+  const animate = options.animate !== false;
+  TempoController.updateTempoDisplay({ animate });
+  VolumeController.updateVolumeDisplay({ animate });
   UIController.updateScreenOffToggleBtn();
   if (DOM.countInBarsSelect) DOM.countInBarsSelect.value = String(AppState.getCountInBars());
   if (DOM.audioLatencySlider && DOM.audioLatencyValue) {
