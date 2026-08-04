@@ -580,6 +580,11 @@ const SoundSettingsModal = {
   createSlider(slidersContainer, param, min, max, step, value) {
     const effectParams = new Set(["pitchShift", "distortion", "delayMix", "delayTime", "reverbMix"]);
     const behaviorContainer = document.querySelector(".sound-behavior-category");
+    if (param === "volume" && behaviorContainer) {
+      behaviorContainer.querySelectorAll('[data-param="volume"]').forEach((existingSlider) => {
+        existingSlider.closest('.slider-container')?.remove();
+      });
+    }
     const targetContainer = param === "volume" && behaviorContainer
       ? behaviorContainer
       : effectParams.has(param)

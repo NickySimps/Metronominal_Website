@@ -661,7 +661,16 @@ test.describe('mode controls responsive layout', () => {
     await page.goto('/');
 
     const track = page.locator('.track').first();
-    await track.locator('.beat-edit-btn').click();
+    const editButton = track.locator('.beat-edit-btn');
+    await editButton.scrollIntoViewIfNeeded();
+    const editBox = await editButton.boundingBox();
+    expect(editBox).not.toBeNull();
+    const editHit = await page.evaluate(({ x, y }) => {
+      const element = document.elementFromPoint(x, y);
+      return { tag: element?.tagName, className: element?.className };
+    }, { x: editBox.x + editBox.width / 2, y: editBox.y + editBox.height / 2 });
+    expect(editHit.className).toContain('beat-edit-btn');
+    await page.mouse.click(editBox.x + editBox.width / 2, editBox.y + editBox.height / 2);
     await expect(track.locator('.beat-edit-btn')).toHaveAttribute('aria-pressed', 'true');
     await expect(track.locator('.beat-edit-btn')).toHaveText('Edit');
     await expect(track.locator('.rest-button')).toContainText('Rest');
@@ -696,7 +705,13 @@ test.describe('mode controls responsive layout', () => {
     expect(inlineControls.display).toBe('grid');
     expect(inlineControls.sameRow).toBe(true);
 
-    await track.locator('.beat-square').first().click();
+    const beatSquare = track.locator('.beat-square').first();
+    await beatSquare.scrollIntoViewIfNeeded();
+    const beatBox = await beatSquare.boundingBox();
+    expect(beatBox).not.toBeNull();
+    const beatHit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.className, { x: beatBox.x + beatBox.width / 2, y: beatBox.y + beatBox.height / 2 });
+    expect(String(beatHit)).toContain('beat-square');
+    await page.mouse.click(beatBox.x + beatBox.width / 2, beatBox.y + beatBox.height / 2);
     await expect(page.locator('#sound-settings-modal')).toBeVisible();
     await expect(page.locator('.sound-modal-context')).toContainText('Bar 1, Beat 1');
 
@@ -1474,5 +1489,10 @@ test.describe('mode controls responsive layout', () => {
   const probabilityBox = await page.locator('#sample-probability').boundingBox();
   const volumeBox = await behaviorControls.locator('input[type="range"]').boundingBox();
   expect(volumeBox.y).toBeGreaterThan(probabilityBox.y);
+  await page.locator('#sound-settings-modal .close-button').click();
+  await track.locator('.rest-button').click();
+  await track.locator('.beat-square').first().click();
+  await expect(page.locator('.sound-behavior-category .slider-container')).toHaveCount(1);
+  await expect(page.locator('.sound-behavior-category [data-param="volume"]')).toHaveCount(1);
   });
 });
