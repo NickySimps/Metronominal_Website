@@ -709,10 +709,15 @@ const SoundSettingsModal = {
       controlGroup = document.createElement("section");
       controlGroup.className = `sound-control-category${categoryKey === "envelope" ? " adsr-control-group" : ""}`;
       controlGroup.dataset.controlCategory = categoryKey;
-      const heading = document.createElement("h3");
-      heading.className = "sound-control-category-title";
-      heading.textContent = categoryLabels[categoryKey] || "Sound controls";
-      controlGroup.appendChild(heading);
+      if (categoryKey === "envelope") {
+        controlGroup.setAttribute("role", "group");
+        controlGroup.setAttribute("aria-label", "ADSR envelope controls");
+      } else {
+        const heading = document.createElement("h3");
+        heading.className = "sound-control-category-title";
+        heading.textContent = categoryLabels[categoryKey] || "Sound controls";
+        controlGroup.appendChild(heading);
+      }
       targetContainer.appendChild(controlGroup);
     }
     const sliderContainer = document.createElement("div");
