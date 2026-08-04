@@ -1264,17 +1264,24 @@ test.describe('mode controls responsive layout', () => {
   test('desktop track grid fits four controllers and beats never overlap', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/');
-    for (let i = 0; i < 3; i += 1) await page.getByRole('button', { name: 'Add track' }).click();
+    for (let i = 0; i < 7; i += 1) await page.getByRole('button', { name: 'Add track' }).click();
     const result = await page.evaluate(async () => {
       await new Promise(requestAnimationFrame);
       const tracks = [...document.querySelectorAll('#all-tracks-wrapper .track')];
       const columns = new Set(tracks.map(track => Math.round(track.getBoundingClientRect().left)));
+      const rows = new Set(tracks.map(track => Math.round(track.getBoundingClientRect().top)));
+      const controlHeights = tracks.map(track => track.querySelector('.track-controls').getBoundingClientRect().height);
+      const volumeHeights = tracks.map(track => track.querySelector('.track-volume-controls').getBoundingClientRect().height);
       const squares = [...document.querySelectorAll('.bar-visual[data-bar-index="0"] .beat-square')].map(square => square.getBoundingClientRect());
       const overlaps = squares.some((a, i) => squares.slice(i + 1).some(b => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom));
-      return { trackCount: tracks.length, columns: columns.size, widths: tracks.map(track => track.getBoundingClientRect().width), overlaps };
+      return { trackCount: tracks.length, columns: columns.size, rows: rows.size, widths: tracks.map(track => track.getBoundingClientRect().width), controlHeights, volumeHeights, overlaps };
     });
-    expect(result.trackCount).toBe(4);
+    expect(result.trackCount).toBe(8);
     expect(result.columns).toBe(4);
+    expect(result.rows).toBe(2);
+    expect(new Set(result.controlHeights.map(height => Math.round(height))).size).toBe(1);
+    expect(new Set(result.volumeHeights.map(height => Math.round(height))).size).toBe(1);
+    expect(result.volumeHeights[0]).toBeLessThanOrEqual(30);
     expect(Math.min(...result.widths)).toBeGreaterThan(250);
     expect(result.overlaps).toBe(false);
   });

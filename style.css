@@ -1897,13 +1897,14 @@ button:active,
   #all-tracks-wrapper {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-    align-items: stretch;
+    align-items: start;
     gap: 1rem;
   }
 
   #all-tracks-wrapper .track {
     width: 100%;
-    height: 100%;
+    height: auto;
+    min-height: 0;
     margin: 0;
   }
 }
@@ -1974,7 +1975,7 @@ button:active,
 }
 
 .track-volume-controls {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   display: flex;
   flex-flow: row nowrap;
   align-items: center;
