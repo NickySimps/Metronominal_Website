@@ -765,6 +765,54 @@ test.describe('mode controls responsive layout', () => {
     expect(resetBeatState[0]).toBeUndefined();
   });
 
+  test('rest, accent, and Beat Edit modes are mutually exclusive', async ({ page }) => {
+    await page.goto('/');
+    const track = page.locator('.track').first();
+    const beat = track.locator('.beat-edit-btn');
+    const accent = track.locator('.accent-button');
+    const rest = track.locator('.rest-button');
+
+    await beat.click();
+    await expect(beat).toHaveClass(/active/);
+    await expect(accent).not.toHaveClass(/active/);
+    await expect(rest).not.toHaveClass(/active/);
+
+    await accent.click();
+    await expect(accent).toHaveClass(/active/);
+    await expect(beat).not.toHaveClass(/active/);
+    await expect(rest).not.toHaveClass(/active/);
+
+    await rest.click();
+    await expect(rest).toHaveClass(/active/);
+    await expect(beat).not.toHaveClass(/active/);
+    await expect(accent).not.toHaveClass(/active/);
+  });
+
+  test('resting a beat clears both its accent and edited sound state', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(async () => {
+      const [{ default: AppState }, { default: BarDisplayController }] = await Promise.all([
+        import(new URL('js/appState.js', document.baseURI).href),
+        import(new URL('js/barDisplayController.js', document.baseURI).href),
+      ]);
+      const track = AppState.getTracks()[0];
+      const bar = track.barSettings[0];
+      bar.velocities = { ...(bar.velocities || {}), 0: 1.5 };
+      bar.beatSounds = { ...(bar.beatSounds || {}), 0: { mainBeatSound: { name: 'Edited' } } };
+      BarDisplayController.renderBarsAndControls();
+    });
+    await page.locator('.rest-button').first().click();
+    await page.locator('.bar-visual').first().locator('.beat-square').first().click();
+    const state = await page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      const bar = AppState.getTracks()[0].barSettings[0];
+      return { rests: bar.rests, velocity: bar.velocities?.[0], beatSound: bar.beatSounds?.[0] };
+    });
+    expect(state.rests).toContain(0);
+    expect(state.velocity).toBeUndefined();
+    expect(state.beatSound).toBeUndefined();
+  });
+
   test('fractional and quarter note beat selections open the sound that actually plays', async ({ page }) => {
     await page.goto('/');
     await page.locator('.beat-edit-btn').first().click();

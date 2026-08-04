@@ -413,7 +413,38 @@ test('song section playback applies section track content at the boundary', asyn
     return { bar: track.currentBar, rests: track.barSettings[1]?.rests || [] };
   }), { timeout: 5000 }).toMatchObject({ bar: 1, rests: [0] });
 });
-test('song section playback adds and removes runtime tracks to match each section snapshot', async ({ page }) => {
+test('song section transitions wait for the longest active track', async ({ page }) => {
+  await page.goto('./');
+  const result = await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const state = await AppState.getCurrentStateForPreset(true);
+    const shortTrack = structuredClone(state.Tracks[0]);
+    const longTrack = structuredClone(state.Tracks[0]);
+    shortTrack.barSettings = Array.from({ length: 2 }, () => structuredClone(shortTrack.barSettings[0]));
+    longTrack.barSettings = Array.from({ length: 4 }, () => structuredClone(longTrack.barSettings[0]));
+    state.Tracks = [shortTrack, longTrack];
+    state.song = {
+      version: 2,
+      enabled: true,
+      name: 'Longest Track Boundary',
+      sections: [
+        { name: 'First', startBar: 0, tempo: 120, repeats: 1, tracks: [shortTrack, longTrack] },
+        { name: 'Next', startBar: 1, tempo: 120, repeats: 1, tracks: [shortTrack, longTrack] },
+      ],
+    };
+    await AppState.loadPresetData(state);
+    AppState.applySongSectionForBar(0);
+    return {
+      shortTrackNext: AppState.getNextSongPosition(0, 0, 2),
+      conductorDuringLongTrack: AppState.getNextSongPosition(2, 0, 4, { useLongestTrack: true }),
+      conductorAtLastBeat: AppState.getNextSongPosition(3, 0, 4, { useLongestTrack: true }),
+    };
+  });
+  expect(result.shortTrackNext.bar).toBe(1);
+  expect(result.conductorDuringLongTrack.bar).toBe(3);
+  expect(result.conductorAtLastBeat.bar).toBe(1);
+});
+  test('song section playback adds and removes runtime tracks to match each section snapshot', async ({ page }) => {
   await page.goto('./');
   const result = await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);

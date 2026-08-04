@@ -28,6 +28,37 @@ function animateRangeValue(input, targetValue, duration = 300) {
 let activeSoundPicker = null;
 let isBeatEditMode = false;
 
+function syncModeControls() {
+  const restActive = AppState.isRestMode();
+  const accentActive = AppState.isAccentMode();
+  document.body.classList.toggle("beat-edit-mode", isBeatEditMode);
+  document.querySelectorAll(".beat-edit-btn").forEach(button => {
+    button.classList.toggle("active", isBeatEditMode);
+    button.setAttribute("aria-pressed", String(isBeatEditMode));
+  });
+  document.querySelectorAll(".rest-button").forEach(button => button.classList.toggle("active", restActive));
+  document.querySelectorAll(".accent-button").forEach(button => button.classList.toggle("active", accentActive));
+  document.querySelectorAll(".sub-sound-label").forEach(label => label.classList.toggle("rest-mode-active", restActive));
+  document.querySelectorAll(".bar-visual").forEach(bar => {
+    bar.classList.toggle("rest-mode-active", restActive);
+    bar.classList.toggle("accent-mode-active", accentActive);
+  });
+}
+
+function setExclusiveEditMode(mode) {
+  if (mode === "rest") {
+    isBeatEditMode = false;
+    AppState.setAccentMode(false);
+  } else if (mode === "accent") {
+    isBeatEditMode = false;
+    AppState.setRestMode(false);
+  } else if (mode === "beat") {
+    AppState.setRestMode(false);
+    AppState.setAccentMode(false);
+  }
+  syncModeControls();
+}
+
 function getSoundOptions() {
   const synthSounds = [
     "Synth Kick", "Synth Snare", "Synth Clap", "Synth HiHat", "Synth Open HiHat",
@@ -619,6 +650,8 @@ const TrackController = {
     } else if (target.matches(".rest-button") || target.closest(".rest-button")) {
         const newRestModeState = !AppState.isRestMode();
         AppState.setRestMode(newRestModeState);
+        if (newRestModeState) setExclusiveEditMode("rest");
+        else syncModeControls();
 
         const restActive = AppState.isRestMode();
         const accentActive = AppState.isAccentMode();
@@ -652,6 +685,8 @@ const TrackController = {
     } else if (target.matches(".accent-button") || target.closest(".accent-button")) {
         const newAccentModeState = !AppState.isAccentMode();
         AppState.setAccentMode(newAccentModeState);
+        if (newAccentModeState) setExclusiveEditMode("accent");
+        else syncModeControls();
 
         const restActive = AppState.isRestMode();
         const accentActive = AppState.isAccentMode();
@@ -686,6 +721,8 @@ const TrackController = {
         AudioController.toggleRecording(containerIndex);
     } else if (target.matches(".beat-edit-btn") || target.closest(".beat-edit-btn")) {
         isBeatEditMode = !isBeatEditMode;
+        if (isBeatEditMode) setExclusiveEditMode("beat");
+        else syncModeControls();
         document.body.classList.toggle("beat-edit-mode", isBeatEditMode);
         document.querySelectorAll(".beat-edit-btn").forEach(button => {
           button.classList.toggle("active", isBeatEditMode);

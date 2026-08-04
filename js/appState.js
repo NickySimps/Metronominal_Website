@@ -357,6 +357,7 @@ const AppState = (function () {
   let volume = 1.0;
   let countInBars = 0;
   let song = defaultSong(tempo);
+  let activeSongSectionIndex = 0;
   let Tracks = [
     {
       barSettings: [{ beats: 4, subdivision: 1, rests: [] }],
@@ -578,6 +579,7 @@ const AppState = (function () {
       if (!song.enabled) return false;
       const section = publicAPI.getSongSectionForBar(barIndex);
       if (!Array.isArray(section?.tracks)) return false;
+      activeSongSectionIndex = section.index;
       section.tracks.forEach((snapshot, index) => {
         const track = Tracks[index] || (Tracks[index] = {
           ...JSON.parse(JSON.stringify(snapshot)),
@@ -620,14 +622,30 @@ const AppState = (function () {
       }
       return true;
     },
-    getNextSongPosition: (barIndex = 0, repeatIteration = 0, barCount = Tracks[0]?.barSettings?.length || 1) => {
-      const safeBarCount = Math.max(1, Math.min(Number.parseInt(barCount, 10) || 1, 64));
+    getNextSongPosition: (barIndex = 0, repeatIteration = 0, barCount = Tracks[0]?.barSettings?.length || 1, options = {}) => {
+      const useLongestTrack = options.useLongestTrack === true;
+      const longestTrackBarCount = Tracks.reduce((longest, track) => Math.max(longest, track.barSettings?.length || 0), 0);
+      const requestedBarCount = Number.parseInt(barCount, 10) || 1;
+      const safeBarCount = Math.max(1, Math.min(
+        useLongestTrack ? Math.max(requestedBarCount, longestTrackBarCount || 1) : requestedBarCount,
+        64,
+      ));
       const currentBar = Math.max(0, Math.min(Number.parseInt(barIndex, 10) || 0, safeBarCount - 1));
       if (!song.enabled) return { bar: (currentBar + 1) % safeBarCount, repeatIteration: 0 };
-      const active = publicAPI.getSongSectionForBar(currentBar);
+      let active;
+      if (!useLongestTrack) {
+        active = publicAPI.getSongSectionForBar(currentBar);
+      } else {
+        const activeIndex = Math.min(activeSongSectionIndex, Math.max(0, song.sections.length - 1));
+        active = { index: activeIndex, ...song.sections[activeIndex] };
+      }
       const nextSection = song.sections[active.index + 1];
-      const sectionEnd = Math.min(nextSection?.startBar ?? safeBarCount, safeBarCount);
-      if (currentBar + 1 < sectionEnd) return {
+      const longestSectionEnd = useLongestTrack
+        ? Math.max(nextSection?.startBar ?? 0, longestTrackBarCount)
+        : (nextSection?.startBar ?? safeBarCount);
+      const sectionEnd = Math.min(longestSectionEnd || safeBarCount, safeBarCount);
+      const repeatBoundary = nextSection?.startBar ?? sectionEnd;
+      if (currentBar + 1 < repeatBoundary) return {
         bar: currentBar + 1,
         repeatIteration: Math.max(0, Math.min(Number.parseInt(repeatIteration, 10) || 0, 15)),
       };
@@ -635,7 +653,11 @@ const AppState = (function () {
       if (currentIteration + 1 < active.repeats) {
         return { bar: active.startBar, repeatIteration: currentIteration + 1 };
       }
-      return { bar: sectionEnd >= safeBarCount ? 0 : sectionEnd, repeatIteration: 0 };
+      if (currentBar + 1 < sectionEnd) {
+        return { bar: currentBar + 1, repeatIteration: 0 };
+      }
+      const transitionBar = nextSection ? nextSection.startBar : 0;
+      return { bar: transitionBar >= safeBarCount ? 0 : transitionBar, repeatIteration: 0 };
     },
     addTapTimestamp: (timestamp) => {
       if (

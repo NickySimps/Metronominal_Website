@@ -35,6 +35,12 @@ const LONG_PRESS_DURATION = 200; // ms
 const TOUCH_LONG_PRESS_DURATION = 450; // Require a deliberate touch hold instead of opening during a swipe
 const POINTER_MOVE_THRESHOLD = 45; // pixels
 
+function clearBeatSoundOverride(barData, beatIndex) {
+  if (!barData?.beatSounds || typeof barData.beatSounds !== "object") return;
+  delete barData.beatSounds[beatIndex];
+  if (Object.keys(barData.beatSounds).length === 0) delete barData.beatSounds;
+}
+
 function openSubdivisionSelectorForSelectedBar() {
   const trackIndex = AppState.getSelectedTrackIndex();
   const barIndex = AppState.getSelectedBarIndexInContainer();
@@ -259,6 +265,7 @@ function onBarPointerDown(event) {
           const newBarSettings = [...track.barSettings];
           newBarSettings[barIndex].rests = rests;
           newBarSettings[barIndex].velocities = velocities;
+          clearBeatSoundOverride(newBarSettings[barIndex], beatIndex);
           AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
           BarDisplayController.updateBar(containerIndex, barIndex);
         } else if (AppState.isAccentMode()) {
@@ -351,6 +358,7 @@ function onWindowPointerMove(event) {
               const newBarSettings = [...track.barSettings];
               newBarSettings[clickedBarIndex].rests = newRests;
               newBarSettings[clickedBarIndex].velocities = velocities;
+              clearBeatSoundOverride(newBarSettings[clickedBarIndex], beatIndex);
               AppState.updateTrack(clickedContainerIndex, { barSettings: newBarSettings });
               BarDisplayController.updateBar(clickedContainerIndex, clickedBarIndex);
             } else if (AppState.isAccentMode()) {

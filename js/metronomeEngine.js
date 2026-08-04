@@ -227,14 +227,18 @@ function advanceTrackBeat(track) {
             }
             track.currentBar = nextBar;
         } else {
+            const conductorTrack = AppState.getTracks().reduce((longest, candidate) => (
+                (candidate.barSettings?.length || 0) > (longest?.barSettings?.length || 0) ? candidate : longest
+            ), AppState.getTracks()[0]);
             const nextPosition = AppState.getNextSongPosition(
                 track.currentBar,
                 track.songRepeatIteration || 0,
-                track.barSettings.length
+                track.barSettings.length,
+                { useLongestTrack: track === conductorTrack || track.barSettings.length === conductorTrack.barSettings.length }
             );
             track.currentBar = nextPosition.bar;
             track.songRepeatIteration = nextPosition.repeatIteration;
-            if (track === AppState.getTracks()[0]) AppState.applySongSectionForBar(track.currentBar);
+            if (track === conductorTrack) AppState.applySongSectionForBar(track.currentBar);
         }
     }
 }
