@@ -142,7 +142,6 @@ const Oscilloscope = {
         if (event.pointerType === "touch") event.preventDefault();
         modePressStart = { x: event.clientX, y: event.clientY };
         clearModePress();
-        modePressStart = { x: event.clientX, y: event.clientY };
         modePressTimer = setTimeout(openModeMenu, 500);
       });
       btn.addEventListener("pointermove", (event) => {

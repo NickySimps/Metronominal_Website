@@ -9,15 +9,6 @@ import { frequencyToNote, noteToFrequency, noteStrings, generateNoteFrequencies,
 import { Slider } from './slider.js';
 import SoundSynth from './soundSynth.js';
 import { normalizeFilterSettings, normalizeEffectSettings, createSoundFilterInput, getReversedAudioBuffer, renderSynthAudioBuffer } from './audioEffects.js';
-
-function createFilterVisualizationOverlay() {
-  const overlay = document.createElement("div");
-  overlay.className = "filter-visualization-overlay";
-  overlay.setAttribute("aria-hidden", "true");
-  overlay.innerHTML = '<span class="filter-overlay-region filter-overlay-high-pass"></span><span class="filter-overlay-region filter-overlay-low-pass"></span><span class="filter-overlay-label filter-overlay-high-pass-label">HP</span><span class="filter-overlay-label filter-overlay-low-pass-label">LP</span>';
-  return overlay;
-}
-
 const SoundSettingsModal = {
   isNoteSnapping: false,
   isQuantizing: false,

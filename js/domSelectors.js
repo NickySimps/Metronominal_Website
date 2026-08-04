@@ -30,7 +30,6 @@ const DOM = {
     get countInBarsSelect() { return document.getElementById('count-in-bars-select'); },
     get measuresContainer() { return document.querySelector('.measures-container'); },
     get metronomeContainer() { return document.querySelector('.metronome-container'); },
-    get measuresContainer() { return document.querySelector('.measures-container'); },
     get barsContainer() { return document.querySelector('.bars-container'); },
 
     // Volume Control
@@ -56,7 +55,7 @@ const DOM = {
     get syncRole() { return document.getElementById('sync-role'); },
     get syncQuality() { return document.getElementById('sync-quality'); },
     get syncDiagnosticsBtn() { return document.getElementById('sync-diagnostics-btn'); },
-    get syncDiagnosticsModal() { return document.getElementById('sync-diagnostics-modal'); },
+    get syncDiagnosticsModal() { return document.getElementById('sync-diagnostics-panel'); },
     get audioLatencySlider() { return document.getElementById('audio-latency-slider'); },
     get audioLatencyValue() { return document.getElementById('audio-latency-value'); },
 
