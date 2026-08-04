@@ -1260,6 +1260,7 @@ test.describe('mode controls responsive layout', () => {
       const fxHasReset = Boolean(document.querySelector('#sound-effects-modal #reset-sound-btn'));
       document.querySelector('#sound-effects-close').click();
       document.querySelector('#reset-sound-btn').click();
+      const resetAnimation = getComputedStyle(document.querySelector('#reset-sound-btn')).animationName;
       document.querySelector('#sound-effects-btn').click();
       const fxValuesAfterSoundReset = Object.fromEntries(['distortion', 'delayMix', 'delayTime', 'reverbMix'].map((param) => [
         param,
@@ -1268,6 +1269,7 @@ test.describe('mode controls responsive layout', () => {
       const settings = AppState.getTracks()[0].mainBeatSound.settings;
       return {
         fxHasReset,
+        resetAnimation,
         fxValuesAfterSoundReset,
         volume: settings.volume,
         pitchShift: settings.pitchShift,
@@ -1284,6 +1286,7 @@ test.describe('mode controls responsive layout', () => {
       };
     });
     expect(result.fxHasReset).toBe(false);
+    expect(result.resetAnimation).toBe('sound-reset-pulse');
     expect(result.fxValuesAfterSoundReset).toEqual({ distortion: '0', delayMix: '0', delayTime: '0', reverbMix: '0' });
     expect(result).toMatchObject({ volume: 1, pitchShift: 0, trimStart: 0, probability: 100, allowOverlap: true, retrigger: true, reverse: false, highPassFrequency: 20, lowPassFrequency: 20000, distortion: 0, delayMix: 0, reverbMix: 0 });
   });

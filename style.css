@@ -2304,6 +2304,14 @@ button:active,
   border-radius: var(--BorderRadius);
   transition-duration: 0.4s;
 }
+#reset-sound-btn.resetting {
+  animation: sound-reset-pulse 300ms ease-out;
+}
+@keyframes sound-reset-pulse {
+  0% { transform: scale(1); filter: brightness(1); }
+  45% { transform: scale(.94); filter: brightness(1.25); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
 
 #reset-sound-btn:hover {
   background-color: var(--Alt2);

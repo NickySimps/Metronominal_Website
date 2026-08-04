@@ -397,6 +397,13 @@ const SoundSettingsModal = {
   },
 
   resetSoundSettings() {
+    const resetButton = DOM.soundSettingsModal.querySelector("#reset-sound-btn");
+    if (resetButton) {
+      resetButton.classList.remove("resetting");
+      void resetButton.offsetWidth;
+      resetButton.classList.add("resetting");
+      window.setTimeout(() => resetButton.classList.remove("resetting"), 320);
+    }
     const soundInfo = this.getCurrentSoundInfo();
     if (!soundInfo) return;
     const fromSliderValues = Object.fromEntries(
