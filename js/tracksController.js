@@ -286,7 +286,16 @@ const TrackController = {
       );
       trackWrapper.addEventListener("mouseup", TrackController.handleMouseUp);
     }
-    document.addEventListener("songtracksectionchange", animateSongTrackWhip);
+    document.addEventListener("songtracksectionchange", (event) => {
+      const isDesktopFinePointer = window.matchMedia("(min-width: 769px) and (pointer: fine)").matches;
+      const nextCount = Number(event.detail?.trackCount);
+      const wrapper = document.getElementById("all-tracks-wrapper");
+      if (isDesktopFinePointer && wrapper && Number.isFinite(nextCount) && wrapper.children.length !== nextCount) {
+        animateSongTrackWhip(event);
+        return;
+      }
+      TrackController.renderTracks();
+    });
     document.addEventListener("soundSaved", () => {
         TrackController.renderTracks();
     });

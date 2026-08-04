@@ -443,6 +443,41 @@ test('song section playback adds and removes runtime tracks to match each sectio
   });
   expect(result).toEqual({ fullCount: 2, reducedCount: 1, finalCount: 2, finalName: 'Second section track', finalTracksRunnable: true });
 });
+test('mobile Song Mode track DOM follows the active section snapshot', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 800 });
+  await page.goto('./');
+  const result = await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const state = await AppState.getCurrentStateForPreset(true);
+    const first = structuredClone(state.Tracks[0]);
+    first.barSettings = [structuredClone(first.barSettings[0]), structuredClone(first.barSettings[0])];
+    const second = structuredClone(first);
+    second.name = 'Mobile section track';
+    state.song = {
+      version: 2,
+      enabled: true,
+      name: 'Mobile Track Arrangement',
+      sections: [
+        { name: 'Full', startBar: 0, tempo: 120, repeats: 1, tracks: [first, second] },
+        { name: 'Reduced', startBar: 1, tempo: 120, repeats: 1, tracks: [first] },
+      ],
+    };
+    state.Tracks = [first];
+    await AppState.loadPresetData(state);
+    AppState.applySongSectionForBar(0);
+    await new Promise(requestAnimationFrame);
+    const full = [...document.querySelectorAll('#all-tracks-wrapper .track-name')].map(node => node.textContent);
+    AppState.applySongSectionForBar(1);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const reduced = [...document.querySelectorAll('#all-tracks-wrapper .track-name')].map(node => node.textContent);
+    return { full, reduced, runtimeCount: AppState.getTracks().length, sectionTrackCount: AppState.getSong().sections[1]?.tracks?.length };
+  });
+  expect(result.full).toHaveLength(2);
+  expect(result.full).toContain('Mobile section track');
+  expect(result.runtimeCount).toBe(1);
+  expect(result.sectionTrackCount).toBe(1);
+  expect(result.reduced).toHaveLength(1);
+});
 test('song v2 normalizes snapshots, repeats section ranges, and derives a missing song name from its preset', async ({ page }) => {
   await page.goto('./');
   const result = await page.evaluate(async () => {
