@@ -234,12 +234,13 @@ function updateTrackElement(trackElement, track, index) {
 }
 
 let songWhipTimer = null;
+let songMobileSwoopTimer = null;
 
 function animateSongTrackWhip(event) {
   const wrapper = document.getElementById("all-tracks-wrapper");
   if (!wrapper || !window.matchMedia("(min-width: 769px) and (pointer: fine)").matches) return;
   const nextCount = Number(event.detail?.trackCount);
-  if (!Number.isFinite(nextCount) || wrapper.children.length === nextCount) return;
+  if (!Number.isFinite(nextCount)) return;
 
   if (songWhipTimer) window.clearTimeout(songWhipTimer);
   wrapper.classList.remove("song-whip-in", "song-whip-out", "song-whip-wrap");
@@ -290,11 +291,21 @@ const TrackController = {
       const isDesktopFinePointer = window.matchMedia("(min-width: 769px) and (pointer: fine)").matches;
       const nextCount = Number(event.detail?.trackCount);
       const wrapper = document.getElementById("all-tracks-wrapper");
-      if (isDesktopFinePointer && wrapper && Number.isFinite(nextCount) && wrapper.children.length !== nextCount) {
+      if (isDesktopFinePointer) {
         animateSongTrackWhip(event);
         return;
       }
+      if (songMobileSwoopTimer) window.clearTimeout(songMobileSwoopTimer);
+      if (wrapper) {
+        wrapper.classList.remove("song-mobile-swoop");
+        void wrapper.offsetWidth;
+        wrapper.classList.add("song-mobile-swoop");
+      }
       TrackController.renderTracks();
+      songMobileSwoopTimer = window.setTimeout(() => {
+        wrapper?.classList.remove("song-mobile-swoop");
+        songMobileSwoopTimer = null;
+      }, 250);
     });
     document.addEventListener("soundSaved", () => {
         TrackController.renderTracks();

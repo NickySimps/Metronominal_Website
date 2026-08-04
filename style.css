@@ -1818,6 +1818,20 @@ button:active,
   }
 }
 
+@media (max-width: 768px), (pointer: coarse) {
+  #all-tracks-wrapper.song-mobile-swoop {
+    animation: song-mobile-swoop 250ms cubic-bezier(.2,.8,.25,1) both;
+    transform-origin: center;
+  }
+}
+
+@keyframes song-mobile-swoop {
+  0% { transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+  35% { transform: translate3d(-7px, 0, 0) scale(.995); filter: blur(1.5px); }
+  68% { transform: translate3d(5px, 0, 0) scale(1.002); filter: blur(.5px); }
+  100% { transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+}
+
 @keyframes song-track-whip-out {
   from { transform: translate3d(0, 0, 0); filter: blur(0); }
   to { transform: translate3d(-115%, 0, 0); filter: blur(5px); }
@@ -1837,7 +1851,8 @@ button:active,
 @media (prefers-reduced-motion: reduce) {
   #all-tracks-wrapper.song-whip-out,
   #all-tracks-wrapper.song-whip-wrap,
-  #all-tracks-wrapper.song-whip-in {
+  #all-tracks-wrapper.song-whip-in,
+  #all-tracks-wrapper.song-mobile-swoop {
     animation: none;
     filter: none;
     transform: none;

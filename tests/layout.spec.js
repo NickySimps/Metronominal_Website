@@ -1311,6 +1311,17 @@ test.describe('mode controls responsive layout', () => {
     expect(result.reverbFeedback).toBe(0.25);
   });
 
+  test('desktop Song Mode whips even when the section keeps the same track count', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(() => {
+      const wrapper = document.querySelector('#all-tracks-wrapper');
+      wrapper.innerHTML = '<div class="track"></div>';
+      document.dispatchEvent(new CustomEvent('songtracksectionchange', { detail: { sectionIndex: 1, trackCount: 1 } }));
+      return { outgoing: wrapper.className, animation: getComputedStyle(wrapper).animationName };
+    });
+    expect(result.outgoing).toContain('song-whip-out');
+    expect(result.animation).toBe('song-track-whip-out');
+  });
   test('reverse transforms synthesized preview envelopes', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(async () => {

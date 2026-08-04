@@ -348,9 +348,46 @@ const SoundSettingsModal = {
       }
   },
 
+  sliderValueForSettings(param, value) {
+    if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd", "delayTime"].includes(param)) return Number(value || 0) * 1000;
+    if (["volume", "distortion", "delayMix", "delayFeedback", "reverbMix", "reverbFeedback"].includes(param)) return Number(value || 0) * 100;
+    return Number(value || 0);
+  },
+
+  formatAnimatedSliderValue(param, value, slider) {
+    if (param.toLowerCase().includes("frequency")) return `${Number(value).toFixed(2)} Hz`;
+    if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd"].includes(param)) return `${Number(value).toFixed(0)} ms`;
+    if (param === "delayTime") return this.formatDelayTimeDisplay(value, Number(slider.max));
+    if (["distortion", "delayMix", "delayFeedback", "reverbMix", "reverbFeedback", "volume"].includes(param)) return `${Number(value).toFixed(0)}%`;
+    return String(Number(value).toFixed(2));
+  },
+
+  animateSliderValues(fromValues, toValues) {
+    const start = performance.now();
+    const duration = 250;
+    const frame = (now) => {
+      const progress = Math.min(1, (now - start) / duration);
+      const eased = 1 - ((1 - progress) ** 3);
+      Object.entries(toValues).forEach(([param, target]) => {
+        const slider = document.querySelector(`[data-param="${param}"]`);
+        if (!slider) return;
+        const from = Number.isFinite(Number(fromValues[param])) ? Number(fromValues[param]) : Number(target);
+        const value = from + (Number(target) - from) * eased;
+        slider.value = String(value);
+        slider.setAttribute("aria-valuenow", String(value));
+        const output = slider.closest(".slider-container")?.querySelector(":scope > span");
+        if (output) output.textContent = this.formatAnimatedSliderValue(param, value, slider);
+      });
+      if (progress < 1) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  },
+
   resetEffectsSettings() {
     const soundInfo = this.getCurrentSoundInfo();
     if (!soundInfo) return;
+    const effectParams = ["distortion", "delayMix", "delayTime", "delayFeedback", "reverbMix", "reverbFeedback"];
+    const fromValues = Object.fromEntries(effectParams.map((param) => [param, Number(document.querySelector(`[data-param="${param}"]`)?.value)]));
     const defaults = AppState.getDefaultSoundSettings(soundInfo.sound) || {};
     Object.assign(soundInfo.settings, {
       distortion: Number(defaults.distortion) || 0,
@@ -362,16 +399,8 @@ const SoundSettingsModal = {
     });
     this.saveCurrentSoundInfo(soundInfo);
     this.currentSoundSettings = soundInfo.settings;
-    const effectValues = { distortion: soundInfo.settings.distortion, delayMix: soundInfo.settings.delayMix, delayTime: soundInfo.settings.delayTime, delayFeedback: soundInfo.settings.delayFeedback, reverbMix: soundInfo.settings.reverbMix, reverbFeedback: soundInfo.settings.reverbFeedback };
-    Object.entries(effectValues).forEach(([param, value]) => {
-      const slider = this.sliders.find((item) => item.sliderElement?.dataset.param === param);
-      if (!slider?.sliderElement) return;
-      slider.sliderElement.value = String(value);
-      const output = slider.sliderElement.closest('.slider-container')?.querySelector(':scope > span');
-      if (output) output.textContent = param === 'delayTime'
-        ? this.formatDelayTimeDisplay(value, Number(slider.sliderElement.max))
-        : `${Math.round(Number(value) * 100)}%`;
-    });
+    const effectValues = Object.fromEntries(effectParams.map((param) => [param, this.sliderValueForSettings(param, soundInfo.settings[param])]));
+    this.animateSliderValues(fromValues, effectValues);
     this.updateFilterFeedback();
     sendState(AppState.getCurrentStateForPreset(true));
   },
@@ -379,6 +408,15 @@ const SoundSettingsModal = {
   resetSoundSettings() {
     const soundInfo = this.getCurrentSoundInfo();
     if (!soundInfo) return;
+    const fromSliderValues = Object.fromEntries(
+      [...DOM.soundSettingsModal.querySelectorAll("[data-param]")].map((slider) => [slider.dataset.param, Number(slider.value)])
+    );
+    const animateReset = () => {
+      const toSliderValues = Object.fromEntries(
+        [...DOM.soundSettingsModal.querySelectorAll("[data-param]")].map((slider) => [slider.dataset.param, Number(slider.value)])
+      );
+      this.animateSliderValues(fromSliderValues, toSliderValues);
+    };
 
     const beatContext = this.getCurrentBeatContext();
     if (beatContext) {
@@ -392,6 +430,7 @@ const SoundSettingsModal = {
       document.dispatchEvent(new CustomEvent("soundSaved"));
       this.skipBeatOverrideSave = true;
       this.show(this.currentTrackIndex, this.currentSoundType, beatContext);
+      animateReset();
       return;
     }
 
@@ -432,6 +471,7 @@ const SoundSettingsModal = {
     sendState(AppState.getCurrentStateForPreset(true));
 
     this.show(this.currentTrackIndex, this.currentSoundType, this.getCurrentBeatContext());
+    animateReset();
 
     const trackElement = document.querySelector(`.track[data-container-index="${this.currentTrackIndex}"]`);
     if (trackElement) {
