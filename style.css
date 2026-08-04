@@ -1894,7 +1894,7 @@ button:active,
 @media (min-width: 769px) and (pointer: fine) {
   #all-tracks-wrapper {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
     align-items: start;
     gap: 1rem;
   }
@@ -2087,6 +2087,15 @@ button:active,
   transition: opacity 0.2s ease-out, transform 0.2s ease-out;
   pointer-events: none; /* Initially not interactive */
   overflow: visible;
+}
+
+.subdivision-selector-shield {
+  position: fixed;
+  inset: 0;
+  z-index: 4999;
+  background: transparent;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .subdivision-options-container.above {
@@ -2803,15 +2812,19 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   align-items: center;
   gap: 8px;
   width: 100%;
+  min-width: 0;
   box-sizing: border-box;
 }
 
 .track-pitch-slider,
 .track-swing-slider {
-  flex: 1 1 auto;
-  width: 100%;
+  flex: 1 1 0;
+  width: 0;
   max-width: 100%;
+  min-width: 0;
+  height: 1.5rem;
   cursor: pointer;
+  touch-action: none;
 }
 
 .track-pitch-slider,
@@ -2823,7 +2836,16 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 .track-swing-group {
   width: 100%;
   max-width: 100%;
+  min-width: 0;
   flex: 1 1 100%;
+}
+.track-pitch-slider::-webkit-slider-runnable-track,
+.track-swing-slider::-webkit-slider-runnable-track,
+.track-pitch-slider::-moz-range-track,
+.track-swing-slider::-moz-range-track {
+  width: 100%;
+  height: 4px;
+  cursor: pointer;
 }
 
 .track-slider-label {
@@ -4408,7 +4430,7 @@ body.beat-edit-mode .beat-square {
   }
   .track-sound-controls {
     display: grid;
-    grid-template-columns: 3rem minmax(0, 1fr) repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(3rem, auto) minmax(0, 1fr) minmax(0, 1fr);
     gap: .35rem;
     min-width: 0;
   }
@@ -4423,12 +4445,14 @@ body.beat-edit-mode .beat-square {
     font-size: .68rem;
   }
   .edit-buttons-col,
-  .sound-selectors-col {
+  .sound-selectors-col,
+  .mode-buttons-col {
     min-width: 0;
     width: 100%;
   }
   .edit-buttons-col .sound-label { width: 100%; padding-inline: 0; }
   .sound-selectors-col { min-width: 0; }
+  .mode-buttons-col button { min-width: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

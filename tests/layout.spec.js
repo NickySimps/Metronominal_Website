@@ -1376,6 +1376,58 @@ test.describe('mode controls responsive layout', () => {
     }
   });
 
+  test('mobile track controls fill their controller and desktop pitch/swing sliders span their full tracks', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    const mobile = await page.evaluate(() => {
+      const track = document.querySelector('.track');
+      const controller = track.querySelector('.track-sound-controls');
+      const soundButtons = [...controller.querySelectorAll('button, .sound-label')];
+      const trackRect = track.getBoundingClientRect();
+      const controllerRect = controller.getBoundingClientRect();
+      return {
+        controllerWidth: controllerRect.width,
+        controllerRight: controllerRect.right,
+        trackRight: trackRect.right,
+        childrenContained: soundButtons.every(button => {
+          const rect = button.getBoundingClientRect();
+          return rect.left >= controllerRect.left - .5 && rect.right <= controllerRect.right + .5;
+        }),
+      };
+    });
+    expect(mobile.controllerWidth).toBeGreaterThan(0);
+    expect(mobile.controllerRight).toBeLessThanOrEqual(mobile.trackRight + .5);
+    expect(mobile.childrenContained).toBe(true);
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/');
+    for (const selector of ['.track-pitch-slider', '.track-swing-slider']) {
+      const slider = page.locator(selector).first();
+      await slider.scrollIntoViewIfNeeded();
+      const box = await slider.boundingBox();
+      expect(box).not.toBeNull();
+      await page.mouse.move(box.x + 1, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width - 1, box.y + box.height / 2, { steps: 8 });
+      await page.mouse.up();
+      await expect(slider).toHaveJSProperty('value', selector.includes('pitch') ? '12' : '100');
+    }
+  });
+
+  test('subdivision selector shields controls underneath it', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    await page.locator('.increase-bar-length').click({ clickCount: 2 });
+    await page.locator('.bar-beat-indicator').first().click();
+    await expect(page.locator('.subdivision-options-container.visible').first()).toBeVisible();
+    await expect(page.locator('.subdivision-selector-shield')).toBeVisible();
+    const record = page.locator('.track-record-btn').first();
+    const recordBox = await record.boundingBox();
+    await page.mouse.click(recordBox.x + recordBox.width / 2, recordBox.y + recordBox.height / 2);
+    await expect(record).not.toHaveClass(/active/);
+    await expect(page.locator('.subdivision-selector-shield')).toBeHidden();
+  });
+
   test('desktop Song Mode track changes use a blurred right-to-left whip transition', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(() => {

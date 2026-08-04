@@ -28,6 +28,7 @@ let subdivisionSelectionInProgress = false;
 let lastPaintedBeatSquare = null;
 let dragPaintAction = null;
 let dragPaintTargetVel = 0.7;
+let subdivisionShield = null;
 const LONG_PRESS_DURATION = 200; // ms
 const POINTER_MOVE_THRESHOLD = 35; // pixels (Forgiving for touch & mouse hold)
 
@@ -54,6 +55,15 @@ function calculateTotalSubBeats(mainBeatsInBar, subdivision) {
     totalSubBeatsNeeded = mainBeatsInBar * subdivisionFloat;
   }
   return totalSubBeatsNeeded;
+}
+
+function applyBarLayout(barDiv, subdivision, totalSubBeats) {
+  const subdivisionNumber = Number(subdivision);
+  barDiv.classList.toggle("flex-subdivision", ![1, 2, 4].includes(subdivisionNumber));
+  const columns = ![1, 2, 4].includes(subdivisionNumber)
+    ? Math.max(1, Math.min(8, subdivisionNumber > 1 ? Math.ceil(subdivisionNumber) : Math.ceil(totalSubBeats)))
+    : Math.min(4, Math.max(1, Math.ceil(totalSubBeats)));
+  barDiv.style.setProperty("--beat-columns", String(columns));
 }
 
 // Helper function to determine if a beat should be marked as main beat
@@ -517,6 +527,21 @@ function showSubdivisionSelector(barElement) {
         higherSubdivisions = subdivisionOptions.filter(opt => opt.value > currentSubdivision);
     }
 
+    subdivisionShield?.remove();
+    subdivisionShield = document.createElement("div");
+    subdivisionShield.className = "subdivision-selector-shield";
+    subdivisionShield.setAttribute("aria-hidden", "true");
+    subdivisionShield.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+    });
+    subdivisionShield.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      hideSubdivisionSelector();
+    });
+    document.body.appendChild(subdivisionShield);
+
     const barRect = barElement.getBoundingClientRect();
 
     const createContainer = (subdivisions, position) => {
@@ -656,6 +681,8 @@ function hideSubdivisionSelector() {
         window.removeEventListener('click', currentHideOnClickOutside);
         currentHideOnClickOutside = null;
     }
+    subdivisionShield?.remove();
+    subdivisionShield = null;
     const containers = document.querySelectorAll('.subdivision-options-container.visible');
     containers.forEach(container => {
         container.classList.remove('visible');
@@ -729,11 +756,7 @@ const BarDisplayController = {
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
         const totalSubBeatsNeeded = calculateTotalSubBeats(mainBeatsInBar, subdivision);
-        const subdivisionNumber = Number(subdivision);
-        const columns = ![1, 2, 4].includes(subdivisionNumber)
-          ? Math.max(1, Math.min(8, subdivisionNumber > 1 ? Math.ceil(subdivisionNumber) : Math.ceil(totalSubBeatsNeeded)))
-          : Math.min(4, Math.max(1, Math.ceil(totalSubBeatsNeeded)));
-        barDiv.style.setProperty("--beat-columns", String(columns));
+        applyBarLayout(barDiv, subdivision, totalSubBeatsNeeded);
         const rests = barData.rests || [];
 
         for (let i = 0; i < totalSubBeatsNeeded; i++) {
@@ -789,11 +812,7 @@ const BarDisplayController = {
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
         const totalSubBeatsNeeded = calculateTotalSubBeats(mainBeatsInBar, subdivision);
-        const subdivisionNumber = Number(subdivision);
-        const columns = ![1, 2, 4].includes(subdivisionNumber)
-          ? Math.max(1, Math.min(8, subdivisionNumber > 1 ? Math.ceil(subdivisionNumber) : Math.ceil(totalSubBeatsNeeded)))
-          : Math.min(4, Math.max(1, Math.ceil(totalSubBeatsNeeded)));
-        barDiv.style.setProperty("--beat-columns", String(columns));
+        applyBarLayout(barDiv, subdivision, totalSubBeatsNeeded);
         const rests = barData.rests || [];
 
         const existingBeatSquares = Array.from(
@@ -926,7 +945,6 @@ const BarDisplayController = {
         );
         const rests = barData.rests || [];
         let isNewBarInstance = false;
-
         if (barDiv) {
           existingBarVisualsMap.delete(String(barIndex));
         } else {
@@ -949,6 +967,7 @@ const BarDisplayController = {
             }, { once: true });
           }
         }
+        applyBarLayout(barDiv, subdivision, totalSubBeatsNeeded);
         
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
