@@ -607,6 +607,8 @@ test.describe('mode controls responsive layout', () => {
         hasScopeModeSelect: Boolean(modal.querySelector('#sound-scope-mode-select')),
         hasWaveformTools: Boolean(modal.querySelector('.waveform-tools')),
         hasPlaybackControls: Boolean(modal.querySelector('.sample-playback-controls')),
+        playbackLabel: modal.querySelector('.sample-playback-controls-title')?.textContent.trim(),
+        playbackLabelRole: modal.querySelector('.sample-playback-controls-title')?.getAttribute('role'),
         hasReverseToggle: Boolean(modal.querySelector('#sample-reverse-toggle')),
         probabilityValue: Number(modal.querySelector('#sample-probability').value),
         probabilitySliderCount: modal.querySelectorAll('#sample-probability').length,

@@ -3978,7 +3978,21 @@ body.beat-edit-mode .beat-square {
   color: var(--TextPrimary, currentColor);
   font-size: .8rem;
 }
-#sound-settings-modal .sample-playback-controls-title { font-weight: 700; color: var(--TextSecondary, currentColor); }
+#sound-settings-modal .sample-playback-controls-title {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: .22rem .5rem;
+  border: 1px solid var(--Main);
+  border-radius: var(--BorderRadius, .5rem);
+  background: color-mix(in srgb, var(--Main) 18%, var(--Background, transparent));
+  color: var(--TextPrimary, currentColor);
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .035em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
 #sound-settings-modal .sample-playback-controls label { display: inline-flex; align-items: center; gap: .35rem; min-height: 1.75rem; cursor: pointer; }
 #sound-settings-modal .sample-playback-controls input { width: 1rem; height: 1rem; accent-color: var(--Main); }
 #sound-settings-modal .sample-probability-control { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .35rem .55rem; width: 100%; box-sizing: border-box; margin: .55rem 0 .7rem; padding: .45rem .6rem; border: 1px solid color-mix(in srgb, var(--Main) 42%, transparent); border-radius: var(--BorderRadius); background: color-mix(in srgb, var(--Main) 8%, transparent); }
