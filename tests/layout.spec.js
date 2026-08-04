@@ -1177,6 +1177,58 @@ test.describe('mode controls responsive layout', () => {
     expect(result).toEqual({ overlap: false, retrigger: false, reverse: true, probability: 35, savedOverlap: false, savedRetrigger: false, savedReverse: true, savedProbability: 35 });
   });
 
+  test('Reset restores complete sound settings without appearing in the FX modal', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const [{ default: SoundSettingsModal }, { default: AppState }] = await Promise.all([
+        import(new URL('js/soundSettingsModal.js', document.baseURI).href),
+        import(new URL('js/appState.js', document.baseURI).href),
+      ]);
+      const track = AppState.getTracks()[0];
+      track.mainBeatSound.sound = 'Click1.mp3';
+      track.mainBeatSound.settings = {
+        volume: 0.2,
+        pitchShift: 12,
+        trimStart: 0.1,
+        trimEnd: 0.2,
+        probability: 35,
+        allowOverlap: false,
+        retrigger: false,
+        reverse: true,
+        highPassFrequency: 4000,
+        lowPassFrequency: 9000,
+        distortion: 0.6,
+        delayMix: 0.5,
+        delayTime: 0.2,
+        reverbMix: 0.4,
+      };
+      await SoundSettingsModal.show(0, 'mainBeatSound');
+      document.querySelector('#sound-effects-btn').click();
+      const fxHasReset = Boolean(document.querySelector('#sound-effects-modal #reset-sound-btn'));
+      document.querySelector('#sound-effects-close').click();
+      document.querySelector('#reset-sound-btn').click();
+      const settings = AppState.getTracks()[0].mainBeatSound.settings;
+      return {
+        fxHasReset,
+        volume: settings.volume,
+        pitchShift: settings.pitchShift,
+        trimStart: settings.trimStart,
+        probability: settings.probability,
+        allowOverlap: settings.allowOverlap,
+        retrigger: settings.retrigger,
+        reverse: settings.reverse,
+        highPassFrequency: settings.highPassFrequency,
+        lowPassFrequency: settings.lowPassFrequency,
+        distortion: settings.distortion,
+        delayMix: settings.delayMix,
+        reverbMix: settings.reverbMix,
+      };
+    });
+    expect(result.fxHasReset).toBe(false);
+    expect(result).toMatchObject({ volume: 1, pitchShift: 0, trimStart: 0, probability: 100, allowOverlap: true, retrigger: true, reverse: false, highPassFrequency: 20, lowPassFrequency: 20000, distortion: 0, delayMix: 0, reverbMix: 0 });
+  });
+
+
   test('reverse transforms synthesized preview envelopes', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(async () => {

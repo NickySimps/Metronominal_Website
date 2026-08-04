@@ -366,9 +366,21 @@ const SoundSettingsModal = {
     // Check if it's a recorded sound (has audioBuffer attached for modal display)
     if (soundInfo.audioBuffer) {
         newSettings = {
+            volume: 1,
             trimStart: 0,
             trimEnd: soundInfo.audioBuffer.duration,
             pitchShift: 0,
+            highPassFrequency: 20,
+            lowPassFrequency: 20000,
+            probability: 100,
+            allowOverlap: true,
+            retrigger: true,
+            reverse: false,
+            fxBypass: false,
+            distortion: 0,
+            delayMix: 0,
+            delayTime: 0,
+            reverbMix: 0,
         };
     } else {
         // For synth sounds, get default settings from AppState
