@@ -1261,6 +1261,24 @@ test.describe('mode controls responsive layout', () => {
   });
 
 
+  test('desktop track grid fits four controllers and beats never overlap', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/');
+    for (let i = 0; i < 3; i += 1) await page.getByRole('button', { name: 'Add track' }).click();
+    const result = await page.evaluate(async () => {
+      await new Promise(requestAnimationFrame);
+      const tracks = [...document.querySelectorAll('#all-tracks-wrapper .track')];
+      const columns = new Set(tracks.map(track => Math.round(track.getBoundingClientRect().left)));
+      const squares = [...document.querySelectorAll('.bar-visual[data-bar-index="0"] .beat-square')].map(square => square.getBoundingClientRect());
+      const overlaps = squares.some((a, i) => squares.slice(i + 1).some(b => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom));
+      return { trackCount: tracks.length, columns: columns.size, widths: tracks.map(track => track.getBoundingClientRect().width), overlaps };
+    });
+    expect(result.trackCount).toBe(4);
+    expect(result.columns).toBe(4);
+    expect(Math.min(...result.widths)).toBeGreaterThan(250);
+    expect(result.overlaps).toBe(false);
+  });
+
   test('desktop Song Mode track changes use a blurred right-to-left whip transition', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(() => {
