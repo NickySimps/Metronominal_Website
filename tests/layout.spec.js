@@ -696,6 +696,10 @@ test.describe('mode controls responsive layout', () => {
       return { tag: element?.tagName, className: element?.className };
     }, { x: editBox.x + editBox.width / 2, y: editBox.y + editBox.height / 2 });
     expect(editHit.className).toContain('beat-edit-btn');
+    const inactiveEditStyle = await editButton.evaluate(button => ({
+      background: getComputedStyle(button).backgroundColor,
+      shadow: getComputedStyle(button).boxShadow,
+    }));
     await page.mouse.click(editBox.x + editBox.width / 2, editBox.y + editBox.height / 2);
     await expect(track.locator('.beat-edit-btn')).toHaveAttribute('aria-pressed', 'true');
     await expect(track.locator('.beat-edit-btn')).toHaveText('✎ Beat');
@@ -703,12 +707,14 @@ test.describe('mode controls responsive layout', () => {
     await expect(track.locator('.rest-button')).toContainText('Rest');
     const modeButtonStyle = await track.evaluate((element) => ({
       editBackground: getComputedStyle(element.querySelector('.beat-edit-btn')).backgroundColor,
+      editShadow: getComputedStyle(element.querySelector('.beat-edit-btn')).boxShadow,
       restBackground: getComputedStyle(element.querySelector('.rest-button')).backgroundColor,
       restText: element.querySelector('.rest-button').textContent.trim(),
       accentText: element.querySelector('.accent-button').textContent.trim(),
       randomText: element.querySelector('.random-btn').textContent.trim(),
     }));
-    expect(modeButtonStyle.editBackground).toBe(modeButtonStyle.restBackground);
+    expect(modeButtonStyle.editBackground).not.toBe(inactiveEditStyle.background);
+    expect(modeButtonStyle.editShadow).not.toBe('none');
     expect(modeButtonStyle.restText).toContain('Rest');
     expect(modeButtonStyle.accentText).toContain('Accent');
     expect(modeButtonStyle.randomText).toContain('Rand');

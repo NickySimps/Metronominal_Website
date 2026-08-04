@@ -3879,12 +3879,6 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
 }
 .app-update-banner[hidden] { display: none !important; }
 
-.beat-edit-btn.active {
-  background-color: var(--Highlight);
-  color: var(--ReadableOnHighlight);
-  box-shadow: none;
-}
-
 /* Keep compact mode controls legible while using simple, theme-colored symbols. */
 .track .rest-button {
   gap: 3px;
