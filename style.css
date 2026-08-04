@@ -2924,6 +2924,7 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   width: min(40rem, 100%);
   max-width: 40rem;
   max-height: calc(100vh - 1rem);
+  max-height: calc(100dvh - 1rem);
   margin: auto;
   padding: clamp(1.25rem, 4vw, 2rem);
   align-items: stretch;
@@ -3792,6 +3793,7 @@ body.beat-edit-mode .beat-square {
   width: min(700px, 100%);
   max-width: 100%;
   max-height: calc(100vh - 1rem);
+  max-height: calc(100dvh - 1rem);
   margin: auto;
   padding: clamp(.75rem, 2vw, 1.25rem);
   overflow-y: auto;
@@ -3800,6 +3802,30 @@ body.beat-edit-mode .beat-square {
   box-sizing: border-box;
   border-radius: var(--BorderRadius);
   z-index: 1;
+}
+.sound-settings-bottom-close,
+.sound-effects-bottom-close {
+  display: block;
+  width: 100%;
+  min-height: 2.5rem;
+  margin-top: 1rem;
+  padding: .55rem .8rem;
+  border: 1px solid var(--BorderColor);
+  border-radius: var(--BorderRadius);
+  background: color-mix(in srgb, var(--Main) 18%, var(--Background, transparent));
+  color: var(--TextPrimary);
+  font-weight: 700;
+}
+.sound-settings-bottom-close:hover,
+.sound-settings-bottom-close:focus-visible,
+.sound-effects-bottom-close:hover,
+.sound-effects-bottom-close:focus-visible {
+  background: var(--Accent);
+  color: var(--TextOnMain);
+}
+#sound-settings-modal .modal-content,
+.sound-effects-content {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
 }
 #sound-settings-modal .slider-container label {
   font-size: clamp(.85rem, 3.6vw, 1.15rem);

@@ -334,7 +334,7 @@ function normalizeSong(value, barCount, fallbackTempo = 120) {
         tempo: Math.max(20, Math.min(Number.parseInt(section?.tempo, 10) || fallbackTempo, 300)),
         repeats: Math.max(1, Math.min(Number.parseInt(section?.repeats, 10) || 1, 16)),
         __clampedStart: Number.isInteger(rawStartBar) && rawStartBar >= safeBarCount,
-        ...(snapshotTracks.length ? { tracks: snapshotTracks } : {}),
+        ...(Array.isArray(section?.tracks) ? { tracks: snapshotTracks } : {}),
       };
     })
     .sort((a, b) => a.startBar - b.startBar)
@@ -577,9 +577,13 @@ const AppState = (function () {
     applySongSectionForBar: (barIndex = 0) => {
       if (!song.enabled) return false;
       const section = publicAPI.getSongSectionForBar(barIndex);
-      if (!Array.isArray(section?.tracks) || !section.tracks.length) return false;
-      Tracks.forEach((track, index) => {
-        const snapshot = section.tracks[index];
+      if (!Array.isArray(section?.tracks)) return false;
+      section.tracks.forEach((snapshot, index) => {
+        const track = Tracks[index] || (Tracks[index] = {
+          ...JSON.parse(JSON.stringify(snapshot)),
+          currentBar: 0,
+          currentBeat: 0,
+        });
         if (!snapshot) return;
         const currentBar = track.currentBar;
         track.name = snapshot.name || track.name;
@@ -599,6 +603,7 @@ const AppState = (function () {
         track.currentBar = Math.min(currentBar, Math.max(0, track.barSettings.length - 1));
         track.currentBeat = 0;
       });
+      Tracks.length = section.tracks.length;
       return true;
     },
     getNextSongPosition: (barIndex = 0, repeatIteration = 0, barCount = Tracks[0]?.barSettings?.length || 1) => {

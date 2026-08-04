@@ -147,8 +147,30 @@ function updateBeatSquareClasses(
 }
 
 function hasBeatSoundOverride(beatOverride) {
+  const neutralEffectDefaults = {
+    distortion: 0,
+    delayMix: 0,
+    delayTime: 0,
+    delayFeedback: 0.25,
+    reverbMix: 0,
+    reverbFeedback: 0.25,
+  };
   return Boolean(beatOverride && typeof beatOverride === "object"
-    && Object.values(beatOverride).some((soundInfo) => soundInfo && typeof soundInfo.sound === "string" && soundInfo.sound));
+    && Object.values(beatOverride).some((soundInfo) => {
+      if (!soundInfo || typeof soundInfo.sound !== "string" || !soundInfo.sound) return false;
+      const defaults = AppState.getDefaultSoundSettings(soundInfo.sound) || {};
+      const settings = soundInfo.settings || {};
+      const keys = new Set([...Object.keys(defaults), ...Object.keys(settings)]);
+      return [...keys].some((key) => {
+        const actual = settings[key];
+        const expected = key in defaults ? defaults[key] : neutralEffectDefaults[key];
+        if (actual === undefined && expected === undefined) return false;
+        if (typeof actual === "number" || typeof expected === "number") {
+          return Math.abs(Number(actual ?? 0) - Number(expected ?? 0)) > 1e-6;
+        }
+        return actual !== expected;
+      });
+    }));
 }
 
 function applyBeatStateClasses(beatSquare, beatIndex, isRested, velocity, isIndividuallyEdited) {

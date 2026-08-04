@@ -167,16 +167,20 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
             const synthVoiceGain = audioContext.createGain();
             synthVoiceGain.gain.setValueAtTime(1, actualBeatTime);
             synthVoiceGain.connect(createSoundFilterInput(audioContext, destination, mergedSettings));
-            if (soundSettings.reverse === true) {
+            const hasExplicitTrim = Number.isFinite(Number(soundSettings.trimStart)) || Number.isFinite(Number(soundSettings.trimEnd));
+            if (soundSettings.reverse !== true && !hasExplicitTrim) {
+                SoundSynth[synthFunctionName](audioContext, actualBeatTime, mergedSettings, synthVoiceGain);
+            } else {
                 renderSynthAudioBuffer(audioContext, SoundSynth[synthFunctionName], mergedSettings).then((rendered) => {
                     if (!rendered) return;
                     const source = audioContext.createBufferSource();
-                    source.buffer = getReversedAudioBuffer(audioContext, rendered);
+                    source.buffer = soundSettings.reverse === true ? getReversedAudioBuffer(audioContext, rendered) : rendered;
                     source.connect(synthVoiceGain);
-                    source.start(Math.max(actualBeatTime, audioContext.currentTime));
+                    const trimStart = Math.max(0, Math.min(rendered.duration, Number(soundSettings.trimStart) || 0));
+                    const trimEnd = Math.max(trimStart, Math.min(rendered.duration, Number(soundSettings.trimEnd) || rendered.duration));
+                    const startOffset = soundSettings.reverse === true ? rendered.duration - trimEnd : trimStart;
+                    source.start(Math.max(actualBeatTime, audioContext.currentTime), startOffset, Math.max(0, trimEnd - trimStart));
                 });
-            } else {
-                SoundSynth[synthFunctionName](audioContext, actualBeatTime, mergedSettings, synthVoiceGain);
             }
             activeSynthVoices.set(synthVoiceKey, {
                 endTime: actualBeatTime + voiceDuration,

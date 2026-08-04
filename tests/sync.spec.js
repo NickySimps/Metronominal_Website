@@ -413,6 +413,36 @@ test('song section playback applies section track content at the boundary', asyn
     return { bar: track.currentBar, rests: track.barSettings[1]?.rests || [] };
   }), { timeout: 5000 }).toMatchObject({ bar: 1, rests: [0] });
 });
+test('song section playback adds and removes runtime tracks to match each section snapshot', async ({ page }) => {
+  await page.goto('./');
+  const result = await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const state = await AppState.getCurrentStateForPreset(true);
+    const baseTrack = structuredClone(state.Tracks[0]);
+    baseTrack.barSettings = Array.from({ length: 3 }, () => ({ beats: 4, subdivision: 1, rests: [], velocities: {} }));
+    const secondTrack = structuredClone(baseTrack);
+    secondTrack.name = 'Second section track';
+    state.song = {
+      version: 2,
+      enabled: true,
+      name: 'Track Count Arrangement',
+      sections: [
+        { name: 'Full', startBar: 0, tempo: 120, repeats: 1, tracks: [baseTrack, secondTrack] },
+        { name: 'Reduced', startBar: 1, tempo: 140, repeats: 1, tracks: [baseTrack] },
+        { name: 'Full Again', startBar: 2, tempo: 160, repeats: 1, tracks: [baseTrack, secondTrack] },
+      ],
+    };
+    state.Tracks = [baseTrack];
+    await AppState.loadPresetData(state);
+    AppState.applySongSectionForBar(0);
+    const fullCount = AppState.getTracks().length;
+    AppState.applySongSectionForBar(1);
+    const reducedCount = AppState.getTracks().length;
+    AppState.applySongSectionForBar(2);
+    return { fullCount, reducedCount, finalCount: AppState.getTracks().length, finalName: AppState.getTracks()[1]?.name };
+  });
+  expect(result).toEqual({ fullCount: 2, reducedCount: 1, finalCount: 2, finalName: 'Second section track' });
+});
 test('song v2 normalizes snapshots, repeats section ranges, and derives a missing song name from its preset', async ({ page }) => {
   await page.goto('./');
   const result = await page.evaluate(async () => {

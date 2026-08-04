@@ -43,7 +43,9 @@ const SoundSettingsModal = {
   effectsPreviouslyFocusedElement: null,
   init() {
     const closeButton = DOM.soundSettingsModal.querySelector(".close-button");
+    const bottomCloseButton = DOM.soundSettingsModal.querySelector("#sound-settings-bottom-close");
     closeButton.addEventListener("click", () => this.hide());
+    bottomCloseButton?.addEventListener("click", () => this.hide());
     closeButton.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
@@ -78,9 +80,13 @@ const SoundSettingsModal = {
     const effectsModal = document.getElementById("sound-effects-modal");
     const effectsButton = DOM.soundSettingsModal.querySelector("#sound-effects-btn");
     const effectsCloseButton = effectsModal?.querySelector("#sound-effects-close");
+    const effectsBottomCloseButton = effectsModal?.querySelector("#sound-effects-bottom-close");
+    const effectsResetButton = effectsModal?.querySelector("#effects-reset-btn");
     this.effectsActionSlot = effectsModal?.querySelector("#sound-effects-actions-slot") || null;
     effectsButton?.addEventListener("click", () => this.showEffectsModal());
     effectsCloseButton?.addEventListener("click", () => this.hideEffectsModal());
+    effectsBottomCloseButton?.addEventListener("click", () => this.hideEffectsModal());
+    effectsResetButton?.addEventListener("click", () => this.resetEffectsSettings());
     effectsModal?.addEventListener("click", (event) => {
       if (event.target === effectsModal) this.hideEffectsModal();
     });
@@ -342,6 +348,24 @@ const SoundSettingsModal = {
       }
   },
 
+  resetEffectsSettings() {
+    const soundInfo = this.getCurrentSoundInfo();
+    if (!soundInfo) return;
+    const defaults = AppState.getDefaultSoundSettings(soundInfo.sound) || {};
+    Object.assign(soundInfo.settings, {
+      distortion: Number(defaults.distortion) || 0,
+      delayMix: Number(defaults.delayMix) || 0,
+      delayTime: Number(defaults.delayTime) || 0,
+      delayFeedback: Number.isFinite(Number(defaults.delayFeedback)) ? Number(defaults.delayFeedback) : 0.25,
+      reverbMix: Number(defaults.reverbMix) || 0,
+      reverbFeedback: Number.isFinite(Number(defaults.reverbFeedback)) ? Number(defaults.reverbFeedback) : 0.25,
+    });
+    this.saveCurrentSoundInfo(soundInfo);
+    sendState(AppState.getCurrentStateForPreset(true));
+    this.show(this.currentTrackIndex, this.currentSoundType, this.getCurrentBeatContext());
+    this.showEffectsModal();
+  },
+
   resetSoundSettings() {
     const soundInfo = this.getCurrentSoundInfo();
     if (!soundInfo) return;
@@ -363,12 +387,12 @@ const SoundSettingsModal = {
 
     let newSettings = {};
 
-    // Check if it's a recorded sound (has audioBuffer attached for modal display)
-    if (soundInfo.audioBuffer) {
+    const recordedBuffer = this.currentAudioBuffer;
+    if (recordedBuffer) {
         newSettings = {
             volume: 1,
             trimStart: 0,
-            trimEnd: soundInfo.audioBuffer.duration,
+            trimEnd: recordedBuffer.duration,
             pitchShift: 0,
             highPassFrequency: 20,
             lowPassFrequency: 20000,
@@ -418,7 +442,7 @@ const SoundSettingsModal = {
         valueToSave = value;
     } else if (param === "delayTime") {
         valueToSave = value / 1000;
-    } else if (["distortion", "delayMix", "reverbMix"].includes(param)) {
+    } else if (["distortion", "delayMix", "delayFeedback", "reverbMix", "reverbFeedback"].includes(param)) {
         valueToSave = value / 100;
     }
 
@@ -477,7 +501,7 @@ const SoundSettingsModal = {
                 valueDisplay.textContent = `${Number(displayValue).toFixed(0)} ms`;
             } else if (param === "delayTime") {
                 valueDisplay.textContent = this.formatDelayTimeDisplay(displayValue, Number(slider.max));
-            } else if (["distortion", "delayMix", "reverbMix"].includes(param)) {
+            } else if (["distortion", "delayMix", "delayFeedback", "reverbMix", "reverbFeedback"].includes(param)) {
                 valueDisplay.textContent = `${Number(displayValue).toFixed(0)}%`;
             } else if (param.toLowerCase() === "volume") {
                 valueDisplay.textContent = `${displayValue}%`;
@@ -588,7 +612,7 @@ const SoundSettingsModal = {
   },
 
   createSlider(slidersContainer, param, min, max, step, value) {
-    const effectParams = new Set(["pitchShift", "distortion", "delayMix", "delayTime", "reverbMix"]);
+    const effectParams = new Set(["pitchShift", "distortion", "delayMix", "delayTime", "delayFeedback", "reverbMix", "reverbFeedback"]);
     const behaviorContainer = document.querySelector(".sound-behavior-category");
     if (param === "volume" && behaviorContainer) {
       behaviorContainer.querySelectorAll('[data-param="volume"]').forEach((existingSlider) => {
@@ -605,7 +629,7 @@ const SoundSettingsModal = {
       attack: "synth", decay: "synth", sustain: "synth", release: "synth",
       startFrequency: "synth", endFrequency: "synth", pitchEnvelopeTime: "synth",
       highPassFrequency: "filters", lowPassFrequency: "filters",
-      distortion: "effects", delayMix: "effects", delayTime: "effects", reverbMix: "effects",
+      distortion: "effects", delayMix: "effects", delayTime: "effects", delayFeedback: "effects", reverbMix: "effects", reverbFeedback: "effects",
       probability: "behavior", allowOverlap: "behavior", retrigger: "behavior",
     };
     const categoryLabels = {
@@ -649,7 +673,9 @@ const SoundSettingsModal = {
       distortion: "Distortion",
       delayMix: "Delay mix",
       delayTime: "Delay time",
+      delayFeedback: "Delay feedback",
       reverbMix: "Reverb mix",
+      reverbFeedback: "Reverb length",
       trimStart: "Trim start",
       trimEnd: "Trim end",
     };
@@ -708,7 +734,7 @@ const SoundSettingsModal = {
         valueDisplay.textContent = `${value.toFixed(0)} ms`;
     } else if (param === "delayTime") {
         valueDisplay.textContent = this.formatDelayTimeDisplay(value, max);
-    } else if (["distortion", "delayMix", "reverbMix"].includes(param)) {
+    } else if (["distortion", "delayMix", "delayFeedback", "reverbMix", "reverbFeedback"].includes(param)) {
         valueDisplay.textContent = `${value.toFixed(0)}%`;
     } else if (param.toLowerCase() === "volume") {
         valueDisplay.textContent = `${value}%`;
@@ -930,15 +956,21 @@ const SoundSettingsModal = {
     const rendered = await renderSynthAudioBuffer(AppState.getAudioContext(), SoundSynth[functionName], { ...this.currentSoundSettings, volume: 1 });
     if (!rendered || !this.drawSynthWaveform) return;
     this.currentSynthWaveformBuffer = rendered;
-    if (!this.mainSlidersContainer.querySelector('[data-param="trimStart"]')) {
-      const durationMs = rendered.duration * 1000;
-      const durationSeconds = rendered.duration;
-      const trimStartSeconds = Math.max(0, Math.min(durationSeconds, Number(this.currentSoundSettings.trimStart) || 0));
-      const trimEndSeconds = Math.max(trimStartSeconds, Math.min(durationSeconds, Number(this.currentSoundSettings.trimEnd) || durationSeconds));
-      this.currentSoundSettings.trimStart = trimStartSeconds;
-      this.currentSoundSettings.trimEnd = trimEndSeconds;
+    const durationMs = rendered.duration * 1000;
+    const durationSeconds = rendered.duration;
+    const trimStartSlider = this.mainSlidersContainer.querySelector('[data-param="trimStart"]');
+    const trimEndSlider = this.mainSlidersContainer.querySelector('[data-param="trimEnd"]');
+    const trimStartSeconds = Math.max(0, Math.min(durationSeconds, Number(this.currentSoundSettings.trimStart) || 0));
+    const trimEndSeconds = Math.max(trimStartSeconds, Math.min(durationSeconds, Number(this.currentSoundSettings.trimEnd) || durationSeconds));
+    this.currentSoundSettings.trimStart = trimStartSeconds;
+    this.currentSoundSettings.trimEnd = trimEndSeconds;
+    if (!trimStartSlider || !trimEndSlider) {
       this.createSlider(this.mainSlidersContainer, "trimStart", 0, durationMs, 1, trimStartSeconds * 1000);
       this.createSlider(this.mainSlidersContainer, "trimEnd", 0, durationMs, 1, trimEndSeconds * 1000);
+    } else {
+      [trimStartSlider, trimEndSlider].forEach((slider) => { slider.max = String(durationMs); });
+      trimStartSlider.value = String(trimStartSeconds * 1000);
+      trimEndSlider.value = String(trimEndSeconds * 1000);
     }
     this.reorderMainSoundCategories();
     this.drawSynthWaveform(rendered);
@@ -962,10 +994,8 @@ const SoundSettingsModal = {
     };
     if (this.skipBeatOverrideSave) {
       this.skipBeatOverrideSave = false;
-    } else {
-      this.saveCurrentSoundInfo(soundInfo);
     }
-    
+
     // Auto-repair if sound data is corrupted/missing
     if (!soundInfo.sound) {
         console.warn(`Track ${trackIndex} ${soundType} missing sound name. Repairing...`);
@@ -1283,10 +1313,12 @@ const SoundSettingsModal = {
     this.createSlider(slidersContainer, "distortion", 0, 100, 1, soundSettings.distortion * 100);
     this.createSlider(slidersContainer, "delayMix", 0, 100, 1, soundSettings.delayMix * 100);
     this.createSlider(slidersContainer, "delayTime", 0, 1000, 1, soundSettings.delayTime * 1000);
+    this.createSlider(slidersContainer, "delayFeedback", 0, 85, 1, soundSettings.delayFeedback * 100);
     this.createSlider(slidersContainer, "reverbMix", 0, 100, 1, soundSettings.reverbMix * 100);
+    this.createSlider(slidersContainer, "reverbFeedback", 0, 100, 1, soundSettings.reverbFeedback * 100);
 
     for (const param in soundSettings) {
-      if (typeof soundSettings[param] === "number" && !["attack", "decay", "sustain", "release", "trimStart", "trimEnd", "pitchShift", "probability", "highPassFrequency", "lowPassFrequency", "distortion", "delayMix", "delayTime", "reverbMix"].includes(param)) {
+      if (typeof soundSettings[param] === "number" && !["attack", "decay", "sustain", "release", "trimStart", "trimEnd", "pitchShift", "probability", "highPassFrequency", "lowPassFrequency", "distortion", "delayMix", "delayTime", "delayFeedback", "reverbMix", "reverbFeedback"].includes(param)) {
         const isTimeBased = param === 'pitchEnvelopeTime';
         const isVolume = param.toLowerCase() === 'volume';
         const min = param.toLowerCase().includes("frequency") ? 20 : (isTimeBased ? 1 : (isVolume ? 0 : 0.01));

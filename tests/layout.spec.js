@@ -607,6 +607,8 @@ test.describe('mode controls responsive layout', () => {
         hasScopeModeSelect: Boolean(modal.querySelector('#sound-scope-mode-select')),
         hasWaveformTools: Boolean(modal.querySelector('.waveform-tools')),
         hasPlaybackControls: Boolean(modal.querySelector('.sample-playback-controls')),
+        hasSoundBottomClose: Boolean(modal.querySelector('#sound-settings-bottom-close')),
+        hasEffectsBottomClose: Boolean(document.querySelector('#sound-effects-bottom-close')),
         playbackLabel: modal.querySelector('.sample-playback-controls-title')?.textContent.trim(),
         playbackLabelRole: modal.querySelector('.sample-playback-controls-title')?.getAttribute('role'),
         hasReverseToggle: Boolean(modal.querySelector('#sample-reverse-toggle')),
@@ -640,6 +642,8 @@ test.describe('mode controls responsive layout', () => {
     expect(result.hasPreviewButton).toBe(true);
     expect(result.hasScopeModeSelect).toBe(true);
     expect(result.hasPlaybackControls).toBe(true);
+    expect(result.hasSoundBottomClose).toBe(true);
+    expect(result.hasEffectsBottomClose).toBe(true);
     expect(result.hasReverseToggle).toBe(true);
     expect(result.probabilityValue).toBe(100);
     expect(result.probabilitySliderCount).toBe(1);
@@ -855,7 +859,7 @@ test.describe('mode controls responsive layout', () => {
     });
     expect(result.inputType).toBe('GainNode');
     expect(result.bypassType).toBe('GainNode');
-    expect(result.settings).toEqual({ distortion: 0.4, delayMix: 0.3, delayTime: 0.18, reverbMix: 0.5, fxBypass: false });
+    expect(result.settings).toEqual({ distortion: 0.4, delayMix: 0.3, delayTime: 0.18, delayFeedback: 0.25, reverbMix: 0.5, reverbFeedback: 0.25, fxBypass: false });
     expect(result.delayRms).not.toBeCloseTo(result.baselineRms, 2);
     expect(result.distortionRms).not.toBeCloseTo(result.baselineRms, 2);
     expect(Math.abs(result.reverbRms - result.baselineRms)).toBeGreaterThan(0.001);
@@ -1230,6 +1234,45 @@ test.describe('mode controls responsive layout', () => {
     expect(result).toMatchObject({ volume: 1, pitchShift: 0, trimStart: 0, probability: 100, allowOverlap: true, retrigger: true, reverse: false, highPassFrequency: 20, lowPassFrequency: 20000, distortion: 0, delayMix: 0, reverbMix: 0 });
   });
 
+
+  test('FX reset restores effect controls without changing sound-editor settings', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const [{ default: SoundSettingsModal }, { default: AppState }] = await Promise.all([
+        import(new URL('js/soundSettingsModal.js', document.baseURI).href),
+        import(new URL('js/appState.js', document.baseURI).href),
+      ]);
+      const track = AppState.getTracks()[0];
+      track.mainBeatSound.sound = 'Synth Sine';
+      track.mainBeatSound.settings = {
+        ...(AppState.getDefaultSoundSettings('Synth Sine') || {}),
+        pitchShift: 7,
+        distortion: 0.4,
+        delayMix: 0.6,
+        delayTime: 0.2,
+        delayFeedback: 0.7,
+        reverbMix: 0.5,
+        reverbFeedback: 0.9,
+      };
+      await SoundSettingsModal.show(0, 'mainBeatSound');
+      document.querySelector('#sound-effects-btn').click();
+      const controls = {
+        delayFeedback: Boolean(document.querySelector('#sound-effects-modal [data-param="delayFeedback"]')),
+        reverbFeedback: Boolean(document.querySelector('#sound-effects-modal [data-param="reverbFeedback"]')),
+        reset: Boolean(document.querySelector('#effects-reset-btn')),
+      };
+      document.querySelector('#effects-reset-btn').click();
+      const settings = AppState.getTracks()[0].mainBeatSound.settings;
+      return { controls, pitchShift: settings.pitchShift, distortion: settings.distortion, delayMix: settings.delayMix, delayFeedback: settings.delayFeedback, reverbMix: settings.reverbMix, reverbFeedback: settings.reverbFeedback };
+    });
+    expect(result.controls).toEqual({ delayFeedback: true, reverbFeedback: true, reset: true });
+    expect(result.pitchShift).toBe(7);
+    expect(result.distortion).toBe(0);
+    expect(result.delayMix).toBe(0);
+    expect(result.delayFeedback).toBe(0.25);
+    expect(result.reverbMix).toBe(0);
+    expect(result.reverbFeedback).toBe(0.25);
+  });
 
   test('reverse transforms synthesized preview envelopes', async ({ page }) => {
     await page.goto('/');
