@@ -3784,3 +3784,28 @@ body.beat-edit-mode .beat-square {
 #sound-settings-modal .filter-feedback.low-pass-active {
   color: var(--Highlight);
 }
+
+.track-slider-label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 3.5rem;
+  padding: .15rem .35rem;
+  border: 1px solid var(--Border, var(--Main));
+  border-radius: var(--BorderRadius);
+  color: var(--Alt2);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+:where(button, input, select, textarea, .track-controls, .track-slider-label) {
+  transition-duration: 220ms !important;
+}
+.modal-content {
+  transition-duration: 200ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(button, input, select, textarea, .track-controls, .track-slider-label, .modal-content) {
+    transition-duration: 0ms !important;
+  }
+}
