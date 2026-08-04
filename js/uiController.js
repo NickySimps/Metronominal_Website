@@ -82,10 +82,6 @@ const UIController = {
             DOM.barsLengthDisplay.textContent = AppState.getBarSettings(AppState.getSelectedTrackIndex()).length.toString();
         }
         BarControlsController.syncBarSettings(); // This handles the rest of the bar/beat UI updates
-        document.querySelectorAll('.measures-container').forEach((container) => {
-            container.classList.remove('showing');
-            container.classList.add('hidden');
-        });
 
         // Ensure all highlights are cleared
         BarDisplayController.clearAllHighlights();

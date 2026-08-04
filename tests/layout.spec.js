@@ -428,12 +428,15 @@ test.describe('mode controls responsive layout', () => {
     expect(result.labelsInside).toBe(true);
   });
 
-  test('global reset leaves beat and bar adjustment controls hidden', async ({ page }) => {
+  test('global reset keeps beat and bar adjustment controls editable', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('.measures-container')).toBeVisible();
     await page.locator('.reset-btn').first().click();
-    await expect(page.locator('.measures-container').first()).toBeHidden();
-    await expect.poll(async () => page.locator('.measures-container').evaluateAll((containers) => containers.every((container) => container.classList.contains('hidden')))).toBe(true);
+    await expect(page.locator('.measures-container').first()).toBeVisible();
+    await expect.poll(async () => page.locator('.measures-container').evaluateAll((containers) => containers.every((container) => !container.classList.contains('hidden')))).toBe(true);
+    await page.locator('.bar-beat-indicator').first().click();
+    await expect(page.locator('.bar-visual.selected').first()).toBeVisible();
+    await expect(page.locator('.beats-per-current-measure').first()).toBeVisible();
   });
 
   test('Song Mode section BPM edits work while running locally', async ({ page }) => {
