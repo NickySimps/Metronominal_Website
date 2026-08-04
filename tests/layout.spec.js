@@ -681,6 +681,9 @@ test.describe('mode controls responsive layout', () => {
     });
     expect(result.waveform).toBe(true);
     expect(result.filterFeedback).toBe(false);
+    await expect(page.locator('#sound-sliders-container [data-param="trimStart"]')).toBeVisible();
+    await expect(page.locator('#sound-sliders-container [data-param="trimEnd"]')).toBeVisible();
+    await expect(page.locator('#sound-sliders-container .waveform-zoom')).toBeVisible();
     const initialOverlayPositions = await page.locator('.filter-visualization-overlay').first().evaluate((overlay) => ({
       highPass: overlay.querySelector('.filter-overlay-high-pass-label').getBoundingClientRect().left,
       lowPass: overlay.querySelector('.filter-overlay-low-pass-label').getBoundingClientRect().left,
@@ -745,7 +748,7 @@ test.describe('mode controls responsive layout', () => {
   test('effects rack builds a live Web Audio chain and exposes its controls', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(async () => {
-      const [{ default: AppState }, { createEffectRackInput }] = await Promise.all([
+      const [{ default: AppState }, { createEffectRackInput, createSoundFilterInput }] = await Promise.all([
         import(new URL('js/appState.js', document.baseURI).href),
         import(new URL('js/audioEffects.js', document.baseURI).href),
       ]);
@@ -753,10 +756,12 @@ test.describe('mode controls responsive layout', () => {
       const destination = audioContext.createGain();
       const settings = { distortion: 0.4, delayMix: 0.3, delayTime: 0.18, reverbMix: 0.5 };
       const input = createEffectRackInput(audioContext, destination, settings);
-      return { inputType: input.constructor.name, settings };
+      const bypass = createSoundFilterInput(audioContext, destination, { fxBypass: true });
+      return { inputType: input.constructor.name, bypassType: bypass.constructor.name, settings };
     });
     expect(result.inputType).toBe('GainNode');
-    expect(result.settings).toEqual({ distortion: 0.4, delayMix: 0.3, delayTime: 0.18, reverbMix: 0.5 });
+    expect(result.bypassType).toBe('GainNode');
+    expect(result.settings).toEqual({ distortion: 0.4, delayMix: 0.3, delayTime: 0.18, reverbMix: 0.5, fxBypass: false });
 
     const track = page.locator('.track').first();
     await track.locator('.beat-edit-btn').click();
@@ -764,7 +769,7 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('#sound-effects-modal')).toBeHidden();
     await page.locator('#reset-sound-btn').click();
     await page.locator('#reset-sound-btn').click();
-    await expect(page.locator('#sound-sliders-container [data-control-category]')).toHaveCount(3);
+    await expect(page.locator('#sound-sliders-container [data-control-category]')).toHaveCount(4);
     await expect(page.locator('#sound-effects-sliders-container [data-control-category]')).toHaveCount(1);
     await page.locator('#sound-effects-btn').click();
     await expect(page.locator('#sound-effects-modal')).toBeVisible();
@@ -773,6 +778,7 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('[data-param="delayMix"]')).toBeVisible();
     await expect(page.locator('[data-param="delayTime"]')).toBeVisible();
     await expect(page.locator('[data-param="reverbMix"]')).toBeVisible();
+    await expect(page.locator('#sample-fx-toggle')).toHaveText('FX');
     await expect(page.locator('[data-param="pitchShift"]')).toHaveClass(/vertical-slider/);
     await expect(page.locator('[data-param="distortion"]')).toHaveClass(/vertical-slider/);
     const verticalGeometry = await page.locator('#sound-effects-modal .vertical-slider-container').evaluateAll((containers) => containers.map((container) => {
@@ -884,12 +890,14 @@ test.describe('mode controls responsive layout', () => {
         contentRadius: contentStyle.borderRadius,
         themeRadius: getComputedStyle(document.documentElement).getPropertyValue('--BorderRadius').trim(),
         contentOverflowX: contentStyle.overflowX,
+        contentOverflowY: contentStyle.overflowY,
       };
     });
     expect(result.modalZIndex).toBeGreaterThanOrEqual(3000);
     expect(result.contentZIndex).toBeGreaterThanOrEqual(0);
     expect(result.contentRadius).toBe(result.themeRadius);
-    expect(result.contentOverflowX).toBe('visible');
+    expect(result.contentOverflowX).toBe('auto');
+    expect(result.contentOverflowY).toBe('auto');
   });
 
   test('sound preview and recorded waveform controls are available', async ({ page }) => {

@@ -2994,7 +2994,7 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 }
 .vertical-slider-container > span { grid-row: 3; justify-self: center; }
 .sound-effects-modal .vertical-slider {
-  width: 2rem !important;
+  width: 1.1rem !important;
   height: 8rem !important;
   writing-mode: vertical-lr;
   direction: rtl;
@@ -3006,6 +3006,32 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   width: 2.25rem;
   height: 2.25rem;
   line-height: 1;
+}
+#sound-settings-modal .sound-visualization-category {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  padding: .35rem 0 .55rem;
+  background: var(--ModalBackground, var(--Background));
+}
+#sound-settings-modal .filter-visualization-stage {
+  box-shadow: 0 0 .6rem color-mix(in srgb, var(--Main) 25%, transparent);
+}
+#sound-settings-modal .scope-signal-status {
+  position: absolute;
+  right: .45rem;
+  bottom: .35rem;
+  z-index: 3;
+  padding: .15rem .35rem;
+  border-radius: var(--BorderRadius);
+  background: color-mix(in srgb, var(--Background) 82%, transparent);
+  color: var(--TextSecondary, currentColor);
+  font-size: .68rem;
+  pointer-events: none;
+}
+#sound-settings-modal .fx-bypass-btn[aria-pressed="true"] {
+  background: var(--Alt2, #b33);
+  color: var(--TextOnMain, #fff);
 }
 @media (max-width: 34rem) {
   .sound-effects-sliders-container .sound-control-category[data-control-category="effects"] {
@@ -3725,10 +3751,10 @@ body.beat-edit-mode .beat-square {
 #sound-settings-modal .modal-content {
   width: min(700px, 100%);
   max-width: 100%;
-  max-height: none;
+  max-height: calc(100vh - 1rem);
   margin: auto;
   padding: clamp(.75rem, 2vw, 1.25rem);
-  overflow: visible;
+  overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
@@ -3820,7 +3846,7 @@ body.beat-edit-mode .beat-square {
   #sound-settings-modal { align-items: flex-start; }
   #sound-settings-modal .modal-content {
     width: 100%;
-    max-height: none;
+    max-height: calc(100vh - .75rem);
     margin-top: 6px;
     margin-bottom: 6px;
     padding: .7rem;

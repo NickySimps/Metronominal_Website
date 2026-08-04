@@ -52,6 +52,11 @@ function clampFrequency(value, fallback, sampleRate) {
 }
 
 export function createSoundFilterInput(audioContext, destination, settings = {}) {
+  if (settings.fxBypass === true) {
+    const bypass = audioContext.createGain();
+    bypass.connect(destination || audioContext.destination);
+    return bypass;
+  }
   const highPass = audioContext.createBiquadFilter();
   const lowPass = audioContext.createBiquadFilter();
   highPass.type = 'highpass';
@@ -91,6 +96,7 @@ function createImpulseResponse(audioContext, seconds = 1.2) {
 }
 
 export function normalizeEffectSettings(settings = {}) {
+  settings.fxBypass = settings.fxBypass === true;
   settings.distortion = Math.max(0, Math.min(1, Number(settings.distortion) || 0));
   settings.delayMix = Math.max(0, Math.min(1, Number(settings.delayMix) || 0));
   settings.delayTime = Math.max(0, Math.min(1, Number(settings.delayTime) || 0));

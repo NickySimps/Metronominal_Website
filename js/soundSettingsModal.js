@@ -150,6 +150,7 @@ const SoundSettingsModal = {
       ["#sample-overlap-toggle", "allowOverlap"],
       ["#sample-retrigger-toggle", "retrigger"],
       ["#sample-reverse-toggle", "reverse"],
+      ["#sample-fx-toggle", "fxBypass"],
     ].forEach(([selector, setting]) => {
       DOM.soundSettingsModal.querySelector(selector).addEventListener("change", (event) => {
         if (!this.currentSoundSettings) return;
@@ -788,6 +789,13 @@ const SoundSettingsModal = {
     const rendered = await renderSynthAudioBuffer(AppState.getAudioContext(), SoundSynth[functionName], { ...this.currentSoundSettings, volume: 1 });
     if (!rendered || !this.drawSynthWaveform) return;
     this.currentSynthWaveformBuffer = rendered;
+    if (!this.mainSlidersContainer.querySelector('[data-param="trimStart"]')) {
+      const durationMs = rendered.duration * 1000;
+      this.currentSoundSettings.trimStart = Math.max(0, Number(this.currentSoundSettings.trimStart) || 0);
+      this.currentSoundSettings.trimEnd = Math.min(durationMs, Number(this.currentSoundSettings.trimEnd) || durationMs) / 1000;
+      this.createSlider(this.mainSlidersContainer, "trimStart", 0, durationMs, 1, this.currentSoundSettings.trimStart * 1000);
+      this.createSlider(this.mainSlidersContainer, "trimEnd", 0, durationMs, 1, this.currentSoundSettings.trimEnd * 1000);
+    }
     this.drawSynthWaveform(rendered);
   },
 
@@ -896,15 +904,23 @@ const SoundSettingsModal = {
     DOM.soundSettingsModal.querySelector("#sample-overlap-toggle").checked = soundSettings.allowOverlap;
     DOM.soundSettingsModal.querySelector("#sample-retrigger-toggle").checked = soundSettings.retrigger;
     DOM.soundSettingsModal.querySelector("#sample-reverse-toggle").checked = soundSettings.reverse;
+    const fxToggle = DOM.soundSettingsModal.querySelector("#sample-fx-toggle");
+    if (fxToggle) {
+      fxToggle.setAttribute("aria-pressed", String(soundSettings.fxBypass === true));
+      fxToggle.title = soundSettings.fxBypass === true ? "Turn effects back on" : "Turn all filters and effects off";
+    }
     const probabilityInput = DOM.soundSettingsModal.querySelector("#sample-probability");
     probabilityInput.value = soundSettings.probability;
     DOM.soundSettingsModal.querySelector("#sample-probability-value").textContent = `${soundSettings.probability}%`;
 
     const slidersContainer = DOM.soundSettingsModal.querySelector("#sound-sliders-container");
     const effectsSlidersContainer = document.getElementById("sound-effects-sliders-container");
+    this.mainSlidersContainer = slidersContainer;
     slidersContainer.innerHTML = "";
     if (effectsSlidersContainer) effectsSlidersContainer.innerHTML = "";
     this.sliders = [];
+    this.createSlider(slidersContainer, "highPassFrequency", 20, 20000, 1, soundSettings.highPassFrequency);
+    this.createSlider(slidersContainer, "lowPassFrequency", 20, 20000, 1, soundSettings.lowPassFrequency);
 
     if (soundInfo.audioBuffer instanceof AudioBuffer) {
         // Recorded sound
@@ -1056,8 +1072,16 @@ const SoundSettingsModal = {
         const waveformColor = getComputedStyle(document.documentElement).getPropertyValue("--Main").trim();
         this.drawSynthWaveform = (buffer) => {
             if (!buffer) return;
-            RecordingVisualizer.drawWaveform(buffer, synthWaveformCanvas, waveformColor, 0, 1, soundSettings.reverse === true);
+            const visibleSpan = 1 / this.waveformZoom;
+            const visibleStart = this.waveformPan * (1 - visibleSpan);
+            RecordingVisualizer.drawWaveform(buffer, synthWaveformCanvas, waveformColor, visibleStart, visibleStart + visibleSpan, soundSettings.reverse === true);
         };
+        const synthWaveformTools = document.createElement("div");
+        synthWaveformTools.className = "waveform-tools";
+        synthWaveformTools.innerHTML = '<label>Zoom <input class="waveform-zoom" type="range" min="1" max="8" step="0.25" value="1" /></label><label>Pan <input class="waveform-pan" type="range" min="0" max="1" step="0.01" value="0" /></label>';
+        slidersContainer.appendChild(synthWaveformTools);
+        synthWaveformTools.querySelector('.waveform-zoom').addEventListener('input', (event) => { this.waveformZoom = Number(event.target.value); this.drawSynthWaveform(this.currentSynthWaveformBuffer); });
+        synthWaveformTools.querySelector('.waveform-pan').addEventListener('input', (event) => { this.waveformPan = Number(event.target.value); this.drawSynthWaveform(this.currentSynthWaveformBuffer); });
         // Synths are rendered offline so the displayed shape matches Reverse playback.
         this.refreshSynthWaveform();
 
@@ -1077,8 +1101,6 @@ const SoundSettingsModal = {
     }
 
     this.createSlider(slidersContainer, "pitchShift", -48, 48, 1, (soundSettings.pitchShift || 0));
-    this.createSlider(slidersContainer, "highPassFrequency", 20, 20000, 1, soundSettings.highPassFrequency);
-    this.createSlider(slidersContainer, "lowPassFrequency", 20, 20000, 1, soundSettings.lowPassFrequency);
     this.updateFilterOverlay();
     this.createSlider(slidersContainer, "distortion", 0, 100, 1, soundSettings.distortion * 100);
     this.createSlider(slidersContainer, "delayMix", 0, 100, 1, soundSettings.delayMix * 100);
@@ -1153,19 +1175,16 @@ const SoundSettingsModal = {
       const functionName = `play${baseSound.replace("Synth ", "").replace(/ /g, "")}`;
       if (SoundSynth[functionName]) {
         const synthSettings = { ...settings, volume: settings.volume ?? 1 };
-        if (settings.reverse === true) {
-          const rendered = await renderSynthAudioBuffer(audioContext, SoundSynth[functionName], synthSettings);
-          if (rendered) {
-            const source = audioContext.createBufferSource();
-            source.buffer = getReversedAudioBuffer(audioContext, rendered);
-            source.connect(createSoundFilterInput(audioContext, analyser, settings));
-            source.start();
-            source.onended = () => this.stopPreview();
-            this.previewSource = source;
-          }
-        } else {
-          SoundSynth[functionName](audioContext, audioContext.currentTime, synthSettings, createSoundFilterInput(audioContext, analyser, settings));
-          this.previewSource = { isSynth: true };
+        const rendered = await renderSynthAudioBuffer(audioContext, SoundSynth[functionName], synthSettings);
+        if (rendered) {
+          const source = audioContext.createBufferSource();
+          source.buffer = settings.reverse === true ? getReversedAudioBuffer(audioContext, rendered) : rendered;
+          source.connect(createSoundFilterInput(audioContext, analyser, settings));
+          const start = settings.trimStart || 0;
+          const end = settings.trimEnd || rendered.duration;
+          source.start(0, settings.reverse === true ? rendered.duration - end : start, Math.max(0, end - start));
+          source.onended = () => this.stopPreview();
+          this.previewSource = source;
         }
       }
     } else {
@@ -1225,6 +1244,8 @@ const SoundSettingsModal = {
     const canvas = DOM.soundSettingsModal.querySelector(".oscilloscope-canvas");
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
+    const signalStatus = DOM.soundSettingsModal.querySelector(".scope-signal-status");
+    if (signalStatus) signalStatus.textContent = analyserNode ? "Live processed signal" : "Waiting for audio";
     this.isDrawing = true;
 
     const draw = () => {
