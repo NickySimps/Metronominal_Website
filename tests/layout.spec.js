@@ -1341,12 +1341,17 @@ test.describe('mode controls responsive layout', () => {
         const element = document.querySelector('.bar-visual[data-bar-index="0"]');
         const barRect = element.getBoundingClientRect();
         const trackRect = element.closest('.track').getBoundingClientRect();
-        checks.push({ subdivision, display: getComputedStyle(element).display, flex: element.classList.contains('flex-subdivision'), contained: barRect.left >= trackRect.left - .5 && barRect.right <= trackRect.right + .5 });
+        const computed = getComputedStyle(element);
+        const columns = computed.gridTemplateColumns.split(' ').filter(Boolean).length;
+        const beats = [...element.querySelectorAll('.beat-square')].map(beat => beat.getBoundingClientRect());
+        const beatsContained = beats.every(beat => beat.left >= barRect.left - .5 && beat.right <= barRect.right + .5 && beat.top >= barRect.top - .5 && beat.bottom <= barRect.bottom + .5);
+        checks.push({ subdivision, display: computed.display, columns, expectedColumns: subdivision, flex: element.classList.contains('flex-subdivision'), contained: barRect.left >= trackRect.left - .5 && barRect.right <= trackRect.right + .5 && beatsContained });
       }
       return checks;
     });
     for (const check of result) {
-      expect(check.display).toBe('flex');
+      expect(check.display).toBe('grid');
+      expect(check.columns).toBe(check.expectedColumns);
       expect(check.flex).toBe(true);
       expect(check.contained).toBe(true);
     }

@@ -574,9 +574,6 @@ button {
   border-color: var(--Alt1);
   outline: var(--s1) solid var(--Alt2);
   box-shadow: 0 0 var(--s3) var(--Alt1);
-  transform: scaleY(1.25);
-  margin-top: 4px;
-  margin-bottom: 4px;
   z-index: 15;
 }
 
@@ -639,12 +636,10 @@ button {
   border: var(--s1) double color-mix(in srgb, var(--Alt2) 50%, black); /* Red outline */
 }
 .beat-square.main-beat-marker.highlighted {
-  scale: 1 1.8; /* Base highlight scale */
   background: var(--HighlightedBeatColor);
 }
 
 .beat-square.subdivision.highlighted-sub {
-  scale: 1 1.4; /* Slightly smaller scale for subdivisions */
   background: color-mix(in srgb, var(--HighlightedBeatColor) 60%, white);
 }
 
@@ -1875,16 +1870,18 @@ button:active,
 }
 
 .bar-visual.flex-subdivision {
-  display: flex;
-  flex-flow: row wrap;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(var(--beat-columns, 4), minmax(0, 1fr));
+  grid-auto-rows: minmax(2rem, auto);
+  justify-content: stretch;
   align-content: center;
   gap: var(--s1);
 }
 .bar-visual.flex-subdivision .beat-square {
-  flex: 1 1 clamp(2rem, 8vw, 3.5rem);
-  width: auto;
-  max-width: 3.5rem;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  flex: none;
 }
 
 .beat-square {
@@ -3332,8 +3329,8 @@ environments: Development, Staging,
 /* Beat Indicator for Bars */
 .bar-beat-indicator {
     position: absolute;
-    bottom: -16px; /* Sit outside */
-    right: -16px;  /* Sit outside */
+    bottom: 4px;
+    right: 4px;
     background-color: var(--Main);
     color: var(--TextOnMain);
     font-size: 0.7rem;
@@ -3356,17 +3353,17 @@ environments: Development, Staging,
 }
 
 .bar-beat-indicator:hover {
-    transform: scale(1.1);
     background-color: var(--Accent);
     color: var(--TextPrimary);
 }
 
 .bar-visual.rest-mode-active .bar-beat-indicator {
-    transform: translate(50%, 50%) scale(1.3);
+    background-color: var(--Alt2);
 }
 
 .bar-visual.rest-mode-active .bar-beat-indicator:hover {
-    transform: translate(50%, 50%) scale(1.5);
+    background-color: var(--Accent);
+    color: var(--TextPrimary);
 }
 
 /* Confirmation Modal Styling */
@@ -3881,11 +3878,9 @@ body.beat-edit-mode .beat-square {
 }
 .beat-square.ghost-note {
   opacity: 0.45;
-  transform: scale(0.78);
 }
 .beat-square.accent-note {
   opacity: 1;
-  transform: scale(1.12);
 }
 .beat-square.rested {
   outline: 2px solid var(--Alt2);
@@ -4394,17 +4389,45 @@ body.beat-edit-mode .beat-square {
     margin-inline: 0;
   }
   .track-controls {
-    grid-template-columns: minmax(4.5rem, 1fr) minmax(4.5rem, 1.45fr) repeat(3, 2.35rem);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr) repeat(3, minmax(0, 1fr));
     column-gap: .25rem;
   }
   .track-controls > button {
-    min-width: 2.35rem;
-    padding-inline: .25rem;
+    min-width: 0;
+    width: 100%;
+    padding-inline: .15rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .72rem;
   }
   .track-controls > .track-record-btn {
-    min-width: 4.5rem;
+    min-width: 0;
     width: 100%;
   }
+  .track-sound-controls {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr) repeat(2, minmax(0, 1fr));
+    gap: .35rem;
+    min-width: 0;
+  }
+  .track-sound-controls > button {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    padding-inline: .15rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .68rem;
+  }
+  .edit-buttons-col,
+  .sound-selectors-col {
+    min-width: 0;
+    width: 100%;
+  }
+  .edit-buttons-col .sound-label { width: 100%; padding-inline: 0; }
+  .sound-selectors-col { min-width: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
