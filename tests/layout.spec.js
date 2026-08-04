@@ -1332,6 +1332,7 @@ test.describe('mode controls responsive layout', () => {
         import(new URL('js/barDisplayController.js', document.baseURI).href),
       ]);
       const bar = AppState.getTracks()[0].barSettings[0];
+      const mainBeats = bar.beats;
       const values = [3, 5, 6, 7];
       const checks = [];
       for (const subdivision of values) {
@@ -1343,15 +1344,23 @@ test.describe('mode controls responsive layout', () => {
         const trackRect = element.closest('.track').getBoundingClientRect();
         const computed = getComputedStyle(element);
         const columns = computed.gridTemplateColumns.split(' ').filter(Boolean).length;
-        const beats = [...element.querySelectorAll('.beat-square')].map(beat => beat.getBoundingClientRect());
-        const beatsContained = beats.every(beat => beat.left >= barRect.left - .5 && beat.right <= barRect.right + .5 && beat.top >= barRect.top - .5 && beat.bottom <= barRect.bottom + .5);
-        checks.push({ subdivision, display: computed.display, columns, expectedColumns: subdivision, flex: element.classList.contains('flex-subdivision'), contained: barRect.left >= trackRect.left - .5 && barRect.right <= trackRect.right + .5 && beatsContained });
+        const beats = [...element.querySelectorAll('.beat-square')];
+        beats.forEach(beat => beat.classList.add('accent-note'));
+        await new Promise(resolve => setTimeout(resolve, 400));
+        const beatRects = beats.map(beat => beat.getBoundingClientRect());
+        const rows = new Set(beatRects.map(beat => Math.round(beat.top)));
+        const noOverlap = beatRects.every((a, index) => beatRects.slice(index + 1).every(b =>
+          a.right <= b.left + .5 || b.right <= a.left + .5 || a.bottom <= b.top + .5 || b.bottom <= a.top + .5
+        ));
+        const beatsContained = beatRects.every(beat => beat.left >= barRect.left - .5 && beat.right <= barRect.right + .5 && beat.top >= barRect.top - .5 && beat.bottom <= barRect.bottom + .5);
+        checks.push({ subdivision, display: computed.display, columns, expectedColumns: subdivision, rows: rows.size, expectedRows: mainBeats, flex: element.classList.contains('flex-subdivision'), contained: barRect.left >= trackRect.left - .5 && barRect.right <= trackRect.right + .5 && beatsContained && noOverlap });
       }
       return checks;
     });
     for (const check of result) {
       expect(check.display).toBe('grid');
       expect(check.columns).toBe(check.expectedColumns);
+      expect(check.rows).toBe(check.expectedRows);
       expect(check.flex).toBe(true);
       expect(check.contained).toBe(true);
     }
