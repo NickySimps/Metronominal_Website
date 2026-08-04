@@ -728,6 +728,7 @@ const BarDisplayController = {
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
         const totalSubBeatsNeeded = calculateTotalSubBeats(mainBeatsInBar, subdivision);
+        barDiv.style.setProperty("--beat-columns", String(Math.min(4, Math.max(1, Math.ceil(totalSubBeatsNeeded)))));
         const rests = barData.rests || [];
 
         for (let i = 0; i < totalSubBeatsNeeded; i++) {
@@ -782,6 +783,7 @@ const BarDisplayController = {
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
         const totalSubBeatsNeeded = calculateTotalSubBeats(mainBeatsInBar, subdivision);
+        barDiv.style.setProperty("--beat-columns", String(Math.min(4, Math.max(1, Math.ceil(totalSubBeatsNeeded)))));
         const rests = barData.rests || [];
 
         const existingBeatSquares = Array.from(

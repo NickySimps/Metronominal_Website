@@ -113,14 +113,15 @@ export function createEffectRackInput(audioContext, destination, settings = {}) 
   const output = audioContext.createGain();
   input.connect(dry);
   dry.connect(output);
-  dry.gain.value = 1;
+  const maxWetMix = Math.max(settings.distortion, settings.delayMix, settings.reverbMix);
+  dry.gain.value = Math.max(0.35, 1 - maxWetMix * 0.5);
 
   if (settings.distortion > 0) {
     const shaper = audioContext.createWaveShaper();
     const wet = audioContext.createGain();
     shaper.curve = makeDistortionCurve(settings.distortion);
     shaper.oversample = "4x";
-    wet.gain.value = settings.distortion;
+    wet.gain.value = settings.distortion * 0.5;
     input.connect(shaper);
     shaper.connect(wet);
     wet.connect(output);
@@ -132,7 +133,7 @@ export function createEffectRackInput(audioContext, destination, settings = {}) 
     const feedback = audioContext.createGain();
     delay.delayTime.value = settings.delayTime;
     feedback.gain.value = settings.delayFeedback;
-    wet.gain.value = settings.delayMix;
+    wet.gain.value = settings.delayMix * 0.5;
     input.connect(delay);
     delay.connect(feedback);
     feedback.connect(delay);
@@ -144,7 +145,7 @@ export function createEffectRackInput(audioContext, destination, settings = {}) 
     const convolver = audioContext.createConvolver();
     const wet = audioContext.createGain();
     convolver.buffer = createImpulseResponse(audioContext, 0.2 + settings.reverbFeedback * 4.8);
-    wet.gain.value = settings.reverbMix;
+    wet.gain.value = settings.reverbMix * 0.5;
     input.connect(convolver);
     convolver.connect(wet);
     wet.connect(output);
