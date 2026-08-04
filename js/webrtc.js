@@ -812,6 +812,10 @@ export async function sendState(statePromise) {
   return true;
 }
 
+export function isSynchronizationJoined() {
+  return joined;
+}
+
 export function getDesiredHostPlaybackState() {
   return desiredHostPlaybackState ?? AppState.isPlaying();
 }

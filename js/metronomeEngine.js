@@ -9,7 +9,7 @@ import DOM from './domSelectors.js';
 import ThemeController from './themeController.js';
 import BarDisplayController from './barDisplayController.js';
 import SoundSynth from './soundSynth.js';
-import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, broadcastSyncPulse, getDesiredHostPlaybackState } from './webrtc.js';
+import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, broadcastSyncPulse, getDesiredHostPlaybackState, isSynchronizationJoined } from './webrtc.js';
 import AudioController from './audioController.js';
 import MidiController from './midiController.js';
 import { createSoundFilterInput, getReversedAudioBuffer, renderSynthAudioBuffer } from './audioEffects.js';
@@ -435,7 +435,7 @@ const MetronomeEngine = {
             } else if (broadcastStop()) {
                 return false;
             }
-        } else if (!window.isHost && !forceStop) {
+        } else if (!window.isHost && !forceStop && isSynchronizationJoined()) {
             // Joined clients follow the host and cannot create a divergent local transport state.
             requestPlaybackSync();
             return wasPlayingBeforeToggle;

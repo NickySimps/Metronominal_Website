@@ -74,6 +74,20 @@ test.describe('mode controls responsive layout', () => {
     });
   }
 
+  test('Play falls back to local playback before synchronization joins', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(async () => {
+      const { disconnect } = await import(new URL('js/webrtc.js', document.baseURI).href);
+      disconnect();
+      window.isHost = false;
+    });
+    await page.locator('#start-stop-btn').click();
+    await expect.poll(() => page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      return AppState.isPlaying();
+    })).toBe(true);
+  });
+
   test('keeps closed timing and mode cards on one line and hides shortcuts after touch input', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
