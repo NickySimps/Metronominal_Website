@@ -2844,7 +2844,7 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 .track-pitch-slider::-moz-range-track,
 .track-swing-slider::-moz-range-track {
   width: 100%;
-  height: 4px;
+  height: var(--s1);
   cursor: pointer;
 }
 

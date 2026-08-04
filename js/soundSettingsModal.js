@@ -456,6 +456,16 @@ const SoundSettingsModal = {
         newSettings = JSON.parse(JSON.stringify(defaultSettings));
     }
 
+    const effectDefaults = AppState.getDefaultSoundSettings(soundInfo.sound) || {};
+    Object.assign(newSettings, {
+        distortion: Number(effectDefaults.distortion) || 0,
+        delayMix: Number(effectDefaults.delayMix) || 0,
+        delayTime: Number(effectDefaults.delayTime) || 0,
+        delayFeedback: Number.isFinite(Number(effectDefaults.delayFeedback)) ? Number(effectDefaults.delayFeedback) : 0.25,
+        reverbMix: Number(effectDefaults.reverbMix) || 0,
+        reverbFeedback: Number.isFinite(Number(effectDefaults.reverbFeedback)) ? Number(effectDefaults.reverbFeedback) : 0.25,
+    });
+
     soundInfo.settings = newSettings;
 
     this.saveCurrentSoundInfo(soundInfo);
