@@ -869,8 +869,8 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('#sound-effects-sliders-container [data-control-category]')).toHaveCount(1);
     await page.locator('#sound-effects-btn').click();
     await expect(page.locator('#sound-effects-modal')).toBeVisible();
-    await expect(page.locator('#sound-effects-actions-slot #sound-editor-actions')).toBeVisible();
-    await expect(page.locator('#sound-effects-actions-slot #reset-sound-btn')).toBeVisible();
+    await expect(page.locator('#sound-editor-actions')).toBeVisible();
+    await expect(page.locator('#sound-editor-actions #reset-sound-btn')).toBeVisible();
     await expect(page.locator('[data-param="distortion"]')).toBeVisible();
     await expect(page.locator('[data-param="pitchShift"]')).toBeVisible();
     await expect(page.locator('[data-param="delayMix"]')).toBeVisible();
@@ -944,9 +944,12 @@ test.describe('mode controls responsive layout', () => {
     await page.locator('#sound-effects-btn').click();
     const delayQuantize = page.locator('#delay-quantize-btn');
     await expect(delayQuantize).toBeVisible();
-    await expect(page.locator('#sound-effects-actions-slot #note-snap-btn')).toBeVisible();
-    await expect(page.locator('#sound-effects-actions-slot #grid-snap-btn')).toBeHidden();
-    await expect(page.locator('#sound-effects-actions-slot #quantize-btn')).toBeHidden();
+    await expect(page.locator('#sound-effects-actions-slot #note-snap-btn')).toHaveCount(0);
+    await expect(page.locator('#sound-effects-actions-slot #grid-snap-btn')).toHaveCount(0);
+    await expect(page.locator('#sound-effects-actions-slot #quantize-btn')).toHaveCount(0);
+    await expect(page.locator('#sound-editor-actions #note-snap-btn')).toHaveCount(1);
+    await expect(page.locator('#sound-editor-actions #grid-snap-btn')).toHaveCount(1);
+    await expect(page.locator('#sound-editor-actions #quantize-btn')).toHaveCount(1);
     await delayQuantize.click();
     await expect(delayQuantize).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('[data-param="delayTime"]').locator('xpath=ancestor::div[contains(@class,"slider-container")]/span')).toContainText(/note/);

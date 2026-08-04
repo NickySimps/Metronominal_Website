@@ -78,8 +78,6 @@ const SoundSettingsModal = {
     const effectsModal = document.getElementById("sound-effects-modal");
     const effectsButton = DOM.soundSettingsModal.querySelector("#sound-effects-btn");
     const effectsCloseButton = effectsModal?.querySelector("#sound-effects-close");
-    this.effectsActionGroup = DOM.soundSettingsModal.querySelector("#sound-editor-actions");
-    this.effectsActionOrigin = this.effectsActionGroup?.parentElement || null;
     this.effectsActionSlot = effectsModal?.querySelector("#sound-effects-actions-slot") || null;
     effectsButton?.addEventListener("click", () => this.showEffectsModal());
     effectsCloseButton?.addEventListener("click", () => this.hideEffectsModal());
@@ -874,8 +872,7 @@ const SoundSettingsModal = {
     const trigger = DOM.soundSettingsModal.querySelector("#sound-effects-btn");
     if (!modal || !this.currentSoundSettings) return;
     this.effectsPreviouslyFocusedElement = document.activeElement;
-    if (this.effectsActionGroup && this.effectsActionSlot) this.effectsActionSlot.appendChild(this.effectsActionGroup);
-    const delayQuantizeButton = this.effectsActionGroup?.querySelector("#delay-quantize-btn");
+    const delayQuantizeButton = this.effectsActionSlot?.querySelector("#delay-quantize-btn");
     if (delayQuantizeButton) delayQuantizeButton.style.display = "inline-block";
     modal.hidden = false;
     modal.style.display = "flex";
@@ -891,8 +888,7 @@ const SoundSettingsModal = {
     modal.classList.remove("is-open");
     modal.style.display = "none";
     modal.hidden = true;
-    if (this.effectsActionGroup && this.effectsActionOrigin) this.effectsActionOrigin.appendChild(this.effectsActionGroup);
-    const delayQuantizeButton = this.effectsActionGroup?.querySelector("#delay-quantize-btn");
+    const delayQuantizeButton = this.effectsActionSlot?.querySelector("#delay-quantize-btn");
     if (delayQuantizeButton) delayQuantizeButton.style.display = "none";
     trigger?.setAttribute("aria-expanded", "false");
     const restoreTarget = this.effectsPreviouslyFocusedElement;
@@ -1054,9 +1050,11 @@ const SoundSettingsModal = {
     this.mainSlidersContainer = slidersContainer;
     (this.delayQuantizeRefreshers || []).forEach((refresh) => document.removeEventListener("tempochange", refresh));
     this.delayQuantizeRefreshers = [];
-    delayQuantizeBtn.style.display = 'none';
-    delayQuantizeBtn.setAttribute('aria-pressed', 'false');
-    delayQuantizeBtn.classList.remove('active');
+    if (delayQuantizeBtn) {
+      delayQuantizeBtn.style.display = 'none';
+      delayQuantizeBtn.setAttribute('aria-pressed', 'false');
+      delayQuantizeBtn.classList.remove('active');
+    }
     this.delayQuantizeEnabled = false;
     this.isQuantizing = false;
     this.isGridSnapping = false;
