@@ -1304,16 +1304,26 @@ test.describe('mode controls responsive layout', () => {
     for (const viewport of [{ width: 1440, height: 900 }, { width: 320, height: 568 }]) {
       await page.setViewportSize(viewport);
       await page.goto('/');
+      await page.waitForTimeout(500);
       const result = await page.evaluate(() => {
         const tracks = [...document.querySelectorAll('#all-tracks-wrapper .track')];
-        const bars = tracks.flatMap(track => [...track.querySelectorAll('.bar-visual')].map(bar => ({
-          track: track.getBoundingClientRect(),
-          bar: bar.getBoundingClientRect(),
-          beats: [...bar.querySelectorAll('.beat-square')].map(beat => beat.getBoundingClientRect()),
-        })));
-        const contained = bars.every(({ track, bar, beats }) =>
+        const bars = tracks.flatMap(track => [...track.querySelectorAll('.bar-visual')].map(bar => {
+          const trackRect = track.getBoundingClientRect();
+          const barRect = bar.getBoundingClientRect();
+          const beats = [...bar.querySelectorAll('.beat-square')].map(beat => beat.getBoundingClientRect());
+          const beatLeft = Math.min(...beats.map(beat => beat.left));
+          const beatRight = Math.max(...beats.map(beat => beat.right));
+          return {
+            track: trackRect,
+            bar: barRect,
+            beats,
+            occupiedRatio: (beatRight - beatLeft) / barRect.width,
+          };
+        }));
+        const contained = bars.every(({ track, bar, beats, occupiedRatio }) =>
           bar.left >= track.left - 0.5 && bar.right <= track.right + 0.5 &&
           Math.abs((bar.left + bar.width / 2) - (track.left + track.width / 2)) <= 0.5 &&
+          occupiedRatio >= 0.87 && occupiedRatio <= 0.93 &&
           beats.every(beat => beat.left >= bar.left - 0.5 && beat.right <= bar.right + 0.5 && beat.top >= bar.top - 0.5 && beat.bottom <= bar.bottom + 0.5)
         );
         return { contained, barCount: bars.length };

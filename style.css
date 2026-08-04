@@ -1860,8 +1860,9 @@ button:active,
   width: 100%;
   max-width: none;
   box-sizing: border-box;
+  padding-inline: 5%;
   display: grid;
-  grid-template-columns: repeat(var(--beat-columns, 4), minmax(0, 3.5rem));
+  grid-template-columns: repeat(var(--beat-columns, 4), minmax(0, 1fr));
   grid-auto-rows: minmax(2rem, auto);
   column-gap: var(--s1);
   row-gap: var(--s1);
