@@ -1797,11 +1797,15 @@ button:active,
   display: flex;
   flex-flow: row wrap;
   flex-grow: 1;
+  width: 100%;
+  min-width: 0;
   justify-content: center;
 }
 .track-container {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  min-width: 0;
   gap: 1rem;
   margin-bottom: 1rem;
 }
@@ -1810,7 +1814,8 @@ button:active,
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  width: clamp(340px, 90%, auto);
+  width: min(100%, 54rem);
+  box-sizing: border-box;
   padding: var(--s2);
   margin: var(--s3) var(--s2);
   border-radius: 8px;
@@ -4069,19 +4074,26 @@ body.beat-edit-mode .beat-square {
   transition-duration: 200ms !important;
 }
 .track-controls {
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) minmax(5.5rem, 1.7fr) repeat(2, max-content) max-content;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: var(--s2);
+  row-gap: var(--s2);
   min-width: 0;
   width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-  white-space: nowrap;
+  overflow: visible;
 }
 .track-controls > .track-name,
 .track-controls > button,
 .track-controls > .track-volume-controls {
-  flex: 0 0 auto;
+  min-width: 0;
 }
+.track-controls > .track-name { grid-column: 1; grid-row: 1; margin: 0; }
+.track-controls > .track-record-btn { grid-column: 2; grid-row: 1; width: auto; }
+.track-controls > .track-mute-btn { grid-column: 3; grid-row: 1; }
+.track-controls > .track-solo-btn { grid-column: 4; grid-row: 1; }
+.track-controls > .track-remove-btn { grid-column: 5; grid-row: 1; justify-self: end; }
 .track-controls > button {
   min-width: 2.75rem;
   width: auto;
@@ -4089,16 +4101,35 @@ body.beat-edit-mode .beat-square {
   margin: 0;
   padding: .45rem .6rem;
 }
-.track-controls > .track-record-btn { width: 2.625rem; padding: 0; }
 .track-controls > .track-name { max-width: 10rem; overflow: hidden; text-overflow: ellipsis; }
 .track-volume-controls {
-  flex: 0 0 auto;
+  grid-column: 1 / -1;
+  grid-row: 2;
   width: 100%;
   box-sizing: border-box;
 }
 .track-controls > .track-volume-controls {
-  width: clamp(8rem, 22vw, 14rem);
-  flex-basis: clamp(8rem, 22vw, 14rem);
+  width: 100%;
+}
+
+@media (max-width: 36rem) {
+  .track {
+    width: min(100%, 54rem);
+    box-sizing: border-box;
+    margin-inline: 0;
+  }
+  .track-controls {
+    grid-template-columns: minmax(4.5rem, 1fr) minmax(4.5rem, 1.45fr) repeat(3, 2.35rem);
+    column-gap: .25rem;
+  }
+  .track-controls > button {
+    min-width: 2.35rem;
+    padding-inline: .25rem;
+  }
+  .track-controls > .track-record-btn {
+    min-width: 4.5rem;
+    width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

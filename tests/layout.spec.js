@@ -202,6 +202,42 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('#theme-menu-toggle')).toBeFocused();
   });
 
+  test('Synthwave menus stay above track controls at iPhone SE width', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    await page.locator('#theme-menu-toggle').click();
+    await page.locator('[data-theme="synthwave"]').click();
+    await expect(page.locator('#theme-menu')).toBeVisible();
+    const themeGeometry = await page.evaluate(() => {
+      const menu = document.querySelector('#theme-menu').getBoundingClientRect();
+      const track = document.querySelector('.track').getBoundingClientRect();
+      const record = document.querySelector('.track-record-btn').getBoundingClientRect();
+      const remove = document.querySelector('.track-remove-btn').getBoundingClientRect();
+      return { menu, track, record, remove, display: getComputedStyle(document.querySelector('.track-controls')).display };
+    });
+    expect(themeGeometry.menu.left).toBeGreaterThanOrEqual(0);
+    expect(themeGeometry.menu.right).toBeLessThanOrEqual(320);
+    expect(themeGeometry.track.right).toBeLessThanOrEqual(320.5);
+    expect(themeGeometry.record.width).toBeGreaterThan(themeGeometry.remove.width);
+    expect(themeGeometry.remove.right).toBeLessThanOrEqual(themeGeometry.track.right + 0.5);
+    expect(themeGeometry.display).toBe('grid');
+    await expect(page).toHaveScreenshot('synthwave-mobile-theme-menu.png', { animations: 'disabled' });
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#theme-menu')).toBeHidden();
+    const visualizerButton = page.locator('#visualizer-mode-btn');
+    await page.evaluate(async () => {
+      const button = document.querySelector('#visualizer-mode-btn');
+      button.dispatchEvent(new PointerEvent('pointerdown', { button: 0, pointerId: 11, pointerType: 'touch', bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    });
+    await expect(page.locator('#visualizer-mode-menu')).toBeVisible();
+    const visualizerGeometry = await page.locator('#visualizer-mode-menu').boundingBox();
+    expect(visualizerGeometry.x).toBeGreaterThanOrEqual(0);
+    expect(visualizerGeometry.x + visualizerGeometry.width).toBeLessThanOrEqual(320);
+    await expect(page).toHaveScreenshot('synthwave-mobile-visualizer-menu.png', { animations: 'disabled' });
+  });
+
   test('theme selection assigns a visualizer mode and random theme changes it', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto('/');
@@ -638,9 +674,9 @@ test.describe('mode controls responsive layout', () => {
       const record = controls.querySelector('.track-record-btn').getBoundingClientRect();
       const mute = controls.querySelector('.track-mute-btn').getBoundingClientRect();
       const style = getComputedStyle(controls);
-      return { flexWrap: style.flexWrap, sameRow: Math.abs(record.top - mute.top) < 1 };
+      return { display: style.display, sameRow: Math.abs(record.top - mute.top) < 1 };
     });
-    expect(inlineControls.flexWrap).toBe('nowrap');
+    expect(inlineControls.display).toBe('grid');
     expect(inlineControls.sameRow).toBe(true);
 
     await track.locator('.beat-square').first().click();
