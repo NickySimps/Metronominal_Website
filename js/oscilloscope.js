@@ -15,6 +15,10 @@ const Oscilloscope = {
   isDrawing: false,
   mode: "waveform",
   bandEnergy: { low: 0, mid: 0, high: 0 },
+  frameHistory: [],
+  frameCanvas: null,
+  effectCanvas: null,
+  pixelCanvas: null,
   longPressTimer: null,
   longPressStart: null,
   longPressActive: false,
@@ -582,6 +586,76 @@ const Oscilloscope = {
     canvasCtx.fill();
   },
 
+  getVisualizerEffects() {
+    const effects = { delay: 0, distortion: 0, reverb: 0 };
+    AppState.getTracks().forEach((track) => {
+      [track.mainBeatSound, track.subdivisionSound].forEach((soundInfo) => {
+        const settings = soundInfo?.settings || {};
+        effects.delay = Math.max(effects.delay, Number(settings.delayMix) || 0);
+        effects.distortion = Math.max(effects.distortion, Number(settings.distortion) || 0);
+        effects.reverb = Math.max(effects.reverb, Number(settings.reverbMix) || 0);
+      });
+    });
+    return effects;
+  },
+
+  ensureEffectCanvases(width, height) {
+    const createCanvas = (canvas, canvasWidth = width, canvasHeight = height) => {
+      if (!canvas) canvas = document.createElement("canvas");
+      if (canvas.width !== canvasWidth) canvas.width = canvasWidth;
+      if (canvas.height !== canvasHeight) canvas.height = canvasHeight;
+      return canvas;
+    };
+    this.frameCanvas = createCanvas(this.frameCanvas);
+    this.effectCanvas = createCanvas(this.effectCanvas);
+    this.pixelCanvas = createCanvas(this.pixelCanvas, Math.max(1, Math.floor(width / 4)), Math.max(1, Math.floor(height / 4)));
+  },
+
+  applyVisualizerEffects(effects) {
+    const { width, height } = this.canvas;
+    const frameCtx = this.frameCanvas.getContext("2d");
+    const effectCtx = this.effectCanvas.getContext("2d");
+    const pixelCtx = this.pixelCanvas.getContext("2d");
+    effectCtx.clearRect(0, 0, width, height);
+    effectCtx.drawImage(this.canvas, 0, 0);
+
+    this.canvasCtx.globalCompositeOperation = "source-over";
+    this.canvasCtx.clearRect(0, 0, width, height);
+    if (effects.reverb > 0) {
+      this.canvasCtx.save();
+      this.canvasCtx.filter = `blur(${Math.round(effects.reverb * 18)}px)`;
+      this.canvasCtx.globalAlpha = 0.18 + effects.reverb * 0.42;
+      this.canvasCtx.drawImage(this.effectCanvas, 0, 0);
+      this.canvasCtx.restore();
+    }
+
+    if (effects.distortion > 0) {
+      const pixelSize = Math.max(2, Math.round(2 + effects.distortion * 8));
+      this.pixelCanvas.width = Math.max(1, Math.floor(width / pixelSize));
+      this.pixelCanvas.height = Math.max(1, Math.floor(height / pixelSize));
+      pixelCtx.imageSmoothingEnabled = false;
+      pixelCtx.clearRect(0, 0, this.pixelCanvas.width, this.pixelCanvas.height);
+      pixelCtx.drawImage(this.effectCanvas, 0, 0, this.pixelCanvas.width, this.pixelCanvas.height);
+      this.canvasCtx.save();
+      this.canvasCtx.globalAlpha = 0.45 + effects.distortion * 0.45;
+      this.canvasCtx.imageSmoothingEnabled = false;
+      const chaos = effects.distortion * 5;
+      this.canvasCtx.drawImage(pixelCanvas, -chaos, 0, width, height);
+      this.canvasCtx.drawImage(pixelCanvas, chaos, effects.distortion * 3, width, height);
+      this.canvasCtx.restore();
+    } else {
+      this.canvasCtx.drawImage(this.effectCanvas, 0, 0);
+    }
+
+    frameCtx.clearRect(0, 0, width, height);
+    frameCtx.drawImage(this.canvas, 0, 0);
+    this.frameHistory.push(this.frameCanvas.cloneNode(true));
+    const latest = this.frameHistory[this.frameHistory.length - 1];
+    latest.getContext("2d").drawImage(this.frameCanvas, 0, 0);
+    if (this.frameHistory.length > 6) this.frameHistory.shift();
+    this.canvasCtx.globalCompositeOperation = "source-over";
+  },
+
   draw() {
     if (!this.isDrawing) return;
     requestAnimationFrame(() => this.draw());
@@ -592,9 +666,23 @@ const Oscilloscope = {
     if (this.canvas.width !== width || this.canvas.height !== height) {
       this.canvas.width = width;
       this.canvas.height = height;
+      this.frameHistory = [];
     }
+    this.ensureEffectCanvases(this.canvas.width, this.canvas.height);
+    const effects = this.getVisualizerEffects();
 
     this.canvasCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    if (effects.delay > 0) {
+      this.canvasCtx.save();
+      this.canvasCtx.globalCompositeOperation = "source-over";
+      this.frameHistory.slice(-5).forEach((frame, index) => {
+        this.canvasCtx.globalAlpha = effects.delay * (0.18 + index * 0.08);
+        this.canvasCtx.drawImage(frame, 0, 0);
+      });
+      this.canvasCtx.restore();
+    } else {
+      this.frameHistory = [];
+    }
 
     if (analyserNodes.length === 0) return;
 
@@ -696,6 +784,7 @@ const Oscilloscope = {
         }
       }
     });
+    this.applyVisualizerEffects(effects);
   },
 };
 
