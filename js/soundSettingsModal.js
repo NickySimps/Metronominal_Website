@@ -593,15 +593,26 @@ const SoundSettingsModal = {
       if (!Number.isFinite(bpm) || bpm <= 0) return [];
       const beatMs = 60000 / bpm;
       return [
-          [1, '1/1 note'],
-          [2, '1/2 note'],
-          [4, '1/4 note'],
-          [8, '1/8 note'],
-          [16, '1/16 note'],
-          [32, '1/32 note'],
-          [64, '1/64 note'],
-          [128, '1/128 note'],
-      ].map(([denominator, label]) => ({ ms: Math.round(beatMs * 4 / denominator), label }))
+          [1, '1/1 note', false],
+          [1, '1/1 dotted note', true],
+          [2, '1/2 note', false],
+          [2, '1/2 dotted note', true],
+          [4, '1/4 note', false],
+          [4, '1/4 dotted note', true],
+          [8, '1/8 note', false],
+          [8, '1/8 dotted note', true],
+          [16, '1/16 note', false],
+          [16, '1/16 dotted note', true],
+          [32, '1/32 note', false],
+          [32, '1/32 dotted note', true],
+          [64, '1/64 note', false],
+          [64, '1/64 dotted note', true],
+          [128, '1/128 note', false],
+          [128, '1/128 dotted note', true],
+      ].map(([denominator, label, dotted]) => ({
+          ms: Math.round(beatMs * 4 / denominator * (dotted ? 1.5 : 1)),
+          label,
+      }))
           .filter(({ ms }) => ms > 0 && ms <= maxMs)
           .filter((option, index, options) => index === options.findIndex((candidate) => candidate.ms === option.ms))
           .sort((a, b) => a.ms - b.ms);
@@ -651,6 +662,12 @@ const SoundSettingsModal = {
       heading.className = "sound-control-category-title";
       heading.textContent = categoryLabels[categoryKey] || "Sound controls";
       controlGroup.appendChild(heading);
+      if (categoryKey === "synth") {
+        const adsrGroup = document.createElement("div");
+        adsrGroup.className = "adsr-control-group";
+        adsrGroup.innerHTML = '<h4>ADSR</h4>';
+        controlGroup.appendChild(adsrGroup);
+      }
       targetContainer.appendChild(controlGroup);
     }
     const sliderContainer = document.createElement("div");
@@ -744,7 +761,11 @@ const SoundSettingsModal = {
         valueDisplay.textContent = value;
     }
     sliderContainer.appendChild(valueDisplay);
-    controlGroup.appendChild(sliderContainer);
+    const isAdsrParam = ["attack", "decay", "sustain", "release"].includes(param);
+    const sliderTarget = isAdsrParam
+      ? (controlGroup.querySelector(".adsr-control-group") || controlGroup)
+      : controlGroup;
+    sliderTarget.appendChild(sliderContainer);
 
     const snapPoints = this.isNoteSnapping && param.toLowerCase().includes("frequency")
         ? generateNoteFrequencies(min, max)
@@ -1141,7 +1162,7 @@ const SoundSettingsModal = {
         this.drawWaveformAndTrimLines = (buffer) => {
             const visibleSpan = 1 / this.waveformZoom;
             const visibleStart = this.waveformPan * (1 - visibleSpan);
-            RecordingVisualizer.drawWaveform(buffer, waveformCanvas, mainColor, visibleStart, visibleStart + visibleSpan, soundSettings.reverse === true);
+            RecordingVisualizer.drawWaveform(buffer, waveformCanvas, mainColor, visibleStart, visibleStart + visibleSpan, this.currentSoundSettings.reverse === true);
             const ctx = waveformCanvas.getContext('2d');
 
             if (this.isGridSnapping) {
@@ -1177,14 +1198,14 @@ const SoundSettingsModal = {
                 }
             }
 
-            const trimStart = (soundSettings.trimStart || 0);
-            const trimEnd = (soundSettings.trimEnd || buffer.duration);
+            const trimStart = (this.currentSoundSettings.trimStart || 0);
+            const trimEnd = (this.currentSoundSettings.trimEnd || buffer.duration);
             const trimVisibleSpan = 1 / this.waveformZoom;
             const trimVisibleStart = this.waveformPan * (1 - trimVisibleSpan);
             const trimVisibleEnd = trimVisibleStart + trimVisibleSpan;
             const toCanvasX = (time) => ((time / buffer.duration - trimVisibleStart) / trimVisibleSpan) * waveformCanvas.width;
-            const startX = soundSettings.reverse ? toCanvasX(buffer.duration - trimEnd) : toCanvasX(trimStart);
-            const endX = soundSettings.reverse ? toCanvasX(buffer.duration - trimStart) : toCanvasX(trimEnd);
+            const startX = this.currentSoundSettings.reverse ? toCanvasX(buffer.duration - trimEnd) : toCanvasX(trimStart);
+            const endX = this.currentSoundSettings.reverse ? toCanvasX(buffer.duration - trimStart) : toCanvasX(trimEnd);
 
             ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
             if (startX > 0) ctx.fillRect(0, 0, Math.min(waveformCanvas.width, startX), waveformCanvas.height);
@@ -1208,7 +1229,7 @@ const SoundSettingsModal = {
             const visibleStart = this.waveformPan * (1 - visibleSpan);
             const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
             const normalizedTime = visibleStart + ratio * visibleSpan;
-            const time = (soundSettings.reverse ? 1 - normalizedTime : normalizedTime) * soundInfo.audioBuffer.duration;
+            const time = (this.currentSoundSettings.reverse ? 1 - normalizedTime : normalizedTime) * soundInfo.audioBuffer.duration;
             const startSlider = this.sliders.find((slider) => slider.sliderElement.dataset.param === "trimStart");
             const endSlider = this.sliders.find((slider) => slider.sliderElement.dataset.param === "trimEnd");
             if (activeTrimHandle === "start" && startSlider) startSlider.setValue(Math.min(time, endSlider?.value ?? time));
@@ -1221,8 +1242,8 @@ const SoundSettingsModal = {
             const visibleStart = this.waveformPan * (1 - visibleSpan);
             const ratio = (event.clientX - rect.left) / rect.width;
             const pointerTime = (visibleStart + ratio * visibleSpan) * soundInfo.audioBuffer.duration;
-            const start = soundSettings.trimStart || 0;
-            const end = soundSettings.trimEnd || soundInfo.audioBuffer.duration;
+            const start = this.currentSoundSettings.trimStart || 0;
+            const end = this.currentSoundSettings.trimEnd || soundInfo.audioBuffer.duration;
             activeTrimHandle = Math.abs(pointerTime - start) <= Math.abs(pointerTime - end) ? "start" : "end";
             waveformCanvas.setPointerCapture?.(event.pointerId);
             updateTrimFromPointer(event);
@@ -1255,14 +1276,14 @@ const SoundSettingsModal = {
             if (!buffer) return;
             const visibleSpan = 1 / this.waveformZoom;
             const visibleStart = this.waveformPan * (1 - visibleSpan);
-            RecordingVisualizer.drawWaveform(buffer, synthWaveformCanvas, waveformColor, visibleStart, visibleStart + visibleSpan, soundSettings.reverse === true);
+            RecordingVisualizer.drawWaveform(buffer, synthWaveformCanvas, waveformColor, visibleStart, visibleStart + visibleSpan, this.currentSoundSettings.reverse === true);
             const context = synthWaveformCanvas.getContext("2d");
             const duration = Math.max(buffer.duration, 0.001);
             const trimStart = Math.max(0, Math.min(duration, Number(this.currentSoundSettings.trimStart) || 0));
             const trimEnd = Math.max(trimStart, Math.min(duration, Number(this.currentSoundSettings.trimEnd) || duration));
             const toCanvasX = (time) => ((time / duration - visibleStart) / visibleSpan) * synthWaveformCanvas.width;
-            const startX = soundSettings.reverse ? toCanvasX(duration - trimEnd) : toCanvasX(trimStart);
-            const endX = soundSettings.reverse ? toCanvasX(duration - trimStart) : toCanvasX(trimEnd);
+            const startX = this.currentSoundSettings.reverse ? toCanvasX(duration - trimEnd) : toCanvasX(trimStart);
+            const endX = this.currentSoundSettings.reverse ? toCanvasX(duration - trimStart) : toCanvasX(trimEnd);
             context.fillStyle = "rgba(0, 0, 0, 0.5)";
             if (startX > 0) context.fillRect(0, 0, Math.min(synthWaveformCanvas.width, startX), synthWaveformCanvas.height);
             if (endX < synthWaveformCanvas.width) context.fillRect(Math.max(0, endX), 0, synthWaveformCanvas.width - Math.max(0, endX), synthWaveformCanvas.height);

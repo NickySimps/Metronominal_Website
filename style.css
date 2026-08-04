@@ -4039,6 +4039,27 @@ body.beat-edit-mode .beat-square {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: .45rem .75rem;
 }
+.adsr-control-group {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .25rem .5rem;
+  padding: .4rem .5rem;
+  border: 1px solid color-mix(in srgb, var(--BorderColor) 70%, transparent);
+  border-radius: var(--BorderRadius, .5rem);
+  background: color-mix(in srgb, var(--Main) 6%, transparent);
+}
+.adsr-control-group h4 {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: .72rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.adsr-control-group > .slider-container { margin: 0; }
+@media (max-width: 520px) {
+  .adsr-control-group { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .sound-control-category[data-control-category="synth"] > .slider-container {
   margin-bottom: 0;
 }

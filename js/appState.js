@@ -603,6 +603,15 @@ const AppState = (function () {
         track.currentBar = Math.min(currentBar, Math.max(0, track.barSettings.length - 1));
         track.currentBeat = 0;
       });
+      Tracks.forEach((track) => {
+        if (!Number.isFinite(track.nextBeatTime)) {
+          track.nextBeatTime = Number.isFinite(Tracks[0]?.nextBeatTime)
+            ? Tracks[0].nextBeatTime
+            : audioContext?.currentTime || 0;
+        }
+        if (!Number.isFinite(track.currentBar)) track.currentBar = 0;
+        if (!Number.isFinite(track.currentBeat)) track.currentBeat = 0;
+      });
       Tracks.length = section.tracks.length;
       if (typeof document !== "undefined") {
         document.dispatchEvent(new CustomEvent("songtracksectionchange", {

@@ -62,9 +62,8 @@ function isMainBeat(indexInBar, subdivision, mainBeatsInBar) {
   let result;
 
   if (subdivisionFloat < 1) {
-    // For whole/half notes, every beat shown is a main beat
-    result = true;
-  } else {
+    result = indexInBar === 0;
+    } else {
     // For subdivisions >= 1, check if it aligns with main beats
     result = indexInBar % subdivisionFloat === 0;
   }

@@ -439,9 +439,9 @@ test('song section playback adds and removes runtime tracks to match each sectio
     AppState.applySongSectionForBar(1);
     const reducedCount = AppState.getTracks().length;
     AppState.applySongSectionForBar(2);
-    return { fullCount, reducedCount, finalCount: AppState.getTracks().length, finalName: AppState.getTracks()[1]?.name };
+    return { fullCount, reducedCount, finalCount: AppState.getTracks().length, finalName: AppState.getTracks()[1]?.name, finalTracksRunnable: AppState.getTracks().every(track => Number.isFinite(track.nextBeatTime)) };
   });
-  expect(result).toEqual({ fullCount: 2, reducedCount: 1, finalCount: 2, finalName: 'Second section track' });
+  expect(result).toEqual({ fullCount: 2, reducedCount: 1, finalCount: 2, finalName: 'Second section track', finalTracksRunnable: true });
 });
 test('song v2 normalizes snapshots, repeats section ranges, and derives a missing song name from its preset', async ({ page }) => {
   await page.goto('./');

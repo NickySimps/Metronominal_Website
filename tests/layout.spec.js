@@ -738,6 +738,26 @@ test.describe('mode controls responsive layout', () => {
     expect(resetBeatState[0]).toBeUndefined();
   });
 
+  test('fractional and quarter note beat selections open the sound that actually plays', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.beat-edit-btn').first().click();
+    const result = await page.evaluate(async () => {
+      const [{ default: AppState }, { default: BarDisplayController }] = await Promise.all([
+        import(new URL('js/appState.js', document.baseURI).href),
+        import(new URL('js/barDisplayController.js', document.baseURI).href),
+      ]);
+      const track = AppState.getTracks()[0];
+      track.barSettings[0].subdivision = 0.5;
+      BarDisplayController.renderBarsAndControls();
+      const squares = document.querySelectorAll('.bar-visual[data-container-index="0"][data-bar-index="0"] .beat-square');
+      const classes = [...squares].map(square => square.className);
+      squares[1].click();
+      return { classes, context: document.querySelector('.sound-modal-context')?.textContent || '' };
+    });
+    expect(result.classes[0]).toContain('main-beat-marker');
+    expect(result.classes[1]).toContain('subdivision');
+    expect(result.context).toContain('Subdivision Sound');
+  });
   test('synth editors show a waveform and live filter cutoff feedback', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 600 });
     await page.goto('/');
@@ -961,7 +981,7 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('[data-param="delayTime"]').locator('xpath=ancestor::div[contains(@class,"slider-container")]/span')).toContainText(/note/);
     const delaySlider = page.locator('[data-param="delayTime"]');
     const delayOptions = await delaySlider.locator('xpath=ancestor::div[contains(@class,"slider-container")]').locator('datalist option').evaluateAll((options) => options.map((option) => option.label));
-    expect(delayOptions).toEqual(expect.arrayContaining(['1/2 note', '1/4 note', '1/8 note', '1/16 note', '1/32 note', '1/64 note']));
+    expect(delayOptions).toEqual(expect.arrayContaining(['1/2 note', '1/4 note', '1/4 dotted note', '1/8 note', '1/8 dotted note', '1/16 note', '1/16 dotted note', '1/32 note', '1/32 dotted note', '1/64 note']));
     const delayIncrement = delaySlider.locator('xpath=ancestor::div[contains(@class,"slider-container")]').locator('.slider-button-increment');
     const beforeIncrement = Number(await delaySlider.inputValue());
     await delayIncrement.click();
