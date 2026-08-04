@@ -29,6 +29,8 @@ let lastPaintedBeatSquare = null;
 let dragPaintAction = null;
 let dragPaintTargetVel = 0.7;
 let subdivisionShield = null;
+let subdivisionTriggerElement = null;
+let subdivisionKeydownHandler = null;
 const LONG_PRESS_DURATION = 200; // ms
 const POINTER_MOVE_THRESHOLD = 35; // pixels (Forgiving for touch & mouse hold)
 
@@ -492,6 +494,8 @@ function showSubdivisionSelector(barElement) {
         console.error("Could not get bar index or container index.");
         return;
     }
+    barElement.setAttribute('tabindex', '0');
+    barElement.setAttribute('aria-haspopup', 'menu');
 
     const optionsFromDOM = DOM.beatMultiplierSelect ? Array.from(DOM.beatMultiplierSelect.options) : [];
     if (optionsFromDOM.length === 0) {
@@ -532,8 +536,8 @@ function showSubdivisionSelector(barElement) {
     subdivisionShield.className = "subdivision-selector-shield";
     subdivisionShield.setAttribute("aria-hidden", "true");
     subdivisionShield.addEventListener("pointerdown", (event) => {
-      event.preventDefault();
       event.stopPropagation();
+      hideSubdivisionSelector();
     });
     subdivisionShield.addEventListener("click", (event) => {
       event.preventDefault();
@@ -550,6 +554,8 @@ function showSubdivisionSelector(barElement) {
         }
         const container = document.createElement('div');
         container.className = 'subdivision-options-container';
+        container.setAttribute('role', 'menu');
+        container.setAttribute('aria-label', 'Subdivision options');
         container.classList.add(position);
         container.dataset.forBar = `${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}`;
         if (position === 'below') {
@@ -559,6 +565,8 @@ function showSubdivisionSelector(barElement) {
         subdivisions.forEach(optionData => {
             const element = document.createElement('div');
             element.className = 'subdivision-option';
+            element.setAttribute('role', 'menuitem');
+            element.setAttribute('tabindex', '0');
             element.dataset.value = optionData.value;
             element.textContent = optionData.text;
             
@@ -578,6 +586,13 @@ function showSubdivisionSelector(barElement) {
                     await applySubdivisionChange(containerIndex, barIndex, newSubdivision);
                 }
                 hideSubdivisionSelector();
+            });
+
+            element.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    element.click();
+                }
             });
 
             container.appendChild(element);
@@ -649,6 +664,15 @@ function showSubdivisionSelector(barElement) {
 
     createContainer(lowerSubdivisions, 'above');
     createContainer(higherSubdivisions, 'below');
+    subdivisionTriggerElement = barElement;
+    subdivisionKeydownHandler = (event) => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            hideSubdivisionSelector();
+        }
+    };
+    document.addEventListener('keydown', subdivisionKeydownHandler);
+    requestAnimationFrame(() => document.querySelector('.subdivision-options-container.visible .subdivision-option')?.focus());
     setTimeout(() => {
         const panels = [...document.querySelectorAll(`.subdivision-options-container[data-for-bar="${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}"]`)].filter((panel) => panel.classList.contains('visible'));
         const above = panels.find((panel) => panel.classList.contains('above'));
@@ -677,6 +701,12 @@ function showSubdivisionSelector(barElement) {
 let currentHideOnClickOutside = null;
 
 function hideSubdivisionSelector() {
+    const trigger = subdivisionTriggerElement;
+    subdivisionTriggerElement = null;
+    if (subdivisionKeydownHandler) {
+        document.removeEventListener('keydown', subdivisionKeydownHandler);
+        subdivisionKeydownHandler = null;
+    }
     if (currentHideOnClickOutside) {
         window.removeEventListener('click', currentHideOnClickOutside);
         currentHideOnClickOutside = null;
@@ -692,6 +722,7 @@ function hideSubdivisionSelector() {
             }
         }, { once: true });
     });
+    if (trigger && trigger.isConnected) trigger.focus({ preventScroll: true });
 }
 
 function handleBeatSquareClick(event) {
@@ -748,7 +779,6 @@ const BarDisplayController = {
 
         const mainBeatsInBar = barData.beats;
         const subdivision = barData.subdivision;
-        barDiv.classList.toggle("flex-subdivision", ![1, 2, 4].includes(Number(subdivision)));
 
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
@@ -804,7 +834,6 @@ const BarDisplayController = {
 
         const mainBeatsInBar = barData.beats;
         const subdivision = barData.subdivision;
-        barDiv.classList.toggle("flex-subdivision", ![1, 2, 4].includes(Number(subdivision)));
 
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
