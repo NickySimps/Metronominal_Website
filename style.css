@@ -4025,9 +4025,8 @@ body.beat-edit-mode .beat-square {
   #sound-settings-modal { align-items: flex-start; }
   #sound-settings-modal .modal-content {
     width: 100%;
-    max-height: calc(100vh - .75rem);
-    margin-top: 6px;
-    margin-bottom: 6px;
+    max-height: calc(100dvh - 2rem);
+    margin: .5rem auto;
     padding: .7rem;
   }
   #sound-settings-modal .oscilloscope-canvas { height: 78px; }

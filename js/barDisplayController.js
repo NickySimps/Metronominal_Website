@@ -63,9 +63,10 @@ function isMainBeat(indexInBar, subdivision, mainBeatsInBar) {
 
   if (subdivisionFloat < 1) {
     result = indexInBar === 0;
-    } else {
-    // For subdivisions >= 1, check if it aligns with main beats
-    result = indexInBar % subdivisionFloat === 0;
+  } else {
+    // Playback treats only the first beat as the main sound when the bar is
+    // quarter-note resolution; higher subdivision values add aligned accents.
+    result = indexInBar === 0 || (subdivisionFloat > 1 && indexInBar % subdivisionFloat === 0);
   }
   return result;
 }

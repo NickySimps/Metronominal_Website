@@ -687,7 +687,7 @@ const SoundSettingsModal = {
         : slidersContainer;
     const categoryByParam = {
       trimStart: "playback", trimEnd: "playback", pitchShift: "effects",
-      attack: "synth", decay: "synth", sustain: "synth", release: "synth",
+      attack: "envelope", decay: "envelope", sustain: "envelope", release: "envelope",
       startFrequency: "synth", endFrequency: "synth", pitchEnvelopeTime: "synth",
       highPassFrequency: "filters", lowPassFrequency: "filters",
       distortion: "effects", delayMix: "effects", delayTime: "effects", delayFeedback: "effects", reverbMix: "effects", reverbFeedback: "effects",
@@ -695,6 +695,7 @@ const SoundSettingsModal = {
     };
     const categoryLabels = {
       playback: "Playback & pitch",
+      envelope: "ADSR",
       synth: "Synth envelope",
       filters: "Filters",
       effects: "Effects rack",
@@ -706,18 +707,12 @@ const SoundSettingsModal = {
       : targetContainer.querySelector(`[data-control-category="${categoryKey}"]`);
     if (!controlGroup) {
       controlGroup = document.createElement("section");
-      controlGroup.className = "sound-control-category";
+      controlGroup.className = `sound-control-category${categoryKey === "envelope" ? " adsr-control-group" : ""}`;
       controlGroup.dataset.controlCategory = categoryKey;
       const heading = document.createElement("h3");
       heading.className = "sound-control-category-title";
       heading.textContent = categoryLabels[categoryKey] || "Sound controls";
       controlGroup.appendChild(heading);
-      if (categoryKey === "synth") {
-        const adsrGroup = document.createElement("div");
-        adsrGroup.className = "adsr-control-group";
-        adsrGroup.innerHTML = '<h4>ADSR</h4>';
-        controlGroup.appendChild(adsrGroup);
-      }
       targetContainer.appendChild(controlGroup);
     }
     const sliderContainer = document.createElement("div");

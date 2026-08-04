@@ -595,6 +595,7 @@ test.describe('mode controls responsive layout', () => {
       const modal = document.querySelector('#sound-settings-modal');
       const content = modal.querySelector('.modal-content');
       const canvas = modal.querySelector('.oscilloscope-canvas');
+      content.scrollTop = content.scrollHeight;
       const tracks = AppState.getTracks();
       const track = tracks[0];
       const secondTrack = tracks[1];
@@ -609,6 +610,9 @@ test.describe('mode controls responsive layout', () => {
         hasPlaybackControls: Boolean(modal.querySelector('.sample-playback-controls')),
         hasSoundBottomClose: Boolean(modal.querySelector('#sound-settings-bottom-close')),
         hasEffectsBottomClose: Boolean(document.querySelector('#sound-effects-bottom-close')),
+        contentBottom: content.getBoundingClientRect().bottom,
+        modalBottom: modal.getBoundingClientRect().bottom,
+        bottomCloseBottom: modal.querySelector('#sound-settings-bottom-close')?.getBoundingClientRect().bottom,
         playbackLabel: modal.querySelector('.sample-playback-controls-title')?.textContent.trim(),
         playbackLabelRole: modal.querySelector('.sample-playback-controls-title')?.getAttribute('role'),
         hasReverseToggle: Boolean(modal.querySelector('#sample-reverse-toggle')),
@@ -643,6 +647,8 @@ test.describe('mode controls responsive layout', () => {
     expect(result.hasScopeModeSelect).toBe(true);
     expect(result.hasPlaybackControls).toBe(true);
     expect(result.hasSoundBottomClose).toBe(true);
+    expect(result.contentBottom).toBeLessThanOrEqual(result.modalBottom);
+    expect(result.bottomCloseBottom).toBeLessThanOrEqual(568);
     expect(result.hasEffectsBottomClose).toBe(true);
     expect(result.hasReverseToggle).toBe(true);
     expect(result.probabilityValue).toBe(100);
@@ -747,7 +753,7 @@ test.describe('mode controls responsive layout', () => {
         import(new URL('js/barDisplayController.js', document.baseURI).href),
       ]);
       const track = AppState.getTracks()[0];
-      track.barSettings[0].subdivision = 0.5;
+      track.barSettings[0].subdivision = 1;
       BarDisplayController.renderBarsAndControls();
       const squares = document.querySelectorAll('.bar-visual[data-container-index="0"][data-bar-index="0"] .beat-square');
       const classes = [...squares].map(square => square.className);
@@ -891,7 +897,7 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('#sound-effects-modal')).toBeHidden();
     await page.locator('#reset-sound-btn').click();
     await page.locator('#reset-sound-btn').click();
-    await expect(page.locator('#sound-sliders-container [data-control-category]')).toHaveCount(3);
+    await expect(page.locator('#sound-sliders-container [data-control-category]')).toHaveCount(4);
     await expect(page.locator('#sound-effects-sliders-container [data-control-category]')).toHaveCount(1);
     await page.locator('#sound-effects-btn').click();
     await expect(page.locator('#sound-effects-modal')).toBeVisible();
