@@ -698,7 +698,8 @@ test.describe('mode controls responsive layout', () => {
     expect(editHit.className).toContain('beat-edit-btn');
     await page.mouse.click(editBox.x + editBox.width / 2, editBox.y + editBox.height / 2);
     await expect(track.locator('.beat-edit-btn')).toHaveAttribute('aria-pressed', 'true');
-    await expect(track.locator('.beat-edit-btn')).toHaveText('Edit');
+    await expect(track.locator('.beat-edit-btn')).toHaveText('✎ Beat');
+    await expect(track.locator('.beat-edit-btn .control-icon')).toHaveText('✎');
     await expect(track.locator('.rest-button')).toContainText('Rest');
     const modeButtonStyle = await track.evaluate((element) => ({
       editBackground: getComputedStyle(element.querySelector('.beat-edit-btn')).backgroundColor,

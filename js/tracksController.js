@@ -417,7 +417,7 @@ const TrackController = {
           <div class="mode-buttons-col">
             <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode"><span class="control-icon" aria-hidden="true">○</span> Rest</button>
             <button class="accent-button ${AppState.isAccentMode() ? 'active' : ''}" aria-label="Toggle accent mode" title="Toggle Accent & Ghost Note Mode"><span class="control-icon" aria-hidden="true">▲</span> Accent</button>
-            <button class="beat-edit-btn ${isBeatEditMode ? 'active' : ''}" aria-label="Toggle Beat Edit mode" aria-pressed="${isBeatEditMode}" title="Click a beat to edit its sound">Edit</button>
+            <button class="beat-edit-btn ${isBeatEditMode ? 'active' : ''}" aria-label="Toggle Beat Edit mode" aria-pressed="${isBeatEditMode}" title="Click a beat to edit its sound"><span class="control-icon" aria-hidden="true">✎</span> Beat</button>
             <button class="random-btn" aria-label="Randomize pattern" title="Randomize accents, rests & dynamics for this track"><span class="control-icon" aria-hidden="true">↻</span> Rand</button>
           </div>
         </div>
