@@ -748,20 +748,48 @@ test.describe('mode controls responsive layout', () => {
   test('effects rack builds a live Web Audio chain and exposes its controls', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(async () => {
-      const [{ default: AppState }, { createEffectRackInput, createSoundFilterInput }] = await Promise.all([
+      const [{ default: AppState }, { createEffectRackInput, createSoundFilterInput, renderSynthAudioBuffer }, { default: SoundSynth }] = await Promise.all([
         import(new URL('js/appState.js', document.baseURI).href),
         import(new URL('js/audioEffects.js', document.baseURI).href),
+        import(new URL('js/soundSynth.js', document.baseURI).href),
       ]);
       const audioContext = AppState.getAudioContext();
       const destination = audioContext.createGain();
       const settings = { distortion: 0.4, delayMix: 0.3, delayTime: 0.18, reverbMix: 0.5 };
       const input = createEffectRackInput(audioContext, destination, settings);
       const bypass = createSoundFilterInput(audioContext, destination, { fxBypass: true });
-      return { inputType: input.constructor.name, bypassType: bypass.constructor.name, settings };
+      async function renderEffect(effectSettings) {
+        const offline = new OfflineAudioContext(1, 24000, 48000);
+        const oscillator = offline.createOscillator();
+        oscillator.frequency.value = 440;
+        oscillator.connect(createEffectRackInput(offline, offline.destination, effectSettings));
+        oscillator.start(0);
+        oscillator.stop(0.5);
+        const buffer = await offline.startRendering();
+        const data = buffer.getChannelData(0);
+        let energy = 0;
+        for (let index = 4800; index < data.length; index += 1) energy += data[index] ** 2;
+        return Math.sqrt(energy / (data.length - 4800));
+      }
+      const baselineRms = await renderEffect({});
+      const delayRms = await renderEffect({ delayMix: 1, delayTime: 0.1 });
+      const distortionRms = await renderEffect({ distortion: 1 });
+      const reverbRms = await renderEffect({ reverbMix: 1 });
+      const synthBase = await renderSynthAudioBuffer(audioContext, SoundSynth.playSine, { pitchShift: 0, volume: 1 });
+      const synthPitch = await renderSynthAudioBuffer(audioContext, SoundSynth.playSine, { pitchShift: 12, volume: 1 });
+      const baseData = synthBase.getChannelData(0);
+      const pitchData = synthPitch.getChannelData(0);
+      let pitchDifference = 0;
+      for (let index = 0; index < Math.min(1000, baseData.length, pitchData.length); index += 1) pitchDifference += Math.abs(baseData[index] - pitchData[index]);
+      return { inputType: input.constructor.name, bypassType: bypass.constructor.name, settings, baselineRms, delayRms, distortionRms, reverbRms, pitchDifference };
     });
     expect(result.inputType).toBe('GainNode');
     expect(result.bypassType).toBe('GainNode');
     expect(result.settings).toEqual({ distortion: 0.4, delayMix: 0.3, delayTime: 0.18, reverbMix: 0.5, fxBypass: false });
+    expect(result.delayRms).not.toBeCloseTo(result.baselineRms, 2);
+    expect(result.distortionRms).not.toBeCloseTo(result.baselineRms, 2);
+    expect(result.reverbRms).not.toBeCloseTo(result.baselineRms, 2);
+    expect(result.pitchDifference).toBeGreaterThan(0.01);
 
     const track = page.locator('.track').first();
     await track.locator('.beat-edit-btn').click();
