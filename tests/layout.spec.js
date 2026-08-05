@@ -455,7 +455,7 @@ test.describe('mode controls responsive layout', () => {
     await update(0).click();
     await expect(page.locator('.song-section-row').nth(0)).toContainText('1 tracks');
     await page.locator('#add-song-section-btn').click();
-    await expect(page.locator('.song-section-row')).toHaveCount(2);
+    await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-start="1"]')).toHaveValue('1');
     await update(1).click();
     await expect(page.locator('.song-section-row').nth(0)).toContainText('1 tracks');
     await expect(page.locator('.song-section-row').nth(1)).toContainText('1 tracks');

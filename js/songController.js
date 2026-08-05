@@ -426,8 +426,7 @@ function render() {
   name.value = song.name;
   name.disabled = !editable;
   const primaryBarCount = AppState.getTracks()[0]?.barSettings?.length || 1;
-  const hasUnusedBar = song.sections.length < primaryBarCount;
-  add.disabled = !editable || song.sections.length >= 32 || (!hasUnusedBar && primaryBarCount >= 64);
+  add.disabled = !editable || song.sections.length >= 32;
   const importInput = document.getElementById("import-song-input");
   if (importInput) importInput.disabled = !editable;
   selectedSectionIndex = Math.max(0, Math.min(selectedSectionIndex, song.sections.length - 1));
@@ -540,24 +539,10 @@ function copySection(index) {
   const song = updatedSongFromFields();
   const source = song.sections[index];
   if (!source || song.sections.length >= 32) return;
-  const tracks = AppState.getTracks();
-  let barCount = tracks[0]?.barSettings?.length || 1;
-  const used = new Set(song.sections.map(section => section.startBar));
-  let nextStart = 0;
-  while (used.has(nextStart)) nextStart += 1;
-  if (nextStart >= barCount && barCount < 64) {
-    for (const track of tracks) {
-      if (!track.barSettings?.length || track.barSettings.length >= 64) continue;
-      const lastBar = track.barSettings[track.barSettings.length - 1];
-      track.barSettings.push(JSON.parse(JSON.stringify(lastBar)));
-    }
-    barCount = tracks[0]?.barSettings?.length || barCount;
-  }
-  if (nextStart >= barCount) return;
   song.sections.push({
     ...JSON.parse(JSON.stringify(source)),
     name: `${source.name || `Section ${index + 1}`} Copy`,
-    startBar: nextStart,
+    startBar: 0,
     tracks: source.tracks ? JSON.parse(JSON.stringify(source.tracks)) : [],
   });
   selectedSectionIndex = song.sections.length - 1;
@@ -603,23 +588,9 @@ async function initialize(callback) {
   document.getElementById("add-song-section-btn")?.addEventListener("click", async () => {
     const song = updatedSongFromFields();
     if (song.sections.length >= 32) return;
-    const tracks = AppState.getTracks();
-    let barCount = tracks[0]?.barSettings?.length || 1;
-    const used = new Set(song.sections.map(section => section.startBar));
-    let nextStart = 0;
-    while (used.has(nextStart)) nextStart += 1;
-    if (nextStart >= barCount && barCount < 64) {
-      for (const track of tracks) {
-        if (!track.barSettings?.length || track.barSettings.length >= 64) continue;
-        const lastBar = track.barSettings[track.barSettings.length - 1];
-        track.barSettings.push(JSON.parse(JSON.stringify(lastBar)));
-      }
-      barCount = tracks[0]?.barSettings?.length || barCount;
-    }
-    if (nextStart >= barCount) return;
     song.sections.push({
       name: `Section ${song.sections.length + 1}`,
-      startBar: nextStart,
+      startBar: 0,
       tempo: AppState.getTempo(),
       repeats: 1,
     });

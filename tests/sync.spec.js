@@ -215,9 +215,10 @@ test('song mode synchronizes sections and creates a credential-free song link', 
   await host.locator('[data-song-section-tempo="0"]').fill('180');
   await host.locator('[data-song-section-tempo="0"]').blur();
   await expect(host.locator('#add-song-section-btn')).toBeEnabled();
+  await host.getByRole('button', { name: 'Increase bars' }).click();
   await host.locator('#add-song-section-btn').click();
   await expect(host.locator('.bar-visual')).toHaveCount(2);
-  await expect(host.locator('[data-song-section-start="1"]')).toHaveValue('2');
+  await expect(host.locator('[data-song-section-start="1"]')).toHaveValue('1');
   await host.locator('[data-song-section-name="1"]').fill('Chorus');
   await expect(host.locator('[data-song-section-start="1"]')).toHaveJSProperty('tagName', 'SELECT');
   await host.locator('[data-song-section-start="1"]').selectOption('2');
@@ -429,7 +430,7 @@ test('song section transitions wait for the longest active track', async ({ page
       name: 'Longest Track Boundary',
       sections: [
         { name: 'First', startBar: 0, tempo: 120, repeats: 1, tracks: [shortTrack, longTrack] },
-        { name: 'Next', startBar: 1, tempo: 120, repeats: 1, tracks: [shortTrack, longTrack] },
+        { name: 'Next', startBar: 0, tempo: 120, repeats: 1, tracks: [shortTrack, longTrack] },
       ],
     };
     await AppState.loadPresetData(state);
@@ -446,7 +447,7 @@ test('song section transitions wait for the longest active track', async ({ page
   expect(result.conductorAtFirstBar.sectionTransition).toBe(false);
   expect(result.conductorDuringLongTrack.bar).toBe(3);
   expect(result.conductorDuringLongTrack.sectionTransition).toBe(false);
-  expect(result.conductorAtLastBeat.bar).toBe(1);
+  expect(result.conductorAtLastBeat.bar).toBe(0);
   expect(result.conductorAtLastBeat.sectionTransition).toBe(true);
 });
   test('song section playback adds and removes runtime tracks to match each section snapshot', async ({ page }) => {
@@ -603,7 +604,7 @@ test('section selector captures, previews, and atomically reapplies all section 
   await page.locator('.song-section-row').nth(0).locator('[data-song-section-action="copy"]').click();
   await expect(page.locator('.song-section-row')).toHaveCount(2);
   await expect(page.locator('.song-section-row').nth(1)).toHaveClass(/is-selected/);
-  await expect(page.locator('[data-song-section-start="1"]')).toHaveValue('2');
+  await expect(page.locator('[data-song-section-start="1"]')).toHaveValue('1');
   await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-action="apply"]')).not.toHaveText('↓');
   await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-action="update"]')).not.toHaveText('↑');
   await expect(page.locator('.song-section-row').nth(1).locator('[data-song-section-action="move-up"]')).toHaveText('↑');
@@ -924,7 +925,7 @@ test('removing bars normalizes the host song timeline before synchronization', a
       serialized: (await AppState.getCurrentStateForPreset(true)).song
     };
   });
-  expect(state.local.sections).toHaveLength(1);
+  expect(state.local.sections).toHaveLength(2);
   expect(state.local.sections.every(section => section.startBar === 0)).toBe(true);
   expect(state.serialized).toEqual(state.local);
 });
