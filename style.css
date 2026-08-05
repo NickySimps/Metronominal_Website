@@ -17,6 +17,7 @@ html {
 @property --Alt1 { syntax: '<color>'; inherits: true; initial-value: #4682b4; }
 @property --Alt2 { syntax: '<color>'; inherits: true; initial-value: #dc143c; }
 @property --SubdivisionBeatColor { syntax: '<color>'; inherits: true; initial-value: rgba(14, 75, 0, 0.85); }
+@property --RestBeatColor { syntax: '<color>'; inherits: true; initial-value: #8b1e3f; }
 @property --HighlightedBeatColor { syntax: '<color>'; inherits: true; initial-value: #ffc471; }
 
 :root {
@@ -628,12 +629,8 @@ button {
 .beat-square.rested,
 .beat-square.subdivision.rested {
   /* Added .beat-square.subdivision.rested for higher specificity */
-  background-color: color-mix(
-    in srgb,
-    var(--Alt2) 80%,
-    white
-  ); /* lighter background */
-  border: var(--s1) double color-mix(in srgb, var(--Alt2) 50%, black); /* Red outline */
+  background-color: var(--RestBeatColor, color-mix(in srgb, var(--Alt2) 75%, black));
+  border: var(--s1) double color-mix(in srgb, var(--RestBeatColor, var(--Alt2)) 70%, black);
 }
 .beat-square.main-beat-marker.highlighted {
   background: var(--HighlightedBeatColor);

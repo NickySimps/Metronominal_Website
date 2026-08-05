@@ -921,6 +921,7 @@ test.describe('mode controls responsive layout', () => {
         opacity: getComputedStyle(beat).opacity,
         transform: getComputedStyle(beat).transform,
         backgroundImage: getComputedStyle(beat).backgroundImage,
+        backgroundColor: getComputedStyle(beat).backgroundColor,
       }));
     });
     expect(state[0].classes).toContain('accent-note');
@@ -931,6 +932,8 @@ test.describe('mode controls responsive layout', () => {
     expect(state[2].classes).not.toContain('accent-note');
     expect(state[0].transform).not.toBe(state[1].transform);
     expect(state[0].opacity).not.toBe(state[1].opacity);
+    expect(state[2].backgroundColor).not.toBe(state[0].backgroundColor);
+    expect(state[2].backgroundColor).not.toBe(state[1].backgroundColor);
   });
 
   test('effects rack builds a live Web Audio chain and exposes its controls', async ({ page }) => {
