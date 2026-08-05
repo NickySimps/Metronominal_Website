@@ -491,6 +491,42 @@ test.describe('mode controls responsive layout', () => {
     })).toBe(subdivision);
   });
 
+  test('subdivision panels stay side by side near the trigger at phone width', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    const indicator = page.locator('.bar-beat-indicator').first();
+    const box = await indicator.boundingBox();
+    if (!box) throw new Error('Subdivision indicator is not rendered');
+    await indicator.click();
+    await page.waitForTimeout(120);
+    const layout = await page.evaluate(() => {
+      const panels = [...document.querySelectorAll('.subdivision-options-container.visible')];
+      const rects = panels.map((panel) => ({
+        className: panel.className,
+        rect: panel.getBoundingClientRect().toJSON(),
+        options: [...panel.querySelectorAll('.subdivision-option')].map((option) => option.getBoundingClientRect().toJSON()),
+      }));
+      const trigger = document.querySelector('.bar-beat-indicator').getBoundingClientRect();
+      return { rects, trigger: trigger.toJSON(), viewport: { width: innerWidth, height: innerHeight } };
+    });
+    expect(layout.rects).toHaveLength(2);
+    const lower = layout.rects.find((panel) => panel.className.includes('lower-panel'));
+    const higher = layout.rects.find((panel) => panel.className.includes('higher-panel'));
+    expect(lower).toBeTruthy();
+    expect(higher).toBeTruthy();
+    expect(lower.rect.right).toBeLessThanOrEqual(higher.rect.left);
+    for (const panel of layout.rects) {
+      expect(panel.rect.left).toBeGreaterThanOrEqual(8);
+      expect(panel.rect.right).toBeLessThanOrEqual(layout.viewport.width - 8);
+      expect(panel.rect.top).toBeGreaterThanOrEqual(8);
+      expect(panel.rect.bottom).toBeLessThanOrEqual(layout.viewport.height - 8);
+      for (const option of panel.options) {
+        expect(option.left).toBeGreaterThanOrEqual(panel.rect.left);
+        expect(option.right).toBeLessThanOrEqual(panel.rect.right);
+      }
+    }
+  });
+
   test('holding a bar indicator and releasing on a subdivision selects it', async ({ page }) => {
     await page.goto('/');
     await page.locator('.increase-bar-length').click();

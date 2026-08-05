@@ -2088,8 +2088,11 @@ button:active,
   position: fixed;
   z-index: 5000;
   display: flex;
-  flex-flow: row wrap;
-  width: min(320px, calc(100vw - 1rem));
+  width: min(160px, calc(50vw - 1.5rem));
+  max-height: calc(100vh - 1rem);
+  flex-flow: column nowrap;
+  overflow-y: auto;
+  overflow-x: hidden;
   box-sizing: border-box;
   gap: var(--s2);
   padding: var(--s3);
@@ -2129,13 +2132,23 @@ button:active,
 }
 
 /* Individual Subdivision Option */
+.subdivision-options-container.lower-panel,
+.subdivision-options-container.higher-panel {
+  transform: scale(0.9);
+  transform-origin: center;
+}
+.subdivision-options-container.lower-panel.visible,
+.subdivision-options-container.higher-panel.visible {
+  transform: scale(1);
+}
+
 .subdivision-option {
-  flex: 0 0 auto;
-  scale: 1;
-  min-width: 88px;
+  width: 100%;
+  min-width: 0;
   min-height: 44px;
   padding: 10px 16px;
-  margin: var(--s1);
+  margin: 0;
+  box-sizing: border-box;
   background-color: var(--Highlight);
   color: var(--TextPrimary);
   border-radius: calc(var(--BorderRadius) - 4px);

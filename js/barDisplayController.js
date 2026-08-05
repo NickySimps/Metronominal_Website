@@ -619,11 +619,9 @@ function showSubdivisionSelector(barElement) {
         container.className = 'subdivision-options-container';
         container.setAttribute('role', 'menu');
         container.setAttribute('aria-label', 'Subdivision options');
-        container.classList.add(position);
         container.dataset.forBar = `${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}`;
-        if (position === 'below') {
-            container.classList.add('below');
-        }
+        container.classList.add(position === 'lower' ? 'lower-panel' : 'higher-panel');
+        container.classList.add(position === 'lower' ? 'above' : 'below');
         
         subdivisions.forEach(optionData => {
             const element = document.createElement('div');
@@ -669,44 +667,11 @@ function showSubdivisionSelector(barElement) {
             }
         });
         container.style.left = `${barRect.left + barRect.width / 2}px`;
-        if (position === 'above') {
-            container.style.top = `${barRect.top - 10}px`;
-            container.style.transform = 'translate(-50%, -100%)';
-        } else { // 'below'
-            container.style.top = `${barRect.bottom + 10}px`;
-            container.style.transform = 'translateX(-50%)';
-        }
+        container.style.top = `${barRect.top + barRect.height / 2}px`;
+        container.style.transform = 'scale(0.9)';
 
         requestAnimationFrame(() => {
-            const margin = 8;
-            const rect = container.getBoundingClientRect();
-            let left = barRect.left + barRect.width / 2;
-            if (rect.left < margin) left += margin - rect.left;
-            if (rect.right > window.innerWidth - margin) left -= rect.right - (window.innerWidth - margin);
-            container.style.left = `${left}px`;
-            if (position === 'above' && (rect.top < margin || rect.bottom > window.innerHeight - margin)) {
-                container.style.top = `${margin}px`;
-                container.style.transform = 'translate(-50%, 0)';
-            } else if (position === 'below' && rect.bottom > window.innerHeight - margin) {
-                container.style.top = `${Math.max(margin, window.innerHeight - rect.height - margin)}px`;
-                container.style.transform = 'translate(-50%, 0)';
-            }
-            requestAnimationFrame(() => {
-                container.classList.add("visible");
-                requestAnimationFrame(() => {
-                    const options = [...container.querySelectorAll('.subdivision-option')];
-                    const optionRects = options.map((option) => option.getBoundingClientRect());
-                    const top = Math.min(...optionRects.map((rect) => rect.top));
-                    const bottom = Math.max(...optionRects.map((rect) => rect.bottom));
-                    const currentTop = parseFloat(container.style.top);
-                    let correction = top < margin ? margin - top : 0;
-                    const correctedBottom = bottom + correction;
-                    if (correctedBottom > window.innerHeight - margin) {
-                        correction += window.innerHeight - margin - correctedBottom;
-                    }
-                    if (correction) container.style.top = `${currentTop + correction}px`;
-                });
-            });
+            container.classList.add("visible");
         });
         
         // Hide if clicking outside the container
@@ -725,8 +690,28 @@ function showSubdivisionSelector(barElement) {
         return container;
     };
 
-    createContainer(lowerSubdivisions, 'above');
-    createContainer(higherSubdivisions, 'below');
+    createContainer(lowerSubdivisions, 'lower');
+    createContainer(higherSubdivisions, 'higher');
+    requestAnimationFrame(() => {
+        const panels = [...document.querySelectorAll(`.subdivision-options-container[data-for-bar="${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}"]`)].filter((panel) => panel.classList.contains('lower-panel') || panel.classList.contains('higher-panel'));
+        const lower = panels.find((panel) => panel.classList.contains('lower-panel'));
+        const higher = panels.find((panel) => panel.classList.contains('higher-panel'));
+        if (!lower || !higher) return;
+        const margin = 8;
+        const gap = 8;
+        const anchorX = barRect.left + barRect.width / 2;
+        const anchorY = barRect.top + barRect.height / 2;
+        const lowerRect = lower.getBoundingClientRect();
+        const higherRect = higher.getBoundingClientRect();
+        const maxTop = Math.max(margin, window.innerHeight - Math.max(lowerRect.height, higherRect.height) - margin);
+        const top = Math.min(Math.max(margin, anchorY - Math.max(lowerRect.height, higherRect.height) / 2), maxTop);
+        const lowerLeft = Math.min(Math.max(margin, anchorX - gap - lowerRect.width), window.innerWidth - margin - lowerRect.width);
+        const higherLeft = Math.min(Math.max(margin, anchorX + gap), window.innerWidth - margin - higherRect.width);
+        lower.style.left = `${lowerLeft}px`;
+        higher.style.left = `${higherLeft}px`;
+        lower.style.top = `${top}px`;
+        higher.style.top = `${top}px`;
+    });
     subdivisionTriggerElement = barElement;
     subdivisionKeydownHandler = (event) => {
         if (event.key === 'Escape') {
@@ -736,29 +721,6 @@ function showSubdivisionSelector(barElement) {
     };
     document.addEventListener('keydown', subdivisionKeydownHandler);
     requestAnimationFrame(() => document.querySelector('.subdivision-options-container.visible .subdivision-option')?.focus());
-    setTimeout(() => {
-        const panels = [...document.querySelectorAll(`.subdivision-options-container[data-for-bar="${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}"]`)].filter((panel) => panel.classList.contains('visible'));
-        const above = panels.find((panel) => panel.classList.contains('above'));
-        const below = panels.find((panel) => panel.classList.contains('below'));
-        if (!above || !below) return;
-        const aboveRect = above.getBoundingClientRect();
-        const belowRect = below.getBoundingClientRect();
-        if (aboveRect.bottom <= belowRect.top - 8) return;
-
-        const margin = 8;
-        const gap = 8;
-        const aboveHeight = aboveRect.height;
-        const belowHeight = belowRect.height;
-        const totalHeight = aboveHeight + gap + belowHeight;
-        above.style.top = `${margin}px`;
-        above.style.transform = 'translate(-50%, 0)';
-        below.style.top = `${margin + aboveHeight + gap}px`;
-        below.style.transform = 'translate(-50%, 0)';
-        if (totalHeight > window.innerHeight - margin * 2) {
-            below.style.maxHeight = `${Math.max(120, window.innerHeight - margin - (margin + aboveHeight + gap))}px`;
-            below.style.overflowY = 'auto';
-        }
-    }, 75);
 }
 
 let currentHideOnClickOutside = null;
