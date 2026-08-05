@@ -811,6 +811,31 @@ test('main playback controls collapse into a desktop floating control card when 
   await expect(controls).toHaveClass(/sticky-active/);
 });
 
+test('network state validation accepts all current categories and rejects unsafe payloads', async ({ page }) => {
+  await page.goto('./');
+  const result = await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const state = await AppState.getCurrentStateForPreset(true);
+    const bar = state.Tracks[0].barSettings[0];
+    bar.rests = [0];
+    bar.velocities = { 1: 0.35 };
+    bar.beatSounds = { 1: { mainBeatSound: { sound: 'Synth Kick', settings: { distortion: 0.5, delayMix: 0.4, reverbMix: 0.3 } } } };
+    bar.beatSlices = { 1: 16 };
+    bar.beatSliceAnchors = { 1: 1 };
+    state.isRestMode = true;
+    state.isAccentMode = false;
+    state.isSliceMode = false;
+    const accepted = AppState.validateNetworkState(state);
+    const malformed = structuredClone(state);
+    malformed.Tracks[0].barSettings[0].beatSlices = { 1: 5 };
+    const unsafe = structuredClone(state);
+    unsafe.Tracks[0].analyserNode = { connected: true };
+    return { accepted, malformedRejected: !AppState.validateNetworkState(malformed), unsafeRejected: !AppState.validateNetworkState(unsafe) };
+  });
+  expect(result).toEqual({ accepted: true, malformedRejected: true, unsafeRejected: true });
+});
+
+
 test('presets and Song Mode preserve the unified bar structure including slices', async ({ page }) => {
   await page.goto('./');
   const result = await page.evaluate(async () => {

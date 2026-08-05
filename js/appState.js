@@ -357,6 +357,61 @@ function normalizeSong(value, barCount, fallbackTempo = 120) {
   };
 }
 
+function isSafeNetworkValue(value, depth = 0) {
+  if (value === null || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "string") return value.length <= 256;
+  if (depth >= 12 || !value || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.length <= 512 && value.every(item => isSafeNetworkValue(item, depth + 1));
+  const entries = Object.entries(value);
+  return entries.length <= 512 && entries.every(([key, child]) => key.length <= 64
+    && !["__proto__", "prototype", "constructor", "analyserNode", "mainAnalyserNode", "subdivisionAnalyserNode"].includes(key)
+    && isSafeNetworkValue(child, depth + 1));
+}
+
+function isSafeNetworkSound(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    && typeof value.sound === "string" && value.sound.length > 0 && value.sound.length <= 64
+    && isSafeNetworkValue(value.settings);
+}
+
+function isSafeNetworkBar(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)
+    || !Number.isInteger(value.beats) || value.beats < 1 || value.beats > 32
+    || !Number.isFinite(Number(value.subdivision)) || Number(value.subdivision) < 0.25 || Number(value.subdivision) > 16
+    || !Array.isArray(value.rests) || value.rests.length > 512
+    || value.rests.some(index => !Number.isInteger(index) || index < 0 || index > 511)) return false;
+  for (const key of ["velocities", "beatSounds", "beatSlices", "beatSliceAnchors"]) {
+    if (value[key] !== undefined && !isSafeNetworkValue(value[key])) return false;
+  }
+  if (value.beatSlices && Object.values(value.beatSlices).some(count => ![2, 3, 4, 6, 8, 16, 32].includes(Number(count)))) return false;
+  return true;
+}
+
+function isSafeNetworkTrack(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    && Array.isArray(value.barSettings) && value.barSettings.length >= 1 && value.barSettings.length <= 64
+    && value.barSettings.every(isSafeNetworkBar)
+    && isSafeNetworkSound(value.mainBeatSound) && isSafeNetworkSound(value.subdivisionSound)
+    && (value.volume === undefined || (Number.isFinite(Number(value.volume)) && Number(value.volume) >= 0 && Number(value.volume) <= 1))
+    && isSafeNetworkValue(value);
+}
+
+function isSafeNetworkState(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || !isSafeNetworkValue(value)) return false;
+  if (!Number.isInteger(value.tempo) || value.tempo < 20 || value.tempo > 400
+    || !Number.isFinite(Number(value.volume)) || Number(value.volume) < 0 || Number(value.volume) > 1
+    || !Array.isArray(value.Tracks) || value.Tracks.length < 1 || value.Tracks.length > 16
+    || !value.Tracks.every(isSafeNetworkTrack)
+    || !value.song || !Array.isArray(value.song.sections) || value.song.sections.length < 1 || value.song.sections.length > 32) return false;
+  return value.song.sections.every(section => section && typeof section === "object"
+    && typeof section.name === "string" && section.name.length <= 80
+    && Number.isInteger(section.startBar) && section.startBar >= 0
+    && Number.isInteger(section.tempo) && section.tempo >= 20 && section.tempo <= 300
+    && Number.isInteger(section.repeats) && section.repeats >= 1 && section.repeats <= 16
+    && (section.tracks === undefined || (Array.isArray(section.tracks) && section.tracks.length <= 16 && section.tracks.every(isSafeNetworkTrack))));
+}
+
 const AppState = (function () {
   // --- Private State ---
   let tempo = 120;
@@ -857,6 +912,7 @@ const AppState = (function () {
     },
 
     getTracks: () => Tracks,
+    validateNetworkState: (state) => isSafeNetworkState(state),
     addTrack: () => {
       const newTrack = {
         barSettings: [{ beats: 4, subdivision: 1, rests: [] }],

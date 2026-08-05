@@ -254,6 +254,48 @@ function updateClientCount(count = 0) {
   updateDiagnosticsUI();
 }
 
+function privateNetworkSoundNames() {
+  const names = new Set(AppState.getRecordings());
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const name of AppState.getCustomSounds()) {
+      const baseSound = AppState.getCustomSoundData(name)?.baseSound;
+      if (names.has(baseSound) && !names.has(name)) {
+        names.add(name);
+        changed = true;
+      }
+    }
+  }
+  return names;
+}
+
+function sanitizeNetworkSound(sound, privateNames, fallback) {
+  if (!sound || typeof sound !== "object") return { sound: fallback, settings: {} };
+  return {
+    ...sound,
+    sound: privateNames.has(sound.sound) ? fallback : String(sound.sound).slice(0, 64),
+    settings: sound.settings && typeof sound.settings === "object" ? sound.settings : {},
+  };
+}
+
+function sanitizeNetworkTrack(track, privateNames) {
+  if (!track || typeof track !== "object") return track;
+  const sanitizeBar = (bar) => ({
+    ...bar,
+    beatSounds: Object.fromEntries(Object.entries(bar.beatSounds || {}).map(([index, overrides]) => [index, {
+      ...overrides,
+      ...(overrides?.mainBeatSound ? { mainBeatSound: sanitizeNetworkSound(overrides.mainBeatSound, privateNames, "Synth Kick") } : {}),
+      ...(overrides?.subdivisionSound ? { subdivisionSound: sanitizeNetworkSound(overrides.subdivisionSound, privateNames, "Synth HiHat") } : {}),
+    }])),
+  });
+  return {
+    ...track,
+    barSettings: Array.isArray(track.barSettings) ? track.barSettings.map(sanitizeBar) : track.barSettings,
+    mainBeatSound: sanitizeNetworkSound(track.mainBeatSound, privateNames, "Synth Kick"),
+    subdivisionSound: sanitizeNetworkSound(track.subdivisionSound, privateNames, "Synth HiHat"),
+  };
+}
 function clearDesiredHostPlaybackState() {
   desiredHostPlaybackState = null;
   const playButton = document.getElementById("start-stop-btn");
@@ -409,9 +451,18 @@ async function handleStateMessage(message, generation) {
   if ((window.isHost && !acceptingReplacementReplay && !message.authoritativeRefresh)
     || !message.payload || !Number.isInteger(message.revision)) return;
   if (message.revision <= lastStateRevision && !message.authoritativeRefresh) return;
-  lastStateRevision = message.revision;
   const { selectedTheme: _ignoredTheme, ...state } = message.payload;
-  await AppState.loadPresetData({ ...state, isPlaying: false });
+  if (!AppState.validateNetworkState(state)) {
+    console.warn("Rejected invalid synchronized state payload");
+    return;
+  }
+  try {
+    await AppState.loadPresetData({ ...state, isPlaying: false });
+  } catch (error) {
+    console.error("Could not apply synchronized state payload:", error);
+    return;
+  }
+  lastStateRevision = message.revision;
   if (generation !== connectionGeneration || !joined) return;
   if (receiveCallback) receiveCallback(state);
   else refreshUIFromState();
@@ -792,6 +843,16 @@ async function flushState() {
   if (!joined || !window.isHost || !statePromise) return false;
   try {
     const state = await statePromise;
+    const privateNames = privateNetworkSoundNames();
+    state.Tracks = state.Tracks.map(track => sanitizeNetworkTrack(track, privateNames));
+    if (state.song?.sections) {
+      state.song.sections = state.song.sections.map(section => ({
+        ...section,
+        ...(Array.isArray(section.tracks) ? { tracks: section.tracks.map(track => sanitizeNetworkTrack(track, privateNames)) } : {}),
+      }));
+    }
+    state.customSounds = Object.fromEntries(Object.entries(state.customSounds || {})
+      .filter(([name]) => !privateNames.has(name)));
     delete state.selectedTheme;
     delete state.recordings;
     delete state.serializedRecordings;
