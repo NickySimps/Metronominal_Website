@@ -14,6 +14,9 @@ function formatDuration(seconds) {
 }
 
 const RecordingManager = {
+  loopSamplerTimeoutId: null,
+  loopSamplerRecorder: null,
+  loopSamplerDestination: null,
   init: () => {
     const manageRecordingsBtn = document.getElementById("manage-recordings-btn");
     const modal = document.getElementById("manage-recordings-modal");
@@ -163,6 +166,7 @@ const RecordingManager = {
   },
 
   startLoopSampler: async () => {
+    if (RecordingManager.loopSamplerRecorder?.state === "recording") return;
     const barsSelect = document.getElementById("loop-bars-select");
     const numBars = parseInt(barsSelect ? barsSelect.value : "4", 10) || 4;
     const bpm = AppState.getTempo();
@@ -181,6 +185,8 @@ const RecordingManager = {
       ? audioContext.createMediaStreamDestination()
       : null;
 
+    RecordingManager.loopSamplerDestination = destinationNode;
+
     if (!destinationNode) {
       alert("MediaStreamDestination is not supported by your browser.");
       return;
@@ -189,6 +195,7 @@ const RecordingManager = {
     // Record audio using MediaRecorder
     const chunks = [];
     const mediaRecorder = new MediaRecorder(destinationNode.stream);
+    RecordingManager.loopSamplerRecorder = mediaRecorder;
     mediaRecorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunks.push(e.data);
     };
@@ -201,36 +208,52 @@ const RecordingManager = {
     }
 
     mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(chunks, { type: "audio/wav" });
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      try {
+        const audioBlob = new Blob(chunks, { type: "audio/wav" });
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const decodedBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-      const loopName = `Loop ${numBars}B @ ${bpm}BPM (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
-      AppState.addRecording(loopName);
-      AppState.setSoundBuffer(loopName, decodedBuffer);
+        const loopName = `Loop ${numBars}B @ ${bpm}BPM (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+        AppState.addRecording(loopName);
+        AppState.setSoundBuffer(loopName, decodedBuffer);
+        RecordingManager.populateModal();
+        TrackController.renderTracks();
+        if (window.isHost) sendState(AppState.getCurrentStateForPreset(true));
+      } catch (error) {
+        console.error("Could not finalize loop sample:", error);
+      } finally {
+        if (RecordingManager.loopSamplerTimeoutId) {
+          clearTimeout(RecordingManager.loopSamplerTimeoutId);
+        }
+        RecordingManager.loopSamplerTimeoutId = null;
+        RecordingManager.loopSamplerRecorder = null;
+        RecordingManager.loopSamplerDestination = null;
+        if (recordLoopBtn) {
+          recordLoopBtn.textContent = origText;
+          recordLoopBtn.disabled = false;
+        }
+      }
+    };
 
+    try {
+      // Ensure metronome is playing
+      if (!AppState.isPlaying()) {
+        await MetronomeEngine.togglePlay();
+      }
+
+      mediaRecorder.start();
+      RecordingManager.loopSamplerTimeoutId = setTimeout(() => {
+        if (mediaRecorder.state === "recording") mediaRecorder.stop();
+      }, Math.round(loopDurationSec * 1000));
+    } catch (error) {
+      console.error("Could not start loop sampler:", error);
+      RecordingManager.loopSamplerRecorder = null;
+      RecordingManager.loopSamplerDestination = null;
       if (recordLoopBtn) {
         recordLoopBtn.textContent = origText;
         recordLoopBtn.disabled = false;
       }
-
-      RecordingManager.populateModal();
-      TrackController.renderTracks();
-      if (window.isHost) sendState(AppState.getCurrentStateForPreset(true));
-    };
-
-    // Ensure metronome is playing
-    if (!AppState.isPlaying()) {
-      await MetronomeEngine.togglePlay();
     }
-
-    mediaRecorder.start();
-
-    setTimeout(() => {
-      if (mediaRecorder.state === "recording") {
-        mediaRecorder.stop();
-      }
-    }, Math.round(loopDurationSec * 1000));
   },
 
   populateModal: () => {
