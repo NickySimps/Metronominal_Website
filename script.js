@@ -24,52 +24,6 @@ import MidiController from './js/midiController.js';
 let qrCodeInstance = null;
 let appInitialized = false;
 let pendingStartupPlay = false;
-
-function initializePerformanceDrawer() {
-  const drawer = document.querySelector('.performance-drawer');
-  const summary = drawer?.querySelector('summary');
-  const panel = drawer?.querySelector('.performance-drawer-panel');
-  const topControls = drawer?.closest('.top-controls-area');
-  const positionPanel = () => {
-    if (!drawer?.open || !summary || !panel) return;
-    const rect = summary.getBoundingClientRect();
-    panel.style.position = 'fixed';
-    panel.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - panel.offsetHeight - 8)}px`;
-    panel.style.right = `${Math.max(8, window.innerWidth - rect.right)}px`;
-    panel.style.left = 'auto';
-  };
-  drawer?.addEventListener('toggle', () => {
-    topControls?.classList.toggle('performance-drawer-open', drawer.open);
-    if (drawer.open) requestAnimationFrame(positionPanel);
-    else if (panel) {
-      panel.style.position = '';
-      panel.style.top = '';
-      panel.style.right = '';
-      panel.style.left = '';
-    }
-  });
-  window.addEventListener('resize', positionPanel, { passive: true });
-  document.querySelectorAll('[data-performance-action]').forEach((button) => {
-    button.addEventListener('click', () => {
-      const action = button.dataset.performanceAction;
-      if (action === 'visualizer') document.getElementById('visualizer-mode-btn')?.click();
-      if (action === 'diagnostics') {
-        const diagnosticsButton = document.getElementById('sync-diagnostics-btn');
-        const diagnosticsPanel = document.getElementById('sync-diagnostics-panel');
-        diagnosticsButton?.click();
-        if (diagnosticsPanel?.hidden) {
-          diagnosticsPanel.hidden = false;
-          diagnosticsButton?.setAttribute('aria-expanded', 'true');
-        }
-      }
-      if (action === 'awake') document.getElementById('screen-off-toggle-btn')?.click();
-      if (action === 'stop' && AppState.isPlaying()) DOM.startStopBtn?.click();
-    });
-  });
-}
-
-initializePerformanceDrawer();
-
 // The audio files finish loading asynchronously. Capture a Play request made
 // during that window instead of silently losing it before the controllers attach.
 function queueStartupPlay() {
