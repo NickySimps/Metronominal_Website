@@ -69,7 +69,7 @@ test.describe('track slice and action controls', () => {
     });
     expect(result).toEqual([
       { soundType: 'mainBeatSound', allowOverlap: false, retrigger: true, reverse: true },
-      { soundType: 'subdivisionSound', allowOverlap: true, retrigger: false, reverse: true },
+      { soundType: 'mainBeatSound', allowOverlap: false, retrigger: true, reverse: true },
     ]);
   });
   test('badge follows the exact selected sub-beat in a subdivided bar', async ({ page }) => {
@@ -88,6 +88,24 @@ test.describe('track slice and action controls', () => {
     await bar.locator('.beat-square').nth(2).click();
     await expect(bar.locator('.beat-square[data-beat-index="2"] .slice-count-badge')).toHaveText('2');
     await expect(bar.locator('.beat-square[data-beat-index="0"] .slice-count-badge')).toHaveCount(0);
+  });
+  test('each independently sliced sub-beat gets its own badge and playback target', async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const [{ default: AppState }, { default: BarDisplayController }] = await Promise.all([
+        import(new URL('js/appState.js', document.baseURI).href),
+        import(new URL('js/barDisplayController.js', document.baseURI).href),
+      ]);
+      const bar = AppState.getTracks()[0].barSettings[0];
+      bar.subdivision = 2;
+      [0, 1, 2, 3, 4, 5, 6, 7].forEach(index => AppState.setBeatSlices(0, 0, index, 2, index));
+      BarDisplayController.updateBar(0, 0);
+      return {
+        badges: [...document.querySelectorAll('.bar-visual .slice-count-badge')].map(badge => badge.parentElement.dataset.beatIndex),
+        slots: [...document.querySelectorAll('.bar-visual .beat-square')].map(square => square.dataset.beatIndex),
+      };
+    });
+    expect(result.badges).toEqual(['0', '1', '2', '3', '4', '5', '6', '7']);
+    expect(result.slots).toHaveLength(8);
   });
   test('every slice re-triggers the parent beat visual highlight', async ({ page }) => {
     const result = await page.evaluate(async () => {

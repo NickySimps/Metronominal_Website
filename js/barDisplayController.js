@@ -92,14 +92,11 @@ function isMainBeat(indexInBar, subdivision, mainBeatsInBar) {
 }
 
 function applySliceBadge(beatSquare, barData, slot) {
-  const sourceBeat = slot?.sourceBeat;
-  const count = Number(barData?.beatSlices?.[sourceBeat]);
   const existingBadge = beatSquare.querySelector(".slice-count-badge");
   if (existingBadge) existingBadge.remove();
   beatSquare.removeAttribute("data-slice-count");
-  const anchorIndex = Number(barData?.beatSliceAnchors?.[sourceBeat]);
-  const isAnchor = Number.isInteger(anchorIndex) ? slot.index === anchorIndex : slot.mainBeat;
-  if (!isAnchor || !Number.isInteger(count) || count < 2) return;
+  const count = Number(barData?.beatSlices?.[slot.index]);
+  if (!Number.isInteger(count) || count < 2) return;
   const badge = document.createElement("span");
   badge.className = "slice-count-badge";
   badge.textContent = String(count);
@@ -107,7 +104,7 @@ function applySliceBadge(beatSquare, barData, slot) {
   beatSquare.appendChild(badge);
   beatSquare.dataset.sliceCount = String(count);
   beatSquare.title = `${count} slices`;
-  beatSquare.setAttribute("aria-label", `Beat ${Number(sourceBeat) + 1}, ${count} slices`);
+  beatSquare.setAttribute("aria-label", `Beat ${Number(slot.index) + 1}, ${count} slices`);
 }
 
 // Helper function to create a beat square element with animation and classes
@@ -258,11 +255,11 @@ function cycleBeatSlice(trackIndex, barIndex, slotIndex) {
   const bar = track?.barSettings?.[barIndex];
   if (!bar) return;
   const slot = getVisualBeatSlots(bar)[slotIndex];
-  const sourceBeat = slot?.sourceBeat ?? slotIndex;
+  const sliceKey = slot?.index ?? slotIndex;
   const counts = [2, 3, 4, 6, 8];
-  const current = Number(bar.beatSlices?.[sourceBeat]) || 1;
+  const current = Number(bar.beatSlices?.[sliceKey]) || 1;
   const next = counts[counts.indexOf(current) + 1] || 1;
-  AppState.setBeatSlices(trackIndex, barIndex, sourceBeat, next, slotIndex);
+  AppState.setBeatSlices(trackIndex, barIndex, sliceKey, next, sliceKey);
   AppState.setSelectedTrackIndex(trackIndex);
   AppState.setSelectedBarIndexInContainer(barIndex);
   BarDisplayController.updateBar(trackIndex, barIndex);
@@ -1229,9 +1226,8 @@ const BarDisplayController = {
     if (shouldHighlight) {
       const barData = AppState.getTracks()[containerIndex]?.barSettings?.[barIndex];
       const playbackSlot = barData ? getSlotInfo(barData, beatIndex) : null;
-      const sourceBeat = playbackSlot?.sourceBeat ?? beatIndex;
-      const beatToHighlight = Array.from(targetBarElement.querySelectorAll(".beat-square"))
-        .find((square) => Number(square.dataset.sourceBeat ?? square.dataset.beatIndex) === sourceBeat);
+      const visualIndex = playbackSlot?.baseIndex ?? beatIndex;
+      const beatToHighlight = targetBarElement.querySelector(`.beat-square[data-beat-index="${visualIndex}"]`);
       if (beatToHighlight) {
         const wasAlreadyHighlighted = beatToHighlight.classList.contains("highlighted") || beatToHighlight.classList.contains("highlighted-sub");
         beatToHighlight.classList.remove("highlighted", "highlighted-sub");

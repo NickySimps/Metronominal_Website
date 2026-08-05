@@ -13,34 +13,37 @@ export function getBeatSlots(bar) {
   const beats = Math.max(1, Number.parseInt(bar?.beats, 10) || 4);
   const subdivision = Number(bar?.subdivision) || 1;
   const slices = bar?.beatSlices && typeof bar.beatSlices === "object" ? bar.beatSlices : {};
-  const slots = [];
+  const total = subdivision < 1
+    ? Math.max(1, Math.floor(beats * subdivision))
+    : Math.round(beats * subdivision);
+  const baseSlots = [];
 
-  // Existing bar-wide subdivisions retain their established timing. Slice mode
-  // adds extra slots only to individual main beats at quarter-note resolution.
-  if (subdivision < 1 || Object.keys(slices).length === 0) {
-    const total = subdivision < 1
-      ? Math.max(1, Math.floor(beats * subdivision))
-      : Math.round(beats * subdivision);
-    for (let index = 0; index < total; index += 1) {
-      const sourceBeat = subdivision >= 1 ? Math.floor(index / subdivision) : index;
-      slots.push({ index, mainBeat: index === 0 || (subdivision > 1 && index % subdivision === 0), sourceBeat });
-    }
-    return slots;
+  for (let index = 0; index < total; index += 1) {
+    const sourceBeat = subdivision >= 1 ? Math.floor(index / subdivision) : index;
+    baseSlots.push({
+      index,
+      baseIndex: index,
+      mainBeat: subdivision === 1 || index === 0 || (subdivision > 1 && index % subdivision === 0),
+      sourceBeat,
+    });
   }
 
-  const baseSlotsPerBeat = Math.max(1, Math.round(subdivision));
-  for (let sourceBeat = 0; sourceBeat < beats; sourceBeat += 1) {
-    const count = baseSlotsPerBeat * (normalizeSliceCount(slices[sourceBeat]) || 1);
+  const hasSlices = Object.keys(slices).length > 0;
+  if (!hasSlices) return baseSlots;
+
+  const slots = [];
+  baseSlots.forEach((baseSlot) => {
+    const sliceCount = normalizeSliceCount(slices[baseSlot.index]);
+    const count = sliceCount > 1 ? sliceCount : 1;
     for (let slice = 0; slice < count; slice += 1) {
       slots.push({
+        ...baseSlot,
         index: slots.length,
-        mainBeat: slice === 0,
-        sourceBeat,
         slice,
-        sliceCount: count,
+        sliceCount: count > 1 ? count : undefined,
       });
     }
-  }
+  });
   return slots;
 }
 
@@ -61,7 +64,10 @@ export function getTotalSlots(bar) {
 
 export function getSlotDurationSeconds(bar, slotIndex, secondsPerMainBeat) {
   const info = getSlotInfo(bar, slotIndex);
-  if (info?.sliceCount > 1) return secondsPerMainBeat / info.sliceCount;
   const subdivision = Number(bar?.subdivision) || 1;
+  if (info?.sliceCount > 1) {
+    const baseDuration = subdivision >= 1 ? secondsPerMainBeat / subdivision : secondsPerMainBeat * (1 / subdivision);
+    return baseDuration / info.sliceCount;
+  }
   return subdivision >= 1 ? secondsPerMainBeat / subdivision : secondsPerMainBeat * (1 / subdivision);
 }
