@@ -1208,6 +1208,8 @@ test.describe('mode controls responsive layout', () => {
         contentZIndex: Number(contentStyle.zIndex) || 0,
         contentRadius: contentStyle.borderRadius,
         themeRadius: getComputedStyle(document.documentElement).getPropertyValue('--BorderRadius').trim(),
+        modalOverflowX: modalStyle.overflowX,
+        modalOverflowY: modalStyle.overflowY,
         contentOverflowX: contentStyle.overflowX,
         contentOverflowY: contentStyle.overflowY,
       };
@@ -1215,8 +1217,10 @@ test.describe('mode controls responsive layout', () => {
     expect(result.modalZIndex).toBeGreaterThanOrEqual(3000);
     expect(result.contentZIndex).toBeGreaterThanOrEqual(0);
     expect(result.contentRadius).toBe(result.themeRadius);
-    expect(result.contentOverflowX).toBe('auto');
-    expect(result.contentOverflowY).toBe('auto');
+    expect(result.modalOverflowX).toBe('hidden');
+    expect(result.modalOverflowY).toBe('auto');
+    expect(result.contentOverflowX).toBe('visible');
+    expect(result.contentOverflowY).toBe('visible');
   });
 
   test('sound preview and recorded waveform controls are available', async ({ page }) => {
@@ -1913,5 +1917,62 @@ test.describe('mode controls responsive layout', () => {
   await track.locator('.beat-square').first().click();
   await expect(page.locator('.sound-behavior-category .slider-container')).toHaveCount(1);
   await expect(page.locator('.sound-behavior-category [data-param="volume"]')).toHaveCount(1);
+  });
+
+  test('Synthwave editor and Song Mode surfaces stay layered and contained on iPhone SE', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    await page.locator('#theme-menu-toggle').click();
+    await page.locator('[data-theme="synthwave"]').click();
+    await page.locator('#theme-menu-toggle').click();
+
+    const track = page.locator('.track').first();
+    await track.locator('.beat-edit-btn').click();
+    await track.locator('.beat-square').first().click();
+    const modal = page.locator('#sound-settings-modal');
+    const content = modal.locator('.modal-content');
+    await expect(modal).toBeVisible();
+    await expect(content).toBeVisible();
+    const modalGeometry = await page.evaluate(() => {
+      const overlay = document.querySelector('#sound-settings-modal');
+      const surface = overlay.querySelector('.modal-content');
+      const close = overlay.querySelector('.close-button');
+      return {
+        viewport: { width: innerWidth, height: innerHeight },
+        pageWidth: document.documentElement.scrollWidth,
+        overlayOverflow: getComputedStyle(overlay).overflow,
+        surfaceOverflow: getComputedStyle(surface).overflow,
+        surfaceRadius: getComputedStyle(surface).borderRadius,
+        close: close.getBoundingClientRect().toJSON(),
+      };
+    });
+    expect(modalGeometry.pageWidth).toBeLessThanOrEqual(modalGeometry.viewport.width);
+    expect(modalGeometry.overlayOverflow).toContain('auto');
+    expect(modalGeometry.surfaceOverflow).toBe('visible');
+    expect(modalGeometry.surfaceRadius).toBe('50%');
+    expect(modalGeometry.close.right).toBeLessThanOrEqual(modalGeometry.viewport.width + 1);
+    await modal.locator('.close-button').click();
+
+    await page.locator('#song-mode-enabled').click({ force: true });
+    const panel = page.locator('#song-mode-panel');
+    await expect(panel).toBeVisible();
+    const songGeometry = await page.evaluate(() => {
+      const panel = document.querySelector('#song-mode-panel');
+      const rows = [...document.querySelectorAll('.song-section-row')];
+      return {
+        pageWidth: document.documentElement.scrollWidth,
+        viewportWidth: innerWidth,
+        overflow: getComputedStyle(panel).overflow,
+        panelRadius: getComputedStyle(panel).borderRadius,
+        rows: rows.map(row => ({ box: row.getBoundingClientRect().toJSON(), actions: row.querySelector('.song-section-actions')?.getBoundingClientRect().toJSON() })),
+      };
+    });
+    expect(songGeometry.pageWidth).toBeLessThanOrEqual(songGeometry.viewportWidth);
+    expect(songGeometry.overflow).toBe('visible');
+    expect(songGeometry.panelRadius).toBe('50%');
+    for (const row of songGeometry.rows) {
+      expect(row.box.right).toBeLessThanOrEqual(songGeometry.viewportWidth + 1);
+      if (row.actions) expect(row.actions.right).toBeLessThanOrEqual(songGeometry.viewportWidth + 1);
+    }
   });
 });

@@ -3809,6 +3809,84 @@ button:focus-visible { outline: 3px solid var(--Highlight); outline-offset: 3px;
     .tap-tempo-feedback { flex: none; min-width: 0; min-height: 0; text-align: left; }
 }
 
+/* Synthwave surfaces use a large oval radius. Keep the decorative shape, but
+   never let it become a clipping layer for modal/editor content. */
+body.synthwave-theme #sound-settings-modal {
+    z-index: 4000;
+    isolation: isolate;
+    overflow-y: auto;
+    overflow-x: hidden;
+    align-items: flex-start;
+}
+body.synthwave-theme #sound-settings-modal .modal-content {
+    position: relative;
+    z-index: 1;
+    isolation: isolate;
+    overflow: visible;
+    max-height: none;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+body.synthwave-theme #sound-settings-modal .modal-content::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--Background);
+    border: 1px solid var(--Alt2);
+    border-radius: var(--BorderRadius);
+    box-shadow: var(--text-shadow);
+}
+body.synthwave-theme .song-mode-panel {
+    position: relative;
+    z-index: 1200;
+    isolation: isolate;
+    overflow: visible;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+body.synthwave-theme .song-mode-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--Background) 90%, black 5%);
+    border: var(--s0) solid var(--BorderColor);
+    border-radius: var(--BorderRadius);
+    box-shadow: 0 var(--s1) var(--s2) rgba(0, 0, 0, 0.1);
+}
+body.synthwave-theme .song-mode-heading,
+body.synthwave-theme .song-mode-meta,
+body.synthwave-theme .song-section-row,
+body.synthwave-theme .song-mode-actions,
+body.synthwave-theme .song-section-actions,
+body.synthwave-theme .song-section-reorder-actions { min-width: 0; }
+
+@media (max-width: 640px) {
+    body.synthwave-theme #sound-settings-modal .modal-content {
+        width: 100%;
+        margin: .5rem auto;
+        padding: .75rem;
+    }
+    body.synthwave-theme .song-mode-heading,
+    body.synthwave-theme .song-mode-meta { align-items: stretch; }
+    body.synthwave-theme .song-mode-heading h2,
+    body.synthwave-theme .song-mode-heading p,
+    body.synthwave-theme .song-mode-meta > *,
+    body.synthwave-theme .song-section-row > * { min-width: 0; max-width: 100%; }
+    body.synthwave-theme .song-mode-meta > *,
+    body.synthwave-theme .song-section-row label { flex: 1 1 100%; }
+    body.synthwave-theme .song-mode-meta input,
+    body.synthwave-theme .song-section-row input,
+    body.synthwave-theme .song-section-row select { width: 100%; box-sizing: border-box; }
+    body.synthwave-theme .song-section-actions,
+    body.synthwave-theme .song-section-reorder-actions { width: 100%; margin-left: 0; justify-content: flex-start; flex-wrap: wrap; }
+}
+
 /* Touch phones can expose a wider CSS viewport when display magnification is increased. Keep the compact timing layout tied to the input modality too, not only to one viewport-width breakpoint. */
 @media (pointer: coarse) {
     .timing-controls-group {
