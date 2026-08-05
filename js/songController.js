@@ -375,19 +375,30 @@ async function publishSongChange(nextSong, shouldRender = true) {
 
 async function goToSection(index) {
   if (!Number.isInteger(index) || !canEditSong) return false;
-  const section = AppState.getSong().sections[index];
+  const currentSong = updatedSongFromFields();
+  const section = currentSong.sections[index];
   if (!section) return false;
   if (AppState.isPlaying()) await MetronomeEngine.togglePlay(true);
-  AppState.setSelectedTrackIndex(0);
-  for (const track of AppState.getTracks()) {
-    track.currentBar = 0;
-    track.currentBeat = 0;
-    track.songRepeatIteration = 0;
-  }
+  currentSong.enabled = true;
   selectedSectionIndex = index;
-  AppState.setTempo(section.tempo);
+  const requiredBars = Math.max(
+    1,
+    ...AppState.getTracks().map(track => track.barSettings?.length || 1),
+    ...currentSong.sections.map(item => item.startBar + 1)
+  );
+  const state = await AppState.getCurrentStateForPreset(true);
+  state.tempo = section.tempo;
+  state.song = currentSong;
+  if (section.tracks?.length) {
+    state.Tracks = runtimeTracksFromSnapshot(expandSnapshotBars(section.tracks, requiredBars));
+  } else {
+    state.Tracks = state.Tracks.map(track => ({ ...track, currentBar: 0, currentBeat: 0, songRepeatIteration: 0 }));
+  }
+  await AppState.loadPresetData(state);
+  refreshApplicationUI({ animate: false });
   sendState(AppState.getCurrentStateForPreset(true));
-  refreshApplicationUI();
+  announce(`${section.name} loaded.`);
+  await MetronomeEngine.togglePlay();
   return true;
 }
 

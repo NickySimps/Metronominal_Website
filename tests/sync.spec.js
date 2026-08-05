@@ -263,17 +263,25 @@ test('song mode synchronizes sections and creates a credential-free song link', 
   await expect(host.locator('[data-song-section-name="0"]')).toHaveValue('Chorus');
   await host.locator('.song-section-row').nth(1).locator('[data-song-section-action="move-up"]').click();
   await expect(host.locator('[data-song-section-name="0"]')).toHaveValue('Intro');
-
+  await host.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const song = AppState.getSong();
+    song.sections[1].tracks = JSON.parse(JSON.stringify(AppState.getTracks()));
+    song.sections[1].tracks[0].name = 'Chorus Loaded Track';
+    AppState.setSong(song);
+  });
   await host.locator('.song-section-row').nth(1).locator('[data-song-section-action="go"]').click();
   await expect(host.locator('#song-now-playing')).toContainText('Chorus');
   await expect.poll(() => host.locator('.tempo-container .slider').inputValue(), { timeout: 2_000 }).toBe('150');
-  await expect.poll(async () => (await readState(host)).isPlaying).toBe(false);
+  await expect.poll(async () => (await readState(host)).isPlaying).toBe(true);
   await expect.poll(async () => host.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     return AppState.getSelectedTrackIndex();
   })).toBe(0);
-  await host.locator('#start-stop-btn').click();
-  await expect.poll(async () => (await readState(host)).isPlaying).toBe(true);
+  await expect.poll(async () => host.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    return AppState.getTracks()[0]?.name;
+  })).toBe('Chorus Loaded Track');
   await expect(client.locator('#song-now-playing')).toContainText('Chorus');
   const lateClient = await lateClientContext.newPage();
   await lateClient.goto(host.url());
