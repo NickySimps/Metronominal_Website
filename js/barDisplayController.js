@@ -284,10 +284,9 @@ function onBarPointerDown(event) {
       const track = AppState.getTracks()[containerIndex];
       if (track && track.barSettings[barIndex]) {
         if (AppState.isSliceMode?.()) {
+          dragPaintAction = 'SLICE';
           cycleBeatSlice(containerIndex, barIndex, beatIndex);
-          return;
-        }
-        if (AppState.isRestMode()) {
+        } else if (AppState.isRestMode()) {
           const rests = [...(track.barSettings[barIndex].rests || [])];
           if (rests.includes(beatIndex)) {
             dragPaintAction = 'UNREST';
@@ -381,7 +380,9 @@ function onWindowPointerMove(event) {
           const track = AppState.getTracks()[clickedContainerIndex];
 
           if (track && track.barSettings[clickedBarIndex]) {
-            if (AppState.isRestMode()) {
+            if (AppState.isSliceMode?.() || dragPaintAction === 'SLICE') {
+              cycleBeatSlice(clickedContainerIndex, clickedBarIndex, beatIndex);
+            } else if (AppState.isRestMode()) {
               let newRests = [...(track.barSettings[clickedBarIndex].rests || [])];
               if (dragPaintAction === 'UNREST') {
                 newRests = newRests.filter(r => r !== beatIndex);

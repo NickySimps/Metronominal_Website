@@ -28,6 +28,25 @@ test.describe('track slice and action controls', () => {
     await expect(bar.locator('.beat-square')).toHaveCount(4);
   });
 
+  test('Slice mode paints across beats during a real drag', async ({ page }) => {
+    const bar = page.locator('.bar-visual').first();
+    await page.locator('.slice-btn').click();
+    const boxes = await bar.locator('.beat-square').evaluateAll(elements => elements.map(element => {
+      const rect = element.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }));
+    await page.mouse.move(boxes[0].x, boxes[0].y);
+    await page.mouse.down();
+    for (const box of boxes.slice(1, 3)) {
+      await page.mouse.move(box.x, box.y);
+    }
+    await page.mouse.up();
+    await expect.poll(() => page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      return AppState.getTracks()[0].barSettings[0].beatSlices;
+    })).toEqual({ 0: 2, 1: 2, 2: 2 });
+  });
+
   test('slicing preserves the parent beat count and total bar duration', async ({ page }) => {
     const result = await page.evaluate(async () => {
       const [{ default: AppState }, { getBeatSlots, getSlotDurationSeconds }] = await Promise.all([
