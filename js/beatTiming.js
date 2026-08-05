@@ -44,6 +44,13 @@ export function getBeatSlots(bar) {
   return slots;
 }
 
+export function getVisualBeatSlots(bar) {
+  const slots = getBeatSlots({ ...bar, beatSlices: undefined });
+  return Number(bar?.subdivision) === 1
+    ? slots.map((slot) => ({ ...slot, mainBeat: true }))
+    : slots;
+}
+
 export function getSlotInfo(bar, slotIndex) {
   return getBeatSlots(bar)[Math.max(0, Number.parseInt(slotIndex, 10) || 0)] || null;
 }

@@ -13,7 +13,7 @@ import MetronomeEngine from "./metronomeEngine.js";
 import { sendState } from "./webrtc.js";
 import ThemeController from "./themeController.js";
 import SoundSettingsModal from "./soundSettingsModal.js";
-import { getBeatSlots } from "./beatTiming.js";
+import { getVisualBeatSlots, getSlotInfo } from "./beatTiming.js";
 
 // State variables related to display highlighting
 let previousHighlightedBeatElements = []; // To keep track of the previously highlighted beat
@@ -255,7 +255,7 @@ function cycleBeatSlice(trackIndex, barIndex, slotIndex) {
   const track = AppState.getTracks()[trackIndex];
   const bar = track?.barSettings?.[barIndex];
   if (!bar) return;
-  const slot = getBeatSlots(bar)[slotIndex];
+  const slot = getVisualBeatSlots(bar)[slotIndex];
   const sourceBeat = slot?.sourceBeat ?? slotIndex;
   const counts = [2, 3, 4, 6, 8];
   const current = Number(bar.beatSlices?.[sourceBeat]) || 1;
@@ -843,7 +843,7 @@ const BarDisplayController = {
 
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
-        const beatSlots = getBeatSlots(barData);
+        const beatSlots = getVisualBeatSlots(barData);
         const totalSubBeatsNeeded = beatSlots.length;
         applyBarLayout(barDiv, subdivision, totalSubBeatsNeeded);
         const rests = barData.rests || [];
@@ -904,7 +904,7 @@ const BarDisplayController = {
 
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
-        const beatSlots = getBeatSlots(barData);
+        const beatSlots = getVisualBeatSlots(barData);
         const totalSubBeatsNeeded = beatSlots.length;
         applyBarLayout(barDiv, subdivision, totalSubBeatsNeeded);
         const rests = barData.rests || [];
@@ -1039,7 +1039,7 @@ const BarDisplayController = {
         let barDiv = existingBarVisualsMap.get(String(barIndex));
         const mainBeatsInBar = barData.beats;
         const subdivision = barData.subdivision;
-        const beatSlots = getBeatSlots(barData);
+        const beatSlots = getVisualBeatSlots(barData);
         const totalSubBeatsNeeded = beatSlots.length;
         const rests = barData.rests || [];
         let isNewBarInstance = false;
@@ -1225,18 +1225,17 @@ const BarDisplayController = {
     const targetBarElement = bars[barIndex];
 
     if (shouldHighlight) {
-      const beatSquares = targetBarElement.querySelectorAll(".beat-square");
-      if (beatIndex >= 0 && beatIndex < beatSquares.length) {
-        const beatToHighlight = beatSquares[beatIndex];
-        
-        if (beatToHighlight.classList.contains('main-beat-marker')) {
-          beatToHighlight.classList.add("highlighted");
-        } else {
-          beatToHighlight.classList.add("highlighted-sub");
-        }
-        
+      const barData = AppState.getTracks()[containerIndex]?.barSettings?.[barIndex];
+      const playbackSlot = barData ? getSlotInfo(barData, beatIndex) : null;
+      const sourceBeat = playbackSlot?.sourceBeat ?? beatIndex;
+      const beatToHighlight = Array.from(targetBarElement.querySelectorAll(".beat-square"))
+        .find((square) => Number(square.dataset.sourceBeat ?? square.dataset.beatIndex) === sourceBeat);
+      if (beatToHighlight) {
+        const wasAlreadyHighlighted = beatToHighlight.classList.contains("highlighted") || beatToHighlight.classList.contains("highlighted-sub");
+        beatToHighlight.classList.remove("highlighted", "highlighted-sub");
+        if (wasAlreadyHighlighted) void beatToHighlight.offsetWidth;
+        beatToHighlight.classList.add("highlighted");
         previousHighlightedBeatElements[containerIndex] = beatToHighlight;
-
         targetBarElement.classList.add("active-bar");
         currentActiveBarElements[containerIndex] = targetBarElement;
       }

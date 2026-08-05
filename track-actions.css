@@ -7,13 +7,71 @@
   width: 100%;
   margin: 0.35rem 0 0.5rem;
 }
-.track-action-row button {
-  min-height: 2.1rem;
-  padding: 0.35rem 0.65rem;
-  border-radius: var(--BorderRadius, 0.45rem);
+.track-controls > .track-action-row {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  height: 2.625rem;
+  margin: 0;
+  flex-wrap: nowrap;
+  gap: var(--s2, 0.5rem);
 }
-.track-action-row .random-btn { margin-left: auto; }
-.slice-btn.active { color: var(--AccentColor, #fff); box-shadow: 0 0 0 2px var(--AccentColor, currentColor) inset; }
+.track-controls > .track-volume-controls {
+  grid-row: 3;
+}
+.track-action-row button {
+  height: 2.625rem;
+  min-height: 2.625rem;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 var(--s2, 0.5rem);
+  border: 0;
+  border-radius: var(--BorderRadius);
+  background: var(--Highlight);
+  color: var(--ReadableOnHighlight);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
+.track-action-row button:not(.random-btn):hover,
+.track-action-row button:not(.random-btn):focus-visible {
+  background: var(--Alt2);
+  color: var(--ReadableOnAlt2);
+}
+.track-action-row .random-btn {
+  flex: 0 0 auto;
+  margin-left: 0;
+  background: var(--Alt1);
+  color: var(--Main);
+  border: 1px solid var(--Highlight);
+}
+.track-action-row .random-btn:hover,
+.track-action-row .random-btn:focus-visible {
+  background: var(--Highlight);
+  color: var(--ReadableOnHighlight);
+}
+.slice-btn,
+.rest-button,
+.accent-button,
+.beat-edit-btn {
+  background: var(--Highlight);
+  color: var(--ReadableOnHighlight);
+  border: 0;
+  border-radius: var(--BorderRadius);
+}
+.slice-btn.active,
+.rest-button.active,
+.accent-button.active,
+.beat-edit-btn.active {
+  background: var(--Alt2);
+  color: var(--ReadableOnAlt2);
+  box-shadow: 0 0 8px var(--Alt2);
+}
+.slice-btn.active { color: var(--ReadableOnAlt2); }
 .performance-drawer { position: relative; z-index: 20; }
 .performance-drawer > summary { cursor: pointer; list-style: none; }
 .performance-drawer > summary::-webkit-details-marker { display: none; }

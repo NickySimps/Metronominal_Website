@@ -522,8 +522,8 @@ const TrackController = {
           <button class="track-remove-btn" title="Remove track" aria-label="Remove track">✖</button>
         </div>
         <div class="track-action-row" aria-label="Track actions">
-          <button class="duplicate-track-btn" type="button" title="Duplicate track">＋ Track</button>
-          <button class="duplicate-bar-btn" type="button" title="Duplicate selected bar">＋ Bar</button>
+          <button class="duplicate-track-btn" type="button" title="Duplicate track"><span class="control-icon" aria-hidden="true">⧉</span> Track</button>
+          <button class="duplicate-bar-btn" type="button" title="Duplicate selected bar"><span class="control-icon" aria-hidden="true">⧉</span> Bar</button>
           <button class="track-reset-btn" type="button" title="Reset track settings">↺ Reset</button>
           <button class="random-btn" type="button" aria-label="Randomize pattern" title="Randomize track"><span class="control-icon" aria-hidden="true">↻</span> Rand</button>
         </div>

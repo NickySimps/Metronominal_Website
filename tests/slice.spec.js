@@ -12,7 +12,7 @@ test.describe('track slice and action controls', () => {
     await page.locator('.slice-btn').click();
     await expect(page.locator('.slice-btn')).toHaveAttribute('aria-pressed', 'true');
     await bar.locator('.beat-square').nth(1).click();
-    await expect.poll(() => bar.locator('.beat-square').count()).toBe(before + 1);
+    await expect.poll(() => bar.locator('.beat-square').count()).toBe(before);
     await expect(bar.locator('.slice-count-badge')).toHaveText('2');
     await expect(bar.locator('.beat-square[data-slice-count="2"]')).toHaveAttribute('aria-label', 'Beat 2, 2 slices');
     const badgeStyle = await bar.locator('.slice-count-badge').evaluate(element => ({
@@ -25,7 +25,7 @@ test.describe('track slice and action controls', () => {
       const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
       return AppState.getTracks()[0].barSettings[0].beatSlices;
     })).toEqual({ 1: 2 });
-    await expect(bar.locator('.beat-square')).toHaveCount(5);
+    await expect(bar.locator('.beat-square')).toHaveCount(4);
   });
 
   test('slicing preserves the parent beat count and total bar duration', async ({ page }) => {
@@ -71,6 +71,25 @@ test.describe('track slice and action controls', () => {
       { soundType: 'mainBeatSound', allowOverlap: false, retrigger: true, reverse: true },
       { soundType: 'subdivisionSound', allowOverlap: true, retrigger: false, reverse: true },
     ]);
+  });
+  test('every slice re-triggers the parent beat visual highlight', async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const [{ default: AppState }, { default: BarDisplayController }] = await Promise.all([
+        import(new URL('js/appState.js', document.baseURI).href),
+        import(new URL('js/barDisplayController.js', document.baseURI).href),
+      ]);
+      AppState.setBeatSlices(0, 0, 1, 2);
+      BarDisplayController.updateBeatHighlight(0, 0, 1, true);
+      const first = document.querySelector('.bar-visual .beat-square[data-source-beat="1"]');
+      const firstClass = first?.className;
+      BarDisplayController.updateBeatHighlight(0, 0, 2, true);
+      const second = document.querySelector('.bar-visual .beat-square[data-source-beat="1"]');
+      return { sameElement: first === second, firstClass, secondClass: second?.className, visualCount: document.querySelectorAll('.bar-visual .beat-square').length };
+    });
+    expect(result.sameElement).toBe(true);
+    expect(result.firstClass).toContain('highlighted');
+    expect(result.secondClass).toContain('highlighted');
+    expect(result.visualCount).toBe(4);
   });
   test('Slice mode is mutually exclusive with Rest, Accent, and Beat Edit', async ({ page }) => {
     await page.locator('.slice-btn').click();
