@@ -5,6 +5,19 @@ import DOM from './domSelectors.js';
 import RecordingVisualizer from './recordingVisualizer.js';
 import { createSoundFilterInput, getReversedAudioBuffer } from './audioEffects.js';
 
+function cleanupRecordingSession() {
+    AudioController.recordingStream?.getTracks().forEach(track => track.stop());
+    AudioController.recordingStream = null;
+    AudioController.audioChunks = [];
+    AppState.setRecording(false);
+    TrackController.renderTracks();
+    if (DOM.recordingDisplayModal) DOM.recordingDisplayModal.style.display = 'none';
+    RecordingVisualizer.stop();
+    if (AudioController.timerIntervalId) clearInterval(AudioController.timerIntervalId);
+    AudioController.timerIntervalId = null;
+    AudioController.mediaRecorder = null;
+}
+
 const AudioController = {
     activeRecordingSources: new Map(),
     mediaRecorder: null,
@@ -71,53 +84,34 @@ const AudioController = {
             };
 
             AudioController.mediaRecorder.onstop = async () => {
-                // Stop all tracks in the stream
-                AudioController.recordingStream.getTracks().forEach(track => track.stop());
+                try {
+                    const audioBlob = new Blob(AudioController.audioChunks, { type: 'audio/wav' });
+                    const arrayBuffer = await audioBlob.arrayBuffer();
+                    const audioBufferDecoded = await audioContext.decodeAudioData(arrayBuffer);
+                    const recordingName = `Recording ${AppState.getRecordings().length + 1}`;
+                    AppState.addRecording(recordingName);
+                    AppState.setSoundBuffer(recordingName, audioBufferDecoded);
 
-                const audioBlob = new Blob(AudioController.audioChunks, { type: 'audio/wav' });
-                const arrayBuffer = await audioBlob.arrayBuffer();
-                // audioContext is already defined above
-                const audioBufferDecoded = await audioContext.decodeAudioData(arrayBuffer);
-
-                const recordingName = `Recording ${AppState.getRecordings().length + 1}`;
-                AppState.addRecording(recordingName);
-                AppState.setSoundBuffer(recordingName, audioBufferDecoded);
-
-                // Set the new recording to the track that initiated it (Main Beat Sound)
-                if (typeof trackIndex === 'number') {
-                    const newSettings = {
-                        trimStart: 0,
-                        trimEnd: audioBufferDecoded.duration,
-                        pitchShift: 0,
-                    };
-                    
-                    AppState.updateTrack(trackIndex, {
-                        mainBeatSound: {
-                            sound: recordingName,
-                            settings: newSettings
-                        }
-                    });
+                    if (typeof trackIndex === 'number') {
+                        AppState.updateTrack(trackIndex, {
+                            mainBeatSound: {
+                                sound: recordingName,
+                                settings: { trimStart: 0, trimEnd: audioBufferDecoded.duration, pitchShift: 0 }
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.error("Could not finalize recording:", error);
+                } finally {
+                    cleanupRecordingSession();
                 }
-
-                AudioController.audioChunks = [];
-                AppState.setRecording(false);
-                TrackController.renderTracks();
-
-                // Hide modal and stop visualizer/timer
-                DOM.recordingDisplayModal.style.display = 'none';
-                RecordingVisualizer.stop();
-                clearInterval(AudioController.timerIntervalId);
             };
 
             AudioController.mediaRecorder.start();
         } catch (err) {
             console.error("Error accessing microphone:", err);
             alert("Could not access microphone. Please ensure a microphone is connected and permissions are granted.");
-            // Optionally, show a message to the user
-            // Hide modal if there was an error starting
-            DOM.recordingDisplayModal.style.display = 'none';
-            RecordingVisualizer.stop();
-            clearInterval(AudioController.timerIntervalId);
+            cleanupRecordingSession();
         }
     },
 

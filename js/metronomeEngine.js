@@ -190,12 +190,19 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
                     const trimEnd = Math.max(trimStart, Math.min(rendered.duration, Number(soundSettings.trimEnd) || rendered.duration));
                     const startOffset = soundSettings.reverse === true ? rendered.duration - trimEnd : trimStart;
                     source.start(Math.max(actualBeatTime, audioContext.currentTime), startOffset, Math.max(0, trimEnd - trimStart));
+                }).catch(error => {
+                    console.warn("Could not render synthesized audio:", error);
+                    synthVoiceGain.disconnect();
                 });
             }
-            activeSynthVoices.set(synthVoiceKey, {
+            const voice = {
                 endTime: actualBeatTime + voiceDuration,
                 gain: synthVoiceGain,
-            });
+            };
+            activeSynthVoices.set(synthVoiceKey, voice);
+            window.setTimeout(() => {
+                if (activeSynthVoices.get(synthVoiceKey) === voice) activeSynthVoices.delete(synthVoiceKey);
+            }, Math.max(0, voiceDuration * 1000) + 100);
         } else {
             console.warn(`Synth function ${synthFunctionName} not found in SoundSynth.`);
         }

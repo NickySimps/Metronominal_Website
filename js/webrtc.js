@@ -393,7 +393,9 @@ function stopAt(serverTimestamp, generation) {
   const delay = Math.max(0, localTimestamp(serverTimestamp) - Date.now());
   scheduledStopTimer = setTimeout(() => {
     if (generation !== transportGeneration) return;
-    if (AppState.isPlaying()) MetronomeEngine.togglePlay(true);
+    if (AppState.isPlaying()) {
+      void MetronomeEngine.togglePlay(true).catch(error => console.warn("Could not stop synchronized playback:", error));
+    }
   }, delay);
 }
 
@@ -446,18 +448,18 @@ function applyTransport(message) {
 
   if (message.playing) {
     if (message.countIn) {
-      MetronomeEngine.scheduleCountIn({
+      void MetronomeEngine.scheduleCountIn({
         ...message.countIn,
         startsAt: localTimestamp(message.countIn.startsAt)
-      }, () => generation === transportGeneration);
+      }, () => generation === transportGeneration).catch(error => console.warn("Could not schedule synchronized count-in:", error));
     }
-    MetronomeEngine.scheduleStart(
+    void MetronomeEngine.scheduleStart(
       localTimestamp(message.effectiveAt),
       message.currentBar || 0,
       message.currentBeat || 0,
       message.repeatIteration || 0,
       () => generation === transportGeneration
-    );
+    ).catch(error => console.warn("Could not schedule synchronized playback:", error));
   } else {
     stopAt(message.effectiveAt, generation);
   }
@@ -1074,7 +1076,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     const audioContext = AppState.getAudioContext();
     if (audioContext && audioContext.state === "suspended") {
-      audioContext.resume().catch(() => {});
+      void audioContext.resume().catch(error => console.debug("Audio context resume deferred:", error));
     }
 
     // Auto-heal background WebSocket timeouts without requiring a manual page reload
@@ -1091,7 +1093,7 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pointerdown", () => {
   const audioContext = AppState.getAudioContext();
   if (audioContext && audioContext.state === "suspended") {
-    audioContext.resume().catch(() => {});
+    void audioContext.resume().catch(error => console.debug("Audio context resume deferred:", error));
   }
 }, { passive: true });
 
