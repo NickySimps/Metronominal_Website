@@ -1,4 +1,4 @@
-const SLICE_COUNTS = [2, 3, 4, 6, 8];
+const SLICE_COUNTS = [2, 3, 4, 6, 8, 16, 32];
 
 export function getSliceCounts() {
   return [...SLICE_COUNTS];

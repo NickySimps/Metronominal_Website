@@ -72,7 +72,14 @@
   box-shadow: 0 0 8px var(--Alt2);
 }
 .slice-btn.active { color: var(--ReadableOnAlt2); }
-.performance-drawer { position: relative; z-index: 20; }
+.top-controls-area.performance-drawer-open,
+.top-controls-area:has(.performance-drawer[open]) {
+  z-index: 2000;
+}
+.top-controls-area:has(.performance-drawer[open]) {
+  overflow: visible;
+}
+.performance-drawer-panel { z-index: 2001; }
 .performance-drawer > summary { cursor: pointer; list-style: none; }
 .performance-drawer > summary::-webkit-details-marker { display: none; }
 .performance-drawer-panel {

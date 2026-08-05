@@ -256,7 +256,7 @@ function cycleBeatSlice(trackIndex, barIndex, slotIndex) {
   if (!bar) return;
   const slot = getVisualBeatSlots(bar)[slotIndex];
   const sliceKey = slot?.index ?? slotIndex;
-  const counts = [2, 3, 4, 6, 8];
+  const counts = [2, 3, 4, 6, 8, 16, 32];
   const current = Number(bar.beatSlices?.[sliceKey]) || 1;
   const next = counts[counts.indexOf(current) + 1] || 1;
   AppState.setBeatSlices(trackIndex, barIndex, sliceKey, next, sliceKey);
