@@ -1001,27 +1001,32 @@ test.describe('mode controls responsive layout', () => {
         const buffer = await offline.startRendering();
         const data = buffer.getChannelData(0);
         let energy = 0;
-        for (let index = 4800; index < data.length; index += 1) energy += data[index] ** 2;
-        return Math.sqrt(energy / (data.length - 4800));
+        let peak = 0;
+        for (let index = 4800; index < data.length; index += 1) {
+          energy += data[index] ** 2;
+          peak = Math.max(peak, Math.abs(data[index]));
+        }
+        return { rms: Math.sqrt(energy / (data.length - 4800)), peak };
       }
-      const baselineRms = await renderEffect({});
-      const delayRms = await renderEffect({ delayMix: 1, delayTime: 0.1 });
-      const distortionRms = await renderEffect({ distortion: 1 });
-      const reverbRms = await renderEffect({ reverbMix: 1 });
+      const baseline = await renderEffect({});
+      const delay = await renderEffect({ delayMix: 1, delayTime: 0.1 });
+      const distortion = await renderEffect({ distortion: 1 });
+      const reverb = await renderEffect({ reverbMix: 1 });
       const synthBase = await renderSynthAudioBuffer(audioContext, SoundSynth.playSine, { pitchShift: 0, volume: 1 });
       const synthPitch = await renderSynthAudioBuffer(audioContext, SoundSynth.playSine, { pitchShift: 12, volume: 1 });
       const baseData = synthBase.getChannelData(0);
       const pitchData = synthPitch.getChannelData(0);
       let pitchDifference = 0;
       for (let index = 0; index < Math.min(1000, baseData.length, pitchData.length); index += 1) pitchDifference += Math.abs(baseData[index] - pitchData[index]);
-      return { inputType: input.constructor.name, bypassType: bypass.constructor.name, settings, baselineRms, delayRms, distortionRms, reverbRms, pitchDifference };
+      return { inputType: input.constructor.name, bypassType: bypass.constructor.name, settings, baseline, delay, distortion, reverb, pitchDifference };
     });
     expect(result.inputType).toBe('GainNode');
     expect(result.bypassType).toBe('GainNode');
     expect(result.settings).toEqual({ distortion: 0.4, delayMix: 0.3, delayTime: 0.18, delayFeedback: 0.25, reverbMix: 0.5, reverbFeedback: 0.25, fxBypass: false });
-    expect(result.delayRms).not.toBeCloseTo(result.baselineRms, 2);
-    expect(result.distortionRms).not.toBeCloseTo(result.baselineRms, 2);
-    expect(Math.abs(result.reverbRms - result.baselineRms)).toBeGreaterThan(0.001);
+    expect(result.delay.rms).not.toBeCloseTo(result.baseline.rms, 2);
+    expect(result.distortion.rms).not.toBeCloseTo(result.baseline.rms, 2);
+    expect(Math.abs(result.reverb.rms - result.baseline.rms)).toBeGreaterThan(0.001);
+    expect(result.reverb.peak).toBeLessThanOrEqual(1.05);
     expect(result.pitchDifference).toBeGreaterThan(0.01);
 
     const track = page.locator('.track').first();

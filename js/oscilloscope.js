@@ -652,8 +652,8 @@ const Oscilloscope = {
       this.canvasCtx.globalAlpha = 0.45 + effects.distortion * 0.45;
       this.canvasCtx.imageSmoothingEnabled = false;
       const chaos = effects.distortion * 5;
-      this.canvasCtx.drawImage(pixelCanvas, -chaos, 0, width, height);
-      this.canvasCtx.drawImage(pixelCanvas, chaos, effects.distortion * 3, width, height);
+      this.canvasCtx.drawImage(this.pixelCanvas, -chaos, 0, width, height);
+      this.canvasCtx.drawImage(this.pixelCanvas, chaos, effects.distortion * 3, width, height);
       this.canvasCtx.restore();
     } else {
       this.canvasCtx.drawImage(this.effectCanvas, 0, 0);
