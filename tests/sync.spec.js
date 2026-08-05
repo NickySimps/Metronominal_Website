@@ -869,6 +869,23 @@ test('preset controller awaits save/load and restores sliced tracks', async ({ p
   });
   expect(result).toEqual({ saved: true, rawSlices: { 1: 8 }, loaded: 'Round trip', restored: { 1: 8 } });
 });
+test('editing modes persist consistently and global reset clears them', async ({ page }) => {
+  await page.goto('./');
+  const result = await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    AppState.setAccentMode(true);
+    const saved = await AppState.getCurrentStateForPreset(true);
+    await AppState.loadPresetData(saved);
+    const restoredAccent = { accent: AppState.isAccentMode(), rest: AppState.isRestMode(), slice: AppState.isSliceMode() };
+    AppState.setRestMode(true);
+    AppState.resetState();
+    return { restoredAccent, afterReset: { accent: AppState.isAccentMode(), rest: AppState.isRestMode(), slice: AppState.isSliceMode() } };
+  });
+  expect(result).toEqual({
+    restoredAccent: { accent: true, rest: false, slice: false },
+    afterReset: { accent: false, rest: false, slice: false },
+  });
+});
 test('song import rejects malformed state and reconstructs accepted data from an allowlist', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#share-btn')).toHaveClass(/connected/);

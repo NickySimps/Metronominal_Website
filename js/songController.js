@@ -313,6 +313,8 @@ function reconstructImportedState(state) {
     selectedBarIndexInContainer: Number.isInteger(state.selectedBarIndexInContainer) ? state.selectedBarIndexInContainer : 0,
     controlsAttachedToTrack: state.controlsAttachedToTrack !== false,
     isRestMode: state.isRestMode === true,
+    isAccentMode: state.isAccentMode === true && state.isSliceMode !== true,
+    isSliceMode: state.isSliceMode === true,
     customSounds
   };
 }
