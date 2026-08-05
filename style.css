@@ -1316,9 +1316,12 @@ select {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  text-align: center;
-  line-height: 1;
+  box-sizing: border-box;
+  width: auto;
+  min-height: 40px;
+  height: 40px;
   padding: 6px 12px;
+  line-height: 1;
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.02em;
