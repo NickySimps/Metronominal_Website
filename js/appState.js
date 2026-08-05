@@ -345,7 +345,6 @@ function normalizeSong(value, barCount, fallbackTempo = 120) {
       };
     })
     .sort((a, b) => a.startBar - b.startBar)
-    .filter((section, index, all) => !section.__clampedStart || index === 0 || section.startBar !== all[index - 1].startBar)
     .map(({ __clampedStart, ...section }) => section);
   if (!normalizedSections.length || normalizedSections[0].startBar !== 0) {
     normalizedSections.unshift({ name: "Section 1", startBar: 0, tempo: fallbackTempo, repeats: 1 });
@@ -583,9 +582,12 @@ const AppState = (function () {
       }
       return { index: activeIndex, ...song.sections[activeIndex] };
     },
-    applySongSectionForBar: (barIndex = 0) => {
+    applySongSectionForBar: (barIndex = 0, requestedSectionIndex = null) => {
       if (!song.enabled) return false;
-      const section = publicAPI.getSongSectionForBar(barIndex);
+      const requestedIndex = Number.parseInt(requestedSectionIndex, 10);
+      const section = Number.isInteger(requestedIndex) && song.sections[requestedIndex]
+        ? { index: requestedIndex, ...song.sections[requestedIndex] }
+        : publicAPI.getSongSectionForBar(barIndex);
       if (!Array.isArray(section?.tracks)) return false;
       activeSongSectionIndex = section.index;
       section.tracks.forEach((snapshot, index) => {
@@ -666,7 +668,7 @@ const AppState = (function () {
         return { bar: currentBar + 1, repeatIteration: 0, sectionTransition: false };
       }
       const transitionBar = nextSection ? nextSection.startBar : 0;
-      return { bar: transitionBar >= safeBarCount ? 0 : transitionBar, repeatIteration: 0, sectionTransition: true };
+      return { bar: transitionBar >= safeBarCount ? 0 : transitionBar, repeatIteration: 0, sectionTransition: true, sectionIndex: nextSection ? active.index + 1 : 0 };
     },
     addTapTimestamp: (timestamp) => {
       if (

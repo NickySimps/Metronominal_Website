@@ -414,6 +414,34 @@ test('song section playback applies section track content at the boundary', asyn
     return { bar: track.currentBar, rests: track.barSettings[1]?.rests || [] };
   }), { timeout: 5000 }).toMatchObject({ bar: 1, rests: [0] });
 });
+test('song mode advances through sections that share the default first-bar start', async ({ page }) => {
+  await page.goto('./');
+  await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const state = await AppState.getCurrentStateForPreset(true);
+    state.tempo = 300;
+    const first = structuredClone(state.Tracks[0]);
+    first.barSettings = [{ beats: 1, subdivision: 1, rests: [], velocities: {} }];
+    const next = structuredClone(first);
+    next.barSettings[0].rests = [0];
+    state.Tracks = [first];
+    state.song = {
+      version: 2,
+      enabled: true,
+      name: 'Sequential One-Bar Sections',
+      sections: [
+        { name: 'First', startBar: 0, tempo: 300, repeats: 1, tracks: [first] },
+        { name: 'Second', startBar: 0, tempo: 300, repeats: 1, tracks: [next] },
+      ],
+    };
+    await AppState.loadPresetData(state);
+  });
+  await page.locator('#start-stop-btn').click();
+  await expect.poll(() => page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    return AppState.getTracks()[0].barSettings[0]?.rests || [];
+  }), { timeout: 5000 }).toEqual([0]);
+});
 test('song section transitions wait for the longest active track', async ({ page }) => {
   await page.goto('./');
   const result = await page.evaluate(async () => {
@@ -563,7 +591,7 @@ test('song v2 normalizes snapshots, repeats section ranges, and derives a missin
     { bar: 1, repeatIteration: 0, sectionTransition: false },
     { bar: 0, repeatIteration: 1, sectionTransition: false },
     { bar: 1, repeatIteration: 1, sectionTransition: false },
-    { bar: 2, repeatIteration: 0, sectionTransition: true },
+    { bar: 2, repeatIteration: 0, sectionTransition: true, sectionIndex: 1 },
   ]);
 });
 

@@ -243,7 +243,7 @@ function advanceTrackBeat(track) {
             track.currentBar = nextPosition.bar;
             track.songRepeatIteration = nextPosition.repeatIteration;
             if (track === conductorTrack && nextPosition.sectionTransition) {
-                AppState.applySongSectionForBar(track.currentBar);
+                AppState.applySongSectionForBar(track.currentBar, nextPosition.sectionIndex);
             }
         }
     }
