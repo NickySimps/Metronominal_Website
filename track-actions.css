@@ -76,7 +76,7 @@
 .slice-count-badge {
   position: absolute;
   top: 0.18rem;
-  right: 0.18rem;
+  left: 0.18rem;
   z-index: 2;
   display: inline-grid;
   place-items: center;

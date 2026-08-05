@@ -1654,6 +1654,7 @@ test.describe('mode controls responsive layout', () => {
       };
       await SoundSettingsModal.show(0, 'mainBeatSound');
       document.querySelector('#sound-effects-btn').click();
+      await new Promise((resolve) => requestAnimationFrame(resolve));
       const controls = {
         delayFeedback: Boolean(document.querySelector('#sound-effects-modal [data-param="delayFeedback"]')),
         reverbFeedback: Boolean(document.querySelector('#sound-effects-modal [data-param="reverbFeedback"]')),

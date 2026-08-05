@@ -125,6 +125,12 @@ test.describe('track slice and action controls', () => {
     await bar.locator('.beat-square').nth(2).click();
     await expect(bar.locator('.beat-square[data-beat-index="2"] .slice-count-badge')).toHaveText('2');
     await expect(bar.locator('.beat-square[data-beat-index="0"] .slice-count-badge')).toHaveCount(0);
+    const placement = await bar.evaluate((element) => {
+      const badge = element.querySelector('.beat-square[data-beat-index="2"] .slice-count-badge').getBoundingClientRect();
+      const indicator = element.querySelector('.bar-beat-indicator').getBoundingClientRect();
+      return { badgeLeft: badge.left, indicatorLeft: indicator.left };
+    });
+    expect(placement.badgeLeft).toBeLessThan(placement.indicatorLeft);
   });
   test('each independently sliced sub-beat gets its own badge and playback target', async ({ page }) => {
     const result = await page.evaluate(async () => {
