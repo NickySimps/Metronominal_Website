@@ -218,6 +218,19 @@ const Oscilloscope = {
     this.setMode(this.modes[(idx + 1) % this.modes.length]);
   },
 
+  resizeCanvasToDisplaySize() {
+    if (!this.canvas) return;
+    const rect = this.canvas.getBoundingClientRect();
+    const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    if (this.canvas.width !== width || this.canvas.height !== height) {
+      this.canvas.width = width;
+      this.canvas.height = height;
+      this.frameHistory = [];
+    }
+  },
+
   start() {
     if (this.isDrawing) return;
     this.isDrawing = true;
@@ -661,12 +674,8 @@ const Oscilloscope = {
 
     const analyserNodes = AppState.getAnalyserNodes();
 
-    const { width, height } = this.canvas.getBoundingClientRect();
-    if (this.canvas.width !== width || this.canvas.height !== height) {
-      this.canvas.width = width;
-      this.canvas.height = height;
-      this.frameHistory = [];
-    }
+    this.resizeCanvasToDisplaySize();
+    const { width, height } = this.canvas;
     this.ensureEffectCanvases(this.canvas.width, this.canvas.height);
     const effects = this.getVisualizerEffects();
 

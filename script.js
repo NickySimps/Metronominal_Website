@@ -25,6 +25,28 @@ let qrCodeInstance = null;
 let appInitialized = false;
 let pendingStartupPlay = false;
 
+function initializePerformanceDrawer() {
+  document.querySelectorAll('[data-performance-action]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const action = button.dataset.performanceAction;
+      if (action === 'visualizer') document.getElementById('visualizer-mode-btn')?.click();
+      if (action === 'diagnostics') {
+        const diagnosticsButton = document.getElementById('sync-diagnostics-btn');
+        const diagnosticsPanel = document.getElementById('sync-diagnostics-panel');
+        diagnosticsButton?.click();
+        if (diagnosticsPanel?.hidden) {
+          diagnosticsPanel.hidden = false;
+          diagnosticsButton?.setAttribute('aria-expanded', 'true');
+        }
+      }
+      if (action === 'awake') document.getElementById('screen-off-toggle-btn')?.click();
+      if (action === 'stop' && AppState.isPlaying()) DOM.startStopBtn?.click();
+    });
+  });
+}
+
+initializePerformanceDrawer();
+
 // The audio files finish loading asynchronously. Capture a Play request made
 // during that window instead of silently losing it before the controllers attach.
 function queueStartupPlay() {

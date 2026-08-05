@@ -39,11 +39,19 @@ function onThreeJSWindowResize() {
 }
 
 function animateScene() {
+    if (document.hidden) {
+        animationFrameId = null;
+        return;
+    }
     animationFrameId = requestAnimationFrame(animateScene);
     if (renderer && scene && camera) {
         renderer.render(scene, camera);
     }
 }
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && renderer && !animationFrameId) animateScene();
+});
 
 export function initializeScene(_mainContainerRef, createControlsCb, createMeasuresCb) {
     if (renderer) return; // Already initialized
@@ -91,7 +99,7 @@ export function initializeScene(_mainContainerRef, createControlsCb, createMeasu
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setPixelRatio(Math.min(2, Math.max(1, window.devicePixelRatio || 1)));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
