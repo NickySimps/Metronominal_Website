@@ -1919,6 +1919,55 @@ test.describe('mode controls responsive layout', () => {
   await expect(page.locator('.sound-behavior-category [data-param="volume"]')).toHaveCount(1);
   });
 
+  test('all Synthwave modal buttons remain visible and hit-testable on iPhone SE', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/');
+    await page.locator('#theme-menu-toggle').click();
+    await page.locator('[data-theme="synthwave"]').click();
+
+    const audit = await page.evaluate(() => {
+      const modals = [...document.querySelectorAll('.modal')];
+      return modals.map(modal => {
+        modals.forEach(other => {
+          other.hidden = true;
+          other.style.display = 'none';
+          other.style.visibility = 'hidden';
+        });
+        modal.hidden = false;
+        modal.style.display = 'flex';
+        modal.style.visibility = 'visible';
+        modal.style.opacity = '1';
+        modal.classList.add('is-open');
+        const buttons = [...modal.querySelectorAll('button')]
+          .filter(button => getComputedStyle(button).display !== 'none' && !button.disabled)
+          .map(button => {
+            button.scrollIntoView({ block: 'center', inline: 'nearest' });
+            const box = button.getBoundingClientRect();
+            const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+            return {
+              label: button.getAttribute('aria-label') || button.textContent.trim(),
+              visible: box.width > 0 && box.height > 0 && box.left >= 0 && box.right <= innerWidth && box.top >= 0 && box.bottom <= innerHeight,
+              touchSized: box.width >= 32 && box.height >= 30,
+              hit: hit === button || button.contains(hit),
+            };
+          });
+        return {
+          id: modal.id,
+          zIndex: Number.parseInt(getComputedStyle(modal).zIndex, 10) || 0,
+          buttons,
+        };
+      });
+    });
+    for (const modal of audit) {
+      expect(modal.zIndex).toBeGreaterThanOrEqual(3000);
+      for (const button of modal.buttons) {
+        expect(button.visible, `${modal.id}: ${button.label}`).toBe(true);
+        expect(button.touchSized, `${modal.id}: ${button.label}`).toBe(true);
+        expect(button.hit, `${modal.id}: ${button.label}`).toBe(true);
+      }
+    }
+  });
+
   test('Synthwave editor and Song Mode surfaces stay layered and contained on iPhone SE', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');

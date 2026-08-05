@@ -3887,6 +3887,52 @@ body.synthwave-theme .song-section-reorder-actions { min-width: 0; }
     body.synthwave-theme .song-section-reorder-actions { width: 100%; margin-left: 0; justify-content: flex-start; flex-wrap: wrap; }
 }
 
+/* Every remaining modal must use the same Synthwave overlay contract. The
+   fixed overlay owns scrolling; the oval is decorative and never intercepts
+   the controls painted above it. */
+body.synthwave-theme .modal:not(#sound-settings-modal):not(#sound-picker-modal) {
+    z-index: 4000;
+    isolation: isolate;
+    overflow-y: auto;
+    overflow-x: hidden;
+    align-items: flex-start;
+    justify-content: center;
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    box-sizing: border-box;
+}
+body.synthwave-theme .modal:not(#sound-settings-modal):not(#sound-picker-modal) .modal-content {
+    position: relative;
+    z-index: 1;
+    isolation: isolate;
+    overflow: visible;
+    max-width: 100%;
+    max-height: none;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    box-sizing: border-box;
+}
+body.synthwave-theme .modal:not(#sound-settings-modal):not(#sound-picker-modal) .modal-content::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--Background);
+    border: 1px solid var(--Alt2);
+    border-radius: var(--BorderRadius);
+    box-shadow: var(--text-shadow);
+}
+body.synthwave-theme .modal:not(#sound-settings-modal):not(#sound-picker-modal) button {
+    position: relative;
+    z-index: 1;
+    min-height: 2.75rem;
+    touch-action: manipulation;
+}
+body.synthwave-theme .confirmation-actions button {
+    min-width: 5.5rem;
+}
+
 /* Touch phones can expose a wider CSS viewport when display magnification is increased. Keep the compact timing layout tied to the input modality too, not only to one viewport-width breakpoint. */
 @media (pointer: coarse) {
     .timing-controls-group {
