@@ -120,9 +120,16 @@
 .track-action-modal { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 1rem; background: rgb(0 0 0 / 0.68); }
 .track-action-modal-content { width: min(38rem, calc(100vw - 2rem)); max-height: min(90vh, 46rem); overflow: auto; box-sizing: border-box; }
 .track-action-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
-.track-action-option { display: flex; gap: 0.65rem; align-items: flex-start; min-width: 0; padding: 0.7rem; border: 1px solid var(--BorderColor, currentColor); border-radius: var(--BorderRadius, 0.45rem); cursor: pointer; }
+.track-action-group { min-width: 0; border: 1px solid var(--BorderColor, color-mix(in srgb, var(--TextPrimary) 25%, transparent)); border-radius: var(--BorderRadius, 0.45rem); background: color-mix(in srgb, var(--Main) 88%, var(--Highlight)); overflow: hidden; }
+.track-action-group-summary { list-style: none; }
+.track-action-group-summary::-webkit-details-marker { display: none; }
+.track-action-option { display: flex; gap: 0.65rem; align-items: flex-start; min-width: 0; padding: 0.7rem; cursor: pointer; }
+.track-action-option input,
+.track-action-suboption input { accent-color: var(--Highlight); width: 1.05rem; height: 1.05rem; flex: 0 0 auto; margin: 0.1rem 0 0; }
 .track-action-option span { min-width: 0; display: grid; gap: 0.2rem; }
 .track-action-option small { opacity: 0.75; line-height: 1.25; }
+.track-action-suboptions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.25rem 0.6rem; padding: 0 0.7rem 0.7rem 2.35rem; }
+.track-action-suboption { display: flex; align-items: center; gap: 0.4rem; min-width: 0; padding: 0.25rem 0; cursor: pointer; font-size: 0.86rem; }
 .track-action-modal .modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
 @media (max-width: 520px) {
   .track-action-options { grid-template-columns: 1fr; }

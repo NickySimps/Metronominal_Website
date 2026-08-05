@@ -301,26 +301,44 @@ function ensureTrackActionModal() {
 }
 
 const TRACK_ACTION_OPTIONS = [
-  ["track", "Track controls", "Mute, solo, volume, pitch, and swing"],
-  ["mainSound", "Main sound", "Main sound selection and all sound-editor parameters"],
-  ["subSound", "Subdivision sound", "Subdivision sound selection and all sound-editor parameters"],
-  ["structure", "Bar structure", "Number of beats, bar count, and base subdivision"],
-  ["pattern", "Beat pattern", "Rests, accents, ghost notes, and dynamics"],
-  ["beatSounds", "Beat-specific overrides", "Per-beat edited sounds and settings"],
+  ["track", "Track controls", "Mute, solo, volume, pitch, and swing", [["muted", "Mute"], ["solo", "Solo"], ["volume", "Volume"], ["pitchShift", "Pitch"], ["swing", "Swing"]]],
+  ["mainSound", "Main sound", "Main sound selection and editor parameters", [["sound", "Sound"], ["settings", "Sound settings"]]],
+  ["subSound", "Subdivision sound", "Subdivision sound selection and editor parameters", [["sound", "Sound"], ["settings", "Sound settings"]]],
+  ["structure", "Bar structure", "Number of beats, bar count, and base subdivision", [["beats", "Beats"], ["bars", "Bars"], ["subdivision", "Subdivision"]]],
+  ["pattern", "Beat pattern", "Rests, accents, ghost notes, and dynamics", [["rests", "Rests"], ["accents", "Accents"], ["velocities", "Dynamics"]]],
+  ["beatSounds", "Beat-specific overrides", "Per-beat edited sounds and settings", [["sounds", "Edited sounds"], ["settings", "Override settings"]]],
 ];
+
+function optionEnabled(options, group, item) {
+  return options?.[group] === true || options?.[group]?.[item] === true;
+}
 
 function randomizeTrack(trackIndex, options) {
   const track = AppState.getTracks()[trackIndex];
   if (!track) return;
-  if (options.track) AppState.updateTrack(trackIndex, { volume: Math.random(), pitchShift: Math.round(Math.random() * 24) - 12, swing: Math.round(Math.random() * 100) });
-  if (options.structure) track.barSettings.forEach(bar => { bar.beats = 2 + Math.floor(Math.random() * 7); bar.subdivision = [1, 2, 3, 4][Math.floor(Math.random() * 4)]; });
+  if (optionEnabled(options, "track", "volume") || optionEnabled(options, "track", "pitchShift") || optionEnabled(options, "track", "swing")) {
+    AppState.updateTrack(trackIndex, {
+      ...(optionEnabled(options, "track", "volume") ? { volume: Math.random() } : {}),
+      ...(optionEnabled(options, "track", "pitchShift") ? { pitchShift: Math.round(Math.random() * 24) - 12 } : {}),
+      ...(optionEnabled(options, "track", "swing") ? { swing: Math.round(Math.random() * 100) } : {}),
+    });
+  }
+  if (optionEnabled(options, "structure", "beats") || optionEnabled(options, "structure", "subdivision")) track.barSettings.forEach(bar => {
+    if (optionEnabled(options, "structure", "beats")) bar.beats = 2 + Math.floor(Math.random() * 7);
+    if (optionEnabled(options, "structure", "subdivision")) bar.subdivision = [1, 2, 3, 4][Math.floor(Math.random() * 4)];
+  });
   track.barSettings.forEach(bar => {
     const total = Math.max(1, Math.round((bar.beats || 4) * (bar.subdivision || 1)));
-    if (options.pattern) { bar.rests = []; bar.velocities = {}; for (let i = 0; i < total; i += 1) { const roll = Math.random(); if (roll < .18) bar.rests.push(i); else if (roll < .42) bar.velocities[i] = 1; else if (roll < .6) bar.velocities[i] = .3; } }
-    if (options.beatSounds) bar.beatSounds = {};
+    if (optionEnabled(options, "pattern", "rests") || optionEnabled(options, "pattern", "velocities")) {
+      if (optionEnabled(options, "pattern", "rests")) bar.rests = [];
+      if (optionEnabled(options, "pattern", "velocities")) bar.velocities = {};
+      for (let i = 0; i < total; i += 1) { const roll = Math.random(); if (optionEnabled(options, "pattern", "rests") && roll < .18) bar.rests.push(i); else if (optionEnabled(options, "pattern", "velocities")) bar.velocities[i] = roll < .42 ? 1 : roll < .6 ? .3 : undefined; }
+      bar.velocities = Object.fromEntries(Object.entries(bar.velocities || {}).filter(([, value]) => value !== undefined));
+    }
+    if (optionEnabled(options, "beatSounds", "sounds") || optionEnabled(options, "beatSounds", "settings")) bar.beatSounds = {};
   });
-  for (const [key, enabled] of [["mainBeatSound", options.mainSound], ["subdivisionSound", options.subSound]]) {
-    if (!enabled) continue;
+  for (const [key, group] of [["mainBeatSound", "mainSound"], ["subdivisionSound", "subSound"]]) {
+    if (!optionEnabled(options, group, "settings")) continue;
     const settings = track[key]?.settings || {};
     if (typeof settings.volume === "number") settings.volume = Math.random();
     if (typeof settings.pitchShift === "number") settings.pitchShift = Math.round(Math.random() * 24) - 12;
@@ -336,12 +354,36 @@ function openTrackActionModal(type, trackIndex) {
   modal.dataset.trackIndex = String(trackIndex);
   modal.querySelector("#track-action-modal-title").textContent = isReset ? "Reset track" : "Randomize track";
   modal.querySelector(".track-action-modal-description").textContent = isReset ? "Choose which track parameters should return to their defaults." : "Choose which track parameters are allowed to change randomly.";
-  modal.querySelector(".track-action-options").innerHTML = TRACK_ACTION_OPTIONS.map(([id, label, description]) => `<label class="track-action-option"><input type="checkbox" data-track-option="${id}" checked><span><strong>${label}</strong><small>${description}</small></span></label>`).join("");
+  modal.querySelector(".track-action-options").innerHTML = TRACK_ACTION_OPTIONS.map(([id, label, description, children]) => `<details class="track-action-group" open><summary class="track-action-option track-action-group-summary"><input type="checkbox" data-track-option="${id}" checked><span><strong>${label}</strong><small>${description}</small></span></summary><div class="track-action-suboptions">${children.map(([childId, childLabel]) => `<label class="track-action-suboption"><input type="checkbox" data-track-option="${id}.${childId}" data-track-parent="${id}" checked><span>${childLabel}</span></label>`).join("")}</div></details>`).join("");
+  modal.querySelectorAll("[data-track-option]").forEach(input => input.addEventListener("change", event => {
+    const target = event.currentTarget;
+    if (target.dataset.trackParent) {
+      const parent = modal.querySelector(`[data-track-option="${target.dataset.trackParent}"]`);
+      const children = modal.querySelectorAll(`[data-track-parent="${target.dataset.trackParent}"]`);
+      parent.checked = [...children].every(child => child.checked);
+    } else {
+      modal.querySelectorAll(`[data-track-parent="${target.dataset.trackOption}"]`).forEach(child => { child.checked = target.checked; });
+    }
+  }));
   modal.hidden = false;
   modal.classList.add("is-open");
   modal.querySelector("[data-track-action-apply]").onclick = () => {
-    const selected = Object.fromEntries([...modal.querySelectorAll("[data-track-option]")].map(input => [input.dataset.trackOption, input.checked]));
-    if (isReset) AppState.resetTrack(trackIndex, { track: selected.track, sounds: selected.mainSound || selected.subSound, structure: selected.structure, pattern: selected.pattern || selected.beatSounds });
+    const selected = {};
+    modal.querySelectorAll("[data-track-option]").forEach(input => {
+      if (input.dataset.trackParent) {
+        selected[input.dataset.trackParent] = selected[input.dataset.trackParent] || {};
+        selected[input.dataset.trackParent][input.dataset.trackOption.split(".").slice(1).join(".")] = input.checked;
+      } else {
+        selected[input.dataset.trackOption] = input.checked;
+      }
+    });
+    if (isReset) AppState.resetTrack(trackIndex, {
+      track: selected.track,
+      sounds: { main: selected.mainSound?.sound || selected.mainSound?.settings, sub: selected.subSound?.sound || selected.subSound?.settings },
+      structure: selected.structure,
+      pattern: selected.pattern,
+      beatSounds: selected.beatSounds,
+    });
     else randomizeTrack(trackIndex, selected);
     sendState(AppState.getCurrentStateForPreset(true));
     TrackController.renderTracks();

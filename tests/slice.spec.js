@@ -138,7 +138,7 @@ test.describe('track slice and action controls', () => {
     await random.dispatchEvent('pointerdown');
     await page.waitForTimeout(400);
     await expect(page.locator('#track-action-modal')).toBeVisible();
-    await expect(page.locator('[data-track-option]')).toHaveCount(6);
+    await expect(page.locator('[data-track-option]:not([data-track-parent])')).toHaveCount(6);
     await expect(page.locator('.track-action-option')).toContainText(['Track controls', 'Main sound', 'Subdivision sound', 'Bar structure', 'Beat pattern', 'Beat-specific overrides']);
     await random.dispatchEvent('pointerup');
   });

@@ -1009,24 +1009,40 @@ const AppState = (function () {
     resetTrack: (trackIndex, options = {}) => {
       const track = Tracks[trackIndex];
       if (!track) return false;
+      const trackOptions = options.track === true ? { muted: true, solo: true, volume: true, pitchShift: true, swing: true } : (options.track || {});
       if (options.track) {
-        track.muted = false;
-        track.solo = false;
-        track.volume = 1;
-        track.pitchShift = 0;
-        track.swing = 0;
+        if (trackOptions.muted) track.muted = false;
+        if (trackOptions.solo) track.solo = false;
+        if (trackOptions.volume) track.volume = 1;
+        if (trackOptions.pitchShift) track.pitchShift = 0;
+        if (trackOptions.swing) track.swing = 0;
       }
+      const soundOptions = options.sounds === true ? { main: true, sub: true } : (options.sounds || {});
       if (options.sounds) {
-        for (const key of ["mainBeatSound", "subdivisionSound"]) {
+        for (const [key, enabled] of [["mainBeatSound", soundOptions.main], ["subdivisionSound", soundOptions.sub]]) {
+          if (!enabled) continue;
           const sound = track[key]?.sound || (key === "mainBeatSound" ? "Synth Kick" : "Synth HiHat");
           track[key] = { sound, settings: { ...(defaultSoundSettings[sound] || (key === "mainBeatSound" ? defaultKick : defaultHiHat)) } };
         }
       }
+      const structureOptions = options.structure === true ? { beats: true, bars: true, subdivision: true } : (options.structure || {});
       if (options.structure) {
-        track.barSettings = [{ beats: 4, subdivision: 1, rests: [], velocities: {}, beatSounds: {} }];
+        if (structureOptions.bars) track.barSettings = [{ beats: 4, subdivision: 1, rests: [], velocities: {}, beatSounds: {} }];
+        else track.barSettings = track.barSettings.map(bar => ({
+          ...bar,
+          ...(structureOptions.beats ? { beats: 4 } : {}),
+          ...(structureOptions.subdivision ? { subdivision: 1 } : {}),
+        }));
       }
-      if (options.pattern) {
-        track.barSettings = track.barSettings.map(bar => ({ ...bar, rests: [], velocities: {}, beatSounds: {} }));
+      const patternOptions = options.pattern === true ? { rests: true, velocities: true, beatSounds: true } : (options.pattern || {});
+      if (options.pattern || options.beatSounds) {
+        const beatSoundReset = options.beatSounds === true || options.beatSounds?.sounds || options.beatSounds?.settings || patternOptions.beatSounds;
+        track.barSettings = track.barSettings.map(bar => ({
+          ...bar,
+          ...(patternOptions.rests ? { rests: [] } : {}),
+          ...(patternOptions.velocities ? { velocities: {} } : {}),
+          ...(beatSoundReset ? { beatSounds: {} } : {}),
+        }));
       }
       saveState();
       return true;
