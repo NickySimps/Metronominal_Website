@@ -3085,6 +3085,17 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   max-width: 100%;
   overflow-wrap: anywhere;
 }
+.pitch-shift-slider-container {
+  grid-template-columns: minmax(0, 1fr) minmax(9rem, 50%);
+}
+.pitch-shift-slider-container > span {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .slider-container .slider-wrapper { grid-column: 1 / -1; }
 .sound-effects-modal {
   z-index: 4100;

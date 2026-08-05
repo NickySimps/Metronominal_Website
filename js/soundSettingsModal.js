@@ -742,6 +742,7 @@ const SoundSettingsModal = {
     }
     const sliderContainer = document.createElement("div");
     sliderContainer.className = "slider-container";
+    if (param === "pitchShift") sliderContainer.classList.add("pitch-shift-slider-container");
 
     const label = document.createElement("label");
     const displayLabels = {
