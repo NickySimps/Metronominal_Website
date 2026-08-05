@@ -543,6 +543,7 @@ function showSubdivisionSelector(barElement) {
     const visibleForThisBar = isAlreadyVisible && isAlreadyVisible.dataset.forBar === `${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}`;
     
     hideSubdivisionSelector(); // Clear previous options first
+    longPressedBarElement = barElement;
     
     // If it was already visible for THIS bar, we just hide it (toggle off) and return
     if (visibleForThisBar) {

@@ -491,6 +491,27 @@ test.describe('mode controls responsive layout', () => {
     })).toBe(subdivision);
   });
 
+  test('holding a bar indicator and releasing on a subdivision selects it', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.increase-bar-length').click();
+    const indicator = page.locator('.bar-beat-indicator').nth(1);
+    const indicatorBox = await indicator.boundingBox();
+    if (!indicatorBox) throw new Error('Subdivision indicator is not rendered');
+    await page.mouse.move(indicatorBox.x + indicatorBox.width / 2, indicatorBox.y + indicatorBox.height / 2);
+    await page.mouse.down();
+    await page.waitForTimeout(400);
+    await expect(page.locator('.subdivision-options-container.visible').first()).toBeVisible();
+    const option = page.locator('.subdivision-option').last();
+    const subdivision = Number(await option.getAttribute('data-value'));
+    const optionBox = await option.boundingBox();
+    if (!optionBox) throw new Error('Subdivision option is not rendered');
+    await page.mouse.move(optionBox.x + optionBox.width / 2, optionBox.y + optionBox.height / 2);
+    await page.mouse.up();
+    await expect.poll(() => page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      return AppState.getBarSettings(0)[1].subdivision;
+    })).toBe(subdivision);
+  });
   test('tapping a track name opens an editable name field and saves the new name', async ({ page }) => {
     await page.goto('/');
     await page.locator('.track-name').first().click();
