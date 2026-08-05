@@ -307,7 +307,7 @@ const TRACK_ACTION_OPTIONS = [
   ["mainSound", "Main sound", "Main sound selection and editor parameters", [["sound", "Sound"], ["settings", "Sound settings"]]],
   ["subSound", "Subdivision sound", "Subdivision sound selection and editor parameters", [["sound", "Sound"], ["settings", "Sound settings"]]],
   ["structure", "Bar structure", "Number of beats, bar count, and base subdivision", [["beats", "Beats"], ["bars", "Bars"], ["subdivision", "Subdivision"]]],
-  ["pattern", "Beat pattern", "Rests, accents, ghost notes, and dynamics", [["rests", "Rests"], ["accents", "Accents"], ["velocities", "Dynamics"]]],
+  ["pattern", "Beat pattern", "Rests, accents, ghost notes, dynamics, and slices", [["rests", "Rests"], ["accents", "Accents"], ["velocities", "Dynamics"], ["slices", "Slices"]]],
   ["beatSounds", "Beat-specific overrides", "Per-beat edited sounds and settings", [["sounds", "Edited sounds"], ["settings", "Override settings"]]],
 ];
 
@@ -338,6 +338,21 @@ function randomizeTrack(trackIndex, options) {
       bar.velocities = Object.fromEntries(Object.entries(bar.velocities || {}).filter(([, value]) => value !== undefined));
     }
     if (optionEnabled(options, "beatSounds", "sounds") || optionEnabled(options, "beatSounds", "settings")) bar.beatSounds = {};
+    const randomizeSlices = optionEnabled(options, "pattern", "slices");
+    if (randomizeSlices) {
+      const sliceCounts = [2, 3, 4, 6, 8, 16, 32];
+      bar.beatSlices = {};
+      bar.beatSliceAnchors = {};
+      for (let i = 0; i < total; i += 1) {
+        if (Math.random() < 0.24) {
+          const count = sliceCounts[Math.floor(Math.random() * sliceCounts.length)];
+          bar.beatSlices[i] = count;
+          bar.beatSliceAnchors[i] = i;
+        }
+      }
+      if (Object.keys(bar.beatSlices).length === 0) delete bar.beatSlices;
+      if (Object.keys(bar.beatSliceAnchors).length === 0) delete bar.beatSliceAnchors;
+    }
   });
   for (const [key, group] of [["mainBeatSound", "mainSound"], ["subdivisionSound", "subSound"]]) {
     if (!optionEnabled(options, group, "settings")) continue;
@@ -919,6 +934,18 @@ const TrackController = {
                         bar.velocities[i] = 0.7; // Normal
                     }
                 }
+                const sliceCounts = [2, 3, 4, 6, 8, 16, 32];
+                bar.beatSlices = {};
+                bar.beatSliceAnchors = {};
+                for (let i = 0; i < subBeats; i++) {
+                    if (Math.random() < 0.24) {
+                        const count = sliceCounts[Math.floor(Math.random() * sliceCounts.length)];
+                        bar.beatSlices[i] = count;
+                        bar.beatSliceAnchors[i] = i;
+                    }
+                }
+                if (Object.keys(bar.beatSlices).length === 0) delete bar.beatSlices;
+                if (Object.keys(bar.beatSliceAnchors).length === 0) delete bar.beatSliceAnchors;
             });
             sendState(AppState.getCurrentStateForPreset(true));
             BarDisplayController.renderBarsAndControls();

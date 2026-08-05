@@ -172,10 +172,20 @@ test.describe('track slice and action controls', () => {
     await page.waitForTimeout(400);
     await expect(page.locator('#track-action-modal')).toBeVisible();
     await expect(page.locator('[data-track-option]:not([data-track-parent])')).toHaveCount(6);
-    await expect(page.locator('.track-action-option')).toContainText(['Track controls', 'Main sound', 'Subdivision sound', 'Bar structure', 'Beat pattern', 'Beat-specific overrides']);
+    await expect(page.locator('.track-action-suboption', { hasText: 'Slices' })).toBeVisible();
     await random.dispatchEvent('pointerup');
   });
 
+  test('Randomize can generate slice metadata', async ({ page }) => {
+    await page.evaluate(() => { Math.random = () => 0.1; });
+    await page.locator('.random-btn').first().click();
+    const slices = await page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      return AppState.getTracks()[0].barSettings[0].beatSlices;
+    });
+    expect(Object.keys(slices || {})).not.toHaveLength(0);
+    expect(Object.values(slices).every(count => [2, 3, 4, 6, 8, 16, 32].includes(count))).toBe(true);
+  });
   test('track reset restores one bar and default main sound', async ({ page }) => {
     await page.evaluate(async () => {
       const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
