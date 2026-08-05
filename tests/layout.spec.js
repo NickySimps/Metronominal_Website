@@ -1693,6 +1693,36 @@ test.describe('mode controls responsive layout', () => {
     expect(result.reverbFeedback).toBe(0.25);
   });
 
+  test('FX reset button resets and visibly animates its effect sliders', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('.main-sound-label').click();
+    await page.locator('#sound-effects-btn').click();
+    const result = await page.evaluate(async () => {
+      const sliders = [...document.querySelectorAll('#sound-effects-modal input[type="range"][data-param]')];
+      sliders.forEach((slider) => {
+        slider.value = slider.max;
+        slider.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      const button = document.querySelector('#effects-reset-btn');
+      const before = sliders.map((slider) => slider.value);
+      button.click();
+      const animating = button.classList.contains('resetting');
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      const mid = sliders.map((slider) => slider.value);
+      await new Promise((resolve) => setTimeout(resolve, 240));
+      const after = sliders.map((slider) => slider.value);
+      const target = sliders.map((slider, index) => {
+        if (slider.dataset.param === 'pitchShift') return before[index];
+        return ['delayFeedback', 'reverbFeedback'].includes(slider.dataset.param) ? '25' : '0';
+      });
+      return { before, animating, mid, after, target };
+    });
+    expect(result.before.some((value, index) => value !== result.target[index])).toBe(true);
+    expect(result.animating).toBe(true);
+    expect(result.mid.some((value, index) => value !== result.before[index] && value !== result.target[index])).toBe(true);
+    expect(result.after).toEqual(result.target);
+  });
+
   test('desktop Song Mode whips even when the section keeps the same track count', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(() => {

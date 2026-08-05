@@ -397,7 +397,7 @@ const SoundSettingsModal = {
     return values;
   },
 
-  animateSliderValues(fromValues, toValues) {
+  animateSliderValues(fromValues, toValues, root = DOM.soundSettingsModal) {
     const start = performance.now();
     const duration = 250;
     const frame = (now) => {
@@ -405,15 +405,15 @@ const SoundSettingsModal = {
       const eased = 1 - ((1 - progress) ** 3);
       Object.entries(toValues).forEach(([param, target]) => {
         const slider = param === "probability"
-          ? DOM.soundSettingsModal.querySelector("#sample-probability")
-          : DOM.soundSettingsModal.querySelector(`[data-param="${param}"]`);
+          ? root.querySelector("#sample-probability")
+          : root.querySelector(`[data-param="${param}"]`);
         if (!slider) return;
         const from = Number.isFinite(Number(fromValues[param])) ? Number(fromValues[param]) : Number(target);
         const value = from + (Number(target) - from) * eased;
         slider.value = String(value);
         slider.setAttribute("aria-valuenow", String(value));
         const output = param === "probability"
-          ? DOM.soundSettingsModal.querySelector("#sample-probability-value")
+          ? root.querySelector("#sample-probability-value")
           : slider.closest(".slider-container")?.querySelector(":scope > span");
         if (output) output.textContent = this.formatAnimatedSliderValue(param, value, slider);
       });
@@ -423,9 +423,16 @@ const SoundSettingsModal = {
   },
 
   resetEffectsSettings() {
+    const effectsModal = document.getElementById("sound-effects-modal");
+    const resetButton = effectsModal?.querySelector("#effects-reset-btn");
+    if (resetButton) {
+      resetButton.classList.remove("resetting");
+      void resetButton.offsetWidth;
+      resetButton.classList.add("resetting");
+      window.setTimeout(() => resetButton.classList.remove("resetting"), 320);
+    }
     const soundInfo = this.getCurrentSoundInfo();
     if (!soundInfo) return;
-    const effectsModal = document.getElementById("sound-effects-modal");
     const effectParams = [...(effectsModal?.querySelectorAll("[data-param]") || [])]
       .map((slider) => slider.dataset.param);
     const fromValues = Object.fromEntries(effectParams.map((param) => [
@@ -446,7 +453,7 @@ const SoundSettingsModal = {
       param,
       this.sliderValueForSettings(param, soundInfo.settings[param]),
     ]));
-    this.animateSliderValues(fromValues, effectValues);
+    this.animateSliderValues(fromValues, effectValues, effectsModal);
     this.updateFilterFeedback();
     sendState(AppState.getCurrentStateForPreset(true));
   },
