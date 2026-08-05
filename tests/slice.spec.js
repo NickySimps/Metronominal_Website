@@ -69,6 +69,24 @@ test.describe('track slice and action controls', () => {
   });
 
 
+  test('rested sliced notes suppress every internal playback slice', async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const [{ default: AppState }, { getBeatSlots }, { isRestedSlot }] = await Promise.all([
+        import(new URL('js/appState.js', document.baseURI).href),
+        import(new URL('js/beatTiming.js', document.baseURI).href),
+        import(new URL('js/metronomeEngine.js', document.baseURI).href),
+      ]);
+      const bar = AppState.getTracks()[0].barSettings[0];
+      bar.beatSlices = { 1: 4 };
+      bar.rests = [1];
+      const slots = getBeatSlots(bar);
+      const baseChecks = slots.filter(slot => slot.baseIndex === 1).map(slot => isRestedSlot(bar, slot.index, slot));
+      bar.rests = [slots.find(slot => slot.baseIndex === 1 && slot.slice === 2).index];
+      const expandedChecks = slots.filter(slot => slot.baseIndex === 1).map(slot => isRestedSlot(bar, slot.index, slot));
+      return { baseChecks, expandedChecks, unrelated: isRestedSlot(bar, slots.find(slot => slot.baseIndex === 0).index) };
+    });
+    expect(result).toEqual({ baseChecks: [true, true, true, true], expandedChecks: [true, true, true, true], unrelated: false });
+  });
   test('sliced slots retain playback-control settings for main and subdivision sounds', async ({ page }) => {
     const result = await page.evaluate(async () => {
       const [{ default: AppState }, { getBeatSlots }] = await Promise.all([

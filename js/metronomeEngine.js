@@ -82,6 +82,13 @@ function getTrackSwingOffsetSec(track) {
   return (track.swing / 100.0) * (secondsPerBeatUnit * 0.5);
 }
 
+export function isRestedSlot(bar, slotIndex, slotInfo = getSlotInfo(bar, slotIndex)) {
+    const rests = Array.isArray(bar?.rests) ? bar.rests : [];
+    if (rests.includes(slotIndex) || (slotInfo && rests.includes(slotInfo.baseIndex))) return true;
+    if (!slotInfo) return false;
+    return rests.some(restIndex => getSlotInfo(bar, restIndex)?.baseIndex === slotInfo.baseIndex);
+}
+
 const activeSynthVoices = new Map();
 
 function playBeatSound(track, beatTime, trackIndex = 0) {
@@ -98,9 +105,8 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
 
     const beatIndex = track.currentBeat;
     const slotInfo = getSlotInfo(currentBarData, beatIndex) || { mainBeat: beatIndex === 0, sourceBeat: beatIndex };
-    const rests = currentBarData.rests || [];
-    if (rests.includes(beatIndex)) {
-      return; // It's a rest
+    if (isRestedSlot(currentBarData, beatIndex, slotInfo)) {
+      return; // It's a rest, including every internal slice of a rested visual note
     }
 
     const beatMultiplier = parseFloat(currentBarData.subdivision || 1);
