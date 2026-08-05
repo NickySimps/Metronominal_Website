@@ -1310,7 +1310,8 @@ select {
   border-color: color-mix(in srgb, var(--Alt1) 60%, var(--TextPrimary)) !important;
 }
 
-.top-controls-area button {
+.top-controls-area button,
+.top-controls-area .performance-drawer > summary {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
@@ -1330,7 +1331,8 @@ select {
   box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
 
-.top-controls-area button:hover {
+.top-controls-area button:hover,
+.top-controls-area .performance-drawer > summary:hover {
   background-color: var(--Highlight);
   color: var(--ReadableOnHighlight);
   transform: translateY(-1px);

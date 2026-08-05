@@ -115,7 +115,6 @@
   pointer-events: none;
   user-select: none;
 }
-.beat-square.subdivision .slice-count-badge { display: none; }
 .bar-visual.slice-mode-active .beat-square { transition: flex-basis 120ms ease; }
 .track-action-modal[hidden] { display: none; }
 .track-action-modal { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 1rem; background: rgb(0 0 0 / 0.68); }
