@@ -465,6 +465,8 @@ const SoundSettingsModal = {
 
     const effectDefaults = AppState.getDefaultSoundSettings(soundInfo.sound) || {};
     Object.assign(newSettings, {
+        highPassFrequency: Number.isFinite(Number(effectDefaults.highPassFrequency)) ? Number(effectDefaults.highPassFrequency) : 20,
+        lowPassFrequency: Number.isFinite(Number(effectDefaults.lowPassFrequency)) ? Number(effectDefaults.lowPassFrequency) : 20000,
         distortion: Number(effectDefaults.distortion) || 0,
         delayMix: Number(effectDefaults.delayMix) || 0,
         delayTime: Number(effectDefaults.delayTime) || 0,

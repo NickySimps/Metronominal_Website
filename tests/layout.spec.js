@@ -1304,6 +1304,32 @@ test.describe('mode controls responsive layout', () => {
     expect(result).toEqual({ overlap: false, retrigger: false, reverse: true, probability: 35, savedOverlap: false, savedRetrigger: false, savedReverse: true, savedProbability: 35 });
   });
 
+  test('Reset restores synth filter defaults including high-pass', async ({ page }) => {
+    await page.goto('/');
+    const result = await page.evaluate(async () => {
+      const [{ default: SoundSettingsModal }, { default: AppState }] = await Promise.all([
+        import(new URL('js/soundSettingsModal.js', document.baseURI).href),
+        import(new URL('js/appState.js', document.baseURI).href),
+      ]);
+      const track = AppState.getTracks()[0];
+      track.mainBeatSound.settings = {
+        ...track.mainBeatSound.settings,
+        highPassFrequency: 4000,
+        lowPassFrequency: 9000,
+      };
+      await SoundSettingsModal.show(0, 'mainBeatSound');
+      document.querySelector('#sound-sliders-container [data-param="highPassFrequency"]').value = '4000';
+      document.querySelector('#sound-sliders-container [data-param="lowPassFrequency"]').value = '9000';
+      document.querySelector('#reset-sound-btn').click();
+      const settings = AppState.getTracks()[0].mainBeatSound.settings;
+      return {
+        highPassFrequency: settings.highPassFrequency,
+        lowPassFrequency: settings.lowPassFrequency,
+      };
+    });
+    expect(result).toEqual({ highPassFrequency: 20, lowPassFrequency: 20000 });
+  });
+
   test('Reset restores complete sound settings without appearing in the FX modal', async ({ page }) => {
     await page.goto('/');
     const result = await page.evaluate(async () => {
