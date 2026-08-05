@@ -35,6 +35,18 @@ metronomeWorker.onmessage = function(e) {
 };
 metronomeWorker.onerror = () => { metronomeWorkerReady = false; };
 
+function terminateMetronomeWorker() {
+    if (!metronomeWorker) return;
+    try {
+        metronomeWorker.postMessage("stop");
+        metronomeWorker.terminate();
+    } finally {
+        metronomeWorker = null;
+        metronomeWorkerReady = false;
+    }
+}
+
+window.addEventListener("pagehide", terminateMetronomeWorker);
 document.addEventListener('visibilitychange', () => {
     isPageVisible = document.visibilityState === 'visible';
     if (AppState.isPlaying()) {
