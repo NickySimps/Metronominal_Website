@@ -506,7 +506,22 @@ const AppState = (function () {
   }
 
   // --- Public API ---
-  const publicAPI = {
+  function disconnectTrackAnalysers(track) {
+  if (!track) return;
+  for (const key of ["mainAnalyserNode", "subdivisionAnalyserNode", "analyserNode"]) {
+    const node = track[key];
+    if (node && typeof node.disconnect === "function") {
+      try {
+        node.disconnect();
+      } catch (error) {
+        console.debug(`Could not disconnect ${key}:`, error);
+      }
+    }
+    track[key] = null;
+  }
+}
+
+const publicAPI = {
     // Persistence
     saveStateToLocalStorage: saveState,
     loadStateFromLocalStorage: async () => {
@@ -1016,6 +1031,7 @@ const AppState = (function () {
         const wasSelected = selectedTrackIndex === indexToRemove;
 
         // Remove the track
+        disconnectTrackAnalysers(Tracks[indexToRemove]);
         Tracks.splice(indexToRemove, 1);
 
         if (wasSelected) {
@@ -1592,6 +1608,7 @@ const AppState = (function () {
       if (Array.isArray(data.Tracks)) {
         // We capture the "Previous" Tracks count before overwriting
         const previousTrackCount = Tracks.length;
+        Tracks.forEach(disconnectTrackAnalysers);
         
         Tracks = data.Tracks;
         
@@ -1605,7 +1622,7 @@ const AppState = (function () {
               }
             });
           }
-          track.analyserNode = null;
+          disconnectTrackAnalysers(track);
 
           if (wasPlayingBeforeLoad) {
              // Handle state restoration for existing tracks
