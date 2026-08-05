@@ -13,6 +13,7 @@ import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, 
 import AudioController from './audioController.js';
 import MidiController from './midiController.js';
 import { createSoundFilterInput, getReversedAudioBuffer, renderSynthAudioBuffer } from './audioEffects.js';
+import { getBeatSlots, getSlotInfo, getTotalSlots, getSlotDurationSeconds } from './beatTiming.js';
 
 let metronomeWorker = new Worker('js/metronomeWorker.js');
 let metronomeWorkerReady = false;
@@ -96,13 +97,14 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     if (!currentBarData) return;
 
     const beatIndex = track.currentBeat;
+    const slotInfo = getSlotInfo(currentBarData, beatIndex) || { mainBeat: beatIndex === 0, sourceBeat: beatIndex };
     const rests = currentBarData.rests || [];
     if (rests.includes(beatIndex)) {
-        return; // It's a rest
+      return; // It's a rest
     }
 
     const beatMultiplier = parseFloat(currentBarData.subdivision || 1);
-    const isAccent = (beatIndex === 0) || (beatMultiplier > 1 && beatIndex % beatMultiplier === 0);
+    const isAccent = slotInfo.mainBeat;
 
     const soundType = isAccent ? 'mainBeatSound' : 'subdivisionSound';
     const soundObject = AppState.getBeatSound
@@ -212,7 +214,7 @@ function advanceTrackBeat(track) {
         return;
     }
     const currentBarData = track.barSettings[track.currentBar];
-    const totalSubBeatsInBar = calculateTotalSubBeats(currentBarData.beats, currentBarData.subdivision);
+    const totalSubBeatsInBar = getTotalSlots(currentBarData);
 
     track.currentBeat++;
     if (track.currentBeat >= totalSubBeatsInBar) {
@@ -287,9 +289,7 @@ function scheduler() {
                 const secondsPerMainBeat = 60.0 / tempo;
                 const currentBarData = track.barSettings[track.currentBar];
                 const beatMultiplier = parseFloat(currentBarData ? currentBarData.subdivision : 1);
-                const secondsPerSubBeat = beatMultiplier >= 1
-                    ? secondsPerMainBeat / beatMultiplier
-                    : secondsPerMainBeat * (1 / beatMultiplier);
+                const secondsPerSubBeat = getSlotDurationSeconds(currentBarData, track.currentBeat, secondsPerMainBeat);
                 // Only play sound and schedule visuals if the beat is within a reasonable window (not >250ms in the past)
                 // This prevents "machine gun" bursts when syncing catches up from a late start or large drift.
                 if (track.nextBeatTime > audioContext.currentTime - 0.25) {

@@ -31,10 +31,15 @@ let isBeatEditMode = false;
 function syncModeControls() {
   const restActive = AppState.isRestMode();
   const accentActive = AppState.isAccentMode();
-  document.body.classList.toggle("beat-edit-mode", isBeatEditMode);
+  const sliceActive = AppState.isSliceMode?.() || false;
+  document.body.classList.toggle("slice-mode", sliceActive);
   document.querySelectorAll(".beat-edit-btn").forEach(button => {
     button.classList.toggle("active", isBeatEditMode);
     button.setAttribute("aria-pressed", String(isBeatEditMode));
+  });
+  document.querySelectorAll(".slice-btn").forEach(button => {
+    button.classList.toggle("active", sliceActive);
+    button.setAttribute("aria-pressed", String(sliceActive));
   });
   document.querySelectorAll(".rest-button").forEach(button => button.classList.toggle("active", restActive));
   document.querySelectorAll(".accent-button").forEach(button => button.classList.toggle("active", accentActive));
@@ -49,10 +54,17 @@ function setExclusiveEditMode(mode) {
   if (mode === "rest") {
     isBeatEditMode = false;
     AppState.setAccentMode(false);
+    AppState.setSliceMode?.(false);
   } else if (mode === "accent") {
     isBeatEditMode = false;
     AppState.setRestMode(false);
+    AppState.setSliceMode?.(false);
   } else if (mode === "beat") {
+    AppState.setRestMode(false);
+    AppState.setAccentMode(false);
+    AppState.setSliceMode?.(false);
+  } else if (mode === "slice") {
+    isBeatEditMode = false;
     AppState.setRestMode(false);
     AppState.setAccentMode(false);
   }
@@ -267,6 +279,78 @@ function updateTrackElement(trackElement, track, index) {
 let songWhipTimer = null;
 let songMobileSwoopTimer = null;
 
+function ensureTrackActionModal() {
+  let modal = document.getElementById("track-action-modal");
+  if (modal) return modal;
+  modal = document.createElement("div");
+  modal.id = "track-action-modal";
+  modal.className = "modal track-action-modal";
+  modal.hidden = true;
+  modal.innerHTML = `<div class="modal-content track-action-modal-content" role="dialog" aria-modal="true" aria-labelledby="track-action-modal-title">
+    <div class="modal-header"><h2 id="track-action-modal-title"></h2><button type="button" class="modal-close" data-track-action-close aria-label="Close">×</button></div>
+    <p class="track-action-modal-description"></p><div class="track-action-options" role="group" aria-label="Track parameters"></div>
+    <div class="modal-actions"><button type="button" data-track-action-cancel>Cancel</button><button type="button" class="primary" data-track-action-apply>Apply</button></div>
+  </div>`;
+  document.body.appendChild(modal);
+  const close = () => { modal.hidden = true; modal.classList.remove("is-open"); };
+  modal.querySelector("[data-track-action-close]").addEventListener("click", close);
+  modal.querySelector("[data-track-action-cancel]").addEventListener("click", close);
+  modal.addEventListener("click", event => { if (event.target === modal) close(); });
+  modal.addEventListener("keydown", event => { if (event.key === "Escape") close(); });
+  return modal;
+}
+
+const TRACK_ACTION_OPTIONS = [
+  ["track", "Track controls", "Mute, solo, volume, pitch, and swing"],
+  ["mainSound", "Main sound", "Main sound selection and all sound-editor parameters"],
+  ["subSound", "Subdivision sound", "Subdivision sound selection and all sound-editor parameters"],
+  ["structure", "Bar structure", "Number of beats, bar count, and base subdivision"],
+  ["pattern", "Beat pattern", "Rests, accents, ghost notes, and dynamics"],
+  ["beatSounds", "Beat-specific overrides", "Per-beat edited sounds and settings"],
+];
+
+function randomizeTrack(trackIndex, options) {
+  const track = AppState.getTracks()[trackIndex];
+  if (!track) return;
+  if (options.track) AppState.updateTrack(trackIndex, { volume: Math.random(), pitchShift: Math.round(Math.random() * 24) - 12, swing: Math.round(Math.random() * 100) });
+  if (options.structure) track.barSettings.forEach(bar => { bar.beats = 2 + Math.floor(Math.random() * 7); bar.subdivision = [1, 2, 3, 4][Math.floor(Math.random() * 4)]; });
+  track.barSettings.forEach(bar => {
+    const total = Math.max(1, Math.round((bar.beats || 4) * (bar.subdivision || 1)));
+    if (options.pattern) { bar.rests = []; bar.velocities = {}; for (let i = 0; i < total; i += 1) { const roll = Math.random(); if (roll < .18) bar.rests.push(i); else if (roll < .42) bar.velocities[i] = 1; else if (roll < .6) bar.velocities[i] = .3; } }
+    if (options.beatSounds) bar.beatSounds = {};
+  });
+  for (const [key, enabled] of [["mainBeatSound", options.mainSound], ["subdivisionSound", options.subSound]]) {
+    if (!enabled) continue;
+    const settings = track[key]?.settings || {};
+    if (typeof settings.volume === "number") settings.volume = Math.random();
+    if (typeof settings.pitchShift === "number") settings.pitchShift = Math.round(Math.random() * 24) - 12;
+    if (typeof settings.highPassFrequency === "number") settings.highPassFrequency = Math.round(20 + Math.random() * 1980);
+    if (typeof settings.lowPassFrequency === "number") settings.lowPassFrequency = Math.round(4000 + Math.random() * 16000);
+  }
+}
+
+function openTrackActionModal(type, trackIndex) {
+  const modal = ensureTrackActionModal();
+  const isReset = type === "reset";
+  modal.dataset.actionType = type;
+  modal.dataset.trackIndex = String(trackIndex);
+  modal.querySelector("#track-action-modal-title").textContent = isReset ? "Reset track" : "Randomize track";
+  modal.querySelector(".track-action-modal-description").textContent = isReset ? "Choose which track parameters should return to their defaults." : "Choose which track parameters are allowed to change randomly.";
+  modal.querySelector(".track-action-options").innerHTML = TRACK_ACTION_OPTIONS.map(([id, label, description]) => `<label class="track-action-option"><input type="checkbox" data-track-option="${id}" checked><span><strong>${label}</strong><small>${description}</small></span></label>`).join("");
+  modal.hidden = false;
+  modal.classList.add("is-open");
+  modal.querySelector("[data-track-action-apply]").onclick = () => {
+    const selected = Object.fromEntries([...modal.querySelectorAll("[data-track-option]")].map(input => [input.dataset.trackOption, input.checked]));
+    if (isReset) AppState.resetTrack(trackIndex, { track: selected.track, sounds: selected.mainSound || selected.subSound, structure: selected.structure, pattern: selected.pattern || selected.beatSounds });
+    else randomizeTrack(trackIndex, selected);
+    sendState(AppState.getCurrentStateForPreset(true));
+    TrackController.renderTracks();
+    modal.hidden = true;
+    modal.classList.remove("is-open");
+  };
+  modal.querySelector("[data-track-action-close]").focus();
+}
+
 function setSongTransitionDuration(wrapper, tempo) {
   const safeTempo = Math.max(20, Number(tempo) || 120);
   const duration = Math.min(250, 60000 / safeTempo / 4);
@@ -300,6 +384,8 @@ function animateSongTrackWhip(event) {
 }
 const TrackController = {
   longPressTimer: null,
+  actionLongPressTimer: null,
+  actionLongPressTriggered: false,
 
   /**
    * Initializes the TrackController by setting up event listeners for track-related UI elements.
@@ -315,6 +401,9 @@ const TrackController = {
     // We use event delegation on this wrapper to handle events for dynamically added tracks.
     const trackWrapper = document.getElementById("all-tracks-wrapper");
     if (trackWrapper) {
+      trackWrapper.addEventListener("pointerdown", TrackController.handleActionPointerDown);
+      trackWrapper.addEventListener("pointerup", TrackController.handleActionPointerUp);
+      trackWrapper.addEventListener("pointercancel", TrackController.handleActionPointerUp);
       trackWrapper.addEventListener("click", TrackController.handleTrackClicks);
       trackWrapper.addEventListener(
         "input",
@@ -396,6 +485,7 @@ const TrackController = {
     );
     trackWrapper.innerHTML = ""; // Clear existing track elements
 
+    const sliceActive = AppState.isSliceMode?.() || false;
     tracks.forEach((track, index) => {
       const trackElement = document.createElement("div");
       trackElement.classList.add("track");
@@ -431,6 +521,12 @@ const TrackController = {
             aria-pressed="${track.solo}">${track.solo ? "Unsolo" : "Solo"}</button>
           <button class="track-remove-btn" title="Remove track" aria-label="Remove track">✖</button>
         </div>
+        <div class="track-action-row" aria-label="Track actions">
+          <button class="duplicate-track-btn" type="button" title="Duplicate track">＋ Track</button>
+          <button class="duplicate-bar-btn" type="button" title="Duplicate selected bar">＋ Bar</button>
+          <button class="track-reset-btn" type="button" title="Reset track settings">↺ Reset</button>
+          <button class="random-btn" type="button" aria-label="Randomize pattern" title="Randomize track"><span class="control-icon" aria-hidden="true">↻</span> Rand</button>
+        </div>
         <div class="track-volume-controls">
           <span class="track-volume-label">Vol:</span>
           <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${track.volume ?? 1.0}" title="Track Volume">
@@ -449,7 +545,7 @@ const TrackController = {
             <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode"><span class="control-icon" aria-hidden="true">○</span> Rest</button>
             <button class="accent-button ${AppState.isAccentMode() ? 'active' : ''}" aria-label="Toggle accent mode" title="Toggle Accent & Ghost Note Mode"><span class="control-icon" aria-hidden="true">▲</span> Accent</button>
             <button class="beat-edit-btn ${isBeatEditMode ? 'active' : ''}" aria-label="Toggle Beat Edit mode" aria-pressed="${isBeatEditMode}" title="Click a beat to edit its sound"><span class="control-icon" aria-hidden="true">✎</span> Beat</button>
-            <button class="random-btn" aria-label="Randomize pattern" title="Randomize accents, rests & dynamics for this track"><span class="control-icon" aria-hidden="true">↻</span> Rand</button>
+            <button class="slice-btn ${sliceActive ? 'active' : ''}" aria-label="Toggle Slice mode" aria-pressed="${sliceActive}" title="Slice a beat into glitch stutters"><span class="control-icon" aria-hidden="true">⫽</span> Slice</button>
           </div>
         </div>
         <div class="track-bottom-sliders-row">
@@ -552,7 +648,7 @@ const TrackController = {
     // Buttons contain inner icon spans, so resolve the intended control from
     // the nearest matching ancestor instead of relying on event.target alone.
     const target = event.target.closest(
-      ".track-mute-btn, .track-solo-btn, .track-remove-btn, .rest-button, .record-btn, .beat-edit-btn"
+      ".track-mute-btn, .track-solo-btn, .track-remove-btn, .rest-button, .record-btn, .beat-edit-btn, .slice-btn, .duplicate-track-btn, .duplicate-bar-btn, .track-reset-btn, .random-btn"
     ) || event.target;
     const trackElement = target.closest(".track");
 
@@ -729,7 +825,33 @@ const TrackController = {
           button.setAttribute("aria-pressed", String(isBeatEditMode));
         });
         BarDisplayController.renderBarsAndControls();
+    } else if (target.matches(".slice-btn") || target.closest(".slice-btn")) {
+        const active = !AppState.isSliceMode?.();
+        if (active) setExclusiveEditMode("slice");
+        AppState.setSliceMode?.(active);
+        syncModeControls();
+        BarDisplayController.renderBarsAndControls();
+    } else if (target.matches(".duplicate-track-btn") || target.closest(".duplicate-track-btn")) {
+        AppState.duplicateTrack(containerIndex);
+        sendState(AppState.getCurrentStateForPreset(true));
+        TrackController.renderTracks();
+    } else if (target.matches(".duplicate-bar-btn") || target.closest(".duplicate-bar-btn")) {
+        AppState.duplicateBar(containerIndex, AppState.getSelectedBarIndexInContainer());
+        sendState(AppState.getCurrentStateForPreset(true));
+        TrackController.renderTracks();
+    } else if (target.matches(".track-reset-btn") || target.closest(".track-reset-btn")) {
+        if (TrackController.actionLongPressTriggered) {
+            TrackController.actionLongPressTriggered = false;
+            return;
+        }
+        AppState.resetTrack(containerIndex, { track: true, sounds: true, structure: true, pattern: true });
+        sendState(AppState.getCurrentStateForPreset(true));
+        TrackController.renderTracks();
     } else if (target.matches(".random-btn") || target.closest(".random-btn")) {
+        if (TrackController.actionLongPressTriggered) {
+            TrackController.actionLongPressTriggered = false;
+            return;
+        }
         const track = AppState.getTracks()[containerIndex];
         if (track && track.barSettings) {
             track.barSettings.forEach(bar => {
@@ -875,9 +997,27 @@ const TrackController = {
     }
   },
 
+  handleActionPointerDown: (event) => {
+    const target = event.target.closest?.(".track-reset-btn, .random-btn");
+    if (!target) return;
+    const track = target.closest(".track");
+    if (!track) return;
+    const trackIndex = Number(track.dataset.containerIndex);
+    TrackController.actionLongPressTriggered = false;
+    clearTimeout(TrackController.actionLongPressTimer);
+    TrackController.actionLongPressTimer = setTimeout(() => {
+      TrackController.actionLongPressTriggered = true;
+      openTrackActionModal(target.matches(".track-reset-btn") ? "reset" : "random", trackIndex);
+    }, 350);
+  },
+
+  handleActionPointerUp: () => {
+    clearTimeout(TrackController.actionLongPressTimer);
+  },
+
   /**
    * Handles mousedown events, specifically for opening the sound settings modal.
-   * @param {Event} event - The mousedown event.
+
    */
   handleMouseDown: (event) => {
     // Resolve from the nearest label so clicks landing on padding still count.

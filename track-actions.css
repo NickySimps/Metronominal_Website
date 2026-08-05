@@ -1,0 +1,34 @@
+/* Track action row and shared parameter modal. Loaded by style.css. */
+.track-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  width: 100%;
+  margin: 0.35rem 0 0.5rem;
+}
+.track-action-row button {
+  min-height: 2.1rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--BorderRadius, 0.45rem);
+}
+.track-action-row .random-btn { margin-left: auto; }
+.slice-btn.active { color: var(--AccentColor, #fff); box-shadow: 0 0 0 2px var(--AccentColor, currentColor) inset; }
+.bar-visual.slice-mode-active .beat-square { transition: flex-basis 120ms ease; }
+.track-action-modal[hidden] { display: none; }
+.track-action-modal { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 1rem; background: rgb(0 0 0 / 0.68); }
+.track-action-modal-content { width: min(38rem, calc(100vw - 2rem)); max-height: min(90vh, 46rem); overflow: auto; box-sizing: border-box; }
+.track-action-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.65rem; }
+.track-action-option { display: flex; gap: 0.65rem; align-items: flex-start; min-width: 0; padding: 0.7rem; border: 1px solid var(--BorderColor, currentColor); border-radius: var(--BorderRadius, 0.45rem); cursor: pointer; }
+.track-action-option span { min-width: 0; display: grid; gap: 0.2rem; }
+.track-action-option small { opacity: 0.75; line-height: 1.25; }
+.track-action-modal .modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1rem; }
+@media (max-width: 520px) {
+  .track-action-options { grid-template-columns: 1fr; }
+  .track-action-row { gap: 0.3rem; }
+  .track-action-row button { flex: 1 1 auto; min-width: 0; padding-inline: 0.45rem; }
+  .track-action-row .random-btn { margin-left: 0; }
+}
+@media (max-width: 340px) {
+  .track-action-row button { font-size: 0.75rem; }
+}

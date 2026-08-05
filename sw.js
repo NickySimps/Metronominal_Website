@@ -1,8 +1,9 @@
-const CACHE_NAME = 'metronominal-v133';
+const CACHE_NAME = 'metronominal-v134';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
+  './track-actions.css',
   './script.js',
   './Click1.mp3',
   './Click2.mp3',
@@ -15,6 +16,7 @@ const ASSETS_TO_CACHE = [
   './js/audioSerialization.js',
   './js/barControlsController.js',
   './js/barDisplayController.js',
+  './js/beatTiming.js',
   './js/domSelectors.js',
   './js/metronomeEngine.js',
   './js/metronomeWorker.js',

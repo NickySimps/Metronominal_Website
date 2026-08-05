@@ -13,6 +13,7 @@ import MetronomeEngine from "./metronomeEngine.js";
 import { sendState } from "./webrtc.js";
 import ThemeController from "./themeController.js";
 import SoundSettingsModal from "./soundSettingsModal.js";
+import { getBeatSlots } from "./beatTiming.js";
 
 // State variables related to display highlighting
 let previousHighlightedBeatElements = []; // To keep track of the previously highlighted beat
@@ -233,6 +234,22 @@ function updateBeatIndicator(barDiv, beats, subdivision) {
   indicator.textContent = `${beats}┃${subdivision}`;
 }
 
+function cycleBeatSlice(trackIndex, barIndex, slotIndex) {
+  const track = AppState.getTracks()[trackIndex];
+  const bar = track?.barSettings?.[barIndex];
+  if (!bar) return;
+  const slot = getBeatSlots(bar)[slotIndex];
+  const sourceBeat = slot?.sourceBeat ?? slotIndex;
+  const counts = [2, 3, 4, 6, 8];
+  const current = Number(bar.beatSlices?.[sourceBeat]) || 1;
+  const next = counts[counts.indexOf(current) + 1] || 1;
+  AppState.setBeatSlices(trackIndex, barIndex, sourceBeat, next);
+  AppState.setSelectedTrackIndex(trackIndex);
+  AppState.setSelectedBarIndexInContainer(barIndex);
+  BarDisplayController.updateBar(trackIndex, barIndex);
+  sendState(AppState.getCurrentStateForPreset(true));
+}
+
 function onBarPointerDown(event) {
   if (event.button !== 0) return;
 
@@ -249,6 +266,10 @@ function onBarPointerDown(event) {
       const beatIndex = parseInt(lastPaintedBeatSquare.dataset.beatIndex, 10);
       const track = AppState.getTracks()[containerIndex];
       if (track && track.barSettings[barIndex]) {
+        if (AppState.isSliceMode?.()) {
+          cycleBeatSlice(containerIndex, barIndex, beatIndex);
+          return;
+        }
         if (AppState.isRestMode()) {
           const rests = [...(track.barSettings[barIndex].rests || [])];
           if (rests.includes(beatIndex)) {
@@ -805,15 +826,20 @@ const BarDisplayController = {
 
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
-        const totalSubBeatsNeeded = calculateTotalSubBeats(mainBeatsInBar, subdivision);
+        const beatSlots = getBeatSlots(barData);
+        const totalSubBeatsNeeded = beatSlots.length;
         applyBarLayout(barDiv, subdivision, totalSubBeatsNeeded);
         const rests = barData.rests || [];
 
         for (let i = 0; i < totalSubBeatsNeeded; i++) {
+            const slot = beatSlots[i];
             const isRested = rests.includes(i);
             const velocity = barData.velocities?.[i];
             const isIndividuallyEdited = hasBeatSoundOverride(barData.beatSounds?.[i]);
             const beatSquare = createBeatSquareElement(i, subdivision, mainBeatsInBar, isRested, velocity, isIndividuallyEdited);
+            beatSquare.classList.toggle("main-beat-marker", Boolean(slot?.mainBeat));
+            beatSquare.classList.toggle("subdivision", !slot?.mainBeat);
+            beatSquare.dataset.sourceBeat = String(slot?.sourceBeat ?? i);
             barDiv.appendChild(beatSquare);
         }
 
@@ -860,7 +886,8 @@ const BarDisplayController = {
 
         updateBeatIndicator(barDiv, mainBeatsInBar, subdivision);
 
-        const totalSubBeatsNeeded = calculateTotalSubBeats(mainBeatsInBar, subdivision);
+        const beatSlots = getBeatSlots(barData);
+        const totalSubBeatsNeeded = beatSlots.length;
         applyBarLayout(barDiv, subdivision, totalSubBeatsNeeded);
         const rests = barData.rests || [];
 
@@ -871,6 +898,7 @@ const BarDisplayController = {
 
         if (totalSubBeatsNeeded > currentSubBeatCountInDom) {
             for (let i = currentSubBeatCountInDom; i < totalSubBeatsNeeded; i++) {
+                const slot = beatSlots[i];
                 const isRested = rests.includes(i);
                 const beatSquare = createBeatSquareElement(
                     i,
@@ -880,6 +908,9 @@ const BarDisplayController = {
                     barData.velocities?.[i],
                     hasBeatSoundOverride(barData.beatSounds?.[i])
                 );
+                beatSquare.classList.toggle("main-beat-marker", Boolean(slot?.mainBeat));
+                beatSquare.classList.toggle("subdivision", !slot?.mainBeat);
+                beatSquare.dataset.sourceBeat = String(slot?.sourceBeat ?? i);
                 barDiv.appendChild(beatSquare);
             }
         } else if (totalSubBeatsNeeded < currentSubBeatCountInDom) {
@@ -988,10 +1019,8 @@ const BarDisplayController = {
         let barDiv = existingBarVisualsMap.get(String(barIndex));
         const mainBeatsInBar = barData.beats;
         const subdivision = barData.subdivision;
-        const totalSubBeatsNeeded = calculateTotalSubBeats(
-          mainBeatsInBar,
-          subdivision
-        );
+        const beatSlots = getBeatSlots(barData);
+        const totalSubBeatsNeeded = beatSlots.length;
         const rests = barData.rests || [];
         let isNewBarInstance = false;
         if (barDiv) {
@@ -1024,6 +1053,7 @@ const BarDisplayController = {
 
         if (isNewBarInstance) {
           for (let i = 0; i < totalSubBeatsNeeded; i++) {
+            const slot = beatSlots[i];
             const isRested = rests.includes(i);
             const beatSquare = createBeatSquareElement(
                 i,
@@ -1033,6 +1063,9 @@ const BarDisplayController = {
                 barData.velocities?.[i],
                 hasBeatSoundOverride(barData.beatSounds?.[i])
             );
+            beatSquare.classList.toggle("main-beat-marker", Boolean(slot?.mainBeat));
+            beatSquare.classList.toggle("subdivision", !slot?.mainBeat);
+            beatSquare.dataset.sourceBeat = String(slot?.sourceBeat ?? i);
             barDiv.appendChild(beatSquare);
           }
         } else {
@@ -1043,6 +1076,7 @@ const BarDisplayController = {
 
           if (totalSubBeatsNeeded > currentSubBeatCountInDom) {
             for (let i = currentSubBeatCountInDom; i < totalSubBeatsNeeded; i++) {
+              const slot = beatSlots[i];
               const isRested = rests.includes(i);
               const beatSquare = createBeatSquareElement(
                   i,
@@ -1052,6 +1086,9 @@ const BarDisplayController = {
                   barData.velocities?.[i],
                   hasBeatSoundOverride(barData.beatSounds?.[i])
               );
+              beatSquare.classList.toggle("main-beat-marker", Boolean(slot?.mainBeat));
+              beatSquare.classList.toggle("subdivision", !slot?.mainBeat);
+              beatSquare.dataset.sourceBeat = String(slot?.sourceBeat ?? i);
               barDiv.appendChild(beatSquare);
             }
           } else if (totalSubBeatsNeeded < currentSubBeatCountInDom) {

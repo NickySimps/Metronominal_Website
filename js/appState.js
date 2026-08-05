@@ -1,4 +1,5 @@
 import { audioBufferToWav, wavToArrayBuffer } from './audioSerialization.js';
+import { getBeatSlots, normalizeSliceCount } from './beatTiming.js';
 
 /**
  * @typedef {Object} BarSetting
@@ -293,6 +294,9 @@ function normalizeSectionTrack(value, index) {
     beatSounds: bar?.beatSounds && typeof bar.beatSounds === "object" && !Array.isArray(bar.beatSounds)
       ? JSON.parse(JSON.stringify(bar.beatSounds))
       : {},
+    beatSlices: bar?.beatSlices && typeof bar.beatSlices === "object" && !Array.isArray(bar.beatSlices)
+      ? Object.fromEntries(Object.entries(bar.beatSlices).filter(([key, value]) => Number.isInteger(Number(key)) && normalizeSliceCount(value) > 1).map(([key, value]) => [key, normalizeSliceCount(value)]))
+      : {},
   })) : [];
   if (!bars.length) return null;
   return {
@@ -386,6 +390,7 @@ const AppState = (function () {
   let currentTheme = "default";
   let isRestMode = false;
   let isAccentMode = false;
+  let isSliceMode = false;
   let isRecording = false;
   let recordings = [];
   let customSounds = {}; // Stores custom user presets: { "My Kick": { baseSound: "Synth Kick", settings: {...} } }
@@ -723,6 +728,16 @@ const AppState = (function () {
       saveState();
     },
 
+    isSliceMode: () => isSliceMode,
+    setSliceMode: (mode) => {
+      isSliceMode = !!mode;
+      if (isSliceMode) {
+        isRestMode = false;
+        isAccentMode = false;
+      }
+      saveState();
+    },
+
     isRecording: () => isRecording,
     setRecording: (recording) => {
         isRecording = recording;
@@ -958,6 +973,85 @@ const AppState = (function () {
         
         publicAPI.setControlsAttachedToTrack(true); // Ensure controls re-attach
         saveState();
+    },
+    duplicateTrack: (index) => {
+      const source = Tracks[index];
+      if (!source) return -1;
+      const copy = JSON.parse(JSON.stringify(source, (key, value) =>
+        ["analyserNode", "mainAnalyserNode", "subdivisionAnalyserNode"].includes(key) ? undefined : value
+      ));
+      copy.name = `${source.name || `Track ${index + 1}`} Copy`;
+      copy.currentBar = 0;
+      copy.currentBeat = 0;
+      copy.nextBeatTime = 0;
+      copy.analyserNode = null;
+      copy.mainAnalyserNode = null;
+      copy.subdivisionAnalyserNode = null;
+      Tracks.push(copy);
+      selectedTrackIndex = Tracks.length - 1;
+      selectedBarIndexInContainer = 0;
+      saveState();
+      return selectedTrackIndex;
+    },
+    duplicateBar: (trackIndex, barIndex) => {
+      const track = Tracks[trackIndex];
+      const bar = track?.barSettings?.[barIndex];
+      if (!bar) return false;
+      track.barSettings.splice(barIndex + 1, 0, JSON.parse(JSON.stringify(bar)));
+      selectedTrackIndex = trackIndex;
+      selectedBarIndexInContainer = barIndex + 1;
+      saveState();
+      return true;
+    },
+    resetTrack: (trackIndex, options = {}) => {
+      const track = Tracks[trackIndex];
+      if (!track) return false;
+      if (options.track) {
+        track.muted = false;
+        track.solo = false;
+        track.volume = 1;
+        track.pitchShift = 0;
+        track.swing = 0;
+      }
+      if (options.sounds) {
+        for (const key of ["mainBeatSound", "subdivisionSound"]) {
+          const sound = track[key]?.sound || (key === "mainBeatSound" ? "Synth Kick" : "Synth HiHat");
+          track[key] = { sound, settings: { ...(defaultSoundSettings[sound] || (key === "mainBeatSound" ? defaultKick : defaultHiHat)) } };
+        }
+      }
+      if (options.structure) {
+        track.barSettings = [{ beats: 4, subdivision: 1, rests: [], velocities: {}, beatSounds: {} }];
+      }
+      if (options.pattern) {
+        track.barSettings = track.barSettings.map(bar => ({ ...bar, rests: [], velocities: {}, beatSounds: {} }));
+      }
+      saveState();
+      return true;
+    },
+    setBeatSlices: (trackIndex, barIndex, beatIndex, count) => {
+      const bar = Tracks[trackIndex]?.barSettings?.[barIndex];
+      if (!bar) return false;
+      const oldSlots = getBeatSlots(bar);
+      const oldRests = new Set(bar.rests || []);
+      const oldVelocities = { ...(bar.velocities || {}) };
+      const oldBeatSounds = { ...(bar.beatSounds || {}) };
+      const oldSourceState = new Map();
+      oldSlots.forEach(slot => {
+        if (!oldSourceState.has(slot.sourceBeat)) oldSourceState.set(slot.sourceBeat, {
+          rest: oldRests.has(slot.index), velocity: oldVelocities[slot.index], sound: oldBeatSounds[slot.index],
+        });
+      });
+      const normalized = normalizeSliceCount(count);
+      bar.beatSlices = { ...(bar.beatSlices || {}) };
+      if (normalized > 1) bar.beatSlices[beatIndex] = normalized;
+      else delete bar.beatSlices[beatIndex];
+      if (Object.keys(bar.beatSlices).length === 0) delete bar.beatSlices;
+      const newSlots = getBeatSlots(bar);
+      bar.rests = newSlots.filter(slot => oldSourceState.get(slot.sourceBeat)?.rest).map(slot => slot.index);
+      bar.velocities = Object.fromEntries(newSlots.filter(slot => oldSourceState.get(slot.sourceBeat)?.velocity !== undefined).map(slot => [slot.index, oldSourceState.get(slot.sourceBeat).velocity]));
+      bar.beatSounds = Object.fromEntries(newSlots.filter(slot => oldSourceState.get(slot.sourceBeat)?.sound !== undefined).map(slot => [slot.index, oldSourceState.get(slot.sourceBeat).sound]));
+      saveState();
+      return true;
     },
     updateTrack: (containerIndex, updatedProperties) => {
       if (Tracks[containerIndex]) {
