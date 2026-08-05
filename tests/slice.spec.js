@@ -169,7 +169,12 @@ test.describe('track slice and action controls', () => {
         ],
       });
     });
-    await page.locator('.track-reset-btn').first().click();
+    const reset = page.locator('.track-reset-btn').first();
+    await reset.dispatchEvent('pointerdown');
+    await page.waitForTimeout(400);
+    await expect(page.locator('#track-action-modal')).toBeVisible();
+    await reset.dispatchEvent('pointerup');
+    await page.locator('[data-track-action-apply]').click();
     const result = await page.evaluate(async () => {
       const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
       const track = AppState.getTracks()[0];

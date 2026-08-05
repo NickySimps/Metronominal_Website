@@ -372,7 +372,9 @@ function openTrackActionModal(type, trackIndex) {
     const selected = {};
     modal.querySelectorAll("[data-track-option]").forEach(input => {
       if (input.dataset.trackParent) {
-        selected[input.dataset.trackParent] = selected[input.dataset.trackParent] || {};
+        selected[input.dataset.trackParent] = selected[input.dataset.trackParent] && typeof selected[input.dataset.trackParent] === "object"
+          ? selected[input.dataset.trackParent]
+          : {};
         selected[input.dataset.trackParent][input.dataset.trackOption.split(".").slice(1).join(".")] = input.checked;
       } else {
         selected[input.dataset.trackOption] = input.checked;
