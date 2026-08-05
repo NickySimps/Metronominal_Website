@@ -157,6 +157,26 @@ test.describe('track slice and action controls', () => {
     await random.dispatchEvent('pointerup');
   });
 
+  test('track reset restores one bar and default main sound', async ({ page }) => {
+    await page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      AppState.updateTrack(0, {
+        mainBeatSound: { sound: 'Synth Snare', settings: {} },
+        barSettings: [
+          { beats: 4, subdivision: 1, rests: [], velocities: {}, beatSounds: {} },
+          { beats: 4, subdivision: 1, rests: [], velocities: {}, beatSounds: {} },
+          { beats: 4, subdivision: 1, rests: [], velocities: {}, beatSounds: {} },
+        ],
+      });
+    });
+    await page.locator('.track-reset-btn').first().click();
+    const result = await page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      const track = AppState.getTracks()[0];
+      return { bars: track.barSettings.length, mainSound: track.mainBeatSound.sound };
+    });
+    expect(result).toEqual({ bars: 1, mainSound: 'Synth Kick' });
+  });
   test('track action row and modal remain contained at 320px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.reload();

@@ -380,7 +380,7 @@ function openTrackActionModal(type, trackIndex) {
     });
     if (isReset) AppState.resetTrack(trackIndex, {
       track: selected.track,
-      sounds: { main: selected.mainSound?.sound || selected.mainSound?.settings, sub: selected.subSound?.sound || selected.subSound?.settings },
+      sounds: { main: selected.mainSound, sub: selected.subSound },
       structure: selected.structure,
       pattern: selected.pattern,
       beatSounds: selected.beatSounds,

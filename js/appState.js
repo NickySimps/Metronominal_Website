@@ -1017,12 +1017,14 @@ const AppState = (function () {
         if (trackOptions.pitchShift) track.pitchShift = 0;
         if (trackOptions.swing) track.swing = 0;
       }
-      const soundOptions = options.sounds === true ? { main: true, sub: true } : (options.sounds || {});
+      const soundOptions = options.sounds === true ? { main: { sound: true, settings: true }, sub: { sound: true, settings: true } } : (options.sounds || {});
       if (options.sounds) {
-        for (const [key, enabled] of [["mainBeatSound", soundOptions.main], ["subdivisionSound", soundOptions.sub]]) {
-          if (!enabled) continue;
-          const sound = track[key]?.sound || (key === "mainBeatSound" ? "Synth Kick" : "Synth HiHat");
-          track[key] = { sound, settings: { ...(defaultSoundSettings[sound] || (key === "mainBeatSound" ? defaultKick : defaultHiHat)) } };
+        for (const [key, selected] of [["mainBeatSound", soundOptions.main], ["subdivisionSound", soundOptions.sub]]) {
+          if (!selected || (!selected.sound && !selected.settings)) continue;
+          const defaultSound = key === "mainBeatSound" ? "Synth Kick" : "Synth HiHat";
+          const sound = selected.sound ? defaultSound : (track[key]?.sound || defaultSound);
+          const fallback = key === "mainBeatSound" ? defaultKick : defaultHiHat;
+          track[key] = { sound, settings: { ...(defaultSoundSettings[sound] || fallback) } };
         }
       }
       const structureOptions = options.structure === true ? { beats: true, bars: true, subdivision: true } : (options.structure || {});
