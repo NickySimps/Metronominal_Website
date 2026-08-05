@@ -349,8 +349,17 @@ const SoundSettingsModal = {
     if (param.toLowerCase().includes("frequency")) return `${Number(value).toFixed(2)} Hz`;
     if (["attack", "decay", "sustain", "release", "pitchEnvelopeTime", "trimStart", "trimEnd"].includes(param)) return `${Number(value).toFixed(0)} ms`;
     if (param === "delayTime") return this.formatDelayTimeDisplay(value, Number(slider.max));
-    if (["distortion", "delayMix", "delayFeedback", "reverbMix", "reverbFeedback", "volume"].includes(param)) return `${Number(value).toFixed(0)}%`;
+    if (["distortion", "delayMix", "delayFeedback", "reverbMix", "reverbFeedback", "volume", "probability"].includes(param)) return `${Number(value).toFixed(0)}%`;
     return String(Number(value).toFixed(2));
+  },
+
+  getAnimatedSliderValues() {
+    const values = Object.fromEntries(
+      [...DOM.soundSettingsModal.querySelectorAll("[data-param]")].map((slider) => [slider.dataset.param, Number(slider.value)])
+    );
+    const probability = DOM.soundSettingsModal.querySelector("#sample-probability");
+    if (probability) values.probability = Number(probability.value);
+    return values;
   },
 
   animateSliderValues(fromValues, toValues) {
@@ -360,13 +369,17 @@ const SoundSettingsModal = {
       const progress = Math.min(1, (now - start) / duration);
       const eased = 1 - ((1 - progress) ** 3);
       Object.entries(toValues).forEach(([param, target]) => {
-        const slider = document.querySelector(`[data-param="${param}"]`);
+        const slider = param === "probability"
+          ? DOM.soundSettingsModal.querySelector("#sample-probability")
+          : DOM.soundSettingsModal.querySelector(`[data-param="${param}"]`);
         if (!slider) return;
         const from = Number.isFinite(Number(fromValues[param])) ? Number(fromValues[param]) : Number(target);
         const value = from + (Number(target) - from) * eased;
         slider.value = String(value);
         slider.setAttribute("aria-valuenow", String(value));
-        const output = slider.closest(".slider-container")?.querySelector(":scope > span");
+        const output = param === "probability"
+          ? DOM.soundSettingsModal.querySelector("#sample-probability-value")
+          : slider.closest(".slider-container")?.querySelector(":scope > span");
         if (output) output.textContent = this.formatAnimatedSliderValue(param, value, slider);
       });
       if (progress < 1) requestAnimationFrame(frame);
@@ -406,14 +419,9 @@ const SoundSettingsModal = {
     }
     const soundInfo = this.getCurrentSoundInfo();
     if (!soundInfo) return;
-    const fromSliderValues = Object.fromEntries(
-      [...DOM.soundSettingsModal.querySelectorAll("[data-param]")].map((slider) => [slider.dataset.param, Number(slider.value)])
-    );
+    const fromSliderValues = this.getAnimatedSliderValues();
     const animateReset = () => {
-      const toSliderValues = Object.fromEntries(
-        [...DOM.soundSettingsModal.querySelectorAll("[data-param]")].map((slider) => [slider.dataset.param, Number(slider.value)])
-      );
-      this.animateSliderValues(fromSliderValues, toSliderValues);
+      this.animateSliderValues(fromSliderValues, this.getAnimatedSliderValues());
     };
 
     const beatContext = this.getCurrentBeatContext();

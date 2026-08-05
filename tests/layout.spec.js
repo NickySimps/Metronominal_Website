@@ -1401,6 +1401,12 @@ test.describe('mode controls responsive layout', () => {
       document.querySelector('#sound-effects-btn').click();
       const fxHasReset = Boolean(document.querySelector('#sound-effects-modal #reset-sound-btn'));
       document.querySelector('#sound-effects-close').click();
+      const originalAnimateSliderValues = SoundSettingsModal.animateSliderValues.bind(SoundSettingsModal);
+      let capturedAnimation;
+      SoundSettingsModal.animateSliderValues = (fromValues, toValues) => {
+        capturedAnimation = { fromValues, toValues };
+        originalAnimateSliderValues(fromValues, toValues);
+      };
       document.querySelector('#reset-sound-btn').click();
       const resetAnimation = getComputedStyle(document.querySelector('#reset-sound-btn')).animationName;
       document.querySelector('#sound-effects-btn').click();
@@ -1412,6 +1418,7 @@ test.describe('mode controls responsive layout', () => {
       return {
         fxHasReset,
         resetAnimation,
+        capturedAnimation,
         fxValuesAfterSoundReset,
         volume: settings.volume,
         pitchShift: settings.pitchShift,
@@ -1429,6 +1436,8 @@ test.describe('mode controls responsive layout', () => {
     });
     expect(result.fxHasReset).toBe(false);
     expect(result.resetAnimation).toBe('sound-reset-pulse');
+    expect(result.capturedAnimation.fromValues).toMatchObject({ probability: 35, highPassFrequency: 4000, lowPassFrequency: 9000 });
+    expect(result.capturedAnimation.toValues).toMatchObject({ probability: 100, highPassFrequency: 20, lowPassFrequency: 20000 });
     expect(result.fxValuesAfterSoundReset).toEqual({ distortion: '0', delayMix: '0', delayTime: '0', reverbMix: '0' });
     expect(result).toMatchObject({ volume: 1, pitchShift: 0, trimStart: 0, probability: 100, allowOverlap: true, retrigger: true, reverse: false, highPassFrequency: 20, lowPassFrequency: 20000, distortion: 0, delayMix: 0, reverbMix: 0 });
   });
