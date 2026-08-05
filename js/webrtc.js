@@ -44,15 +44,26 @@ let diagnosticsRefreshTimer = null;
 let receiveChain = Promise.resolve();
 const offsetSamples = [];
 const pendingTimeSyncRequests = new Map();
+const MAX_SYNC_STATE_BYTES = 256 * 1024;
 const MAX_OFFSET_SAMPLES = 20;
+const SYNC_SCHEMA_VERSION = 1;
+const SYNC_CAPABILITIES = ["state-v1", "song-v1", "song-v2", "slices-v1", "beat-overrides-v1", "effects-v1"];
+let lastAcknowledgedStateRevision = -1;
+let lastAcknowledgedStateChecksum = null;
+let rejectedStateCount = 0;
 
 window.isHost = false;
-
 function median(values) {
   if (!values.length) return null;
   const sorted = [...values].sort((left, right) => left - right);
   const middle = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+async function checksum(value) {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function synchronizationQuality() {
@@ -86,7 +97,10 @@ export function getSyncDiagnostics() {
     transportRevision: lastTransportRevision,
     timeSyncReady: hasTimeSync,
     audioState: audioContext?.state || "unavailable",
-    schedulerReady: MetronomeEngine.isSchedulerReady()
+    schedulerReady: MetronomeEngine.isSchedulerReady(),
+    acknowledgedStateRevision: lastAcknowledgedStateRevision,
+    acknowledgedStateChecksum: lastAcknowledgedStateChecksum,
+    rejectedStateCount
   };
 }
 
@@ -122,6 +136,9 @@ function resetProtocolDiagnostics() {
   localRole = "offline";
   lastStateRevision = -1;
   lastTransportRevision = -1;
+  lastAcknowledgedStateRevision = -1;
+  lastAcknowledgedStateChecksum = null;
+  rejectedStateCount = 0;
 }
 
 function signalingUrl() {
@@ -173,7 +190,7 @@ function sendJoinRequest() {
     type: "join",
     room: roomId,
     requestedRole: window.isHost ? "host" : "client",
-    capabilities: ["song-v1", "song-v2"],
+    capabilities: SYNC_CAPABILITIES,
     ...(window.isHost ? { hostCredential } : {})
   });
 }
@@ -451,18 +468,32 @@ async function handleStateMessage(message, generation) {
   if ((window.isHost && !acceptingReplacementReplay && !message.authoritativeRefresh)
     || !message.payload || !Number.isInteger(message.revision)) return;
   if (message.revision <= lastStateRevision && !message.authoritativeRefresh) return;
+  if (message.schemaVersion !== undefined && message.schemaVersion !== SYNC_SCHEMA_VERSION) return;
+  if (message.capabilities && !Array.isArray(message.capabilities)) return;
   const { selectedTheme: _ignoredTheme, ...state } = message.payload;
-  if (!AppState.validateNetworkState(state)) {
+  const serializedState = JSON.stringify(state);
+  const payloadBytes = new TextEncoder().encode(serializedState).byteLength;
+  if (payloadBytes > MAX_SYNC_STATE_BYTES || (message.payloadBytes !== undefined && message.payloadBytes !== payloadBytes)
+    || (message.checksum && message.checksum !== await checksum(state))
+    || !AppState.validateNetworkState(state)) {
+    rejectedStateCount += 1;
+    sendMessage({ type: "state-recovery-request", reason: "invalid-state-payload", revision: message.revision });
     console.warn("Rejected invalid synchronized state payload");
+    updateDiagnosticsUI();
     return;
   }
+  const previousState = await AppState.getCurrentStateForPreset(true);
   try {
     await AppState.loadPresetData({ ...state, isPlaying: false });
   } catch (error) {
+    await AppState.loadPresetData(previousState);
     console.error("Could not apply synchronized state payload:", error);
     return;
   }
   lastStateRevision = message.revision;
+  lastAcknowledgedStateRevision = message.revision;
+  lastAcknowledgedStateChecksum = message.checksum || await checksum(state);
+  sendMessage({ type: "state-ack", revision: message.revision, checksum: lastAcknowledgedStateChecksum });
   if (generation !== connectionGeneration || !joined) return;
   if (receiveCallback) receiveCallback(state);
   else refreshUIFromState();
@@ -528,6 +559,22 @@ async function handleSocketMessage(event, generation) {
 
     case "state":
       await handleStateMessage(message, generation);
+      break;
+
+    case "state-ack":
+      if (window.isHost && Number.isInteger(message.revision) && typeof message.checksum === "string") {
+        lastAcknowledgedStateRevision = message.revision;
+        lastAcknowledgedStateChecksum = message.checksum;
+        updateDiagnosticsUI();
+      }
+      break;
+
+    case "state-recovery-request":
+      if (window.isHost) {
+        pendingStatePromise = AppState.getCurrentStateForPreset(true);
+        clearTimeout(stateSendTimer);
+        await flushState();
+      }
       break;
 
     case "transport":
@@ -857,7 +904,15 @@ async function flushState() {
     delete state.recordings;
     delete state.serializedRecordings;
     state.isPlaying = AppState.isPlaying();
-    return sendMessage({ type: "state", payload: state });
+    const payloadBytes = new TextEncoder().encode(JSON.stringify(state)).byteLength;
+    if (payloadBytes > MAX_SYNC_STATE_BYTES || !AppState.validateNetworkState(state)) {
+      rejectedStateCount += 1;
+      updateDiagnosticsUI();
+      return false;
+    }
+    const stateChecksum = await checksum(state);
+    return sendMessage({ type: "state", schemaVersion: SYNC_SCHEMA_VERSION, capabilities: SYNC_CAPABILITIES,
+      checksum: stateChecksum, payloadBytes, payload: state });
   } catch (error) {
     console.error("Could not send synchronized state:", error);
     return false;
