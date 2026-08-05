@@ -1465,20 +1465,27 @@ test.describe('mode controls responsive layout', () => {
   test('mode buttons remain contained when desktop has six tracks', async ({ page }) => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto('/');
+    await page.evaluate(() => document.body.classList.add('synthwave-theme'));
     for (let count = 1; count < 6; count += 1) await page.locator('#add-track-btn').click();
     const geometry = await page.evaluate(() => [...document.querySelectorAll('.track')].map((track) => {
       const parent = track.querySelector('.track-sound-controls')?.getBoundingClientRect();
+      const volume = track.querySelector('.track-volume-controls')?.getBoundingClientRect();
+      const volumeLabel = track.querySelector('.track-volume-label')?.getBoundingClientRect();
       const buttons = [...track.querySelectorAll('.mode-buttons-col button')].map((button) => {
         const rect = button.getBoundingClientRect();
         return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width };
       });
       return {
         parent: parent && { left: parent.left, right: parent.right, top: parent.top, bottom: parent.bottom, clientWidth: track.querySelector('.track-sound-controls')?.clientWidth, scrollWidth: track.querySelector('.track-sound-controls')?.scrollWidth },
+        volume: volume && { left: volume.left, right: volume.right },
+        volumeLabel: volumeLabel && { left: volumeLabel.left, right: volumeLabel.right, scrollWidth: track.querySelector('.track-volume-label')?.scrollWidth, clientWidth: track.querySelector('.track-volume-label')?.clientWidth },
         buttons,
       };
     }));
     for (const track of geometry) {
       expect(track.parent.scrollWidth).toBeLessThanOrEqual(track.parent.clientWidth + 1);
+      expect(track.volumeLabel.right).toBeLessThanOrEqual(track.volume.right + 0.5);
+      expect(track.volumeLabel.scrollWidth).toBeLessThanOrEqual(track.volumeLabel.clientWidth + 1);
       for (const button of track.buttons) {
       expect(button.left).toBeGreaterThanOrEqual(track.parent.left - 0.5);
       expect(button.right).toBeLessThanOrEqual(track.parent.right + 0.5);

@@ -1971,6 +1971,13 @@ button:active,
 
 .track-volume-value,
 .track-volume-label {
+  box-sizing: border-box;
+  flex: 0 1 8%;
+  min-width: 2.5rem;
+  max-width: 8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: var(--font-1);
   width: 8%;
   text-align: center;
