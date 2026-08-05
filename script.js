@@ -100,7 +100,6 @@ function refreshUIFromState(options = {}) {
   
   // Only the host should send state updates
   if (window.isHost) {
-    console.log('Host sending state update from refreshUIFromState');
     sendState(AppState.getCurrentStateForPreset(true));
   }
 
@@ -222,10 +221,7 @@ async function initialize() {
   
   // Register Sticky Controls listeners
   TempoController.registerTempoChangeListener(() => StickyControls.updateDisplay());
-  document.addEventListener("tempochange", () => {
-    TempoController.updateTempoDisplay({ animate: true });
-    StickyControls.updateDisplay();
-  });
+  // TempoController owns tempochange DOM updates and invokes the registered sticky-display callback.
   VolumeController.registerVolumeChangeListener(() => StickyControls.updateDisplay());
   MetronomeEngine.registerPlayStateChangeListener(() => StickyControls.updatePlayButtonState());
 
@@ -309,24 +305,7 @@ document.addEventListener('barstructurechanged', () => {
   if (loop) AppState.setAbLoop(loop);
 });
 
-// Listen for clicks on the whole page to handle "clicking outside"
-document.addEventListener('click', (event) => {
-  const trackWrapper = DOM.trackWrapper;
-  const measuresContainer = DOM.measuresContainer;
-  const addTrackButton = DOM.addTrackButton;
 
-  // If the click is on the "add track" button, do nothing. Its own handler will manage the state.
-  if (addTrackButton && addTrackButton.contains(event.target)) {
-    return;
-  }
-
-  // If the click is on a track or its controls, don't do anything here (handled by TrackController)
-  if (event.target.closest('.track') || (measuresContainer && measuresContainer.contains(event.target))) {
-    return;
-  }
-});
-
-// Register Service Worker for offline PWA capabilities
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {

@@ -373,28 +373,31 @@ async function publishSongChange(nextSong, shouldRender = true) {
   sendState(AppState.getCurrentStateForPreset(true));
 }
 
-async function goToSection(index) {
-  if (!Number.isInteger(index) || !canEditSong) return false;
-  const currentSong = updatedSongFromFields();
-  const section = currentSong.sections[index];
-  if (!section) return false;
-  if (AppState.isPlaying()) await MetronomeEngine.togglePlay(true);
-  currentSong.enabled = true;
-  selectedSectionIndex = index;
+async function loadSectionSnapshot(song, index, { enableSong = false } = {}) {
+  const section = song.sections[index];
+  if (!section) return null;
   const requiredBars = Math.max(
     1,
     ...AppState.getTracks().map(track => track.barSettings?.length || 1),
-    ...currentSong.sections.map(item => item.startBar + 1)
+    ...song.sections.map(item => item.startBar + 1)
   );
   const state = await AppState.getCurrentStateForPreset(true);
   state.tempo = section.tempo;
-  state.song = currentSong;
-  if (section.tracks?.length) {
-    state.Tracks = runtimeTracksFromSnapshot(expandSnapshotBars(section.tracks, requiredBars));
-  } else {
-    state.Tracks = state.Tracks.map(track => ({ ...track, currentBar: 0, currentBeat: 0, songRepeatIteration: 0 }));
-  }
+  state.song = enableSong ? { ...song, enabled: true } : song;
+  state.Tracks = section.tracks?.length
+    ? runtimeTracksFromSnapshot(expandSnapshotBars(section.tracks, requiredBars))
+    : state.Tracks.map(track => ({ ...track, currentBar: 0, currentBeat: 0, songRepeatIteration: 0 }));
   await AppState.loadPresetData(state);
+  return section;
+}
+
+async function goToSection(index) {
+  if (!Number.isInteger(index) || !canEditSong) return false;
+  const currentSong = updatedSongFromFields();
+  if (!currentSong.sections[index]) return false;
+  if (AppState.isPlaying()) await MetronomeEngine.togglePlay(true);
+  selectedSectionIndex = index;
+  const section = await loadSectionSnapshot(currentSong, index, { enableSong: true });
   refreshApplicationUI({ animate: false });
   sendState(AppState.getCurrentStateForPreset(true));
   announce(`${section.name} loaded.`);
@@ -567,22 +570,13 @@ async function applySection(index) {
   const section = song.sections[index];
   if (!section?.tracks?.length) return;
   selectedSectionIndex = index;
-  const requiredBars = Math.max(
-    1,
-    ...AppState.getTracks().map(track => track.barSettings?.length || 1),
-    ...song.sections.map(item => item.startBar + 1)
-  );
-  const state = await AppState.getCurrentStateForPreset(true);
-  state.tempo = section.tempo;
-  state.Tracks = runtimeTracksFromSnapshot(expandSnapshotBars(section.tracks, requiredBars));
-  state.song = song;
-  await AppState.loadPresetData(state);
+  await loadSectionSnapshot(song, index);
   refreshApplicationUI({ animate: false });
   sendState(AppState.getCurrentStateForPreset(true));
   announce(`${section.name} tracks applied.`);
 }
 
-function copySection(index) {
+async function copySection(index) {
   if (!canEditSong || AppState.isPlaying()) return;
   const song = updatedSongFromFields();
   const source = song.sections[index];
@@ -598,7 +592,7 @@ function copySection(index) {
   announce(`${source.name || `Section ${index + 1}`} copied.`);
 }
 
-function moveSection(index, direction) {
+async function moveSection(index, direction) {
   if (!canEditSong || AppState.isPlaying()) return;
   const song = updatedSongFromFields();
   const targetIndex = index + direction;
@@ -664,23 +658,23 @@ async function initialize(callback) {
     }
     const action = button.dataset.songSectionAction;
     if (action === "go") {
-      goToSection(index);
+      await goToSection(index);
     } else if (action === "apply") {
       await applySection(index);
     } else if (action === "update") {
       await updateSection(index);
     } else if (action === "copy") {
-      copySection(index);
+      await copySection(index);
     } else if (action === "move-up") {
-      moveSection(index, -1);
+      await moveSection(index, -1);
     } else if (action === "move-down") {
-      moveSection(index, 1);
+      await moveSection(index, 1);
     } else if (action === "remove" && index >= 0 && AppState.getSong().sections.length > 1 && canEditSong && !AppState.isPlaying()) {
       const song = updatedSongFromFields();
       song.sections.splice(index, 1);
       if (index === 0 && song.sections[0]) song.sections[0].startBar = 0;
       selectedSectionIndex = Math.min(selectedSectionIndex, song.sections.length - 1);
-      publishSongChange(song);
+      await publishSongChange(song);
     }
   });
   document.getElementById("copy-song-link-btn")?.addEventListener("click", async () => {

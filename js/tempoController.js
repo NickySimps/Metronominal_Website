@@ -111,24 +111,20 @@ const TempoController = {
     DOM.increaseTempoBtn.addEventListener("click", () => {
       AppState.increaseTempo();
       sendState(AppState.getCurrentStateForPreset(true));
-      TempoController.updateTempoDisplay();
     });
     DOM.decreaseTempoBtn.addEventListener("click", () => {
       AppState.decreaseTempo();
       sendState(AppState.getCurrentStateForPreset(true));
-      TempoController.updateTempoDisplay();
     });
     DOM.tempoSlider.addEventListener("input", () => {
-      AppState.setTempo(DOM.tempoSlider.value); // Update state
+      AppState.setTempo(DOM.tempoSlider.value);
       sendState(AppState.getCurrentStateForPreset(true));
-      TempoController.updateTempoDisplay(); // Update UI (slider value already matches, but updates text and description)
     });
     if (DOM.tapTempoBtn) {
       DOM.tapTempoBtn.addEventListener("click", () => {
         AppState.addTapTimestamp(Date.now());
         const calculatedTempo = AppState.calculateTapTempo();
         sendState(AppState.getCurrentStateForPreset(true));
-        TempoController.updateTempoDisplay();
         if (DOM.tapTempoFeedback) {
           const tapCount = AppState.getTapCount ? AppState.getTapCount() : 0;
           DOM.tapTempoFeedback.textContent = calculatedTempo
