@@ -28,6 +28,28 @@ test.describe('track slice and action controls', () => {
     await expect(bar.locator('.beat-square')).toHaveCount(5);
   });
 
+  test('slicing preserves the parent beat count and total bar duration', async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const [{ default: AppState }, { getBeatSlots, getSlotDurationSeconds }] = await Promise.all([
+        import(new URL('js/appState.js', document.baseURI).href),
+        import(new URL('js/beatTiming.js', document.baseURI).href),
+      ]);
+      AppState.setBeatSlices(0, 0, 0, 2);
+      const bar = AppState.getTracks()[0].barSettings[0];
+      const slots = getBeatSlots(bar);
+      const secondsPerBeat = 0.5;
+      const firstParentBeatDuration = slots.slice(0, 2).reduce(
+        (sum, slot) => sum + getSlotDurationSeconds(bar, slot.index, secondsPerBeat), 0
+      );
+      const fullBarDuration = slots.reduce(
+        (sum, slot) => sum + getSlotDurationSeconds(bar, slot.index, secondsPerBeat), 0
+      );
+      return { totalBeats: AppState.getTotalBeats(), slotCount: slots.length, firstParentBeatDuration, fullBarDuration };
+    });
+    expect(result).toEqual({ totalBeats: 4, slotCount: 5, firstParentBeatDuration: 0.5, fullBarDuration: 2 });
+  });
+
+
   test('sliced slots retain playback-control settings for main and subdivision sounds', async ({ page }) => {
     const result = await page.evaluate(async () => {
       const [{ default: AppState }, { getBeatSlots }] = await Promise.all([
