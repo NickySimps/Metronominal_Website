@@ -48,6 +48,7 @@ function syncModeControls() {
   document.querySelectorAll(".bar-visual").forEach(bar => {
     bar.classList.toggle("rest-mode-active", restActive);
     bar.classList.toggle("accent-mode-active", accentActive);
+    bar.classList.toggle("slice-mode-active", sliceActive);
   });
 }
 
@@ -796,6 +797,7 @@ const TrackController = {
 
         const restActive = AppState.isRestMode();
         const accentActive = AppState.isAccentMode();
+        const sliceActive = AppState.isSliceMode?.() || false;
 
         document.querySelectorAll(".rest-button").forEach(button => {
             button.classList.toggle("active", restActive);
@@ -809,6 +811,7 @@ const TrackController = {
         document.querySelectorAll(".bar-visual").forEach(bar => {
             bar.classList.toggle("rest-mode-active", restActive);
             bar.classList.toggle("accent-mode-active", accentActive);
+            bar.classList.toggle("slice-mode-active", sliceActive);
         });
 
         const currentSelectedTrackIndex = AppState.getSelectedTrackIndex();
@@ -831,6 +834,7 @@ const TrackController = {
 
         const restActive = AppState.isRestMode();
         const accentActive = AppState.isAccentMode();
+        const sliceActive = AppState.isSliceMode?.() || false;
 
         document.querySelectorAll(".accent-button").forEach(button => {
             button.classList.toggle("active", accentActive);

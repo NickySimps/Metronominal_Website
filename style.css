@@ -561,6 +561,14 @@ button {
   touch-action: pan-y; /* Preserve vertical page scrolling while allowing beat taps */
   justify-content: space-around;
 }
+
+/* Painting modes claim the bar gesture so a drag paints beats instead of scrolling. */
+.bar-visual.rest-mode-active,
+.bar-visual.accent-mode-active,
+.bar-visual.slice-mode-active {
+  touch-action: none;
+  cursor: crosshair;
+}
 .bar-visual:hover {
   border-color: transparent; /* Changed from var(--Main) for flat look */
   box-shadow: 0 0 var(--s3) var(--Accent); /* 0 0 8px */

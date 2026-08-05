@@ -828,6 +828,27 @@ test.describe('mode controls responsive layout', () => {
     await expect(accent).not.toHaveClass(/active/);
   });
 
+  test('painting modes claim bar touch gestures without changing normal scrolling', async ({ page }) => {
+    await page.goto('/');
+    const track = page.locator('.track').first();
+    const bar = track.locator('.bar-visual').first();
+    const rest = track.locator('.rest-button');
+    const accent = track.locator('.accent-button');
+    const slice = track.locator('.slice-btn');
+    const touchAction = () => bar.evaluate(element => getComputedStyle(element).touchAction);
+
+    expect(await touchAction()).toBe('pan-y');
+    await rest.click();
+    expect(await touchAction()).toBe('none');
+    await rest.click();
+    await accent.click();
+    expect(await touchAction()).toBe('none');
+    await accent.click();
+    await slice.click();
+    expect(await touchAction()).toBe('none');
+    await slice.click();
+    expect(await touchAction()).toBe('pan-y');
+  });
   test('resting a beat clears both its accent and edited sound state', async ({ page }) => {
     await page.goto('/');
     await page.evaluate(async () => {
