@@ -1463,6 +1463,7 @@ const AppState = (function () {
         controlsAttachedToTrack: controlsAttachedToTrack,
         isPlaying: isPlaying,
         isRestMode: isRestMode,
+        isSliceMode: isSliceMode,
         isRecording: isRecording,
         customSounds: customSounds,
         audioLatencyOffset: audioLatencyOffset,
@@ -1674,6 +1675,11 @@ const AppState = (function () {
       selectedBarIndexInContainer = data.selectedBarIndexInContainer !== undefined ? data.selectedBarIndexInContainer : selectedBarIndexInContainer;
       controlsAttachedToTrack = data.controlsAttachedToTrack !== undefined ? data.controlsAttachedToTrack : controlsAttachedToTrack;
       isRestMode = data.isRestMode !== undefined ? data.isRestMode : isRestMode;
+      isSliceMode = data.isSliceMode === true;
+      if (isSliceMode) {
+        isRestMode = false;
+        isAccentMode = false;
+      }
       
       if (data.customSounds) {
           customSounds = data.customSounds;

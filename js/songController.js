@@ -14,6 +14,8 @@ let refreshApplicationUI = () => {};
 let canEditSong = true;
 let selectedSectionIndex = 0;
 
+const SNAPSHOT_BAR_KEYS = new Set(["beats", "subdivision", "rests", "velocities", "beatSounds", "beatSlices", "beatSliceAnchors"]);
+
 const SNAPSHOT_TRACK_KEYS = new Set([
   "name", "barSettings", "muted", "solo", "volume", "pitchShift", "swing", "mainBeatSound", "subdivisionSound"
 ]);
@@ -90,6 +92,20 @@ function isSafeSound(value) {
     && isSafeSettings(value.settings);
 }
 
+function isSafeSliceMetadata(value) {
+  return value === undefined || (value && typeof value === "object" && !Array.isArray(value)
+    && Object.entries(value).length <= 512
+    && Object.entries(value).every(([index, count]) => Number.isInteger(Number(index)) && Number(index) >= 0 && Number(index) <= 511
+      && [2, 3, 4, 6, 8, 16, 32].includes(Number(count))));
+}
+
+function isSafeAnchorMetadata(value) {
+  return value === undefined || (value && typeof value === "object" && !Array.isArray(value)
+    && Object.entries(value).length <= 512
+    && Object.entries(value).every(([index, anchor]) => Number.isInteger(Number(index)) && Number(index) >= 0 && Number(index) <= 511
+      && Number.isInteger(Number(anchor)) && Number(anchor) >= 0 && Number(anchor) <= 511));
+}
+
 function isSafeSnapshotTrack(track) {
   if (!track || typeof track !== "object" || Array.isArray(track) || !hasOnlyKeys(track, SNAPSHOT_TRACK_KEYS)) return false;
   if (track.name !== undefined && (typeof track.name !== "string" || track.name.length < 1 || track.name.length > 64)) return false;
@@ -98,11 +114,13 @@ function isSafeSnapshotTrack(track) {
   if (!isSafeSound(track.mainBeatSound) || !isSafeSound(track.subdivisionSound)
     || /^Recording:/i.test(track.mainBeatSound.sound) || /^Recording:/i.test(track.subdivisionSound.sound)) return false;
   return track.barSettings.every(bar => bar && typeof bar === "object" && !Array.isArray(bar)
-    && hasOnlyKeys(bar, new Set(["beats", "subdivision", "rests", "velocities"]))
+    && hasOnlyKeys(bar, SNAPSHOT_BAR_KEYS)
     && Number.isInteger(bar.beats) && bar.beats >= 1 && bar.beats <= 32
     && isFiniteInRange(Number(bar.subdivision), 0.25, 16)
     && Array.isArray(bar.rests) && bar.rests.length <= 256
     && bar.rests.every(rest => Number.isInteger(rest) && rest >= 0 && rest <= 511)
+    && isSafeSliceMetadata(bar.beatSlices)
+    && isSafeAnchorMetadata(bar.beatSliceAnchors)
     && (bar.velocities === undefined || (bar.velocities && typeof bar.velocities === "object" && !Array.isArray(bar.velocities)
       && Object.entries(bar.velocities).every(([index, velocity]) => Number.isInteger(Number(index)) && Number(index) >= 0 && Number(index) <= 511
         && isFiniteInRange(Number(velocity), 0, 1)))));
@@ -133,6 +151,8 @@ function snapshotCurrentTracks() {
       rests: [...(bar.rests || [])].slice(0, 256),
       velocities: { ...(bar.velocities || {}) },
       beatSounds: JSON.parse(JSON.stringify(bar.beatSounds || {})),
+      beatSlices: { ...(bar.beatSlices || {}) },
+      beatSliceAnchors: { ...(bar.beatSliceAnchors || {}) },
     })),
     muted: track.muted === true,
     solo: track.solo === true,
@@ -248,7 +268,7 @@ function reconstructImportedState(state) {
           ? { tracks: section.tracks.map(track => ({
             ...(typeof track.name === "string" ? { name: track.name } : {}),
             barSettings: track.barSettings.map(bar => ({
-              beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests], velocities: { ...(bar.velocities || {}) }, beatSounds: JSON.parse(JSON.stringify(bar.beatSounds || {}))
+              beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests], velocities: { ...(bar.velocities || {}) }, beatSounds: JSON.parse(JSON.stringify(bar.beatSounds || {})), beatSlices: { ...(bar.beatSlices || {}) }, beatSliceAnchors: { ...(bar.beatSliceAnchors || {}) }
             })),
             muted: track.muted,
             solo: track.solo,
@@ -263,7 +283,7 @@ function reconstructImportedState(state) {
     },
     Tracks: state.Tracks.map(track => ({
       ...(typeof track.name === "string" ? { name: track.name } : {}),
-      barSettings: track.barSettings.map(bar => ({ beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests], velocities: { ...(bar.velocities || {}) }, beatSounds: JSON.parse(JSON.stringify(bar.beatSounds || {})) })),
+      barSettings: track.barSettings.map(bar => ({ beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests], velocities: { ...(bar.velocities || {}) }, beatSounds: JSON.parse(JSON.stringify(bar.beatSounds || {})), beatSlices: { ...(bar.beatSlices || {}) }, beatSliceAnchors: { ...(bar.beatSliceAnchors || {}) } })),
       muted: track.muted === true,
       solo: track.solo === true,
       volume: isFiniteInRange(track.volume, 0, 1) ? track.volume : 1,

@@ -811,6 +811,48 @@ test('main playback controls collapse into a desktop floating control card when 
   await expect(controls).toHaveClass(/sticky-active/);
 });
 
+test('presets and Song Mode preserve the unified bar structure including slices', async ({ page }) => {
+  await page.goto('./');
+  const result = await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const { default: SongController } = await import(new URL('js/songController.js', document.baseURI).href);
+    AppState.setBeatSlices(0, 0, 1, 6);
+    const payload = await SongController.createPayload();
+    const preset = payload.state;
+    const sourceTrack = preset.Tracks[0];
+    const sectionTrack = {
+      name: sourceTrack.name,
+      barSettings: sourceTrack.barSettings.map(bar => ({
+        beats: bar.beats,
+        subdivision: bar.subdivision,
+        rests: [...bar.rests],
+        velocities: { ...(bar.velocities || {}) },
+        beatSounds: JSON.parse(JSON.stringify(bar.beatSounds || {})),
+        beatSlices: { ...(bar.beatSlices || {}) },
+        beatSliceAnchors: { ...(bar.beatSliceAnchors || {}) },
+      })),
+      muted: sourceTrack.muted === true,
+      solo: sourceTrack.solo === true,
+      volume: sourceTrack.volume,
+      pitchShift: sourceTrack.pitchShift || 0,
+      swing: sourceTrack.swing || 0,
+      mainBeatSound: JSON.parse(JSON.stringify(sourceTrack.mainBeatSound)),
+      subdivisionSound: JSON.parse(JSON.stringify(sourceTrack.subdivisionSound)),
+    };
+    preset.song.version = 2;
+    preset.song.sections = [{ name: 'Intro', startBar: 0, tempo: preset.tempo, repeats: 1, tracks: [sectionTrack] }];
+    await SongController.applyPayload(payload);
+    const loaded = await AppState.getCurrentStateForPreset(true);
+    return {
+      presetSlices: preset.Tracks[0].barSettings[0].beatSlices,
+      loadedSlices: loaded.Tracks[0].barSettings[0].beatSlices,
+      songSlices: loaded.song.sections[0].tracks[0].barSettings[0].beatSlices,
+    };
+  });
+  expect(result.presetSlices).toEqual({ 1: 6 });
+  expect(result.loadedSlices).toEqual({ 1: 6 });
+  expect(result.songSlices).toEqual({ 1: 6 });
+});
 test('song import rejects malformed state and reconstructs accepted data from an allowlist', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#share-btn')).toHaveClass(/connected/);
