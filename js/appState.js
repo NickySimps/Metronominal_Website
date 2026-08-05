@@ -295,10 +295,10 @@ function normalizeSectionTrack(value, index) {
       ? JSON.parse(JSON.stringify(bar.beatSounds))
       : {},
     beatSlices: bar?.beatSlices && typeof bar.beatSlices === "object" && !Array.isArray(bar.beatSlices)
-      ? Object.fromEntries(Object.entries(bar.beatSlices).filter(([key, value]) => Number.isInteger(Number(key)) && normalizeSliceCount(value) > 1).map(([key, value]) => [key, normalizeSliceCount(value)]))
+      ? Object.fromEntries(Object.entries(bar?.beatSlices).filter(([key, value]) => Number.isInteger(Number(key)) && Number(key) >= 0 && Number(key) <= 511 && normalizeSliceCount(value) > 1).map(([key, value]) => [key, normalizeSliceCount(value)]))
       : {},
     beatSliceAnchors: bar?.beatSliceAnchors && typeof bar.beatSliceAnchors === "object" && !Array.isArray(bar.beatSliceAnchors)
-      ? Object.fromEntries(Object.entries(bar.beatSliceAnchors).filter(([key, value]) => Number.isInteger(Number(key)) && Number.isInteger(Number(value)) && Number(value) >= 0).map(([key, value]) => [key, Number(value)]))
+      ? Object.fromEntries(Object.entries(bar.beatSliceAnchors).filter(([key, value]) => Number.isInteger(Number(key)) && Number(key) >= 0 && Number(key) <= 511 && Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 511).map(([key, value]) => [key, Number(value)]))
       : {},
   })) : [];
   if (!bars.length) return null;
@@ -1038,7 +1038,7 @@ const AppState = (function () {
           ...(structureOptions.subdivision ? { subdivision: 1 } : {}),
         }));
       }
-      const patternOptions = options.pattern === true ? { rests: true, velocities: true, beatSounds: true } : (options.pattern || {});
+      const patternOptions = options.pattern === true ? { rests: true, velocities: true, beatSounds: true, slices: true } : (options.pattern || {});
       if (options.pattern || options.beatSounds) {
         const beatSoundReset = options.beatSounds === true || options.beatSounds?.sounds || options.beatSounds?.settings || patternOptions.beatSounds;
         track.barSettings = track.barSettings.map(bar => ({
@@ -1046,6 +1046,7 @@ const AppState = (function () {
           ...(patternOptions.rests ? { rests: [] } : {}),
           ...(patternOptions.velocities ? { velocities: {} } : {}),
           ...(beatSoundReset ? { beatSounds: {} } : {}),
+          ...(patternOptions.slices ? { beatSlices: {}, beatSliceAnchors: {} } : {}),
         }));
       }
       saveState();

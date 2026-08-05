@@ -106,6 +106,16 @@ function isSafeAnchorMetadata(value) {
       && Number.isInteger(Number(anchor)) && Number(anchor) >= 0 && Number(anchor) <= 511));
 }
 
+function isSafeBeatSounds(value) {
+  return value === undefined || (value && typeof value === "object" && !Array.isArray(value)
+    && Object.entries(value).length <= 512
+    && Object.entries(value).every(([index, overrides]) => Number.isInteger(Number(index)) && Number(index) >= 0 && Number(index) <= 511
+      && overrides && typeof overrides === "object" && !Array.isArray(overrides)
+      && hasOnlyKeys(overrides, new Set(["mainBeatSound", "subdivisionSound"]))
+      && (overrides.mainBeatSound === undefined || isSafeSound(overrides.mainBeatSound))
+      && (overrides.subdivisionSound === undefined || isSafeSound(overrides.subdivisionSound))));
+}
+
 function isSafeSnapshotTrack(track) {
   if (!track || typeof track !== "object" || Array.isArray(track) || !hasOnlyKeys(track, SNAPSHOT_TRACK_KEYS)) return false;
   if (track.name !== undefined && (typeof track.name !== "string" || track.name.length < 1 || track.name.length > 64)) return false;
@@ -119,6 +129,7 @@ function isSafeSnapshotTrack(track) {
     && isFiniteInRange(Number(bar.subdivision), 0.25, 16)
     && Array.isArray(bar.rests) && bar.rests.length <= 256
     && bar.rests.every(rest => Number.isInteger(rest) && rest >= 0 && rest <= 511)
+    && isSafeBeatSounds(bar.beatSounds)
     && isSafeSliceMetadata(bar.beatSlices)
     && isSafeAnchorMetadata(bar.beatSliceAnchors)
     && (bar.velocities === undefined || (bar.velocities && typeof bar.velocities === "object" && !Array.isArray(bar.velocities)
@@ -208,6 +219,10 @@ function validateImportedState(state) {
       if (!bar || typeof bar !== "object" || !Number.isInteger(bar.beats) || bar.beats < 1 || bar.beats > 32) return false;
       if (!isFiniteInRange(Number(bar.subdivision), 0.25, 16)) return false;
       if (!Array.isArray(bar.rests) || bar.rests.length > 512 || bar.rests.some(rest => !Number.isInteger(rest) || rest < 0 || rest > 511)) return false;
+      if (!isSafeBeatSounds(bar.beatSounds) || !isSafeSliceMetadata(bar.beatSlices) || !isSafeAnchorMetadata(bar.beatSliceAnchors)) return false;
+      if (bar.velocities !== undefined && (!bar.velocities || typeof bar.velocities !== "object" || Array.isArray(bar.velocities)
+        || Object.entries(bar.velocities).length > 512
+        || Object.entries(bar.velocities).some(([index, velocity]) => !Number.isInteger(Number(index)) || Number(index) < 0 || Number(index) > 511 || !isFiniteInRange(Number(velocity), 0, 1)))) return false;
     }
   }
   if (state.customSounds !== undefined) {

@@ -186,6 +186,16 @@ test.describe('track slice and action controls', () => {
     expect(Object.keys(slices || {})).not.toHaveLength(0);
     expect(Object.values(slices).every(count => [2, 3, 4, 6, 8, 16, 32].includes(count))).toBe(true);
   });
+  test('resetting the pattern clears slice metadata without changing bar structure', async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+      AppState.setBeatSlices(0, 0, 1, 8);
+      AppState.resetTrack(0, { pattern: { slices: true } });
+      const bar = AppState.getTracks()[0].barSettings[0];
+      return { bars: AppState.getTracks()[0].barSettings.length, beatSlices: bar.beatSlices, beatSliceAnchors: bar.beatSliceAnchors };
+    });
+    expect(result).toEqual({ bars: 1, beatSlices: {}, beatSliceAnchors: {} });
+  });
   test('track reset restores one bar and default main sound', async ({ page }) => {
     await page.evaluate(async () => {
       const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);

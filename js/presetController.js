@@ -42,9 +42,9 @@ const PresetController = {
     });
 
     // Add event listener for the dropdown to auto-load on change
-    DOM.presetSlotSelect.addEventListener("change", () => {
+    DOM.presetSlotSelect.addEventListener("change", async () => {
       const selectedSlot = parseInt(DOM.presetSlotSelect.value, 10);
-      const loadedData = PresetController.loadPreset(selectedSlot);
+      const loadedData = await PresetController.loadPreset(selectedSlot);
       if (loadedData) {
         // 1. Apply the theme from the loaded preset.
         ThemeController.applyTheme(loadedData.theme);
@@ -63,10 +63,10 @@ const PresetController = {
     });
 
     // Add event listener for the "Save" button
-    DOM.savePresetButton.addEventListener("click", () => {
+    DOM.savePresetButton.addEventListener("click", async () => {
       const selectedSlot = parseInt(DOM.presetSlotSelect.value, 10);
       const songName = DOM.presetNameInput.value;
-      const result = PresetController.saveCurrentPreset(selectedSlot, songName);
+      const result = await PresetController.saveCurrentPreset(selectedSlot, songName);
       if (result.success) {
         console.log(
           `Saved preset: "${result.savedSongName}" to slot ${
@@ -131,12 +131,12 @@ const PresetController = {
   /**
    * Saves the current application state to a specific preset slot.
    */
-  saveCurrentPreset: (slotIndex, songName) => {
+  saveCurrentPreset: async (slotIndex, songName) => {
     if (slotIndex < 0 || slotIndex >= NUM_PRESET_SLOTS) {
       console.error("Invalid preset slot index for saving:", slotIndex);
       return { success: false, error: new Error("Invalid slot index") };
     }
-    const presetData = AppState.getCurrentStateForPreset();
+    const presetData = await AppState.getCurrentStateForPreset();
     presetData.songName =
       typeof songName === "string" && songName.trim() !== ""
         ? songName.trim()
@@ -162,7 +162,7 @@ const PresetController = {
   /**
    * Loads a preset from a specific slot.
    */
-  loadPreset: (slotIndex) => {
+  loadPreset: async (slotIndex) => {
     if (slotIndex < 0 || slotIndex >= NUM_PRESET_SLOTS) {
       console.error("Invalid preset slot index for loading:", slotIndex);
       return null;
@@ -177,7 +177,7 @@ const PresetController = {
 
     try {
       const presetData = JSON.parse(presetString);
-      AppState.loadPresetData(presetData);
+      await AppState.loadPresetData(presetData);
       return {
         theme: presetData.selectedTheme || "default",
         songName: presetData.songName || "",

@@ -853,6 +853,22 @@ test('presets and Song Mode preserve the unified bar structure including slices'
   expect(result.loadedSlices).toEqual({ 1: 6 });
   expect(result.songSlices).toEqual({ 1: 6 });
 });
+test('preset controller awaits save/load and restores sliced tracks', async ({ page }) => {
+  await page.goto('./');
+  const result = await page.evaluate(async () => {
+    const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
+    const { default: PresetController } = await import(new URL('js/presetController.js', document.baseURI).href);
+    localStorage.removeItem('metronomePreset_9');
+    AppState.setBeatSlices(0, 0, 1, 8);
+    const saved = await PresetController.saveCurrentPreset(9, 'Round trip');
+    const raw = JSON.parse(localStorage.getItem('metronomePreset_9'));
+    AppState.setBeatSlices(0, 0, 1, 1);
+    const loaded = await PresetController.loadPreset(9);
+    const state = await AppState.getCurrentStateForPreset(true);
+    return { saved: saved.success, rawSlices: raw.Tracks[0].barSettings[0].beatSlices, loaded: loaded.songName, restored: state.Tracks[0].barSettings[0].beatSlices };
+  });
+  expect(result).toEqual({ saved: true, rawSlices: { 1: 8 }, loaded: 'Round trip', restored: { 1: 8 } });
+});
 test('song import rejects malformed state and reconstructs accepted data from an allowlist', async ({ page }) => {
   await page.goto('./');
   await expect(page.locator('#share-btn')).toHaveClass(/connected/);
