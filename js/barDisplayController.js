@@ -91,6 +91,23 @@ function isMainBeat(indexInBar, subdivision, mainBeatsInBar) {
   return result;
 }
 
+function applySliceBadge(beatSquare, barData, slot) {
+  const sourceBeat = slot?.sourceBeat;
+  const count = Number(barData?.beatSlices?.[sourceBeat]);
+  const existingBadge = beatSquare.querySelector(".slice-count-badge");
+  if (existingBadge) existingBadge.remove();
+  beatSquare.removeAttribute("data-slice-count");
+  if (!slot?.mainBeat || !Number.isInteger(count) || count < 2) return;
+  const badge = document.createElement("span");
+  badge.className = "slice-count-badge";
+  badge.textContent = String(count);
+  badge.setAttribute("aria-hidden", "true");
+  beatSquare.appendChild(badge);
+  beatSquare.dataset.sliceCount = String(count);
+  beatSquare.title = `${count} slices`;
+  beatSquare.setAttribute("aria-label", `Beat ${Number(sourceBeat) + 1}, ${count} slices`);
+}
+
 // Helper function to create a beat square element with animation and classes
 function createBeatSquareElement(
   indexInBar,
@@ -840,6 +857,7 @@ const BarDisplayController = {
             beatSquare.classList.toggle("main-beat-marker", Boolean(slot?.mainBeat));
             beatSquare.classList.toggle("subdivision", !slot?.mainBeat);
             beatSquare.dataset.sourceBeat = String(slot?.sourceBeat ?? i);
+            applySliceBadge(beatSquare, barData, slot);
             barDiv.appendChild(beatSquare);
         }
 
@@ -911,6 +929,7 @@ const BarDisplayController = {
                 beatSquare.classList.toggle("main-beat-marker", Boolean(slot?.mainBeat));
                 beatSquare.classList.toggle("subdivision", !slot?.mainBeat);
                 beatSquare.dataset.sourceBeat = String(slot?.sourceBeat ?? i);
+            applySliceBadge(beatSquare, barData, slot);
                 barDiv.appendChild(beatSquare);
             }
         } else if (totalSubBeatsNeeded < currentSubBeatCountInDom) {
@@ -941,6 +960,7 @@ const BarDisplayController = {
               barData.velocities?.[beatIdx],
               hasBeatSoundOverride(barData.beatSounds?.[beatIdx])
             );
+            applySliceBadge(sq, barData, beatSlots[beatIdx]);
         });
 
         const flexBasis = 100 / totalSubBeatsNeeded * 0.9;
@@ -1066,6 +1086,7 @@ const BarDisplayController = {
             beatSquare.classList.toggle("main-beat-marker", Boolean(slot?.mainBeat));
             beatSquare.classList.toggle("subdivision", !slot?.mainBeat);
             beatSquare.dataset.sourceBeat = String(slot?.sourceBeat ?? i);
+            applySliceBadge(beatSquare, barData, slot);
             barDiv.appendChild(beatSquare);
           }
         } else {
@@ -1089,6 +1110,7 @@ const BarDisplayController = {
               beatSquare.classList.toggle("main-beat-marker", Boolean(slot?.mainBeat));
               beatSquare.classList.toggle("subdivision", !slot?.mainBeat);
               beatSquare.dataset.sourceBeat = String(slot?.sourceBeat ?? i);
+            applySliceBadge(beatSquare, barData, slot);
               barDiv.appendChild(beatSquare);
             }
           } else if (totalSubBeatsNeeded < currentSubBeatCountInDom) {
@@ -1126,6 +1148,7 @@ const BarDisplayController = {
               barData.velocities?.[beatIdx],
               hasBeatSoundOverride(barData.beatSounds?.[beatIdx])
             );
+            applySliceBadge(sq, barData, beatSlots[beatIdx]);
           });
         }
 

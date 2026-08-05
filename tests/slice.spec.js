@@ -13,6 +13,14 @@ test.describe('track slice and action controls', () => {
     await expect(page.locator('.slice-btn')).toHaveAttribute('aria-pressed', 'true');
     await bar.locator('.beat-square').nth(1).click();
     await expect.poll(() => bar.locator('.beat-square').count()).toBe(before + 1);
+    await expect(bar.locator('.slice-count-badge')).toHaveText('2');
+    await expect(bar.locator('.beat-square[data-slice-count="2"]')).toHaveAttribute('aria-label', 'Beat 2, 2 slices');
+    const badgeStyle = await bar.locator('.slice-count-badge').evaluate(element => ({
+      background: getComputedStyle(element).backgroundColor,
+      borderRadius: getComputedStyle(element).borderRadius,
+    }));
+    expect(badgeStyle.background).not.toBe('rgba(0, 0, 0, 0)');
+    expect(badgeStyle.borderRadius).not.toBe('0px');
     await expect.poll(() => page.evaluate(async () => {
       const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
       return AppState.getTracks()[0].barSettings[0].beatSlices;

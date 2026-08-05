@@ -14,6 +14,29 @@
 }
 .track-action-row .random-btn { margin-left: auto; }
 .slice-btn.active { color: var(--AccentColor, #fff); box-shadow: 0 0 0 2px var(--AccentColor, currentColor) inset; }
+.beat-square { position: relative; }
+.slice-count-badge {
+  position: absolute;
+  top: 0.18rem;
+  right: 0.18rem;
+  z-index: 2;
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.18rem;
+  box-sizing: border-box;
+  border: 1px solid var(--Highlight, currentColor);
+  border-radius: var(--BorderRadius, 0.35rem);
+  background: var(--Highlight, currentColor);
+  color: var(--ReadableOnHighlight, #000);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+.beat-square.subdivision .slice-count-badge { display: none; }
 .bar-visual.slice-mode-active .beat-square { transition: flex-basis 120ms ease; }
 .track-action-modal[hidden] { display: none; }
 .track-action-modal { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; padding: 1rem; background: rgb(0 0 0 / 0.68); }
