@@ -126,6 +126,20 @@ test.describe('track slice and action controls', () => {
     expect(result.secondClass).toContain('highlighted');
     expect(result.visualCount).toBe(4);
   });
+  test('slice mode never falls through to Beat Edit after mode changes', async ({ page }) => {
+    await page.locator('.beat-edit-btn').click();
+    await page.locator('.slice-btn').click();
+    await expect(page.locator('body')).not.toHaveClass(/beat-edit-mode/);
+    const beat = page.locator('.bar-visual').first().locator('.beat-square').first();
+    await beat.click();
+    await expect(page.locator('#sound-settings-modal')).toBeHidden();
+    await page.locator('.rest-button').click();
+    await beat.click();
+    await expect(page.locator('#sound-settings-modal')).toBeHidden();
+    await page.locator('.accent-button').click();
+    await beat.click();
+    await expect(page.locator('#sound-settings-modal')).toBeHidden();
+  });
   test('Slice mode is mutually exclusive with Rest, Accent, and Beat Edit', async ({ page }) => {
     await page.locator('.slice-btn').click();
     await expect(page.locator('.rest-button')).not.toHaveClass(/active/);

@@ -33,6 +33,7 @@ function syncModeControls() {
   const accentActive = AppState.isAccentMode();
   const sliceActive = AppState.isSliceMode?.() || false;
   document.body.classList.toggle("slice-mode", sliceActive);
+  document.body.classList.toggle("beat-edit-mode", isBeatEditMode);
   document.querySelectorAll(".beat-edit-btn").forEach(button => {
     button.classList.toggle("active", isBeatEditMode);
     button.setAttribute("aria-pressed", String(isBeatEditMode));

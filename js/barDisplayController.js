@@ -120,6 +120,7 @@ function createBeatSquareElement(
   beatSquare.classList.add("beat-square", "newly-added-beat-animation");
   beatSquare.dataset.beatIndex = indexInBar; // Add data-beat-index
   beatSquare.addEventListener("click", (event) => {
+    if (AppState.isSliceMode?.()) return;
     if (!document.body.classList.contains("beat-edit-mode")) return;
     event.stopPropagation();
     const barDiv = beatSquare.closest(".bar-visual");
