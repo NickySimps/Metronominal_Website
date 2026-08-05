@@ -436,13 +436,18 @@ test('song section transitions wait for the longest active track', async ({ page
     AppState.applySongSectionForBar(0);
     return {
       shortTrackNext: AppState.getNextSongPosition(0, 0, 2),
+      conductorAtFirstBar: AppState.getNextSongPosition(0, 0, 4, { useLongestTrack: true }),
       conductorDuringLongTrack: AppState.getNextSongPosition(2, 0, 4, { useLongestTrack: true }),
       conductorAtLastBeat: AppState.getNextSongPosition(3, 0, 4, { useLongestTrack: true }),
     };
   });
   expect(result.shortTrackNext.bar).toBe(1);
+  expect(result.conductorAtFirstBar.bar).toBe(1);
+  expect(result.conductorAtFirstBar.sectionTransition).toBe(false);
   expect(result.conductorDuringLongTrack.bar).toBe(3);
+  expect(result.conductorDuringLongTrack.sectionTransition).toBe(false);
   expect(result.conductorAtLastBeat.bar).toBe(1);
+  expect(result.conductorAtLastBeat.sectionTransition).toBe(true);
 });
   test('song section playback adds and removes runtime tracks to match each section snapshot', async ({ page }) => {
   await page.goto('./');
@@ -554,10 +559,10 @@ test('song v2 normalizes snapshots, repeats section ranges, and derives a missin
     sections: [{ repeats: 2, tracks: [{ name: 'Snapshot' }] }, { repeats: 1 }]
   });
   expect(result.sequence).toEqual([
-    { bar: 1, repeatIteration: 0 },
-    { bar: 0, repeatIteration: 1 },
-    { bar: 1, repeatIteration: 1 },
-    { bar: 2, repeatIteration: 0 }
+    { bar: 1, repeatIteration: 0, sectionTransition: false },
+    { bar: 0, repeatIteration: 1, sectionTransition: false },
+    { bar: 1, repeatIteration: 1, sectionTransition: false },
+    { bar: 2, repeatIteration: 0, sectionTransition: true },
   ]);
 });
 

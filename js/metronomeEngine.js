@@ -238,7 +238,9 @@ function advanceTrackBeat(track) {
             );
             track.currentBar = nextPosition.bar;
             track.songRepeatIteration = nextPosition.repeatIteration;
-            if (track === conductorTrack) AppState.applySongSectionForBar(track.currentBar);
+            if (track === conductorTrack && nextPosition.sectionTransition) {
+                AppState.applySongSectionForBar(track.currentBar);
+            }
         }
     }
 }

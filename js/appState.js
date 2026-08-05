@@ -631,7 +631,7 @@ const AppState = (function () {
         64,
       ));
       const currentBar = Math.max(0, Math.min(Number.parseInt(barIndex, 10) || 0, safeBarCount - 1));
-      if (!song.enabled) return { bar: (currentBar + 1) % safeBarCount, repeatIteration: 0 };
+      if (!song.enabled) return { bar: (currentBar + 1) % safeBarCount, repeatIteration: 0, sectionTransition: false };
       let active;
       if (!useLongestTrack) {
         active = publicAPI.getSongSectionForBar(currentBar);
@@ -648,16 +648,17 @@ const AppState = (function () {
       if (currentBar + 1 < repeatBoundary) return {
         bar: currentBar + 1,
         repeatIteration: Math.max(0, Math.min(Number.parseInt(repeatIteration, 10) || 0, 15)),
+        sectionTransition: false,
       };
       const currentIteration = Math.max(0, Math.min(Number.parseInt(repeatIteration, 10) || 0, 15));
       if (currentIteration + 1 < active.repeats) {
-        return { bar: active.startBar, repeatIteration: currentIteration + 1 };
+        return { bar: active.startBar, repeatIteration: currentIteration + 1, sectionTransition: false };
       }
       if (currentBar + 1 < sectionEnd) {
-        return { bar: currentBar + 1, repeatIteration: 0 };
+        return { bar: currentBar + 1, repeatIteration: 0, sectionTransition: false };
       }
       const transitionBar = nextSection ? nextSection.startBar : 0;
-      return { bar: transitionBar >= safeBarCount ? 0 : transitionBar, repeatIteration: 0 };
+      return { bar: transitionBar >= safeBarCount ? 0 : transitionBar, repeatIteration: 0, sectionTransition: true };
     },
     addTapTimestamp: (timestamp) => {
       if (
