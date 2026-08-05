@@ -1462,6 +1462,31 @@ test.describe('mode controls responsive layout', () => {
   });
 
 
+  test('mode buttons remain contained when desktop has six tracks', async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto('/');
+    for (let count = 1; count < 6; count += 1) await page.locator('#add-track-btn').click();
+    const geometry = await page.evaluate(() => [...document.querySelectorAll('.track')].map((track) => {
+      const parent = track.querySelector('.track-sound-controls')?.getBoundingClientRect();
+      const buttons = [...track.querySelectorAll('.mode-buttons-col button')].map((button) => {
+        const rect = button.getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width };
+      });
+      return {
+        parent: parent && { left: parent.left, right: parent.right, top: parent.top, bottom: parent.bottom, clientWidth: track.querySelector('.track-sound-controls')?.clientWidth, scrollWidth: track.querySelector('.track-sound-controls')?.scrollWidth },
+        buttons,
+      };
+    }));
+    for (const track of geometry) {
+      expect(track.parent.scrollWidth).toBeLessThanOrEqual(track.parent.clientWidth + 1);
+      for (const button of track.buttons) {
+      expect(button.left).toBeGreaterThanOrEqual(track.parent.left - 0.5);
+      expect(button.right).toBeLessThanOrEqual(track.parent.right + 0.5);
+        expect(button.width).toBeGreaterThan(20);
+      }
+    }
+  });
+
   test('desktop track grid fits four controllers and beats never overlap', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/');

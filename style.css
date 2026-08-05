@@ -2815,6 +2815,33 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   line-height: 32px;
 }
 
+@media (min-width: 769px) {
+  .track-sound-controls {
+    gap: 6px;
+  }
+  .edit-buttons-col {
+    flex: 0 1 64px;
+    min-width: 0;
+  }
+  .edit-buttons-col .sound-label {
+    width: 64px;
+    padding-inline: 3px;
+  }
+  .sound-selectors-col {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .mode-buttons-col {
+    flex: 0 1 108px;
+    width: 108px;
+    min-width: 0;
+  }
+  .mode-buttons-col button {
+    padding-inline: 2px;
+    font-size: .7rem;
+  }
+}
+
 .track-bottom-sliders-row {
   display: flex;
   flex-direction: column;

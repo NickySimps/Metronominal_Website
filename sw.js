@@ -1,4 +1,4 @@
-const CACHE_NAME = 'metronominal-v166';
+const CACHE_NAME = 'metronominal-v167';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
