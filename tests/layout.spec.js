@@ -1471,6 +1471,8 @@ test.describe('mode controls responsive layout', () => {
       const parent = track.querySelector('.track-sound-controls')?.getBoundingClientRect();
       const volume = track.querySelector('.track-volume-controls')?.getBoundingClientRect();
       const volumeLabel = track.querySelector('.track-volume-label')?.getBoundingClientRect();
+      const modeLabel = track.querySelector('.mode-buttons-col .mode-label');
+      const modeIcon = track.querySelector('.mode-buttons-col .control-icon');
       const buttons = [...track.querySelectorAll('.mode-buttons-col button')].map((button) => {
         const rect = button.getBoundingClientRect();
         return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width };
@@ -1479,6 +1481,8 @@ test.describe('mode controls responsive layout', () => {
         parent: parent && { left: parent.left, right: parent.right, top: parent.top, bottom: parent.bottom, clientWidth: track.querySelector('.track-sound-controls')?.clientWidth, scrollWidth: track.querySelector('.track-sound-controls')?.scrollWidth },
         volume: volume && { left: volume.left, right: volume.right },
         volumeLabel: volumeLabel && { left: volumeLabel.left, right: volumeLabel.right, scrollWidth: track.querySelector('.track-volume-label')?.scrollWidth, clientWidth: track.querySelector('.track-volume-label')?.clientWidth },
+        modeLabelDisplay: modeLabel && getComputedStyle(modeLabel).display,
+        modeIconDisplay: modeIcon && getComputedStyle(modeIcon).display,
         buttons,
       };
     }));
@@ -1486,6 +1490,8 @@ test.describe('mode controls responsive layout', () => {
       expect(track.parent.scrollWidth).toBeLessThanOrEqual(track.parent.clientWidth + 1);
       expect(track.volumeLabel.right).toBeLessThanOrEqual(track.volume.right + 0.5);
       expect(track.volumeLabel.scrollWidth).toBeLessThanOrEqual(track.volumeLabel.clientWidth + 1);
+      expect(track.modeLabelDisplay).toBe('none');
+      expect(track.modeIconDisplay).not.toBe('none');
       for (const button of track.buttons) {
       expect(button.left).toBeGreaterThanOrEqual(track.parent.left - 0.5);
       expect(button.right).toBeLessThanOrEqual(track.parent.right + 0.5);

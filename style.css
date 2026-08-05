@@ -1989,6 +1989,7 @@ button:active,
 }
 
 .track-volume-controls {
+  container-type: inline-size;
   flex: 0 0 auto;
   display: flex;
   flex-flow: row nowrap;
@@ -2964,7 +2965,28 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   flex: 0 0 8%;
 }
 
+.track-volume-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .2rem;
+}
+.volume-icon {
+  display: none;
+  width: 1.05em;
+  height: 1.05em;
+  flex: 0 0 auto;
+  fill: currentColor;
+}
+
+@container (max-width: 11.25rem) {
+  .track-volume-label .volume-label-text { display: none; }
+  .track-volume-label .volume-icon { display: inline-block; }
+  .track-volume-label { min-width: 2.25rem; padding-inline: .25rem; }
+}
+
 .mode-buttons-col {
+  container-type: inline-size;
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
@@ -2988,6 +3010,17 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   margin: 0;
   border-radius: var(--BorderRadius);
   white-space: nowrap;
+}
+
+.mode-buttons-col .control-icon,
+.mode-buttons-col .mode-label {
+  pointer-events: none;
+}
+
+@container (max-width: 8rem) {
+  .mode-buttons-col .mode-label { display: none; }
+  .mode-buttons-col button { padding-inline: 0; }
+  .mode-buttons-col .control-icon { margin: 0; font-size: 1.05rem; }
 }
 .song-mode-button,
 .rest-button,

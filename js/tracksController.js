@@ -182,7 +182,7 @@ function createTrackElement(track, index) {
         aria-pressed="${track.solo}">${track.solo ? "Unsolo" : "Solo"}</button>
       <button class="track-remove-btn" title="Remove track" aria-label="Remove track">✖</button>
       <div class="track-volume-controls">
-        <span class="track-volume-label">Vol:</span>
+        <span class="track-volume-label"><span class="volume-label-text">Vol:</span><svg class="volume-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M4 9v6h4l5 4V5L8 9H4Zm12.5 3a4.5 4.5 0 0 0-2.5-4.03v8.06A4.5 4.5 0 0 0 16.5 12Zm0-8.5v2.1A7 7 0 0 1 20 12a7 7 0 0 1-3.5 6.4v2.1A9 9 0 0 0 22 12a9 9 0 0 0-5.5-8.5Z"/></svg></span>
         <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${
     track.volume
   }">
@@ -195,7 +195,7 @@ function createTrackElement(track, index) {
       <div class="sound-selection">
         <span class="sound-label">Main:</span>
       </div>
-      <button class="rest-button"><span class="control-icon" aria-hidden="true">○</span> Rest</button>
+      <button class="rest-button"><span class="control-icon" aria-hidden="true">○</span> <span class="mode-label">Rest</span></button>
       <div class="sound-selection">
         <span class="sound-label">Sub:</span>
       </div>
@@ -589,7 +589,7 @@ const TrackController = {
           <button class="random-btn" type="button" aria-label="Randomize pattern" title="Randomize track"><span class="control-icon" aria-hidden="true">↻</span> Rand</button>
         </div>
         <div class="track-volume-controls">
-          <span class="track-volume-label">Vol:</span>
+          <span class="track-volume-label"><span class="volume-label-text">Vol:</span><svg class="volume-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M4 9v6h4l5 4V5L8 9H4Zm12.5 3a4.5 4.5 0 0 0-2.5-4.03v8.06A4.5 4.5 0 0 0 16.5 12Zm0-8.5v2.1A7 7 0 0 1 20 12a7 7 0 0 1-3.5 6.4v2.1A9 9 0 0 0 22 12a9 9 0 0 0-5.5-8.5Z"/></svg></span>
           <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${track.volume ?? 1.0}" title="Track Volume">
           <span class="track-slider-value track-volume-value">${((track.volume ?? 1) * 100).toFixed(0)}%</span>
         </div>
@@ -603,10 +603,10 @@ const TrackController = {
             <div class="sound-selection sub-sound-selection"></div>
           </div>
           <div class="mode-buttons-col">
-            <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode"><span class="control-icon" aria-hidden="true">○</span> Rest</button>
-            <button class="accent-button ${AppState.isAccentMode() ? 'active' : ''}" aria-label="Toggle accent mode" title="Toggle Accent & Ghost Note Mode"><span class="control-icon" aria-hidden="true">▲</span> Accent</button>
-            <button class="beat-edit-btn ${isBeatEditMode ? 'active' : ''}" aria-label="Toggle Beat Edit mode" aria-pressed="${isBeatEditMode}" title="Click a beat to edit its sound"><span class="control-icon" aria-hidden="true">✎</span> Beat</button>
-            <button class="slice-btn ${sliceActive ? 'active' : ''}" aria-label="Toggle Slice mode" aria-pressed="${sliceActive}" title="Slice a beat into glitch stutters"><span class="control-icon" aria-hidden="true">⫽</span> Slice</button>
+            <button class="rest-button ${AppState.isRestMode() ? 'active' : ''}" aria-label="Toggle rest mode" title="Toggle Rest Mode"><span class="control-icon" aria-hidden="true">○</span> <span class="mode-label">Rest</span></button>
+                      <button class="accent-button ${AppState.isAccentMode() ? 'active' : ''}" aria-label="Toggle accent mode" title="Toggle Accent & Ghost Note Mode"><span class="control-icon" aria-hidden="true">▲</span> <span class="mode-label">Accent</span></button>
+                      <button class="beat-edit-btn ${isBeatEditMode ? 'active' : ''}" aria-label="Toggle Beat Edit mode" aria-pressed="${isBeatEditMode}" title="Click a beat to edit its sound"><span class="control-icon" aria-hidden="true">✎</span> <span class="mode-label">Beat</span></button>
+                      <button class="slice-btn ${sliceActive ? 'active' : ''}" aria-label="Toggle Slice mode" aria-pressed="${sliceActive}" title="Slice a beat into glitch stutters"><span class="control-icon" aria-hidden="true">⫽</span> <span class="mode-label">Slice</span></button>
           </div>
         </div>
         <div class="track-bottom-sliders-row">
