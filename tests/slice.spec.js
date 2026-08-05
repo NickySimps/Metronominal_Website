@@ -28,6 +28,28 @@ test.describe('track slice and action controls', () => {
     await expect(bar.locator('.beat-square')).toHaveCount(5);
   });
 
+  test('sliced slots retain playback-control settings for main and subdivision sounds', async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const [{ default: AppState }, { getBeatSlots }] = await Promise.all([
+        import(new URL('js/appState.js', document.baseURI).href),
+        import(new URL('js/beatTiming.js', document.baseURI).href),
+      ]);
+      const track = AppState.getTracks()[0];
+      track.mainBeatSound.settings = { ...track.mainBeatSound.settings, allowOverlap: false, retrigger: true, reverse: true };
+      track.subdivisionSound.settings = { ...track.subdivisionSound.settings, allowOverlap: true, retrigger: false, reverse: true };
+      AppState.setBeatSlices(0, 0, 0, 2);
+      const bar = track.barSettings[0];
+      return getBeatSlots(bar).slice(0, 2).map(slot => {
+        const soundType = slot.mainBeat ? 'mainBeatSound' : 'subdivisionSound';
+        const sound = AppState.getBeatSound(0, 0, slot.index, soundType);
+        return { soundType, allowOverlap: sound.settings.allowOverlap, retrigger: sound.settings.retrigger, reverse: sound.settings.reverse };
+      });
+    });
+    expect(result).toEqual([
+      { soundType: 'mainBeatSound', allowOverlap: false, retrigger: true, reverse: true },
+      { soundType: 'subdivisionSound', allowOverlap: true, retrigger: false, reverse: true },
+    ]);
+  });
   test('Slice mode is mutually exclusive with Rest, Accent, and Beat Edit', async ({ page }) => {
     await page.locator('.slice-btn').click();
     await expect(page.locator('.rest-button')).not.toHaveClass(/active/);

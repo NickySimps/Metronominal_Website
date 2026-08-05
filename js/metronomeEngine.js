@@ -107,8 +107,10 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     const isAccent = slotInfo.mainBeat;
 
     const soundType = isAccent ? 'mainBeatSound' : 'subdivisionSound';
+    const isSlicedBeat = Number(currentBarData.beatSlices?.[slotInfo.sourceBeat]) > 1;
+    const soundLookupBeatIndex = isSlicedBeat ? slotInfo.sourceBeat : beatIndex;
     const soundObject = AppState.getBeatSound
-        ? AppState.getBeatSound(trackIndex, track.currentBar, beatIndex, soundType)
+        ? AppState.getBeatSound(trackIndex, track.currentBar, soundLookupBeatIndex, soundType)
         : track[soundType];
     if (!soundObject || !soundObject.sound) return;
 
