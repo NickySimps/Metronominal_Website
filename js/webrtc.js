@@ -41,6 +41,7 @@ let syncClientCount = 0;
 let latestRoundTripTime = null;
 let lastTimeSyncAt = 0;
 let diagnosticsRefreshTimer = null;
+let shareControlsInitialized = false;
 let receiveChain = Promise.resolve();
 const offsetSamples = [];
 const pendingTimeSyncRequests = new Map();
@@ -785,6 +786,8 @@ export function initializeShareControls() {
   const shareContent = shareModal?.querySelector(".share-modal-content");
 
   if (!shareBtn || !shareModal || !closeBtn || !qrContainer) return;
+  if (shareControlsInitialized) return;
+  shareControlsInitialized = true;
   if (navigator.share && mobileShareBtn) mobileShareBtn.style.display = "flex";
   clearInterval(diagnosticsRefreshTimer);
   diagnosticsRefreshTimer = setInterval(updateDiagnosticsUI, 1000);
