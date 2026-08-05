@@ -97,7 +97,9 @@ function applySliceBadge(beatSquare, barData, slot) {
   const existingBadge = beatSquare.querySelector(".slice-count-badge");
   if (existingBadge) existingBadge.remove();
   beatSquare.removeAttribute("data-slice-count");
-  if (!slot?.mainBeat || !Number.isInteger(count) || count < 2) return;
+  const anchorIndex = Number(barData?.beatSliceAnchors?.[sourceBeat]);
+  const isAnchor = Number.isInteger(anchorIndex) ? slot.index === anchorIndex : slot.mainBeat;
+  if (!isAnchor || !Number.isInteger(count) || count < 2) return;
   const badge = document.createElement("span");
   badge.className = "slice-count-badge";
   badge.textContent = String(count);
@@ -260,7 +262,7 @@ function cycleBeatSlice(trackIndex, barIndex, slotIndex) {
   const counts = [2, 3, 4, 6, 8];
   const current = Number(bar.beatSlices?.[sourceBeat]) || 1;
   const next = counts[counts.indexOf(current) + 1] || 1;
-  AppState.setBeatSlices(trackIndex, barIndex, sourceBeat, next);
+  AppState.setBeatSlices(trackIndex, barIndex, sourceBeat, next, slotIndex);
   AppState.setSelectedTrackIndex(trackIndex);
   AppState.setSelectedBarIndexInContainer(barIndex);
   BarDisplayController.updateBar(trackIndex, barIndex);

@@ -72,6 +72,23 @@ test.describe('track slice and action controls', () => {
       { soundType: 'subdivisionSound', allowOverlap: true, retrigger: false, reverse: true },
     ]);
   });
+  test('badge follows the exact selected sub-beat in a subdivided bar', async ({ page }) => {
+    const result = await page.evaluate(async () => {
+      const [{ default: AppState }, { default: BarDisplayController }] = await Promise.all([
+        import(new URL('js/appState.js', document.baseURI).href),
+        import(new URL('js/barDisplayController.js', document.baseURI).href),
+      ]);
+      AppState.getTracks()[0].barSettings[0].subdivision = 2;
+      BarDisplayController.updateBar(0, 0);
+      return document.querySelectorAll('.bar-visual .beat-square').length;
+    });
+    expect(result).toBe(8);
+    await page.locator('.slice-btn').click();
+    const bar = page.locator('.bar-visual').first();
+    await bar.locator('.beat-square').nth(2).click();
+    await expect(bar.locator('.beat-square[data-beat-index="2"] .slice-count-badge')).toHaveText('2');
+    await expect(bar.locator('.beat-square[data-beat-index="0"] .slice-count-badge')).toHaveCount(0);
+  });
   test('every slice re-triggers the parent beat visual highlight', async ({ page }) => {
     const result = await page.evaluate(async () => {
       const [{ default: AppState }, { default: BarDisplayController }] = await Promise.all([

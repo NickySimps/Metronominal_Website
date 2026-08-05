@@ -297,6 +297,9 @@ function normalizeSectionTrack(value, index) {
     beatSlices: bar?.beatSlices && typeof bar.beatSlices === "object" && !Array.isArray(bar.beatSlices)
       ? Object.fromEntries(Object.entries(bar.beatSlices).filter(([key, value]) => Number.isInteger(Number(key)) && normalizeSliceCount(value) > 1).map(([key, value]) => [key, normalizeSliceCount(value)]))
       : {},
+    beatSliceAnchors: bar?.beatSliceAnchors && typeof bar.beatSliceAnchors === "object" && !Array.isArray(bar.beatSliceAnchors)
+      ? Object.fromEntries(Object.entries(bar.beatSliceAnchors).filter(([key, value]) => Number.isInteger(Number(key)) && Number.isInteger(Number(value)) && Number(value) >= 0).map(([key, value]) => [key, Number(value)]))
+      : {},
   })) : [];
   if (!bars.length) return null;
   return {
@@ -1028,7 +1031,7 @@ const AppState = (function () {
       saveState();
       return true;
     },
-    setBeatSlices: (trackIndex, barIndex, beatIndex, count) => {
+    setBeatSlices: (trackIndex, barIndex, beatIndex, count, anchorIndex = beatIndex) => {
       const bar = Tracks[trackIndex]?.barSettings?.[barIndex];
       if (!bar) return false;
       const oldSlots = getBeatSlots(bar);
@@ -1043,9 +1046,16 @@ const AppState = (function () {
       });
       const normalized = normalizeSliceCount(count);
       bar.beatSlices = { ...(bar.beatSlices || {}) };
-      if (normalized > 1) bar.beatSlices[beatIndex] = normalized;
-      else delete bar.beatSlices[beatIndex];
+      bar.beatSliceAnchors = { ...(bar.beatSliceAnchors || {}) };
+      if (normalized > 1) {
+        bar.beatSlices[beatIndex] = normalized;
+        if (Number.isInteger(Number(anchorIndex)) && Number(anchorIndex) >= 0) bar.beatSliceAnchors[beatIndex] = Number(anchorIndex);
+      } else {
+        delete bar.beatSlices[beatIndex];
+        delete bar.beatSliceAnchors[beatIndex];
+      }
       if (Object.keys(bar.beatSlices).length === 0) delete bar.beatSlices;
+      if (Object.keys(bar.beatSliceAnchors).length === 0) delete bar.beatSliceAnchors;
       const newSlots = getBeatSlots(bar);
       bar.rests = newSlots.filter(slot => oldSourceState.get(slot.sourceBeat)?.rest).map(slot => slot.index);
       bar.velocities = Object.fromEntries(newSlots.filter(slot => oldSourceState.get(slot.sourceBeat)?.velocity !== undefined).map(slot => [slot.index, oldSourceState.get(slot.sourceBeat).velocity]));
