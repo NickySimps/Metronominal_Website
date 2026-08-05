@@ -448,6 +448,22 @@ test.describe('mode controls responsive layout', () => {
     await expect(page.locator('#song-now-playing')).toContainText('175 BPM');
   });
 
+  test('updating a new Song Mode section preserves the prior section snapshot', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#song-mode-enabled').click();
+    const update = index => page.locator(`.song-section-row:nth-child(${index + 1}) [data-song-section-action="update"]`);
+    await update(0).click();
+    await expect(page.locator('.song-section-row').nth(0)).toContainText('1 tracks');
+    await page.locator('#add-song-section-btn').click();
+    await expect(page.locator('.song-section-row')).toHaveCount(2);
+    await update(1).click();
+    await expect(page.locator('.song-section-row').nth(0)).toContainText('1 tracks');
+    await expect(page.locator('.song-section-row').nth(1)).toContainText('1 tracks');
+    await expect(page.locator('.song-section-row').nth(0).locator('.song-section-track-count')).toHaveText('1 tracks');
+    await expect(page.locator('.song-section-row').nth(1).locator('.song-section-track-count')).toHaveText('1 tracks');
+  });
+
+
   test('clicking a bar beat indicator selects that bar before opening subdivision options', async ({ page }) => {
     await page.goto('/');
     await page.locator('.increase-bar-length').click({ clickCount: 2 });

@@ -600,7 +600,7 @@ async function initialize(callback) {
   });
 
 
-  document.getElementById("add-song-section-btn")?.addEventListener("click", () => {
+  document.getElementById("add-song-section-btn")?.addEventListener("click", async () => {
     const song = updatedSongFromFields();
     if (song.sections.length >= 32) return;
     const tracks = AppState.getTracks();
@@ -624,7 +624,7 @@ async function initialize(callback) {
       repeats: 1,
     });
     selectedSectionIndex = song.sections.length - 1;
-    publishSongChange(song);
+    await publishSongChange(song);
     refreshApplicationUI();
   });
   const sectionList = document.getElementById("song-sections-list");
