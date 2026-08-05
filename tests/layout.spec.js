@@ -1177,6 +1177,14 @@ test.describe('mode controls responsive layout', () => {
       else if (['distortion', 'delayMix', 'reverbMix'].includes(param)) await expect(label).toContainText('%');
       else if (['attack', 'decay', 'sustain', 'release', 'pitchEnvelopeTime', 'trimStart', 'trimEnd', 'delayTime'].includes(param)) await expect(label).toContainText('ms');
     }
+    const pitchRedraws = await page.evaluate(async () => {
+      const { default: SoundSettingsModal } = await import(new URL('js/soundSettingsModal.js', document.baseURI).href);
+      let redraws = 0;
+      SoundSettingsModal.refreshSynthWaveform = () => { redraws += 1; };
+      [-12, 0, 12, 24].forEach((value) => SoundSettingsModal.updateSoundSetting('pitchShift', value));
+      return { redraws };
+    });
+    expect(pitchRedraws.redraws).toBe(0);
   });
 
   test('effects modal stays readable and contained at iPhone SE width', async ({ page }) => {

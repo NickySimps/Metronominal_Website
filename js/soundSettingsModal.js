@@ -540,7 +540,7 @@ const SoundSettingsModal = {
     this.saveCurrentSoundInfo(soundInfo);
     sendState(AppState.getCurrentStateForPreset(true));
     if (param === "highPassFrequency" || param === "lowPassFrequency") this.updateFilterFeedback();
-    if (this.drawSynthWaveform) this.refreshSynthWaveform();
+    if (this.drawSynthWaveform && !["pitchShift", "distortion", "delayMix", "delayTime", "delayFeedback", "reverbMix", "reverbFeedback"].includes(param)) this.refreshSynthWaveform();
 
     if (["trimStart", "trimEnd"].includes(param)) {
         if (this.drawWaveformAndTrimLines) {
@@ -575,7 +575,8 @@ const SoundSettingsModal = {
             } else if (param.toLowerCase() === "volume") {
                 valueDisplay.textContent = `${displayValue}%`;
             } else {
-                valueDisplay.textContent = `${displayValue} semitones (${semitonesToInterval(displayValue)})`;
+                const nextText = `${displayValue} semitones (${semitonesToInterval(displayValue)})`;
+                if (valueDisplay.textContent !== nextText) valueDisplay.textContent = nextText;
             }
         }
     }
