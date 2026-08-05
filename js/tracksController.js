@@ -416,8 +416,8 @@ function setSongTransitionDuration(wrapper, tempo) {
   const safeTempo = Math.max(20, Number(tempo) || 120);
   const duration = Math.min(250, 60000 / safeTempo / 4);
   wrapper.style.setProperty("--song-transition-duration", `${duration}ms`);
-  wrapper.style.setProperty("--song-whip-out-duration", `${duration * 0.3}ms`);
-  wrapper.style.setProperty("--song-whip-in-duration", `${duration * 0.7}ms`);
+  wrapper.style.setProperty("--song-whip-out-duration", `${duration * 0.5}ms`);
+  wrapper.style.setProperty("--song-whip-in-duration", `${duration * 0.5}ms`);
   return duration;
 }
 

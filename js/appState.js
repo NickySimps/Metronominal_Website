@@ -590,6 +590,10 @@ const AppState = (function () {
         : publicAPI.getSongSectionForBar(barIndex);
       if (!Array.isArray(section?.tracks)) return false;
       activeSongSectionIndex = section.index;
+      const sectionTempo = Number(section.tempo);
+      if (Number.isFinite(sectionTempo) && sectionTempo > 0 && sectionTempo !== tempo) {
+        publicAPI.setTempo(sectionTempo, { reschedule: false, persist: false });
+      }
       section.tracks.forEach((snapshot, index) => {
         const track = Tracks[index] || (Tracks[index] = {
           ...JSON.parse(JSON.stringify(snapshot)),
