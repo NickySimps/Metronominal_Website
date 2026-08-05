@@ -1401,6 +1401,10 @@ test.describe('mode controls responsive layout', () => {
       document.querySelector('#sound-effects-btn').click();
       const fxHasReset = Boolean(document.querySelector('#sound-effects-modal #reset-sound-btn'));
       document.querySelector('#sound-effects-close').click();
+      const mainSliderParams = [
+        ...[...document.querySelectorAll('#sound-settings-modal [data-param]')].map((slider) => slider.dataset.param),
+        'probability',
+      ];
       const originalAnimateSliderValues = SoundSettingsModal.animateSliderValues.bind(SoundSettingsModal);
       let capturedAnimation;
       SoundSettingsModal.animateSliderValues = (fromValues, toValues) => {
@@ -1418,6 +1422,7 @@ test.describe('mode controls responsive layout', () => {
       return {
         fxHasReset,
         resetAnimation,
+        mainSliderParams,
         capturedAnimation,
         fxValuesAfterSoundReset,
         volume: settings.volume,
@@ -1436,7 +1441,8 @@ test.describe('mode controls responsive layout', () => {
     });
     expect(result.fxHasReset).toBe(false);
     expect(result.resetAnimation).toBe('sound-reset-pulse');
-    expect(result.capturedAnimation.fromValues).toMatchObject({ probability: 35, highPassFrequency: 4000, lowPassFrequency: 9000 });
+    expect(Object.keys(result.capturedAnimation.fromValues).sort()).toEqual([...result.mainSliderParams].sort());
+    expect(Object.keys(result.capturedAnimation.toValues).sort()).toEqual([...result.mainSliderParams].sort());
     expect(result.capturedAnimation.toValues).toMatchObject({ probability: 100, highPassFrequency: 20, lowPassFrequency: 20000 });
     expect(result.fxValuesAfterSoundReset).toEqual({ distortion: '0', delayMix: '0', delayTime: '0', reverbMix: '0' });
     expect(result).toMatchObject({ volume: 1, pitchShift: 0, trimStart: 0, probability: 100, allowOverlap: true, retrigger: true, reverse: false, highPassFrequency: 20, lowPassFrequency: 20000, distortion: 0, delayMix: 0, reverbMix: 0 });
@@ -1653,11 +1659,18 @@ test.describe('mode controls responsive layout', () => {
         reverbFeedback: Boolean(document.querySelector('#sound-effects-modal [data-param="reverbFeedback"]')),
         reset: Boolean(document.querySelector('#effects-reset-btn')),
       };
+      const effectSliderParams = [...document.querySelectorAll('#sound-effects-modal [data-param]')].map((slider) => slider.dataset.param);
+      let capturedAnimation;
+      SoundSettingsModal.animateSliderValues = (fromValues, toValues) => {
+        capturedAnimation = { fromValues, toValues };
+      };
       document.querySelector('#effects-reset-btn').click();
       const settings = AppState.getTracks()[0].mainBeatSound.settings;
-      return { controls, pitchShift: settings.pitchShift, distortion: settings.distortion, delayMix: settings.delayMix, delayFeedback: settings.delayFeedback, reverbMix: settings.reverbMix, reverbFeedback: settings.reverbFeedback };
+      return { controls, effectSliderParams, capturedAnimation, pitchShift: settings.pitchShift, distortion: settings.distortion, delayMix: settings.delayMix, delayFeedback: settings.delayFeedback, reverbMix: settings.reverbMix, reverbFeedback: settings.reverbFeedback };
     });
     expect(result.controls).toEqual({ delayFeedback: true, reverbFeedback: true, reset: true });
+    expect(Object.keys(result.capturedAnimation.fromValues).sort()).toEqual([...result.effectSliderParams].sort());
+    expect(Object.keys(result.capturedAnimation.toValues).sort()).toEqual([...result.effectSliderParams].sort());
     expect(result.pitchShift).toBe(7);
     expect(result.distortion).toBe(0);
     expect(result.delayMix).toBe(0);

@@ -353,6 +353,41 @@ const SoundSettingsModal = {
     return String(Number(value).toFixed(2));
   },
 
+  getResetSoundSettings(soundInfo) {
+    const recordedBuffer = this.currentAudioBuffer;
+    const defaults = AppState.getDefaultSoundSettings(soundInfo.sound) || {};
+    const settings = recordedBuffer
+      ? {
+          volume: 1,
+          trimStart: 0,
+          trimEnd: recordedBuffer.duration,
+          pitchShift: 0,
+          highPassFrequency: 20,
+          lowPassFrequency: 20000,
+          probability: 100,
+          allowOverlap: true,
+          retrigger: true,
+          reverse: false,
+          fxBypass: false,
+        }
+      : JSON.parse(JSON.stringify(defaults));
+
+    const numericDefaults = [
+      ["highPassFrequency", 20],
+      ["lowPassFrequency", 20000],
+      ["distortion", 0],
+      ["delayMix", 0],
+      ["delayTime", 0],
+      ["delayFeedback", 0.25],
+      ["reverbMix", 0],
+      ["reverbFeedback", 0.25],
+    ];
+    numericDefaults.forEach(([param, fallback]) => {
+      settings[param] = Number.isFinite(Number(defaults[param])) ? Number(defaults[param]) : fallback;
+    });
+    return settings;
+  },
+
   getAnimatedSliderValues() {
     const values = Object.fromEntries(
       [...DOM.soundSettingsModal.querySelectorAll("[data-param]")].map((slider) => [slider.dataset.param, Number(slider.value)])
@@ -390,20 +425,27 @@ const SoundSettingsModal = {
   resetEffectsSettings() {
     const soundInfo = this.getCurrentSoundInfo();
     if (!soundInfo) return;
-    const effectParams = ["distortion", "delayMix", "delayTime", "delayFeedback", "reverbMix", "reverbFeedback"];
-    const fromValues = Object.fromEntries(effectParams.map((param) => [param, Number(document.querySelector(`[data-param="${param}"]`)?.value)]));
-    const defaults = AppState.getDefaultSoundSettings(soundInfo.sound) || {};
-    Object.assign(soundInfo.settings, {
-      distortion: Number(defaults.distortion) || 0,
-      delayMix: Number(defaults.delayMix) || 0,
-      delayTime: Number(defaults.delayTime) || 0,
-      delayFeedback: Number.isFinite(Number(defaults.delayFeedback)) ? Number(defaults.delayFeedback) : 0.25,
-      reverbMix: Number(defaults.reverbMix) || 0,
-      reverbFeedback: Number.isFinite(Number(defaults.reverbFeedback)) ? Number(defaults.reverbFeedback) : 0.25,
+    const effectsModal = document.getElementById("sound-effects-modal");
+    const effectParams = [...(effectsModal?.querySelectorAll("[data-param]") || [])]
+      .map((slider) => slider.dataset.param);
+    const fromValues = Object.fromEntries(effectParams.map((param) => [
+      param,
+      Number(effectsModal.querySelector(`[data-param="${param}"]`)?.value),
+    ]));
+    const resetSettings = this.getResetSoundSettings(soundInfo);
+    effectParams.forEach((param) => {
+      const slider = effectsModal.querySelector(`[data-param="${param}"]`);
+      soundInfo.settings[param] = resetSettings[param];
+      if (slider && !Number.isFinite(Number(soundInfo.settings[param]))) {
+        soundInfo.settings[param] = this.sliderValueForSettings(param, Number(slider.value));
+      }
     });
     this.saveCurrentSoundInfo(soundInfo);
     this.currentSoundSettings = soundInfo.settings;
-    const effectValues = Object.fromEntries(effectParams.map((param) => [param, this.sliderValueForSettings(param, soundInfo.settings[param])]));
+    const effectValues = Object.fromEntries(effectParams.map((param) => [
+      param,
+      this.sliderValueForSettings(param, soundInfo.settings[param]),
+    ]));
     this.animateSliderValues(fromValues, effectValues);
     this.updateFilterFeedback();
     sendState(AppState.getCurrentStateForPreset(true));
@@ -440,48 +482,7 @@ const SoundSettingsModal = {
       return;
     }
 
-    let newSettings = {};
-
-    const recordedBuffer = this.currentAudioBuffer;
-    if (recordedBuffer) {
-        newSettings = {
-            volume: 1,
-            trimStart: 0,
-            trimEnd: recordedBuffer.duration,
-            pitchShift: 0,
-            highPassFrequency: 20,
-            lowPassFrequency: 20000,
-            probability: 100,
-            allowOverlap: true,
-            retrigger: true,
-            reverse: false,
-            fxBypass: false,
-            distortion: 0,
-            delayMix: 0,
-            delayTime: 0,
-            reverbMix: 0,
-        };
-    } else {
-        // For synth sounds, get default settings from AppState
-        // If it's a custom sound, reset to ITS saved state, not the global default for the base sound.
-        // Wait, "Reset" usually means reset to factory defaults. 
-        // If I'm editing "My Kick", "Reset" should probably go back to "My Kick" original state.
-        
-        const defaultSettings = AppState.getDefaultSoundSettings(soundInfo.sound);
-        newSettings = JSON.parse(JSON.stringify(defaultSettings));
-    }
-
-    const effectDefaults = AppState.getDefaultSoundSettings(soundInfo.sound) || {};
-    Object.assign(newSettings, {
-        highPassFrequency: Number.isFinite(Number(effectDefaults.highPassFrequency)) ? Number(effectDefaults.highPassFrequency) : 20,
-        lowPassFrequency: Number.isFinite(Number(effectDefaults.lowPassFrequency)) ? Number(effectDefaults.lowPassFrequency) : 20000,
-        distortion: Number(effectDefaults.distortion) || 0,
-        delayMix: Number(effectDefaults.delayMix) || 0,
-        delayTime: Number(effectDefaults.delayTime) || 0,
-        delayFeedback: Number.isFinite(Number(effectDefaults.delayFeedback)) ? Number(effectDefaults.delayFeedback) : 0.25,
-        reverbMix: Number(effectDefaults.reverbMix) || 0,
-        reverbFeedback: Number.isFinite(Number(effectDefaults.reverbFeedback)) ? Number(effectDefaults.reverbFeedback) : 0.25,
-    });
+    const newSettings = this.getResetSoundSettings(soundInfo);
 
     soundInfo.settings = newSettings;
 
