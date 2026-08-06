@@ -35,8 +35,8 @@ metronomeWorker.onmessage = function(e) {
 };
 metronomeWorker.onerror = () => { metronomeWorkerReady = false; };
 
-function terminateMetronomeWorker() {
-    if (!metronomeWorker) return;
+function terminateMetronomeWorker(event) {
+    if (event?.persisted || !metronomeWorker) return;
     try {
         metronomeWorker.postMessage("stop");
         metronomeWorker.terminate();
