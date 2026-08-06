@@ -205,6 +205,7 @@ function expandSnapshotBars(tracks, requiredBars) {
 }
 
 function validateImportedState(state) {
+  if (!AppState.validateNetworkState(state)) return false;
   if (!state || typeof state !== "object" || Array.isArray(state)) return false;
   if (!Number.isInteger(state.tempo) || !isFiniteInRange(state.tempo, 20, 400) || !isFiniteInRange(state.volume, 0, 1)) return false;
   if (state.countInBars !== undefined && (!Number.isInteger(state.countInBars) || state.countInBars < 0 || state.countInBars > 8)) return false;
