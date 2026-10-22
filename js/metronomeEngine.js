@@ -12,6 +12,7 @@ import SoundSynth from './soundSynth.js';
 import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, broadcastSyncPulse, getDesiredHostPlaybackState, isSynchronizationJoined } from './webrtc.js';
 import AudioController from './audioController.js';
 import MidiController from './midiController.js';
+import Monitoring from './monitoring.js';
 import { createSoundFilterInput, getReversedAudioBuffer, renderSynthAudioBuffer } from './audioEffects.js';
 import { getBeatSlots, getSlotInfo, getTotalSlots, getSlotDurationSeconds } from './beatTiming.js';
 
@@ -145,8 +146,8 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     const finalVolume = AppState.getVolume() * trackVolume * soundVolume * beatVelocity;
 
     const destination = isAccent
-        ? (track.mainAnalyserNode || track.analyserNode || audioContext.destination)
-        : (track.subdivisionAnalyserNode || track.analyserNode || audioContext.destination);
+        ? (track.mainAnalyserNode || track.analyserNode || Monitoring.getTrackOutput(audioContext, trackIndex))
+        : (track.subdivisionAnalyserNode || track.analyserNode || Monitoring.getTrackOutput(audioContext, trackIndex));
 
     let baseSoundName = soundToPlay;
     const customSoundData = AppState.getCustomSoundData(soundToPlay);
@@ -427,7 +428,7 @@ const MetronomeEngine = {
             gain.gain.exponentialRampToValueAtTime(Math.max(0.01, AppState.getVolume() * (isAccent ? 0.35 : 0.22)), clickTime + 0.002);
             gain.gain.exponentialRampToValueAtTime(0.0001, clickTime + 0.04);
             source.connect(gain);
-            gain.connect(audioContext.destination);
+            gain.connect(Monitoring.getOutput(audioContext));
             countInSources.add(source);
             source.onended = () => countInSources.delete(source);
             source.start(clickTime);

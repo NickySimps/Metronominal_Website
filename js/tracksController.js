@@ -5,6 +5,7 @@ import BarDisplayController from "./barDisplayController.js";
 import SoundSettingsModal from "./soundSettingsModal.js";
 import AudioController from "./audioController.js";
 import SoundSynth from "./soundSynth.js";
+import Monitoring from './monitoring.js';
 
 function animateRangeValue(input, targetValue, duration = 300) {
   if (!input) return;
@@ -103,11 +104,12 @@ async function previewSound(soundName) {
   const baseSound = customData?.baseSound || soundName;
   const settings = { ...(AppState.getDefaultSoundSettings(soundName) || customData?.settings || {}), volume: 0.8 };
   const playTime = audioContext.currentTime + 0.01;
+  const destination = Monitoring.getTrackOutput(audioContext, activeSoundPicker?.trackIndex);
   if (baseSound.startsWith("Synth")) {
     const synthFunctionName = `play${baseSound.replace("Synth ", "").replace(/ /g, "")}`;
-    if (SoundSynth[synthFunctionName]) SoundSynth[synthFunctionName](audioContext, playTime, settings);
+    if (SoundSynth[synthFunctionName]) SoundSynth[synthFunctionName](audioContext, playTime, settings, destination);
   } else if (AppState.getSoundBuffer(baseSound)) {
-    AudioController.playRecording(baseSound, settings, settings.trimStart || 0, settings.trimEnd || null, playTime, 0.8);
+    AudioController.playRecording(baseSound, settings, settings.trimStart || 0, settings.trimEnd || null, playTime, 0.8, destination);
   }
 }
 
@@ -538,6 +540,7 @@ const TrackController = {
    */
   renderTracks: () => {
     const tracks = AppState.getTracks();
+    Monitoring.syncTracks(tracks);
     const trackWrapper = document.getElementById("all-tracks-wrapper");
     if (!trackWrapper) return;
 

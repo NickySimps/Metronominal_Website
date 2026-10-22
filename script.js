@@ -20,6 +20,7 @@ import StickyControls from './js/stickyControls.js';
 import SongController from './js/songController.js';
 import SpeedTrainerController from './js/speedTrainerController.js';
 import MidiController from './js/midiController.js';
+import MonitoringController from './js/monitoringController.js';
 
 let qrCodeInstance = null;
 let appInitialized = false;
@@ -147,6 +148,7 @@ async function initialize() {
   hideKeyboardShortcutsOnTouch();
   // Theme selection is device-local and must not wait for audio/network I/O.
   ThemeController.initializeThemeControls();
+  MonitoringController.initialize();
   // 1. Initialize AudioContext and handle its state.
   const audioContext = AppState.initializeAudioContext();
 

@@ -1,5 +1,6 @@
 import { audioBufferToWav, wavToArrayBuffer } from './audioSerialization.js';
 import { getBeatSlots, normalizeSliceCount } from './beatTiming.js';
+import Monitoring from './monitoring.js';
 
 /**
  * @typedef {Object} BarSetting
@@ -948,15 +949,6 @@ const publicAPI = {
       mainAnalyserNode: null,
       subdivisionAnalyserNode: null,
       };
-      if (audioContext) {
-        const analyser = audioContext.createAnalyser();
-        analyser.connect(audioContext.destination);
-        newTrack.analyserNode = analyser;
-        newTrack.mainAnalyserNode = audioContext.createAnalyser();
-        newTrack.mainAnalyserNode.connect(analyser);
-        newTrack.subdivisionAnalyserNode = audioContext.createAnalyser();
-        newTrack.subdivisionAnalyserNode.connect(analyser);
-      }
       if (isPlaying && Tracks.length > 0) {
         const referenceTrack = Tracks.find(t => t.barSettings && t.barSettings.length > 0) || Tracks[0];
         const referenceBarSetting = referenceTrack.barSettings[referenceTrack.currentBar];
@@ -1014,6 +1006,7 @@ const publicAPI = {
         newTrack.nextBeatTime = audioContext.currentTime + publicAPI.SCHEDULE_AHEAD_TIME;
       }
       Tracks.push(newTrack);
+      publicAPI.createTrackAnalysers();
       publicAPI.setSelectedTrackIndex(Tracks.length - 1);
       publicAPI.setSelectedBarIndexInContainer(0);
       publicAPI.setControlsAttachedToTrack(true);
@@ -1033,6 +1026,7 @@ const publicAPI = {
         // Remove the track
         disconnectTrackAnalysers(Tracks[indexToRemove]);
         Tracks.splice(indexToRemove, 1);
+        publicAPI.createTrackAnalysers();
 
         if (wasSelected) {
             // The selected track was removed. Select the next closest one.
@@ -1069,6 +1063,7 @@ const publicAPI = {
       copy.mainAnalyserNode = null;
       copy.subdivisionAnalyserNode = null;
       Tracks.push(copy);
+      publicAPI.createTrackAnalysers();
       selectedTrackIndex = Tracks.length - 1;
       selectedBarIndexInContainer = 0;
       saveState();
@@ -1393,12 +1388,14 @@ const publicAPI = {
       }
     },
     createTrackAnalysers: () => {
+      Monitoring.syncTracks(Tracks);
       if (!audioContext) return;
-      Tracks.forEach((track) => {
+      Tracks.forEach((track, index) => {
         if (!track.analyserNode) {
           track.analyserNode = audioContext.createAnalyser();
-          track.analyserNode.connect(audioContext.destination);
         }
+        track.analyserNode.disconnect();
+        track.analyserNode.connect(Monitoring.getTrackOutput(audioContext, index));
         if (!track.mainAnalyserNode) {
           track.mainAnalyserNode = audioContext.createAnalyser();
           track.mainAnalyserNode.connect(track.analyserNode);

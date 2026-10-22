@@ -1,4 +1,4 @@
-const CACHE_NAME = 'metronominal-v186';
+const CACHE_NAME = 'metronominal-v187';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -20,6 +20,8 @@ const ASSETS_TO_CACHE = [
   './js/domSelectors.js',
   './js/metronomeEngine.js',
   './js/metronomeWorker.js',
+  './js/monitoring.js',
+  './js/monitoringController.js',
   './js/oscilloscope.js',
   './js/playbackController.js',
   './js/presetController.js',

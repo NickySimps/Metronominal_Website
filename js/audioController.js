@@ -3,6 +3,7 @@ import AppState from './appState.js';
 import TrackController from './tracksController.js';
 import DOM from './domSelectors.js';
 import RecordingVisualizer from './recordingVisualizer.js';
+import Monitoring from './monitoring.js';
 import { createSoundFilterInput, getReversedAudioBuffer } from './audioEffects.js';
 
 function cleanupRecordingSession() {
@@ -159,7 +160,7 @@ const AudioController = {
         const gainNode = audioContext.createGain();
         gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
         source.connect(gainNode);
-        gainNode.connect(createSoundFilterInput(audioContext, destination || audioContext.destination, soundSettings));
+        gainNode.connect(createSoundFilterInput(audioContext, destination || Monitoring.getOutput(audioContext), soundSettings));
 
         const startOffset = reverse ? audioBuffer.duration - end : offset;
 

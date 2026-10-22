@@ -8,6 +8,7 @@ import Oscilloscope from "./oscilloscope.js";
 import { frequencyToNote, noteToFrequency, noteStrings, generateNoteFrequencies, semitonesToInterval } from "./utils.js";
 import { Slider } from './slider.js';
 import SoundSynth from './soundSynth.js';
+import Monitoring from './monitoring.js';
 import { normalizeFilterSettings, normalizeEffectSettings, createSoundFilterInput, getReversedAudioBuffer, renderSynthAudioBuffer } from './audioEffects.js';
 const SoundSettingsModal = {
   isNoteSnapping: false,
@@ -1587,7 +1588,7 @@ const SoundSettingsModal = {
       const trackVolume = Number.isFinite(track.volume) ? Math.max(0, Math.min(1, track.volume)) : 1;
       output.gain.value = AppState.getVolume() * trackVolume;
       analyser.connect(output);
-      output.connect(audioContext.destination);
+      output.connect(Monitoring.getTrackOutput(audioContext, this.currentTrackIndex));
       this.previewAnalyserNode = analyser;
       this.previewOutputNode = output;
       const source = audioContext.createBufferSource();
