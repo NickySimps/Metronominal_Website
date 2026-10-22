@@ -145,6 +145,8 @@ function hideKeyboardShortcutsOnTouch() {
 
 async function initialize() {
   hideKeyboardShortcutsOnTouch();
+  // Theme selection is device-local and must not wait for audio/network I/O.
+  ThemeController.initializeThemeControls();
   // 1. Initialize AudioContext and handle its state.
   const audioContext = AppState.initializeAudioContext();
 
@@ -163,7 +165,9 @@ async function initialize() {
   // 4. Initialize all controllers.
   Oscilloscope.init(); // INITIALIZE the oscilloscope
   UIController.initializeUIControls(refreshUIFromState);
-  ThemeController.initializeThemeControls();
+  // Loading saved musical state can restore an older theme. Keep the latest
+  // device choice, including a choice made while the audio files were loading.
+  ThemeController.applyTheme(localStorage.getItem('selectedTheme') || AppState.getCurrentTheme());
   TempoController.initializeTempoControls();
   PlaybackController.initializePlaybackControls();
   BarControlsController.initializeBarControls();
@@ -343,8 +347,13 @@ document.addEventListener("DOMContentLoaded", initialize);
 
 // Keyboard shortcut handling
 document.addEventListener("keydown", (event) => {
+  if (event.defaultPrevented || event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement || event.target.isContentEditable) return;
   const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+  // Let focused controls perform their native activation, including descendants.
+  if ((key === " " || key === "Enter") && event.target.closest?.(
+    'button, a[href], summary, [role="button"], [role="link"], audio[controls], video[controls]'
+  )) return;
   switch (key) {
     case " ": // Spacebar: Toggle play/pause
       event.preventDefault();
@@ -365,8 +374,7 @@ document.addEventListener("keydown", (event) => {
       break;
     case "r": // 'r': Reset
       event.preventDefault();
-      AppState.resetState();
-      refreshUIFromState();
+      void UIController.resetToDefaults();
       break;
     case "=": // '=' Increase Tempo
     case "+":

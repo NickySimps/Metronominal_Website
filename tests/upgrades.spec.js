@@ -74,6 +74,41 @@ test.describe('visualizer upgrades', () => {
     expect(matrix.filter(({ changed }) => !changed)).toEqual([]);
   });
 
+  test('reverb visualizer has a visible fallback without canvas filter support', async ({ page }) => {
+    const halo = await page.evaluate(async () => {
+      const { default: scope } = await import(new URL('js/oscilloscope.js', document.baseURI));
+      const canvas = document.createElement('canvas');
+      canvas.width = 80;
+      canvas.height = 80;
+      const context = canvas.getContext('2d');
+      context.fillStyle = 'white';
+      context.fillRect(32, 32, 16, 16);
+      const originalCanvas = scope.canvas;
+      const originalContext = scope.canvasCtx;
+      try {
+        scope.canvas = canvas;
+        scope.canvasCtx = new Proxy(context, {
+          has(target, property) { return property !== 'filter' && property in target; },
+          get(target, property) {
+            const value = Reflect.get(target, property, target);
+            return typeof value === 'function' ? value.bind(target) : value;
+          },
+          set(target, property, value) {
+            if (property === 'filter') throw new Error('Canvas filter is unavailable');
+            return Reflect.set(target, property, value, target);
+          },
+        });
+        scope.ensureEffectCanvases(80, 80);
+        scope.applyVisualizerEffects({ reverb: 1, delay: 0, distortion: 0 });
+        return context.getImageData(16, 36, 1, 1).data[3];
+      } finally {
+        scope.canvas = originalCanvas;
+        scope.canvasCtx = originalContext;
+      }
+    });
+    expect(halo).toBeGreaterThan(0);
+  });
+
   test('distortion visualizer effect keeps rendering instead of throwing', async ({ page }) => {
     const result = await page.evaluate(async () => {
       const { default: Oscilloscope } = await import(new URL('js/oscilloscope.js', document.baseURI).href);

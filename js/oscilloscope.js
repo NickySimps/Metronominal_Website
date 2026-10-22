@@ -635,9 +635,21 @@ const Oscilloscope = {
     this.canvasCtx.clearRect(0, 0, width, height);
     if (effects.reverb > 0) {
       this.canvasCtx.save();
-      this.canvasCtx.filter = `blur(${Math.round(effects.reverb * 18)}px)`;
       this.canvasCtx.globalAlpha = 0.18 + effects.reverb * 0.42;
-      this.canvasCtx.drawImage(this.effectCanvas, 0, 0);
+      const spread = Math.max(1, Math.round(effects.reverb * 18));
+      if ('filter' in this.canvasCtx) {
+        this.canvasCtx.filter = `blur(${spread}px)`;
+        this.canvasCtx.drawImage(this.effectCanvas, 0, 0);
+      } else {
+        // Canvas blur is not available in every engine. A small radial bloom
+        // keeps reverb visible without a readback or a CPU-heavy blur pass.
+        this.canvasCtx.globalAlpha /= 4;
+        for (let step = 0; step < 8; step += 1) {
+          const angle = step * Math.PI / 4;
+          this.canvasCtx.drawImage(this.effectCanvas,
+            Math.round(Math.cos(angle) * spread), Math.round(Math.sin(angle) * spread));
+        }
+      }
       this.canvasCtx.restore();
     }
 

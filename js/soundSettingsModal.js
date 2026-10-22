@@ -781,13 +781,17 @@ const SoundSettingsModal = {
     const sliderWrapper = document.createElement("div");
     sliderWrapper.className = "slider-wrapper";
 
-    const decrementButton = document.createElement("span");
+    const decrementButton = document.createElement("button");
+    decrementButton.type = "button";
+    decrementButton.setAttribute("aria-label", `Decrease ${label.textContent}`);
     decrementButton.className = "slider-button-decrement";
     decrementButton.textContent = "-";
     sliderWrapper.appendChild(decrementButton);
 
     const slider = document.createElement("input");
     slider.type = "range";
+    slider.id = `sound-param-${param}`;
+    label.htmlFor = slider.id;
     slider.min = min;
     slider.max = max;
     slider.step = step;
@@ -795,7 +799,9 @@ const SoundSettingsModal = {
     slider.dataset.param = param;
     sliderWrapper.appendChild(slider);
 
-    const incrementButton = document.createElement("span");
+    const incrementButton = document.createElement("button");
+    incrementButton.type = "button";
+    incrementButton.setAttribute("aria-label", `Increase ${label.textContent}`);
     incrementButton.className = "slider-button-increment";
     incrementButton.textContent = "+";
     sliderWrapper.appendChild(incrementButton);
@@ -1117,7 +1123,7 @@ const SoundSettingsModal = {
     }
 
     const recordedAudioBuffer = AppState.getSoundBuffer(soundNameForBuffer);
-    if (recordedAudioBuffer instanceof AudioBuffer) {
+    if (typeof AudioBuffer !== 'undefined' && recordedAudioBuffer instanceof AudioBuffer) {
         soundInfo.audioBuffer = recordedAudioBuffer; // Temporarily attach audioBuffer for modal's use
         this.currentAudioBuffer = recordedAudioBuffer;
     }
@@ -1205,7 +1211,7 @@ const SoundSettingsModal = {
     if (effectsSlidersContainer) effectsSlidersContainer.innerHTML = "";
     this.sliders = [];
 
-    if (soundInfo.audioBuffer instanceof AudioBuffer) {
+    if (typeof AudioBuffer !== 'undefined' && soundInfo.audioBuffer instanceof AudioBuffer) {
         // Recorded sound
         noteSnapBtn.style.display = 'none';
         quantizeBtn.style.display = 'inline-block';

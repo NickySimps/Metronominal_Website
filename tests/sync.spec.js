@@ -382,6 +382,7 @@ test('song section tempo automation changes the scheduled beat grid', async ({ p
 
 test('song section playback applies section track content at the boundary', async ({ page }) => {
   await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
   await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const state = await AppState.getCurrentStateForPreset(true);
@@ -424,6 +425,7 @@ test('song section playback applies section track content at the boundary', asyn
 });
 test('song mode advances through sections that share the default first-bar start', async ({ page }) => {
   await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
   await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const state = await AppState.getCurrentStateForPreset(true);
@@ -519,6 +521,7 @@ test('song section transitions wait for the longest active track', async ({ page
 test('mobile Song Mode track DOM follows the active section snapshot', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
   const result = await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const state = await AppState.getCurrentStateForPreset(true);
@@ -761,6 +764,7 @@ test('song, rest, and recording controls keep readable contrast in every theme',
 
 test('the theme menu question-mark button generates and persists a new random theme on every press', async ({ page }) => {
   await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
   await page.locator('#theme-menu-toggle').click();
   await expect(page.locator('#theme-menu')).toBeVisible();
   await expect(page.locator('#random-theme-btn')).toHaveText('?');
@@ -846,6 +850,7 @@ test('network state validation accepts all current categories and rejects unsafe
 
 test('presets and Song Mode preserve the unified bar structure including slices', async ({ page }) => {
   await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
   const result = await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const { default: SongController } = await import(new URL('js/songController.js', document.baseURI).href);
@@ -854,7 +859,7 @@ test('presets and Song Mode preserve the unified bar structure including slices'
     const preset = payload.state;
     const sourceTrack = preset.Tracks[0];
     const sectionTrack = {
-      name: sourceTrack.name,
+      name: sourceTrack.name || 'Track 1',
       barSettings: sourceTrack.barSettings.map(bar => ({
         beats: bar.beats,
         subdivision: bar.subdivision,
@@ -888,6 +893,7 @@ test('presets and Song Mode preserve the unified bar structure including slices'
 });
 test('preset controller awaits save/load and restores sliced tracks', async ({ page }) => {
   await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
   const result = await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const { default: PresetController } = await import(new URL('js/presetController.js', document.baseURI).href);

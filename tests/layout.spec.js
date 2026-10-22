@@ -219,6 +219,7 @@ test.describe('mode controls responsive layout', () => {
   test('Synthwave menus stay above track controls at iPhone SE width', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
+    await expect(page.locator('#share-btn')).toHaveClass(/connected/);
     await page.locator('#theme-menu-toggle').click();
     await page.locator('[data-theme="synthwave"]').click();
     await expect(page.locator('#theme-menu')).toBeVisible();
@@ -249,6 +250,12 @@ test.describe('mode controls responsive layout', () => {
     const visualizerGeometry = await page.locator('#visualizer-mode-menu').boundingBox();
     expect(visualizerGeometry.x).toBeGreaterThanOrEqual(0);
     expect(visualizerGeometry.x + visualizerGeometry.width).toBeLessThanOrEqual(320);
+    const uncoveredOptions = await page.locator('#visualizer-mode-menu button').evaluateAll(buttons => buttons.map(button => {
+      const rect = button.getBoundingClientRect();
+      const hit = document.elementFromPoint(rect.left + 6, rect.top + rect.height / 2);
+      return hit?.closest('button') === button;
+    }));
+    expect(uncoveredOptions.every(Boolean)).toBe(true);
     await expect(page).toHaveScreenshot('synthwave-mobile-visualizer-menu.png', { animations: 'disabled' });
   });
 
@@ -1301,7 +1308,7 @@ test.describe('mode controls responsive layout', () => {
         modalZIndex: Number(modalStyle.zIndex),
         contentZIndex: Number(contentStyle.zIndex) || 0,
         contentRadius: contentStyle.borderRadius,
-        themeRadius: getComputedStyle(document.documentElement).getPropertyValue('--BorderRadius').trim(),
+        maxHeight: contentStyle.maxHeight,
         modalOverflowX: modalStyle.overflowX,
         modalOverflowY: modalStyle.overflowY,
         contentOverflowX: contentStyle.overflowX,
@@ -1310,15 +1317,17 @@ test.describe('mode controls responsive layout', () => {
     });
     expect(result.modalZIndex).toBeGreaterThanOrEqual(3000);
     expect(result.contentZIndex).toBeGreaterThanOrEqual(0);
-    expect(result.contentRadius).toBe(result.themeRadius);
+    expect(result.contentRadius).toBe('20px');
+    expect(result.maxHeight).not.toBe('none');
     expect(result.modalOverflowX).toBe('hidden');
     expect(result.modalOverflowY).toBe('auto');
-    expect(result.contentOverflowX).toBe('visible');
-    expect(result.contentOverflowY).toBe('visible');
+    expect(result.contentOverflowX).toBe('auto');
+    expect(result.contentOverflowY).toBe('auto');
   });
 
   test('sound preview and recorded waveform controls are available', async ({ page }) => {
     await page.goto('/');
+    await expect(page.locator('#share-btn')).toHaveClass(/connected/);
     const result = await page.evaluate(async () => {
       const [{ default: SoundSettingsModal }, { default: AppState }] = await Promise.all([
         import(new URL('js/soundSettingsModal.js', document.baseURI).href),
@@ -1363,6 +1372,7 @@ test.describe('mode controls responsive layout', () => {
 
   test('sample overlap and retrigger settings persist when the modal reopens', async ({ page }) => {
     await page.goto('/');
+    await expect(page.locator('#share-btn')).toHaveClass(/connected/);
     const result = await page.evaluate(async () => {
       const [{ default: SoundSettingsModal }, { default: AppState }] = await Promise.all([
         import(new URL('js/soundSettingsModal.js', document.baseURI).href),
@@ -1799,6 +1809,7 @@ test.describe('mode controls responsive layout', () => {
 
   test('desktop Song Mode whips even when the section keeps the same track count', async ({ page }) => {
     await page.goto('/');
+    await expect(page.locator('#share-btn')).toHaveClass(/connected/);
     const result = await page.evaluate(() => {
       const wrapper = document.querySelector('#all-tracks-wrapper');
       wrapper.innerHTML = '<div class="track"></div>';
@@ -2100,6 +2111,7 @@ test.describe('mode controls responsive layout', () => {
   test('visual regression: mobile theme menu', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
+    await expect(page.locator('#share-btn')).toHaveClass(/connected/);
     await page.locator('#theme-menu-toggle').click();
     await expect(page).toHaveScreenshot('theme-menu-mobile.png', { animations: 'disabled' });
   });
@@ -2208,8 +2220,8 @@ test.describe('mode controls responsive layout', () => {
     });
     expect(modalGeometry.pageWidth).toBeLessThanOrEqual(modalGeometry.viewport.width);
     expect(modalGeometry.overlayOverflow).toContain('auto');
-    expect(modalGeometry.surfaceOverflow).toBe('visible');
-    expect(modalGeometry.surfaceRadius).toBe('50%');
+    expect(modalGeometry.surfaceOverflow).toContain('auto');
+    expect(modalGeometry.surfaceRadius).toBe('20px');
     expect(modalGeometry.close.right).toBeLessThanOrEqual(modalGeometry.viewport.width + 1);
     await modal.locator('.close-button').click();
 

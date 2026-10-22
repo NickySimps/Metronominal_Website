@@ -103,10 +103,8 @@ const PresetController = {
 
     // Add event listener for the "Reset" app settings button
     if (DOM.resetPresetButton) {
-      DOM.resetPresetButton.addEventListener("click", () => {
-        AppState.resetState();
-        refreshUIFromState();
-        console.log("Reset metronome settings to default");
+      DOM.resetPresetButton.addEventListener("click", async () => {
+        await UIController.resetToDefaults();
       });
     }
   },
@@ -163,6 +161,7 @@ const PresetController = {
    * Loads a preset from a specific slot.
    */
   loadPreset: async (slotIndex) => {
+    if (!window.isHost) return null;
     if (slotIndex < 0 || slotIndex >= NUM_PRESET_SLOTS) {
       console.error("Invalid preset slot index for loading:", slotIndex);
       return null;

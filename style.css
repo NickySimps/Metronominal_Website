@@ -833,7 +833,7 @@ select {
   padding: 6px;
   z-index: 1300;
   border: 2px solid var(--Main, #fff);
-  border-radius: var(--BorderRadius);
+  border-radius: .75rem;
   background: var(--Background, #111);
   color: var(--TextPrimary, #fff);
   box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
@@ -3152,6 +3152,10 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   margin-bottom: 0;
   font-weight: 600;
 }
+:is(#sound-settings-modal, #sound-effects-modal) .slider-container label {
+  font-size: 1rem;
+  text-shadow: none;
+}
 /* Value chip sits beside its label instead of floating below the slider. */
 .slider-container > span {
   grid-row: 1;
@@ -3173,9 +3177,8 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .slider-container .slider-wrapper { grid-column: 1 / -1; }
 .sound-effects-modal {
@@ -3185,7 +3188,7 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   overflow: auto;
   box-sizing: border-box;
   padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
-  background: color-mix(in srgb, var(--Background) 62%, transparent);
+  background: color-mix(in srgb, var(--Background) 94%, transparent);
   opacity: 0;
   pointer-events: none;
   transition: opacity 180ms ease;
@@ -3200,15 +3203,15 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   box-sizing: border-box;
   width: min(40rem, 100%);
   max-width: 40rem;
-  max-height: calc(100vh - 1rem);
-  max-height: calc(100dvh - 1rem);
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
   margin: auto;
   padding: clamp(1.25rem, 4vw, 2rem);
   align-items: stretch;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  border-radius: var(--BorderRadius);
+  border-radius: 1.25rem;
   border: 1px solid color-mix(in srgb, var(--Accent) 70%, var(--Border));
   box-shadow: 0 1rem 3rem color-mix(in srgb, var(--Main) 45%, transparent);
   transform: translateY(1.5rem) scale(.88) rotate(-1deg);
@@ -3439,6 +3442,14 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   width: 30px;
   text-align-last: center;
   align-items: center;
+  box-sizing: border-box;
+  min-width: 0;
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+  border: 1px solid currentColor;
+  text-shadow: none;
 }
 environments: Development, Staging,
   Production /* Recording Display Modal */ #recording-display-modal {
@@ -3922,21 +3933,13 @@ body.synthwave-theme #sound-settings-modal .modal-content {
     position: relative;
     z-index: 1;
     isolation: isolate;
-    overflow: visible;
-    max-height: none;
-    background: transparent;
-    border: 0;
-    box-shadow: none;
-}
-body.synthwave-theme #sound-settings-modal .modal-content::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
+    box-sizing: border-box;
+    overflow-y: auto;
+    max-height: calc(100vh - 2rem);
+    max-height: calc(100dvh - 2rem);
     background: var(--Background);
     border: 1px solid var(--Alt2);
-    border-radius: var(--BorderRadius);
+    border-radius: 1.25rem;
     box-shadow: var(--text-shadow);
 }
 body.synthwave-theme .song-mode-panel {
@@ -3990,7 +3993,7 @@ body.synthwave-theme .song-section-reorder-actions { min-width: 0; }
 /* Every remaining modal must use the same Synthwave overlay contract. The
    fixed overlay owns scrolling; the oval is decorative and never intercepts
    the controls painted above it. */
-body.synthwave-theme .modal:not(#sound-settings-modal):not(#sound-picker-modal) {
+body.synthwave-theme .modal:not(#sound-settings-modal):not(#sound-picker-modal):not(#sound-effects-modal) {
     z-index: 4000;
     isolation: isolate;
     overflow-y: auto;
@@ -4000,7 +4003,7 @@ body.synthwave-theme .modal:not(#sound-settings-modal):not(#sound-picker-modal) 
     padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
     box-sizing: border-box;
 }
-body.synthwave-theme .modal:not(#sound-settings-modal):not(#sound-picker-modal) .modal-content {
+body.synthwave-theme .modal:not(#sound-settings-modal):not(#sound-picker-modal):not(#sound-effects-modal) .modal-content {
     position: relative;
     z-index: 1;
     isolation: isolate;
@@ -4012,7 +4015,7 @@ body.synthwave-theme .modal:not(#sound-settings-modal):not(#sound-picker-modal) 
     box-shadow: none;
     box-sizing: border-box;
 }
-body.synthwave-theme .modal:not(#sound-settings-modal):not(#sound-picker-modal) .modal-content::before {
+body.synthwave-theme .modal:not(#sound-settings-modal):not(#sound-picker-modal):not(#sound-effects-modal) .modal-content::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -4172,15 +4175,15 @@ body.beat-edit-mode .beat-square {
 #sound-settings-modal .modal-content {
   width: min(700px, 100%);
   max-width: 100%;
-  max-height: calc(100vh - 1rem);
-  max-height: calc(100dvh - 1rem);
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
   margin: auto;
   padding: clamp(.75rem, 2vw, 1.25rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   box-sizing: border-box;
-  border-radius: var(--BorderRadius);
+  border-radius: 1.25rem;
   z-index: 1;
 }
 .sound-settings-bottom-close,

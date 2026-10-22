@@ -14,7 +14,7 @@ import MetronomeEngine from './metronomeEngine.js'; // For stopping engine on re
 import TempoController from './tempoController.js'; // For updating tempo display on reset
 import VolumeController from './volumeController.js';
 import UserInteraction from './userInteraction.js';
-import { enablePlayback, sendState } from './webrtc.js';
+import { enablePlayback, sendState, getDesiredHostPlaybackState } from './webrtc.js';
 
 function isIOS() {
     return [
@@ -48,11 +48,12 @@ const UIController = {
 
 
     resetToDefaults: async () => { // Make resetToDefaults async
+        // This API is also called by keyboard/preset controls, not just the disabled button.
+        if (!window.isHost) return false;
         // 1. Stop Metronome if playing
-        const wasPlaying = AppState.isPlaying();
         const previousTheme = AppState.getCurrentTheme();
 
-        if (AppState.isPlaying()) {
+        if (getDesiredHostPlaybackState()) {
             await MetronomeEngine.togglePlay(); // This will stop the metronome and update its UI
         }
 
@@ -91,7 +92,9 @@ const UIController = {
         }
 
         UIController.updateCurrentPresetDisplay();
+        UIController.refreshUIFromState?.();
         console.log("Metronome reset to defaults.");
+        return true;
     },
 
 
@@ -109,7 +112,8 @@ const UIController = {
         }
     },
 
-    initializeUIControls: () => {
+    initializeUIControls: (refreshUIFromState) => {
+        UIController.refreshUIFromState = refreshUIFromState;
         // Tempo controls - REMOVED (handled by TempoController)
         // Start/Stop button - REMOVED (handled by PlaybackController)
 

@@ -2,10 +2,38 @@ const DEFAULT_HIGH_PASS = 20;
 const DEFAULT_LOW_PASS = 20000;
 const reversedBufferCache = new WeakMap();
 const renderedSynthCache = new WeakMap();
+const synthFunctionIds = new WeakMap();
+let nextSynthFunctionId = 0;
+// Entry limits are shared across all synth identities/settings in each context.
+const MAX_RENDERED_SYNTHS = 32;
+const MAX_REVERSED_BUFFERS = 32;
+const distortionCurveCache = new Map();
+const impulseResponseCache = new WeakMap();
+const MAX_DISTORTION_CURVES = 32;
+const MAX_IMPULSES = 8;
+
+function getCachedResource(cache, key) {
+  if (!cache.has(key)) return undefined;
+  const resource = cache.get(key);
+  cache.delete(key);
+  cache.set(key, resource);
+  return resource;
+}
+
+function cacheResource(cache, key, resource, limit) {
+  cache.set(key, resource);
+  if (cache.size > limit) cache.delete(cache.keys().next().value);
+  return resource;
+}
 
 export function getReversedAudioBuffer(audioContext, audioBuffer) {
   if (!audioContext || !audioBuffer) return audioBuffer;
-  const cached = reversedBufferCache.get(audioBuffer);
+  let contextCache = reversedBufferCache.get(audioContext);
+  if (!contextCache) {
+    contextCache = new Map();
+    reversedBufferCache.set(audioContext, contextCache);
+  }
+  const cached = getCachedResource(contextCache, audioBuffer);
   if (cached) return cached;
 
   const reversed = audioContext.createBuffer(
@@ -20,8 +48,7 @@ export function getReversedAudioBuffer(audioContext, audioBuffer) {
       target[index] = source[source.length - 1 - index];
     }
   }
-  reversedBufferCache.set(audioBuffer, reversed);
-  return reversed;
+  return cacheResource(contextCache, audioBuffer, reversed, MAX_REVERSED_BUFFERS);
 }
 
 export async function renderSynthAudioBuffer(audioContext, synthFunction, settings = {}) {
@@ -31,8 +58,12 @@ export async function renderSynthAudioBuffer(audioContext, synthFunction, settin
     contextCache = new Map();
     renderedSynthCache.set(audioContext, contextCache);
   }
-  const cacheKey = JSON.stringify(settings);
-  if (contextCache.has(cacheKey)) return contextCache.get(cacheKey);
+  if (!synthFunctionIds.has(synthFunction)) {
+    synthFunctionIds.set(synthFunction, ++nextSynthFunctionId);
+  }
+  const cacheKey = JSON.stringify([synthFunctionIds.get(synthFunction), audioContext.sampleRate, settings]);
+  const cached = getCachedResource(contextCache, cacheKey);
+  if (cached) return cached;
 
   const attack = Number(settings.attack) || 0.01;
   const decay = Number(settings.decay) || 0.1;
@@ -40,9 +71,12 @@ export async function renderSynthAudioBuffer(audioContext, synthFunction, settin
   const duration = Math.max(0.2, attack + decay + release + 0.1);
   const offline = new OfflineAudioContext(1, Math.ceil(duration * audioContext.sampleRate), audioContext.sampleRate);
   synthFunction(offline, 0, { ...settings, reverse: false }, offline.destination);
-  const rendering = offline.startRendering();
-  contextCache.set(cacheKey, rendering);
-  return rendering;
+  const rendering = offline.startRendering().catch((error) => {
+    // An evicted in-flight render must not remove a newer request for this key.
+    if (contextCache.get(cacheKey) === rendering) contextCache.delete(cacheKey);
+    throw error;
+  });
+  return cacheResource(contextCache, cacheKey, rendering, MAX_RENDERED_SYNTHS);
 }
 
 function clampFrequency(value, fallback, sampleRate) {
@@ -72,19 +106,29 @@ export function createSoundFilterInput(audioContext, destination, settings = {})
 }
 
 function makeDistortionCurve(amount = 0) {
+  const drive = Math.max(0, Math.min(1, Number(amount) || 0));
+  const cached = getCachedResource(distortionCurveCache, drive);
+  if (cached) return cached;
   const samples = 44100;
   const curve = new Float32Array(samples);
-  const drive = Math.max(0, Math.min(1, Number(amount) || 0));
   const k = drive * 400;
   for (let index = 0; index < samples; index += 1) {
     const x = (index * 2) / samples - 1;
     curve[index] = k === 0 ? x : ((3 + k) * x * 20 * Math.PI / 180) / (Math.PI + k * Math.abs(x));
   }
-  return curve;
+  return cacheResource(distortionCurveCache, drive, curve, MAX_DISTORTION_CURVES);
 }
 
 function createImpulseResponse(audioContext, seconds = 1.2) {
+  let contextCache = impulseResponseCache.get(audioContext);
+  if (!contextCache) {
+    contextCache = new Map();
+    impulseResponseCache.set(audioContext, contextCache);
+  }
   const length = Math.ceil(audioContext.sampleRate * seconds);
+  const cacheKey = `${audioContext.sampleRate}:${length}`;
+  const cached = getCachedResource(contextCache, cacheKey);
+  if (cached) return cached;
   const impulse = audioContext.createBuffer(2, length, audioContext.sampleRate);
   for (let channel = 0; channel < impulse.numberOfChannels; channel += 1) {
     const data = impulse.getChannelData(channel);
@@ -92,7 +136,7 @@ function createImpulseResponse(audioContext, seconds = 1.2) {
       data[index] = (Math.random() * 2 - 1) * Math.pow(1 - index / length, 2.5);
     }
   }
-  return impulse;
+  return cacheResource(contextCache, cacheKey, impulse, MAX_IMPULSES);
 }
 
 export function normalizeEffectSettings(settings = {}) {
