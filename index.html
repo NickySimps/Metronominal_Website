@@ -409,6 +409,7 @@
                     </label>
                     <button id="sound-preview-btn" type="button" class="preset-btn" aria-pressed="false">▶ Preview</button>
                     <button id="sound-effects-btn" type="button" class="preset-btn sound-effects-btn" aria-haspopup="dialog" aria-expanded="false" title="Open pitch, distortion, delay, and reverb controls">FX</button>
+                    <button id="sound-advanced-toggle" type="button" class="preset-btn" aria-expanded="true" aria-controls="sound-sliders-container">Advanced controls</button>
                     <div id="sound-editor-actions" class="sound-editor-actions">
                         <button id="note-snap-btn">Note Snap</button>
                         <button id="quantize-btn" type="button" style="display: none;">Quantize</button>
@@ -421,15 +422,20 @@
                 </div>
             </div>
             <section class="sound-control-category sound-behavior-category" data-control-category="behavior" aria-labelledby="sound-behavior-title">
+                <div class="sound-preview-comparison" role="group" aria-label="Preview comparison" aria-describedby="sound-preview-comparison-help">
+                    <button id="sound-preview-original" type="button" class="preset-btn" aria-pressed="false">A · Original</button>
+                    <button id="sound-preview-edited" type="button" class="preset-btn" aria-pressed="true">B · Edited</button>
+                </div>
+                <p id="sound-preview-comparison-help" class="sound-preview-help">Audition only — switching does not undo your edits.</p>
                 <h3 id="sound-behavior-title" class="sound-control-category-title">Playback & probability</h3>
                 <div class="sample-playback-controls" aria-label="Sample playback behavior">
                     <span class="sample-playback-controls-title" role="heading" aria-level="4">Playback options:</span>
-                    <label><input id="sample-overlap-toggle" type="checkbox" checked /> Allow overlap</label>
-                    <label><input id="sample-retrigger-toggle" type="checkbox" checked /> Retrigger</label>
+                    <label data-editor-advanced><input id="sample-overlap-toggle" type="checkbox" checked /> Allow overlap</label>
+                    <label data-editor-advanced><input id="sample-retrigger-toggle" type="checkbox" checked /> Retrigger</label>
                     <label><input id="sample-reverse-toggle" type="checkbox" /> Reverse</label>
                     <label><input id="sample-fx-toggle" type="checkbox" /> Bypass FX</label>
                 </div>
-                <label class="sample-probability-control" for="sample-probability">
+                <label class="sample-probability-control" for="sample-probability" data-editor-advanced>
                     <span>Probability</span>
                     <input id="sample-probability" type="range" min="0" max="100" step="1" value="100" />
                     <output id="sample-probability-value" for="sample-probability">100%</output>

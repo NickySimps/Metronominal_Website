@@ -27,12 +27,33 @@ const SoundSettingsModal = {
   liveAnalyserNode: null,
   previewAnalyserNode: null,
   previewSource: null,
+  previewOutputNode: null,
+  previewPending: false,
+  previewGeneration: 0,
+  previewVersion: "edited",
+  originalPreviewSound: null,
+  originalPreviewBuffer: null,
+  previewTarget: null,
+  advancedControls: true,
   waveformZoom: 1,
   waveformPan: 0,
   previewTimer: null,
   previouslyFocusedElement: null,
   effectsPreviouslyFocusedElement: null,
   init() {
+    this.advancedControls = true;
+    try {
+      // An older cached shell has no disclosure button: keep every parameter reachable.
+      this.advancedControls = !DOM.soundSettingsModal.querySelector("#sound-advanced-toggle")
+        || localStorage.getItem("metronominal.soundEditorDetail") !== "basic";
+    } catch (_) { /* Keep the existing all-controls view if storage is unavailable. */ }
+    DOM.soundSettingsModal.querySelector("#sound-advanced-toggle")?.addEventListener("click", () => {
+      this.advancedControls = !this.advancedControls;
+      this.updateDetailControls();
+      try {
+        localStorage.setItem("metronominal.soundEditorDetail", this.advancedControls ? "advanced" : "basic");
+      } catch (_) { /* The view remains usable without persistence. */ }
+    });
     const closeButton = DOM.soundSettingsModal.querySelector(".close-button");
     const bottomCloseButton = DOM.soundSettingsModal.querySelector("#sound-settings-bottom-close");
     closeButton.addEventListener("click", () => this.hide());
@@ -131,6 +152,8 @@ const SoundSettingsModal = {
     });
 
     DOM.soundSettingsModal.querySelector("#sound-preview-btn").addEventListener("click", () => this.togglePreview());
+    DOM.soundSettingsModal.querySelector("#sound-preview-original")?.addEventListener("click", () => this.selectPreviewVersion("original"));
+    DOM.soundSettingsModal.querySelector("#sound-preview-edited")?.addEventListener("click", () => this.selectPreviewVersion("edited"));
     DOM.soundSettingsModal.querySelector("#sound-scope-mode-select").addEventListener("change", (e) => {
         this.scopeMode = e.target.value;
     });
@@ -736,6 +759,10 @@ const SoundSettingsModal = {
       controlGroup = document.createElement("section");
       controlGroup.className = `sound-control-category${categoryKey === "envelope" ? " adsr-control-group" : ""}`;
       controlGroup.dataset.controlCategory = categoryKey;
+      if (["synth", "sound", "playback"].includes(categoryKey)) {
+        controlGroup.dataset.editorAdvanced = "";
+        controlGroup.hidden = !this.advancedControls;
+      }
       if (categoryKey === "envelope") {
         controlGroup.setAttribute("role", "group");
         controlGroup.setAttribute("aria-label", "ADSR envelope controls");
@@ -1039,6 +1066,15 @@ const SoundSettingsModal = {
     if (restoreTarget && typeof restoreTarget.focus === "function") requestAnimationFrame(() => restoreTarget.focus());
   },
 
+  updateDetailControls() {
+    const button = DOM.soundSettingsModal.querySelector("#sound-advanced-toggle");
+    button?.setAttribute("aria-expanded", String(this.advancedControls));
+    if (button) button.title = this.advancedControls ? "Hide additional parameters for a simpler editor" : "Show all sound parameters";
+    DOM.soundSettingsModal.querySelectorAll("[data-editor-advanced]").forEach(element => {
+      element.hidden = !this.advancedControls;
+    });
+  },
+
   reorderMainSoundCategories() {
     if (!this.mainSlidersContainer) return;
     const container = this.mainSlidersContainer;
@@ -1180,6 +1216,14 @@ const SoundSettingsModal = {
     soundSettings.probability = Number.isFinite(numericProbability) ? Math.max(0, Math.min(100, numericProbability)) : 100;
     this.currentSoundSettings = soundSettings;
     this.currentSynthWaveformBuffer = null;
+    const previewTarget = [trackIndex, soundType, this.currentBarIndex, this.currentBeatIndex].join(":");
+    if (this.previewTarget !== previewTarget || !this.originalPreviewSound) {
+      this.originalPreviewSound = { sound: soundNameForBuffer, settings: JSON.parse(JSON.stringify(soundSettings)) };
+      this.originalPreviewBuffer = this.currentAudioBuffer;
+      this.previewTarget = previewTarget;
+    }
+    this.previewVersion = "edited";
+    this.updatePreviewControls();
     this.currentSynthWaveformCanvas = null;
     this.drawSynthWaveform = null;
     DOM.soundSettingsModal.querySelector("#sample-overlap-toggle").checked = soundSettings.allowOverlap;
@@ -1436,6 +1480,7 @@ const SoundSettingsModal = {
 
     this.reorderMainSoundCategories();
     DOM.soundSettingsModal.style.display = "block";
+    this.updateDetailControls();
     if (AppState.createTrackAnalysers) AppState.createTrackAnalysers();
     const modalAnalyser = soundType === "mainBeatSound"
       ? track.mainAnalyserNode
@@ -1462,6 +1507,9 @@ const SoundSettingsModal = {
     this.stopPreview();
     DOM.soundSettingsModal.style.display = "none";
     this.stopDrawing();
+    this.originalPreviewSound = null;
+    this.originalPreviewBuffer = null;
+    this.previewTarget = null;
     const restoreTarget = this.previouslyFocusedElement;
     this.previouslyFocusedElement = null;
     if (restoreTarget && typeof restoreTarget.focus === "function") {
@@ -1469,89 +1517,127 @@ const SoundSettingsModal = {
     }
   },
 
+  getPreviewSoundInfo() {
+    const info = this.previewVersion === "original" ? this.originalPreviewSound : this.getCurrentSoundInfo();
+    if (!info) return null;
+    return {
+      sound: AppState.getCustomSoundData(info.sound)?.baseSound || info.sound,
+      settings: { ...(this.previewVersion === "original" ? info.settings : this.currentSoundSettings || info.settings || {}) },
+    };
+  },
+
+  updatePreviewControls() {
+    const active = Boolean(this.previewSource || this.previewPending);
+    const button = DOM.soundSettingsModal.querySelector("#sound-preview-btn");
+    button.textContent = active ? "Stop" : "▶ Preview";
+    button.setAttribute("aria-pressed", String(active));
+    for (const version of ["original", "edited"]) {
+      DOM.soundSettingsModal.querySelector(`#sound-preview-${version}`)?.setAttribute("aria-pressed", String(this.previewVersion === version));
+    }
+  },
+
+  async selectPreviewVersion(version) {
+    if (!["original", "edited"].includes(version) || version === this.previewVersion) return;
+    const wasActive = Boolean(this.previewSource || this.previewPending);
+    this.stopPreview();
+    this.previewVersion = version;
+    this.updatePreviewControls();
+    if (wasActive) await this.togglePreview();
+  },
+
   async togglePreview() {
-    if (this.previewSource) {
+    if (this.previewSource || this.previewPending) {
       this.stopPreview();
-      return;
+      return false;
     }
     const audioContext = AppState.getAudioContext();
     const track = AppState.getTracks()[this.currentTrackIndex];
-    const soundInfo = track?.[this.currentSoundType];
-    if (!audioContext || !soundInfo) return;
-    if (audioContext.state === "suspended") await audioContext.resume();
-
-    const analyser = audioContext.createAnalyser();
-    analyser.connect(audioContext.destination);
-    this.previewAnalyserNode = analyser;
-    const soundData = AppState.getCustomSoundData(soundInfo.sound);
-    const baseSound = soundData?.baseSound || soundInfo.sound;
-    const settings = { ...(this.currentSoundSettings || soundInfo.settings || {}) };
-
-    if (baseSound?.startsWith("Synth")) {
-      const functionName = `play${baseSound.replace("Synth ", "").replace(/ /g, "")}`;
-      if (SoundSynth[functionName]) {
-        const synthSettings = { ...settings, volume: settings.volume ?? 1 };
-        const rendered = await renderSynthAudioBuffer(audioContext, SoundSynth[functionName], synthSettings);
-        if (rendered) {
-          const source = audioContext.createBufferSource();
-          source.buffer = settings.reverse === true ? getReversedAudioBuffer(audioContext, rendered) : rendered;
-          source.connect(createSoundFilterInput(audioContext, analyser, settings));
-          const start = settings.trimStart || 0;
-          const end = settings.trimEnd || rendered.duration;
-          source.start(0, settings.reverse === true ? rendered.duration - end : start, Math.max(0, end - start));
-          source.onended = () => this.stopPreview();
-          this.previewSource = source;
-        }
+    const soundInfo = this.getPreviewSoundInfo();
+    if (!audioContext || !track || !soundInfo) return false;
+    const generation = ++this.previewGeneration;
+    this.previewPending = true;
+    this.updatePreviewControls();
+    try {
+      if (audioContext.state === "suspended") await audioContext.resume();
+      if (generation !== this.previewGeneration) return false;
+      const settings = soundInfo.settings;
+      const isSynth = soundInfo.sound?.startsWith("Synth");
+      let buffer;
+      if (isSynth) {
+        const functionName = `play${soundInfo.sound.replace("Synth ", "").replace(/ /g, "")}`;
+        buffer = await renderSynthAudioBuffer(audioContext, SoundSynth[functionName], settings);
+      } else {
+        buffer = this.previewVersion === "original" && this.originalPreviewBuffer
+          ? this.originalPreviewBuffer : AppState.getSoundBuffer(soundInfo.sound);
       }
-    } else {
-      const buffer = AppState.getSoundBuffer(baseSound);
-      if (buffer) {
-        const source = audioContext.createBufferSource();
+      // A close, Stop, target change, or A/B switch cancels in-flight renders.
+      if (generation !== this.previewGeneration) return false;
+      if (!buffer) {
+        this.stopPreview();
+        return false;
+      }
+      const start = Math.max(0, Math.min(buffer.duration, Number(settings.trimStart) || 0));
+      const end = Math.max(start, Math.min(buffer.duration, Number.isFinite(Number(settings.trimEnd)) ? Number(settings.trimEnd) : buffer.duration));
+      if (end <= start) {
+        this.stopPreview();
+        return false;
+      }
+      const analyser = audioContext.createAnalyser();
+      const output = audioContext.createGain();
+      const trackVolume = Number.isFinite(track.volume) ? Math.max(0, Math.min(1, track.volume)) : 1;
+      output.gain.value = AppState.getVolume() * trackVolume;
+      analyser.connect(output);
+      output.connect(audioContext.destination);
+      this.previewAnalyserNode = analyser;
+      this.previewOutputNode = output;
+      const source = audioContext.createBufferSource();
+      const reverse = settings.reverse === true;
+      source.buffer = reverse ? getReversedAudioBuffer(audioContext, buffer) : buffer;
+      const input = createSoundFilterInput(audioContext, analyser, settings);
+      if (isSynth) {
+        source.connect(input);
+      } else {
         const gain = audioContext.createGain();
-        const playbackRate = Math.pow(2, (settings.pitchShift || 0) / 12);
-        const reverse = settings.reverse === true;
-        source.buffer = reverse ? getReversedAudioBuffer(audioContext, buffer) : buffer;
-        source.playbackRate.value = Math.abs(playbackRate);
-        gain.gain.setValueAtTime(settings.volume ?? 1, audioContext.currentTime);
+        gain.gain.value = settings.volume ?? 1;
+        source.playbackRate.value = Math.pow(2, (settings.pitchShift || 0) / 12);
         source.connect(gain);
-        gain.connect(createSoundFilterInput(audioContext, analyser, settings));
-        const start = settings.trimStart || 0;
-        const end = settings.trimEnd || buffer.duration;
-        source.start(0, reverse ? buffer.duration - end : start, Math.max(0, end - start));
-        source.onended = () => this.stopPreview();
-        this.previewSource = source;
+        gain.connect(input);
       }
-    }
-
-    if (this.previewSource) {
-      const button = DOM.soundSettingsModal.querySelector("#sound-preview-btn");
-      button.textContent = "Stop";
-      button.setAttribute("aria-pressed", "true");
+      this.previewSource = source;
+      source.onended = () => {
+        if (generation === this.previewGeneration && this.previewSource === source) this.stopPreview();
+      };
+      source.start(0, reverse ? buffer.duration - end : start, end - start);
+      this.previewPending = false;
+      this.updatePreviewControls();
       this.startDrawing(analyser);
-      if (this.previewSource.isSynth) {
-        this.previewTimer = window.setTimeout(() => this.stopPreview(), 2500);
-      }
+      return true;
+    } catch (error) {
+      if (generation === this.previewGeneration) this.stopPreview();
+      console.warn("Sound preview could not start:", error.message);
+      return false;
     }
   },
 
   stopPreview() {
+    this.previewGeneration += 1;
+    this.previewPending = false;
     if (this.previewTimer) {
       clearTimeout(this.previewTimer);
       this.previewTimer = null;
     }
     if (this.previewSource && !this.previewSource.isSynth) {
       try { this.previewSource.stop(); } catch (_) { /* already ended */ }
+      this.previewSource.disconnect();
     }
     this.previewSource = null;
     if (this.previewAnalyserNode) {
       try { this.previewAnalyserNode.disconnect(); } catch (_) { /* already disconnected */ }
     }
     this.previewAnalyserNode = null;
-    const button = DOM.soundSettingsModal?.querySelector("#sound-preview-btn");
-    if (button) {
-      button.textContent = "▶ Preview";
-      button.setAttribute("aria-pressed", "false");
-    }
+    this.previewOutputNode?.disconnect();
+    this.previewOutputNode = null;
+    this.updatePreviewControls();
     if (this.liveAnalyserNode) this.startDrawing(this.liveAnalyserNode);
   },
 

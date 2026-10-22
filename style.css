@@ -3324,6 +3324,38 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   height: 2.25rem;
   line-height: 1;
 }
+#sound-settings-modal [data-editor-advanced][hidden] { display: none !important; }
+.sound-preview-comparison {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  width: 100%;
+}
+.sound-preview-comparison button {
+  flex: 1 1 7rem;
+  min-width: 0;
+  min-height: 2.75rem;
+  margin: 0;
+  padding: .5rem .65rem;
+  border-radius: .65rem;
+  background: var(--Highlight);
+  color: var(--ReadableOnHighlight);
+  font: 600 .85rem/1.35 system-ui, sans-serif;
+  text-shadow: none;
+  white-space: normal;
+}
+.sound-preview-comparison button[aria-pressed="true"] {
+  background: var(--Main);
+  color: var(--ReadableOnMain);
+  outline: 2px solid var(--ReadableOnMain);
+  outline-offset: -4px;
+}
+.sound-preview-help {
+  margin: .4rem 0 .65rem;
+  font: .8rem/1.45 system-ui, sans-serif;
+  color: var(--TextPrimary);
+  text-shadow: none;
+}
 #sound-settings-modal .sound-visualization-category {
   position: sticky;
   top: 0;
