@@ -18,13 +18,16 @@ This increment follows sound-editor release `56771bb`.
 - Full Chromium suite: **168 passed, 0 failed, 0 skipped**.
 - Firefox/WebKit selection: **109 passed, 0 failed, 19 explicitly skipped** because this Windows WebKit build lacks the native audio APIs those checks require. Skips are not audio passes.
 - Signaling server suite: **13 passed, 0 failed**. Server source is unchanged.
+- Live production suite after the test-fixture corrections: **44 passed, 0 failed, 0 skipped**. All ten application assets matched the published, tested application; the follow-up corrections change only tests and this verification record.
 - Thirteen focused monitoring checks cover local persistence, live native master/track attenuation, scheduled count-in suppression, audition routing, host/client isolation and transport authority, room rotation, twenty same-layout replays/bus identity, track removal, blocked/malformed preferences, bounded numeric API inputs, defensive state copies, keyboard/mobile geometry and every selectable theme's label/mute-state contrast.
 - Native output tests instrument the actual AudioNode connections to the AudioContext destination and read real analyser samples. The ten-second constant sample is explicitly generated test input, filled before assignment for Firefox; output measurements are not fabricated API responses.
 - Browser `pageerror` collections are asserted empty, including both peers in the shared-room test. Personal controls emit no shared-state or transport-command messages and leave musical snapshots unchanged.
 - Screenshots were visually reviewed at both mobile widths; a wrapped percentage found during review received a failing single-line regression before the CSS correction.
 - The first long full-suite command was interrupted by the execution limit and was not counted. A tracked background rerun completed with exit code zero and fresh 168-test results.
 - Syntax/whitespace checks pass; dependency audit reports zero vulnerabilities.
+- The first live run passed preference persistence but failed raw JSON equality because reload introduced an empty optional `beatSounds` map. A local regression reproduced the same difference before any listening control changed, while resolved beat-sound data stayed identical. The test comparison now clones the snapshot, normalizes only that absent default, and compares all remaining musical content deeply; application code did not change for this correction.
+- Reruns exposed existing Song Mode animation and filter Reset tests acting before controller initialization. The functional layout fixture now waits for connection readiness after navigation, while dedicated held-audio startup checks remain separate. Twenty-five repeated focused Reset/transition checks passed. This correction also changes tests only.
 
-Post-publication production results are recorded with the release verification. Physical iPhone speaker/headphone audibility, Bluetooth routing and interruption recovery remain unverified by these desktop checks.
+Physical iPhone speaker/headphone audibility, Bluetooth routing and interruption recovery remain unverified by these desktop checks.
 
 The other roadmap items, including readiness, handoff/control requests, room recovery, undo/redo, adaptive visualization, cues, setlists and the confidence grid, remain pending.

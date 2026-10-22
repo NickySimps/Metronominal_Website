@@ -1,4 +1,19 @@
-const { test, expect } = require('@playwright/test');
+const { test: base, expect } = require('@playwright/test');
+
+// These are initialized-layout/interaction checks. Startup behavior has its own
+// held-audio regressions in startup-readiness.spec.js and sync.spec.js.
+// Navigation's load event does not await the app's asynchronous initialization.
+const test = base.extend({
+  page: async ({ page }, use) => {
+    const goto = page.goto.bind(page);
+    page.goto = async (...args) => {
+      const response = await goto(...args);
+      await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+      return response;
+    };
+    await use(page);
+  },
+});
 
 test.describe('mode controls responsive layout', () => {
   for (const viewport of [
@@ -1715,6 +1730,7 @@ test.describe('mode controls responsive layout', () => {
 
   test('desktop Song Mode track changes use a blurred right-to-left whip transition', async ({ page }) => {
     await page.goto('/');
+    await expect(page.locator('#share-btn')).toHaveClass(/connected/);
     const result = await page.evaluate(() => {
       const wrapper = document.querySelector('#all-tracks-wrapper');
       wrapper.innerHTML = '<div class="track"></div>';

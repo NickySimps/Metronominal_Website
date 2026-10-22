@@ -22,18 +22,38 @@ async function setLevel(locator, value) {
 async function sharedState(page) {
   return page.evaluate(async () => {
     const { default: app } = await import(new URL('js/appState.js', document.baseURI));
-    return JSON.stringify(await app.getCurrentStateForPreset(true));
+    const state = structuredClone(await app.getCurrentStateForPreset(true));
+    // Compare musical content, not absent versus empty optional override maps.
+    // Clone first: an assertion helper must never normalize live application state.
+    for (const track of state.Tracks) {
+      for (const bar of track.barSettings) {
+        if (bar.beatSounds === undefined) bar.beatSounds = {};
+      }
+    }
+    return state;
   });
 }
 
 test('device listening level and mute stay local and persist across reload', async ({ page }) => {
   await ready(page);
   const before = await sharedState(page);
+  const sameSound = await page.evaluate(async () => {
+    const { default: app } = await import(new URL('js/appState.js', document.baseURI));
+    const sound = JSON.stringify(app.getBeatSound(0, 0, 0, 'mainBeatSound'));
+    const snapshot = await app.getCurrentStateForPreset(true);
+    // Reproduce the legal default-map normalization observed on live reload,
+    // before touching any personal listening controls.
+    snapshot.Tracks[0].barSettings[0].beatSounds ??= {};
+    await app.loadPresetData(snapshot);
+    return sound === JSON.stringify(app.getBeatSound(0, 0, 0, 'mainBeatSound'));
+  });
+  expect(sameSound).toBe(true);
+  expect(await sharedState(page)).toEqual(before);
   await page.locator('#personal-monitoring summary').click();
   await setLevel(page.getByLabel('Device listening level', { exact: true }), 0.35);
   await page.getByRole('button', { name: 'Mute my sound', exact: true }).click();
   await expect(page.locator('#monitor-summary')).toHaveText('Muted');
-  expect(await sharedState(page)).toBe(before);
+  expect(await sharedState(page)).toEqual(before);
   await page.reload();
   await expect(page.locator('#share-btn')).toHaveClass(/connected/);
   await expect(page.locator('#monitor-summary')).toHaveText('Muted');
@@ -41,7 +61,7 @@ test('device listening level and mute stay local and persist across reload', asy
   await expect(page.getByLabel('Device listening level', { exact: true })).toHaveValue('0.35');
   await page.getByRole('button', { name: 'Unmute my sound', exact: true }).click();
   await expect(page.locator('#monitor-summary')).toHaveText('35%');
-  expect(await sharedState(page)).toBe(before);
+  expect(await sharedState(page)).toEqual(before);
 });
 
 async function instrumentOutputs(page) {
@@ -131,7 +151,7 @@ test('per-track listening levels independently attenuate native output without e
   await expectPeak(page, 0.02);
   await page.getByRole('button', { name: 'Unmute Track 1 for me', exact: true }).click();
   await expectPeak(page, 0.06);
-  expect(await sharedState(page)).toBe(before);
+  expect(await sharedState(page)).toEqual(before);
 });
 
 test('room rotation clears slot-specific listening choices without losing the device level', async ({ page }) => {
@@ -232,7 +252,7 @@ test('a joined client can mute its monitor while the host and synchronized trans
     await setLevel(client.getByLabel('Track 1 listening level', { exact: true }), 0.4);
     await client.getByRole('button', { name: 'Mute my sound', exact: true }).click();
     expect(await client.evaluate(() => window.monitorSharedWrites)).toEqual([]);
-    expect(await sharedState(host)).toBe(before);
+    expect(await sharedState(host)).toEqual(before);
     await expect(host.locator('#monitor-summary')).toHaveText('100%');
     expect(await host.evaluate(() => localStorage.getItem('metronominal.monitoring'))).not.toContain('0.25');
     // The local control is not a second transport: host changes still arrive.
