@@ -482,6 +482,7 @@ const AppState = (function () {
 
   // --- Private Functions ---
   let saveStateTimeout = null;
+  let presetLoadGeneration = 0;
 
   const saveStateImmediate = async () => {
     try {
@@ -1552,9 +1553,14 @@ const publicAPI = {
 
       return state;
     },
-    loadPresetData: async (data) => {
-      if (!data) return;
-      
+    loadPresetData: async (data, options = {}) => {
+      if (!data || (options.guard && !options.guard())) return;
+      const loadGeneration = ++presetLoadGeneration;
+      const current = () => loadGeneration === presetLoadGeneration && (!options.guard || options.guard());
+      const localBefore = options.history === 'local' ? publicAPI.getMusicalSnapshot() : null;
+      if (!['local', 'replay'].includes(options.history) && typeof document !== 'undefined') {
+        document.dispatchEvent(new CustomEvent('historyboundary'));
+      }
       const oldTempo = tempo;
       if (data.tempo !== undefined) {
         tempo = data.tempo;
@@ -1772,6 +1778,7 @@ const publicAPI = {
           try {
             const wavBuffer = base64ToArrayBuffer(base64Wav);
             const audioBuffer = await wavToArrayBuffer(wavBuffer, audioContext);
+            if (!current()) return;
             soundBuffers[name] = audioBuffer;
             recordings.push(name); // Add name back to recordings array
           } catch (e) {
@@ -1780,9 +1787,14 @@ const publicAPI = {
         }
       }
 
+      if (!current()) return;
       // isPlaying is handled by webrtc.js explicitly to avoid race conditions
       // isPlaying = data.isPlaying || false;
       saveState();
+      if (localBefore) {
+        const after = publicAPI.getMusicalSnapshot();
+        for (const listener of mutationListeners) listener({ before: localBefore, after, label: 'Load arrangement', args: [] });
+      }
       document.dispatchEvent(new CustomEvent("appstatechange"));
     },
 
@@ -1852,6 +1864,79 @@ const publicAPI = {
       }
       saveState();
     },
+  };
+  // Explicit musical mutation seam. Runtime/audio/device state is never captured.
+  const mutationListeners = new Set();
+  const trackKeys = ['name', 'muted', 'solo', 'volume', 'pitchShift', 'swing', 'barSettings', 'mainBeatSound', 'subdivisionSound'];
+  function cloneMusical(value, depth = 0) {
+    if (depth > 16) return undefined;
+    if (value === null || typeof value === 'boolean' || typeof value === 'string') return value;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+    if (!value || typeof value !== 'object') return undefined;
+    if (Array.isArray(value)) return value.slice(0, 512).map(item => cloneMusical(item, depth + 1));
+    if (Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) return undefined;
+    return Object.fromEntries(Object.entries(value).filter(([key]) => !/node|context|buffer|recording|credential|password|apiKey|audioData|privateAudio|token|secret|clock|transport|currentBar|currentBeat|nextBeatTime|isPlaying|monitor|theme|__proto__|constructor|prototype/i.test(key))
+      .map(([key, child]) => [key, cloneMusical(child, depth + 1)]).filter(([, child]) => child !== undefined));
+  }
+  function snapshotSound(value) {
+    return value ? { sound: value.sound, settings: cloneMusical(value.settings || {}) } : value;
+  }
+  function snapshotBar(bar) {
+    const keys = ['beats', 'subdivision', 'rests', 'velocities', 'beatSlices', 'beatSliceAnchors'];
+    const copy = Object.fromEntries(keys.filter(key => bar[key] !== undefined).map(key => [key, cloneMusical(bar[key])]));
+    if (bar.beatSounds) copy.beatSounds = Object.fromEntries(Object.entries(bar.beatSounds).map(([index, overrides]) => [index,
+      Object.fromEntries(['mainBeatSound', 'subdivisionSound'].filter(key => overrides[key]).map(key => [key, snapshotSound(overrides[key])]))]));
+    return copy;
+  }
+  function snapshotTrack(track) {
+    return Object.fromEntries(trackKeys.filter(key => track[key] !== undefined).map(key => [key,
+      key === 'barSettings' ? track[key].map(snapshotBar)
+        : ['mainBeatSound', 'subdivisionSound'].includes(key) ? snapshotSound(track[key]) : cloneMusical(track[key])]));
+  }
+  publicAPI.getMusicalSnapshot = () => ({
+    tempo, volume, countInBars,
+    customSounds: Object.fromEntries(Object.entries(customSounds).map(([name, value]) => [name, cloneMusical({ baseSound: value.baseSound, settings: value.settings })])),
+    Tracks: Tracks.map(snapshotTrack),
+    song: cloneMusical({ version: song.version, enabled: song.enabled, name: song.name, sections: song.sections.map(section => ({
+      name: section.name, startBar: section.startBar, tempo: section.tempo, repeats: section.repeats,
+      ...(section.tracks ? { tracks: section.tracks.map(snapshotTrack) } : {}),
+    })) }),
+  });
+  publicAPI.subscribeMusicalMutations = listener => {
+    mutationListeners.add(listener);
+    return () => mutationListeners.delete(listener);
+  };
+  const musicalMethods = ['setTempo', 'setVolume', 'setCountInBars', 'setSong', 'addTrack', 'removeTrack', 'duplicateTrack', 'duplicateBar', 'resetTrack', 'setBeatSlices', 'updateTrack', 'toggleSolo', 'updateBarArray', 'increaseBeatsForSelectedBar', 'decreaseBeatsForSelectedBar', 'setSubdivisionForSelectedBar', 'setBeatSound', 'clearBeatSound', 'toggleBeatRest', 'resetState', 'addCustomSound', 'deleteCustomSound', 'renameCustomSound'];
+  let mutationDepth = 0;
+  for (const method of musicalMethods) {
+    const original = publicAPI[method];
+    publicAPI[method] = (...args) => {
+      const outer = mutationDepth++ === 0;
+      const before = outer && mutationListeners.size ? publicAPI.getMusicalSnapshot() : null;
+      try { return original(...args); }
+      finally {
+        mutationDepth--;
+        if (before) {
+          const after = publicAPI.getMusicalSnapshot();
+          // Legacy controllers sometimes mutate a nested object before updateTrack.
+          // Notify even on identical before/after: subscribers retain their last baseline.
+          for (const listener of mutationListeners) listener({ before, after, label: method, args });
+        }
+      }
+    };
+  }
+  publicAPI.applyMusicalSnapshot = async (snapshot, guard = () => true) => {
+    if (!guard() || isPlaying) return false;
+    const data = cloneMusical(snapshot);
+    // Preset names are identifiers, not metadata keys (e.g. 'Clockwork').
+    data.customSounds = Object.fromEntries(Object.entries(snapshot.customSounds || {}).map(([name, value]) => [name, cloneMusical(value)]));
+    data.Tracks = data.Tracks.map(track => ({ ...track, currentBar: 0, currentBeat: 0, nextBeatTime: 0 }));
+    // Keep local editor modes; the preset loader remains the reconstruction owner.
+    Object.assign(data, { isRestMode, isAccentMode, isSliceMode,
+      selectedTrackIndex: Math.max(0, Math.min(selectedTrackIndex, data.Tracks.length - 1)) });
+    data.selectedBarIndexInContainer = Math.min(selectedBarIndexInContainer, (data.Tracks[data.selectedTrackIndex]?.barSettings.length || 0) - 1);
+    await publicAPI.loadPresetData(data, { history: 'replay', guard });
+    return guard();
   };
   return publicAPI;
 })();

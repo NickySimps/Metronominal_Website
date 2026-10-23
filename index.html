@@ -9,6 +9,12 @@
         content="Metronominal: An interactive mathrock metronome to practice complex rhythms and time signatures. Adjust BPM, beats per measure, and bars." />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="track-actions.css" />
+    <link rel="stylesheet" href="rehearsal-tools.css" />
+    <link rel="stylesheet" href="rehearsal-room.css" />
+    <link rel="stylesheet" href="edit-history.css" />
+    <link rel="stylesheet" href="rehearsal-library.css" />
+    <link rel="stylesheet" href="adaptive-visualization.css" />
+    <link rel="stylesheet" href="beat-precision.css" />
     <link rel="icon" href="assets/logo.jpg" type="image/jpeg" />
     <link rel="manifest" href="manifest.json" />
     <meta name="theme-color" content="#00b430" />
@@ -342,10 +348,16 @@
             </div>
 
 
+            <section id="beat-precision-controls" aria-label="Precision beat selection"></section>
             <div class="bar-display">
                 <div id="all-tracks-wrapper"></div>
             </div>
             <button id="add-track-btn" aria-label="Add track" title="Add track">+ Track</button>
+            <details id="rehearsal-tools-panel" class="rehearsal-tools-panel">
+                <summary>Rehearsal tools</summary>
+                <p id="rehearsal-tools-status" role="status">Preparing rehearsal controls…</p>
+                <div id="rehearsal-tools"></div>
+            </details>
             <div class="preset-controls">
                 <h3 id="current-preset-display-heading">Metronominal</h3>
             </div>

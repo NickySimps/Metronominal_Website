@@ -9,6 +9,7 @@ import DOM from './domSelectors.js';
 import ThemeController from './themeController.js';
 import BarDisplayController from './barDisplayController.js';
 import SoundSynth from './soundSynth.js';
+import AudioPlaybackLifetime from './audioPlaybackLifetime.js';
 import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, broadcastSyncPulse, getDesiredHostPlaybackState, isSynchronizationJoined } from './webrtc.js';
 import AudioController from './audioController.js';
 import MidiController from './midiController.js';
@@ -22,6 +23,12 @@ let drawFrameId = null; // Holds the requestAnimationFrame ID for the visual loo
 let isPageVisible = true;
 let visualQueue = []; // Queue for visual events
 const countInSources = new Set();
+let playbackLifetime = null;
+let countInGeneration = 0;
+function ensurePlaybackLifetime() {
+    if (!playbackLifetime?.active) playbackLifetime = new AudioPlaybackLifetime();
+    return playbackLifetime;
+}
 let lastSyncPulseTime = 0;
 const SYNC_PULSE_INTERVAL = 2000; // Broadcast sync pulse every 2 seconds
 
@@ -39,7 +46,7 @@ metronomeWorker.onerror = () => { metronomeWorkerReady = false; };
 function terminateMetronomeWorker(event) {
     if (event?.persisted || !metronomeWorker) return;
     try {
-        metronomeWorker.postMessage("stop");
+        metronomeWorker?.postMessage("stop");
         metronomeWorker.terminate();
     } finally {
         metronomeWorker = null;
@@ -105,6 +112,8 @@ export function isRestedSlot(bar, slotIndex, slotInfo = getSlotInfo(bar, slotInd
 const activeSynthVoices = new Map();
 
 function playBeatSound(track, beatTime, trackIndex = 0) {
+    const lifetime = playbackLifetime;
+    if (!lifetime?.active) return;
     const audioContext = AppState.getAudioContext();
     const isAnySoloed = AppState.isAnyTrackSoloed();
     const canPlay = !isAnySoloed ? !track.muted : track.solo;
@@ -145,9 +154,11 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     const soundVolume = soundObject.settings && soundObject.settings.volume !== undefined ? soundObject.settings.volume : 1.0;
     const finalVolume = AppState.getVolume() * trackVolume * soundVolume * beatVelocity;
 
-    const destination = isAccent
+    const trackDestination = isAccent
         ? (track.mainAnalyserNode || track.analyserNode || Monitoring.getTrackOutput(audioContext, trackIndex))
         : (track.subdivisionAnalyserNode || track.analyserNode || Monitoring.getTrackOutput(audioContext, trackIndex));
+
+    const destination = lifetime.output(audioContext, trackDestination);
 
     let baseSoundName = soundToPlay;
     const customSoundData = AppState.getCustomSoundData(soundToPlay);
@@ -192,11 +203,12 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
             synthVoiceGain.connect(createSoundFilterInput(audioContext, destination, mergedSettings));
             const hasExplicitTrim = Number.isFinite(Number(soundSettings.trimStart)) || Number.isFinite(Number(soundSettings.trimEnd));
             if (soundSettings.reverse !== true && !hasExplicitTrim) {
-                SoundSynth[synthFunctionName](audioContext, actualBeatTime, mergedSettings, synthVoiceGain);
+                SoundSynth[synthFunctionName](audioContext, actualBeatTime, mergedSettings, synthVoiceGain, lifetime);
             } else {
                 renderSynthAudioBuffer(audioContext, SoundSynth[synthFunctionName], mergedSettings).then((rendered) => {
-                    if (!rendered) return;
+                    if (!rendered || !lifetime.active) return;
                     const source = audioContext.createBufferSource();
+                    if (!lifetime.ownSource(source)) return;
                     source.buffer = soundSettings.reverse === true ? getReversedAudioBuffer(audioContext, rendered) : rendered;
                     source.connect(synthVoiceGain);
                     const trimStart = Math.max(0, Math.min(rendered.duration, Number(soundSettings.trimStart) || 0));
@@ -213,7 +225,7 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
                 gain: synthVoiceGain,
             };
             activeSynthVoices.set(synthVoiceKey, voice);
-            window.setTimeout(() => {
+            lifetime.timeout(() => {
                 if (activeSynthVoices.get(synthVoiceKey) === voice) activeSynthVoices.delete(synthVoiceKey);
             }, Math.max(0, voiceDuration * 1000) + 100);
         } else {
@@ -221,7 +233,7 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
         }
     } else {
         const { trimStart, trimEnd } = soundSettings;
-        AudioController.playRecording(baseSoundName, mergedSettings, trimStart, trimEnd, actualBeatTime, finalVolume, destination);
+        AudioController.playRecording(baseSoundName, mergedSettings, trimStart, trimEnd, actualBeatTime, finalVolume, destination, lifetime);
     }
 
     if (trackIndex === 0) {
@@ -270,7 +282,7 @@ function advanceTrackBeat(track) {
 
 function scheduler() {
     // If we managed to get a tick while stopped (race condition), ignore it.
-    if (!AppState.isPlaying()) {
+    if (!AppState.isPlaying() || !playbackLifetime?.active) {
         return;
     }
 
@@ -372,7 +384,7 @@ function draw() {
 }
 
 function performEngineStopActions() {
-    metronomeWorker.postMessage("stop");
+    metronomeWorker?.postMessage("stop");
     
     if (drawFrameId) {
         cancelAnimationFrame(drawFrameId);
@@ -403,7 +415,19 @@ const MetronomeEngine = {
         if (probability >= 100) return true;
         return roll * 100 < probability;
     },
+    cancelPlayback: () => {
+        playbackLifetime?.cancel();
+        playbackLifetime = null;
+        activeSynthVoices.clear();
+        MetronomeEngine.cancelCountIn();
+        // AppState flips synchronously before its first await. Never toggle an idle state.
+        if (AppState.isPlaying()) void AppState.togglePlay();
+        performEngineStopActions();
+        return false;
+    },
+
     cancelCountIn: () => {
+        countInGeneration += 1;
         for (const source of countInSources) {
             try { source.stop(); } catch (_error) { /* The source may already have ended. */ }
         }
@@ -411,10 +435,11 @@ const MetronomeEngine = {
     },
 
     scheduleCountIn: async (countIn, shouldSchedule = () => true) => {
+        const generation = countInGeneration;
         const audioContext = AppState.getAudioContext();
         if (!audioContext || !countIn || !shouldSchedule()) return;
         if (audioContext.state === 'suspended') await audioContext.resume();
-        if (audioContext.state !== 'running' || !shouldSchedule()) return;
+        if (audioContext.state !== 'running' || generation !== countInGeneration || !shouldSchedule()) return;
 
         const firstClickAudioTime = audioContext.currentTime + ((countIn.startsAt - Date.now()) / 1000);
         for (let beat = 0; beat < countIn.totalBeats; beat += 1) {
@@ -447,6 +472,7 @@ const MetronomeEngine = {
      * @param {boolean} forceStop - If true, ensures playback stops regardless of current state.
      */
     togglePlay: async (forceStop = false) => {
+        if (forceStop) return MetronomeEngine.cancelPlayback();
         const wasPlayingBeforeToggle = AppState.isPlaying();
         
         // The synchronization server assigns one timestamp and echoes it to every peer,
@@ -468,15 +494,19 @@ const MetronomeEngine = {
             return wasPlayingBeforeToggle;
         }
 
-        // Standard Toggle Logic (offline host fallback or an authoritative forced stop).
-        if (!wasPlayingBeforeToggle) AppState.applySongSectionForBar(0);
+        // Stop owns its generation synchronously, before another Play can enter.
+        if (wasPlayingBeforeToggle) {
+            MetronomeEngine.cancelPlayback();
+            sendState(AppState.getCurrentStateForPreset(true));
+            return false;
+        }
+        AppState.applySongSectionForBar(0);
+        const lifetime = ensurePlaybackLifetime();
         const isNowPlaying = await AppState.togglePlay();
-
-        // If forceStop is true and we are still playing, toggle again to stop
-        if (forceStop && isNowPlaying) {
-             await AppState.togglePlay();
-             performEngineStopActions();
-             return false;
+        if (!lifetime.active || lifetime !== playbackLifetime) return false;
+        if (!isNowPlaying) {
+            lifetime.cancel();
+            playbackLifetime = null;
         }
 
         sendState(AppState.getCurrentStateForPreset(true));
@@ -510,12 +540,14 @@ const MetronomeEngine = {
     },
 
     scheduleStart: async (targetTimestamp, startBar = 0, startBeat = 0, repeatIteration = 0, shouldStart = () => true) => {
+        const lifetime = ensurePlaybackLifetime();
+        const current = () => lifetime.active && lifetime === playbackLifetime && shouldStart();
         const audioContext = AppState.getAudioContext();
         if (audioContext && audioContext.state === 'suspended') {
             await audioContext.resume();
         }
 
-        if (!shouldStart()) return;
+        if (!current()) return;
 
         // Manually start AppState logic without toggling (since we are setting specific times)
         // Or we can use togglePlay logic but override the nextBeatTime.
@@ -525,11 +557,11 @@ const MetronomeEngine = {
         // We can use a trick: call AppState.togglePlay(), then immediately overwrite nextBeatTime
         if (!AppState.isPlaying()) {
             const isPlaying = await AppState.togglePlay();
-            if (!shouldStart()) return;
+            if (!current()) return;
             if (!isPlaying) return; // Exit if AppState refused to play (e.g. no tracks)
         }
 
-        if (!shouldStart()) return;
+        if (!current()) return;
 
         // 2. Calculate delay until target time
         const now = Date.now();
@@ -659,4 +691,11 @@ const MetronomeEngine = {
 
     isSchedulerReady: () => metronomeWorkerReady
 };
+// Preset/reset callers can clear AppState directly. Their stopped event is also
+// an audio boundary; checking isPlaying later would miss pending native renders.
+document.addEventListener('playbackstatechange', event => {
+    if (event.detail?.playing === false && playbackLifetime?.active) {
+        MetronomeEngine.cancelPlayback();
+    }
+});
 export default MetronomeEngine;

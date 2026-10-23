@@ -1805,17 +1805,27 @@ test.describe('mode controls responsive layout', () => {
       });
       const button = document.querySelector('#effects-reset-btn');
       const before = sliders.map((slider) => slider.value);
-      button.click();
-      const animating = button.classList.contains('resetting');
-      await new Promise((resolve) => setTimeout(resolve, 80));
-      const mid = sliders.map((slider) => slider.value);
-      await new Promise((resolve) => setTimeout(resolve, 240));
-      const after = sliders.map((slider) => slider.value);
-      const target = sliders.map((slider, index) => {
-        if (slider.dataset.param === 'pitchShift') return before[index];
-        return ['delayFeedback', 'reverbFeedback'].includes(slider.dataset.param) ? '25' : '0';
-      });
-      return { before, animating, mid, after, target };
+      const requestFrame = window.requestAnimationFrame;
+      const frames = [];
+      window.requestAnimationFrame = callback => { frames.push(callback); return -frames.length; };
+      try {
+        button.click();
+        const animating = button.classList.contains('resetting');
+        const start = performance.now();
+        // Drive the production RAF animation, not wall-clock sleeps: CPU load
+        // can delay delivered frames even after a setTimeout has elapsed.
+        frames.splice(0).forEach(callback => callback(start + 80));
+        const mid = sliders.map((slider) => slider.value);
+        frames.splice(0).forEach(callback => callback(start + 300));
+        const after = sliders.map((slider) => slider.value);
+        const target = sliders.map((slider, index) => {
+          if (slider.dataset.param === 'pitchShift') return before[index];
+          return ['delayFeedback', 'reverbFeedback'].includes(slider.dataset.param) ? '25' : '0';
+        });
+        return { before, animating, mid, after, target };
+      } finally {
+        window.requestAnimationFrame = requestFrame;
+      }
     });
     expect(result.before.some((value, index) => value !== result.target[index])).toBe(true);
     expect(result.animating).toBe(true);

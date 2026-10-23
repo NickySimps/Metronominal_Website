@@ -1196,7 +1196,9 @@ select {
 .volume-value {
   font-size: var(--font-1); /* Standardized font size */
   color: var(--TextPrimary); /* Keep color */
-  min-width: var(--s6-5); /* Standardized min-width (40px) */
+  min-width: max-content;
+  flex-shrink: 0;
+  white-space: nowrap;
   text-align: right;
   background-color: var(--Highlight); /* Consistent with other displays */
   padding: var(--s1) var(--s2); /* Standardized padding (2px 4px) */
@@ -1972,14 +1974,11 @@ button:active,
 .track-volume-value,
 .track-volume-label {
   box-sizing: border-box;
-  flex: 0 1 8%;
-  min-width: 2.5rem;
-  max-width: 8rem;
+  flex: 0 0 auto;
+  min-width: max-content;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-size: var(--font-1);
-  width: 8%;
+  width: auto;
   text-align: center;
   margin: var(s1);
   color: var(--Alt1);
@@ -2004,6 +2003,7 @@ button:active,
   flex: 1 1 auto;
   width: 100%;
   max-width: 100%;
+  min-width: 0;
   height: 6px;
   background: var(--Alt1);
   border-radius: var(--BorderRadius);
@@ -2788,7 +2788,8 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   align-items: flex-start;
   justify-content: space-between;
   flex: 0 0 auto;
-  height: 70px;
+  height: auto;
+  min-height: 94px;
 }
 
 .edit-buttons-col .sound-label {
@@ -2814,12 +2815,14 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   flex: 1 1 auto;
   min-width: 110px;
   justify-content: space-between;
-  height: 70px;
+  height: auto;
+  min-height: 94px;
 }
 
 .sound-selectors-col .sound-selection {
   width: 100%;
-  height: 32px;
+  height: auto;
+  min-height: 44px;
   display: flex;
   align-items: center;
 }
@@ -2950,8 +2953,8 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 .track-pitch-group .track-slider-value,
 .track-swing-group .track-slider-value {
   font-size: var(--font-1);
-  width: 8%;
-  min-width: 0;
+  width: auto;
+  min-width: max-content;
   text-align: center;
   margin: var(--s1);
   color: var(--Alt1);
@@ -2970,12 +2973,12 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
 
 .track-pitch-group .track-slider-label,
 .track-swing-group .track-slider-label {
-  flex: 0 0 8%;
+  flex: 0 0 auto;
 }
 
 .track-pitch-group .track-slider-value,
 .track-swing-group .track-slider-value {
-  flex: 0 0 8%;
+  flex: 0 0 auto;
 }
 
 .track-volume-label {
@@ -3006,7 +3009,8 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   gap: 4px;
   flex: 0 0 auto;
   width: 128px;
-  height: 70px;
+  height: auto;
+  min-height: 94px;
   box-sizing: border-box;
 }
 
@@ -4413,7 +4417,7 @@ body.beat-edit-mode .beat-square {
 .adsr-control-group {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
   gap: .25rem .5rem;
   padding: .4rem .5rem;
   border: 1px solid color-mix(in srgb, var(--BorderColor) 70%, transparent);
@@ -4429,7 +4433,7 @@ body.beat-edit-mode .beat-square {
 }
 .adsr-control-group > .slider-container { margin: 0; }
 @media (max-width: 520px) {
-  .adsr-control-group { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adsr-control-group { grid-template-columns: minmax(0, 1fr); }
 }
 .sound-control-category[data-control-category="synth"] > .slider-container {
   margin-bottom: 0;
@@ -4444,7 +4448,7 @@ body.beat-edit-mode .beat-square {
 }
 #sound-settings-modal .sound-effects-actions-slot #delay-quantize-btn,
 #sound-effects-modal .sound-effects-actions-slot #delay-quantize-btn {
-  min-height: 2rem;
+  min-height: 44px;
   padding: .35rem .65rem;
   border: 1px solid var(--Main);
   border-radius: var(--BorderRadius);
@@ -4653,7 +4657,7 @@ body.beat-edit-mode .beat-square {
 }
 .track-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.7fr) repeat(3, minmax(0, .65fr));
+  grid-template-columns: minmax(44px, 1.4fr) repeat(2, minmax(44px, 1fr)) 44px;
   grid-template-rows: auto auto;
   align-items: center;
   column-gap: var(--s2);
@@ -4667,26 +4671,24 @@ body.beat-edit-mode .beat-square {
 .track-controls > .track-volume-controls {
   min-width: 0;
 }
-.track-controls > .track-name { grid-column: 1; grid-row: 1; margin: 0; }
-.track-controls > .track-record-btn { grid-column: 2; grid-row: 1; width: auto; }
-.track-controls > .track-mute-btn { grid-column: 3; grid-row: 1; }
-.track-controls > .track-solo-btn { grid-column: 4; grid-row: 1; }
-.track-controls > .track-remove-btn { grid-column: 5; grid-row: 1; justify-self: end; }
+.track-controls > .track-name { grid-column: 1 / -1; grid-row: 1; margin: 0; }
+.track-controls > .track-record-btn { grid-column: 1; grid-row: 2; width: auto; }
+.track-controls > .track-mute-btn { grid-column: 2; grid-row: 2; }
+.track-controls > .track-solo-btn { grid-column: 3; grid-row: 2; }
+.track-controls > .track-remove-btn { grid-column: 4; grid-row: 2; justify-self: end; }
 .track-controls > button {
   min-width: 0;
   width: 100%;
-  height: 2.625rem;
+  height: auto;
+  min-height: 44px;
   margin: 0;
   padding: .45rem .6rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 .track-controls > .track-name {
-  max-width: 10rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .track-volume-controls {
   grid-column: 1 / -1;
@@ -4705,23 +4707,19 @@ body.beat-edit-mode .beat-square {
     margin-inline: 0;
   }
   .track-controls {
-    grid-template-columns: minmax(5rem, 1.25fr) minmax(3.25rem, 1.5fr) repeat(3, minmax(2.1rem, 1fr));
+    grid-template-columns: minmax(44px, 1.4fr) repeat(2, minmax(44px, 1fr)) 44px;
     column-gap: .25rem;
   }
   .track-controls > .track-name {
-    min-width: 5rem;
-    max-width: 10rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
   }
   .track-controls > button {
     min-width: 0;
     width: 100%;
     padding-inline: .15rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
     font-size: .72rem;
   }
   .track-controls > .track-record-btn {
@@ -4783,7 +4781,7 @@ body.beat-edit-mode .beat-square {
 #personal-monitoring p { margin: .6rem 0; font: inherit; color: inherit; }
 #personal-monitoring .monitor-row {
   display: grid;
-  grid-template-columns: minmax(8rem, 1fr) minmax(5rem, 1fr) 5ch minmax(7rem, auto);
+  grid-template-columns: minmax(8rem, 1fr) minmax(5rem, 1fr) max-content minmax(7rem, auto);
   align-items: center;
   gap: .5rem;
   min-width: 0;
@@ -4826,7 +4824,54 @@ body.beat-edit-mode .beat-square {
 #monitor-tracks { min-inline-size: 0; margin: .8rem 0; padding: .65rem; border: 1px solid currentColor; border-radius: .5rem; }
 #monitor-tracks legend { font: inherit; }
 @media (max-width: 650px) {
-  #personal-monitoring .monitor-row { grid-template-columns: minmax(0, 1fr) 5ch; }
+  #personal-monitoring .monitor-row { grid-template-columns: minmax(0, 1fr) max-content; }
   #personal-monitoring .monitor-row label, #personal-monitoring .monitor-row button { grid-column: 1 / -1; }
   #personal-monitoring .monitor-row button { width: 100%; }
+}
+
+/* Text and touch targets must survive font enlargement, without resizing beats. */
+.track .sound-label,
+.track .sound-selector-trigger,
+.track .mode-buttons-col button,
+.track .adjust-measure-length,
+.track .adjust-bar-length {
+  min-width: 44px;
+  min-height: 44px;
+  height: auto;
+  box-sizing: border-box;
+}
+#connection-status {
+  font-size: 8px;
+  line-height: 10px;
+  letter-spacing: 0;
+}
+
+#sound-settings-modal .modal-content button,
+#sound-effects-modal .modal-content button,
+#sound-settings-modal .close-button {
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+#sound-settings-modal .sample-probability-control > span {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
+#sound-settings-modal .sample-probability-control input[type="range"] {
+  grid-column: 1 / -1;
+}
+#sound-settings-modal .sample-probability-control output {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  white-space: nowrap;
+}
+.sound-effects-heading { overflow-wrap: anywhere; }
+
+.global-app-controls button,
+.top-controls-area button,
+.theme-controls button,
+#song-mode-enabled {
+  min-width: 44px;
+  min-height: 44px;
+  height: auto;
 }

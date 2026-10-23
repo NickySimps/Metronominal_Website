@@ -49,10 +49,13 @@ const SoundSynth = {
       pitchEnvelopeTime = 0.1,
       pitchShift = 0,
     } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc)) return;
     const gain = audioContext.createGain();
 
     osc.connect(gain);
@@ -98,12 +101,16 @@ const SoundSynth = {
       noiseFilterFrequency = 1500,
       pitchShift = 0,
     } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc)) return;
     const gain = audioContext.createGain();
     const noise = audioContext.createBufferSource();
+    if (lifetime && !lifetime.ownSource(noise)) return;
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
@@ -151,10 +158,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, filterFrequency = 7000, attack = 0.01, decay = 0.05, sustain = 0.1, release = 0.05, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const noise = audioContext.createBufferSource();
+    if (lifetime && !lifetime.ownSource(noise)) return;
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
@@ -181,10 +191,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, filterFrequency = 6000, attack = 0.01, decay = 0.2, sustain = 0.1, release = 0.2, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const noise = audioContext.createBufferSource();
+    if (lifetime && !lifetime.ownSource(noise)) return;
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
@@ -218,10 +231,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, startFrequency = 300, endFrequency = 150, attack = 0.01, decay = 0.2, sustain = 0.1, release = 0.1, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc)) return;
     const gain = audioContext.createGain();
 
     osc.frequency.setValueAtTime(startFrequency * pMult, time);
@@ -245,10 +261,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, startFrequency = 150, endFrequency = 80, attack = 0.01, decay = 0.3, sustain = 0.1, release = 0.1, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc)) return;
     const gain = audioContext.createGain();
 
     osc.frequency.setValueAtTime(startFrequency * pMult, time);
@@ -272,10 +291,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, startFrequency = 100, endFrequency = 50, attack = 0.01, decay = 0.4, sustain = 0.1, release = 0.1, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc)) return;
     const gain = audioContext.createGain();
 
     osc.frequency.setValueAtTime(startFrequency * pMult, time);
@@ -299,10 +321,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, filterFrequency = 1200, qValue = 15, attack = 0.01, decay = 0.1, sustain = 0.1, release = 0.1, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const noise = audioContext.createBufferSource();
+    if (lifetime && !lifetime.ownSource(noise)) return;
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
@@ -330,10 +355,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, frequency = 2500, attack = 0.01, decay = 0.05, sustain = 0.1, release = 0.05, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc)) return;
     const gain = audioContext.createGain();
 
     osc.type = "sine";
@@ -356,10 +384,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, filterFrequency = 6000, qValue = 5, attack = 0.01, decay = 0.1, sustain = 0.1, release = 0.1, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const noise = audioContext.createBufferSource();
+    if (lifetime && !lifetime.ownSource(noise)) return;
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
@@ -395,10 +426,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, filterFrequency = 8000, attack = 0.01, decay = 0.5, sustain = 0.1, release = 0.5, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const noise = audioContext.createBufferSource();
+    if (lifetime && !lifetime.ownSource(noise)) return;
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
@@ -426,11 +460,15 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, frequency1 = 540, frequency2 = 800, attack = 0.01, decay = 0.1, sustain = 0.1, release = 0.1, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const osc1 = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc1)) return;
     const osc2 = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc2)) return;
     const gain = audioContext.createGain();
 
     osc1.type = "square";
@@ -461,10 +499,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, frequency = 1000, attack = 0.01, decay = 0.05, sustain = 0.1, release = 0.05, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc)) return;
     const gain = audioContext.createGain();
 
     osc.type = "sine";
@@ -487,10 +528,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, frequency = 1200, attack = 0.01, decay = 0.2, sustain = 0.1, release = 0.2, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc)) return;
     const gain = audioContext.createGain();
 
     osc.type = "triangle";
@@ -513,10 +557,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, filterFrequency = 4000, attack = 0.01, decay = 0.05, sustain = 0.1, release = 0.05, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const noise = audioContext.createBufferSource();
+    if (lifetime && !lifetime.ownSource(noise)) return;
     const noiseFilter = audioContext.createBiquadFilter();
     const noiseGain = audioContext.createGain();
 
@@ -543,10 +590,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.1, sustain = 0.5, release = 0.2, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc)) return;
     const gain = audioContext.createGain();
 
     osc.type = "sine";
@@ -569,10 +619,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.1, sustain = 0.5, release = 0.2, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc)) return;
     const gain = audioContext.createGain();
 
     osc.type = "square";
@@ -595,10 +648,13 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.1, sustain = 0.5, release = 0.2, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const osc = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc)) return;
     const gain = audioContext.createGain();
 
     osc.type = "sawtooth";
@@ -621,8 +677,10 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, frequency = 440, attack = 0.01, decay = 0.2, sustain = 0.5, release = 0.2, detune = 15, pitchShift = 0 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const pMult = getPitchMult(pitchShift);
     const gain = audioContext.createGain();
     gain.connect(destination || audioContext.destination);
@@ -633,6 +691,7 @@ const SoundSynth = {
     gain.gain.linearRampToValueAtTime(0, time + attack + decay + release + 0.01);
 
     const osc1 = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc1)) return;
     osc1.type = "sawtooth";
     osc1.frequency.setValueAtTime(frequency * pMult, time);
     osc1.detune.setValueAtTime(-detune, time);
@@ -641,6 +700,7 @@ const SoundSynth = {
     osc1.stop(time + attack + decay + release + 0.1);
 
     const osc2 = audioContext.createOscillator();
+    if (lifetime && !lifetime.ownSource(osc2)) return;
     osc2.type = "sawtooth";
     osc2.frequency.setValueAtTime(frequency * pMult, time);
     osc2.detune.setValueAtTime(detune, time);
@@ -660,9 +720,12 @@ const SoundSynth = {
     audioContext,
     time,
     { volume = 1.0, attack = 0.01, decay = 0.1, sustain = 0.1, release = 0.1 } = {},
-    destination = null
+    destination = null,
+    lifetime = null
   ) => {
+    if (lifetime && !lifetime.active) return;
     const noise = audioContext.createBufferSource();
+    if (lifetime && !lifetime.ownSource(noise)) return;
     const noiseGain = audioContext.createGain();
 
     noise.buffer = getSharedNoiseBuffer(audioContext);

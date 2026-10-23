@@ -24,12 +24,27 @@ function hasOnlyKeys(value, keys) {
   return Object.keys(value).every(key => keys.has(key));
 }
 
+const PUBLIC_NUMERIC_SOUND_SETTINGS = new Set([
+  'volume','startFrequency','endFrequency','attack','decay','sustain','release','pitchEnvelopeTime','pitchShift',
+  'bodyFrequencyStart','bodyFrequencyEnd','noiseFilterFrequency','filterFrequency','frequency','frequency1','frequency2','qValue','detune',
+  'trimStart','trimEnd','highPassFrequency','lowPassFrequency','distortion','delayMix','delayTime','delayFeedback','reverbMix','reverbFeedback','probability',
+]);
+const PUBLIC_BOOLEAN_SOUND_SETTINGS = new Set(['reverse','allowOverlap','retrigger','fxBypass']);
+function publicSoundSettings(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter(([key, setting]) =>
+    (PUBLIC_NUMERIC_SOUND_SETTINGS.has(key) && typeof setting === 'number' && Number.isFinite(setting))
+    || (PUBLIC_BOOLEAN_SOUND_SETTINGS.has(key) && typeof setting === 'boolean')
+    || (key === 'type' && ['sine','square','sawtooth','triangle'].includes(setting))
+  ));
+}
+
 function stripUnsafeData(value) {
   if (Array.isArray(value)) return value.map(stripUnsafeData);
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(Object.entries(value)
-    .filter(([key]) => !FORBIDDEN_KEYS.has(key))
-    .map(([key, nested]) => [key, stripUnsafeData(nested)]));
+    .filter(([key, nested]) => nested !== undefined && !FORBIDDEN_KEYS.has(key))
+    .map(([key, nested]) => [key, key === 'settings' ? publicSoundSettings(nested) : stripUnsafeData(nested)]));
 }
 
 function encodeBase64Url(text) {
@@ -62,6 +77,12 @@ async function createPayload() {
   for (const track of sharedTracks) {
     if (privateSounds.has(track.mainBeatSound?.sound)) track.mainBeatSound.sound = "Synth Kick";
     if (privateSounds.has(track.subdivisionSound?.sound)) track.subdivisionSound.sound = "Synth HiHat";
+    for (const bar of track.barSettings || []) {
+      for (const override of Object.values(bar.beatSounds || {})) {
+        if (privateSounds.has(override.mainBeatSound?.sound)) override.mainBeatSound.sound = "Synth Kick";
+        if (privateSounds.has(override.subdivisionSound?.sound)) override.subdivisionSound.sound = "Synth HiHat";
+      }
+    }
   }
   return { format: FORMAT, version: 1, exportedAt: new Date().toISOString(), state };
 }
@@ -264,10 +285,10 @@ function reconstructImportedState(state) {
   for (const [name, definition] of Object.entries(state.customSounds || {})) {
     customSounds[name] = {
       baseSound: definition.baseSound,
-      settings: JSON.parse(JSON.stringify(definition.settings))
+      settings: publicSoundSettings(definition.settings)
     };
   }
-  return {
+  return stripUnsafeData({
     tempo: state.tempo,
     volume: state.volume,
     countInBars: state.countInBars || 0,
@@ -317,7 +338,7 @@ function reconstructImportedState(state) {
     isAccentMode: state.isAccentMode === true && state.isSliceMode !== true,
     isSliceMode: state.isSliceMode === true,
     customSounds
-  };
+  });
 }
 
 function validatePayload(payload) {
@@ -331,10 +352,21 @@ function validatePayload(payload) {
   if (containsForbiddenKey(payload) || !validateImportedState(payload.state)) {
     throw new Error("Song contains invalid or unsafe data.");
   }
-  return { ...payload, state: reconstructImportedState(payload.state) };
+  const privateSounds = privateSoundNames();
+  const hasPrivateReference = value => value && typeof value === 'object' && (
+    (typeof value.sound === 'string' && (privateSounds.has(value.sound) || /^Recording:/i.test(value.sound)))
+    || (typeof value.baseSound === 'string' && (privateSounds.has(value.baseSound) || /^Recording:/i.test(value.baseSound)))
+    || Object.values(value).some(hasPrivateReference));
+  if (hasPrivateReference(payload.state)) throw new Error("Song contains private recording references.");
+  // Reconstruct the envelope too: unknown personal metadata must never survive
+  // a library import/export just because the musical state is valid.
+  return { format: FORMAT, version: 1,
+    ...(typeof payload.exportedAt === 'string' && payload.exportedAt.length <= 64 ? { exportedAt: payload.exportedAt } : {}),
+    state: reconstructImportedState(payload.state) };
 }
 
-async function applyPayload(payload, { allowBeforeConnection = false } = {}) {
+async function applyPayload(payload, { allowBeforeConnection = false, shouldApply = () => true } = {}) {
+  if (!shouldApply()) throw new Error("Song import was cancelled because room authority or playback changed.");
   if (!allowBeforeConnection && (!canEditSong || !window.isHost || AppState.isPlaying())) {
     throw new Error("Only a connected host can import a song while playback is stopped.");
   }
@@ -342,7 +374,11 @@ async function applyPayload(payload, { allowBeforeConnection = false } = {}) {
   if (!allowBeforeConnection && (!canEditSong || !window.isHost || AppState.isPlaying())) {
     throw new Error("Song import was cancelled because room authority or playback changed.");
   }
-  await AppState.loadPresetData(validated.state);
+  await AppState.loadPresetData(validated.state, {
+    history: 'local',
+    guard: () => shouldApply() && !AppState.isPlaying() && (allowBeforeConnection || (canEditSong && window.isHost)),
+  });
+  if (!shouldApply()) throw new Error("Song import was cancelled because room authority or playback changed.");
   refreshApplicationUI();
   if (window.isHost) sendState(AppState.getCurrentStateForPreset(true));
 }
@@ -731,5 +767,5 @@ async function initialize(callback) {
   render();
 }
 
-const SongController = { initialize, render, createPayload, applyPayload, songUrl };
+const SongController = { initialize, render, createPayload, applyPayload, validatePayload, songUrl };
 export default SongController;

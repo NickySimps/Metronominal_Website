@@ -123,7 +123,8 @@ const AudioController = {
         }
     },
 
-    playRecording: (recordingName, soundSettings, trimStart = 0, trimEnd = null, playTime = 0, volume = 1.0, destination = null) => {
+    playRecording: (recordingName, soundSettings, trimStart = 0, trimEnd = null, playTime = 0, volume = 1.0, destination = null, lifetime = null) => {
+        if (lifetime && !lifetime.active) return;
         const audioContext = AppState.getAudioContext();
         const audioBuffer = AppState.getSoundBuffer(recordingName);
 
@@ -145,6 +146,11 @@ const AudioController = {
         }
 
         const source = audioContext.createBufferSource();
+        if (lifetime && !lifetime.ownSource(source, () => {
+            if (AudioController.activeRecordingSources.get(voiceKey) === source) {
+                AudioController.activeRecordingSources.delete(voiceKey);
+            }
+        })) return;
         const offset = trimStart || 0;
         const end = trimEnd || audioBuffer.duration;
         const duration = end - offset;

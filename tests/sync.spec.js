@@ -51,7 +51,7 @@ test('a Play click during startup is honored once initialization finishes', asyn
 
 test('a second host click before the transport echo cancels the pending Play', async ({ page }) => {
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await page.locator('#start-stop-btn').click();
   await page.locator('#start-stop-btn').click();
   await page.waitForTimeout(1_000);
@@ -80,7 +80,7 @@ test('Play begins with a low-latency authoritative start', async ({ page }) => {
     }
   });
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await page.waitForTimeout(1_200);
 
   const startedAt = await page.evaluate(() => {
@@ -142,7 +142,7 @@ test('host count-in is synchronized and locally scheduled on every peer', async 
   await client.addInitScript(observeStarts);
 
   await host.goto('./');
-  await expect(host.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(host.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await host.locator('#count-in-bars-select').selectOption('1');
   await expect.poll(async () => (await readState(host)).countInBars).toBe(1);
   await expect.poll(() => publishedCountIns.at(-1)).toBe(1);
@@ -185,7 +185,7 @@ test('song mode synchronizes sections and creates a credential-free song link', 
   const client = await clientContext.newPage();
 
   await host.goto('./');
-  await expect(host.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(host.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await expect(host.locator('#song-mode-panel')).toBeHidden();
   await expect(host.locator('.global-app-controls #song-mode-enabled')).toBeVisible();
   await expect(host.locator('#song-mode-enabled')).toHaveAttribute('aria-pressed', 'false');
@@ -324,7 +324,7 @@ test('song section tempo automation changes the scheduled beat grid', async ({ p
     };
   });
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const state = await AppState.getCurrentStateForPreset(true);
@@ -382,7 +382,7 @@ test('song section tempo automation changes the scheduled beat grid', async ({ p
 
 test('song section playback applies section track content at the boundary', async ({ page }) => {
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const state = await AppState.getCurrentStateForPreset(true);
@@ -425,7 +425,7 @@ test('song section playback applies section track content at the boundary', asyn
 });
 test('song mode advances through sections that share the default first-bar start', async ({ page }) => {
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const state = await AppState.getCurrentStateForPreset(true);
@@ -521,7 +521,7 @@ test('song section transitions wait for the longest active track', async ({ page
 test('mobile Song Mode track DOM follows the active section snapshot', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   const result = await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const state = await AppState.getCurrentStateForPreset(true);
@@ -608,7 +608,7 @@ test('song v2 normalizes snapshots, repeats section ranges, and derives a missin
 
 test('song section edits immediately update the displayed BPM', async ({ page }) => {
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await page.locator('#song-mode-enabled').click();
   await expect(page.locator('#song-now-playing')).toContainText('120 BPM');
   await page.locator('[data-song-section-tempo="0"]').fill('180');
@@ -621,7 +621,7 @@ test('song section edits immediately update the displayed BPM', async ({ page })
 });
 test('section selector captures, previews, and atomically reapplies all section tracks', async ({ page }) => {
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await page.locator('#song-mode-enabled').click();
   await expect(page.locator('.song-section-row')).toHaveCount(1);
   await page.locator('[data-song-section-repeats="0"]').selectOption('3');
@@ -682,7 +682,7 @@ test('section selector captures, previews, and atomically reapplies all section 
 
 test('section repeat counts repeat the bounded bar range before advancing', async ({ page }) => {
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const state = await AppState.getCurrentStateForPreset(true);
@@ -717,7 +717,7 @@ test('section repeat counts repeat the bounded bar range before advancing', asyn
 
 test('rest and record buttons toggle even when their inner icon is clicked', async ({ page }) => {
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   const restIcon = page.locator('.rest-button .control-icon').first();
   await restIcon.click();
   await expect.poll(async () => (await readState(page)).isRestMode).toBe(true);
@@ -729,6 +729,7 @@ test('rest and record buttons toggle even when their inner icon is clicked', asy
 
 test('song, rest, and recording controls keep readable contrast in every theme', async ({ page }) => {
   await page.goto('./');
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await page.locator('#song-mode-enabled').click();
   const contrastByTheme = await page.evaluate(() => {
     const style = document.createElement('style');
@@ -764,7 +765,7 @@ test('song, rest, and recording controls keep readable contrast in every theme',
 
 test('the theme menu question-mark button generates and persists a new random theme on every press', async ({ page }) => {
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await page.locator('#theme-menu-toggle').click();
   await expect(page.locator('#theme-menu')).toBeVisible();
   await expect(page.locator('#random-theme-btn')).toHaveText('?');
@@ -791,7 +792,7 @@ test('the theme menu question-mark button generates and persists a new random th
 test('main playback controls collapse into a desktop floating control card when scrolled away', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 500 });
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   const controls = page.locator('#sticky-mobile-controls');
   await page.evaluate(async () => {
     document.body.style.setProperty('min-height', '2200px', 'important');
@@ -850,7 +851,7 @@ test('network state validation accepts all current categories and rejects unsafe
 
 test('presets and Song Mode preserve the unified bar structure including slices', async ({ page }) => {
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   const result = await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const { default: SongController } = await import(new URL('js/songController.js', document.baseURI).href);
@@ -893,7 +894,7 @@ test('presets and Song Mode preserve the unified bar structure including slices'
 });
 test('preset controller awaits save/load and restores sliced tracks', async ({ page }) => {
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   const result = await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const { default: PresetController } = await import(new URL('js/presetController.js', document.baseURI).href);
@@ -927,7 +928,7 @@ test('editing modes persist consistently and global reset clears them', async ({
 });
 test('song import rejects malformed state and reconstructs accepted data from an allowlist', async ({ page }) => {
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   const outcome = await page.evaluate(async () => {
     const { default: AppState } = await import(new URL('js/appState.js', document.baseURI).href);
     const { default: SongController } = await import(new URL('js/songController.js', document.baseURI).href);
@@ -1055,7 +1056,7 @@ test('song mode rolls back when a connected browser lacks song capability', asyn
 
 test('removing bars normalizes the host song timeline before synchronization', async ({ page }) => {
   await page.goto('./');
-  await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await page.locator('#song-mode-enabled').click();
   await page.locator('#add-song-section-btn').click();
   await expect.poll(async () => (await readState(page)).song.sections).toHaveLength(2);
@@ -1182,14 +1183,14 @@ test('a stale time-sync response cannot survive room closure', async ({ browser 
   const client = await clientContext.newPage();
 
   await host.goto('./');
-  await expect(host.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(host.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   const joinUrl = host.url();
   await client.goto(joinUrl);
   await waitForPeer(host);
   await expect.poll(() => client.evaluate(() => typeof window.__releaseHeldTimeSync)).toBe('function');
 
   await host.locator('#disconnect-btn').click();
-  await expect(client.locator('#share-btn')).not.toHaveClass(/connected/);
+  await expect(client.locator('#share-btn')).not.toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await client.evaluate(() => window.__releaseHeldTimeSync(Date.now() + 60_000));
 
   await expect.poll(() => client.evaluate(async () => {
@@ -1217,7 +1218,7 @@ test('diagnostics show authoritative role and connection quality without credent
   const client = await clientContext.newPage();
 
   await host.goto('./');
-  await expect(host.locator('#share-btn')).toHaveClass(/connected/);
+  await expect(host.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await expect(host.locator('.top-controls-area #sync-diagnostics-btn')).toHaveCount(0);
   await expect(host.locator('#share-modal #sync-diagnostics-btn')).toHaveCount(1);
   await expect(host.locator('#sync-diagnostics-btn')).toBeHidden();
@@ -1437,13 +1438,20 @@ test('a QR room join syncs settings and playback position but preserves each pee
   await expect.poll(async () => (await readState(client)).isPlaying).toBe(true);
   expect((await readState(client)).theme).toBe('synthwave');
 
-  // A host network interruption recreates the credential-bound room and republishes playback.
+  // Capable host recovery preserves the room snapshot but never resumes sound implicitly.
+  const beforeRecoveryRevision = await host.evaluate(async () => (await import(new URL('js/webrtc.js', document.baseURI).href)).getSyncDiagnostics().transportRevision);
   await host.evaluate(async () => {
     const { reconnectSynchronization } = await import(new URL('js/webrtc.js', document.baseURI).href);
     reconnectSynchronization();
   });
   await expect(host.locator('#n-of-connections')).toHaveText('(1)', { timeout: 15_000 });
   await expect(client.locator('#n-of-connections')).toHaveText('(1)');
+  await expect.poll(async () => (await readState(host)).isPlaying).toBe(false);
+  await expect.poll(async () => (await readState(client)).isPlaying).toBe(false);
+  await expect.poll(() => host.evaluate(async () => (await import(new URL('js/webrtc.js', document.baseURI).href)).getSyncDiagnostics().transportRevision)).toBeGreaterThan(beforeRecoveryRevision);
+  await expect.poll(async () => (await readState(host)).tempo).toBe(181);
+  await expect.poll(async () => (await readState(client)).song.name).toBe('Lifecycle Song');
+  await host.locator('#start-stop-btn').click();
   await expect.poll(async () => (await readState(host)).isPlaying).toBe(true);
   await expect.poll(async () => (await readState(client)).isPlaying).toBe(true);
 
@@ -1464,10 +1472,17 @@ test('a QR room join syncs settings and playback position but preserves each pee
   await replacementHost.goto(joinUrl);
   await expect.poll(async () => (await readState(replacementHost)).tempo).toBe(181);
   await expect.poll(async () => (await readState(replacementHost)).song.name).toBe('Lifecycle Song');
-  await expect.poll(async () => (await readState(replacementHost)).isPlaying).toBe(true);
+  await expect.poll(async () => (await readState(replacementHost)).isPlaying).toBe(false);
   expect(await replacementHost.evaluate(() => window.isHost)).toBe(true);
   expect(await host.evaluate(() => window.isHost)).toBe(false);
   await expect.poll(async () => (await readState(host)).isPlaying).toBe(false);
+  await expect.poll(async () => (await readState(client)).isPlaying).toBe(false);
+  const replacementDismiss = replacementHost.locator('#dismiss-connection-modal-btn');
+  if (await replacementDismiss.isVisible()) await replacementDismiss.click();
+  await replacementHost.locator('#start-stop-btn').click();
+  await expect.poll(async () => (await readState(replacementHost)).isPlaying).toBe(true);
+  await expect.poll(async () => (await readState(client)).isPlaying).toBe(true);
+  expect((await readState(host)).isPlaying).toBe(false);
 
   // Closing a room revokes the old room before asynchronous replacement-room setup.
   await replacementHost.evaluate(async () => {

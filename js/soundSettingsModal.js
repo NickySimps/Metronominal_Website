@@ -72,7 +72,11 @@ const SoundSettingsModal = {
     });
     DOM.soundSettingsModal.addEventListener("keydown", (event) => {
       if (event.key === "Escape") {
-        this.hide();
+        event.preventDefault();
+        event.stopPropagation();
+        const effects = document.getElementById("sound-effects-modal");
+        if (effects && !effects.hidden && effects.style.display !== "none") this.hideEffectsModal();
+        else this.hide();
         return;
       }
       if (event.key !== "Tab") return;
@@ -1042,14 +1046,15 @@ const SoundSettingsModal = {
     const modal = document.getElementById("sound-effects-modal");
     const trigger = DOM.soundSettingsModal.querySelector("#sound-effects-btn");
     if (!modal || !this.currentSoundSettings) return;
-    this.effectsPreviouslyFocusedElement = document.activeElement;
+    this.effectsPreviouslyFocusedElement = DOM.soundSettingsModal.contains(document.activeElement)
+      ? document.activeElement : trigger;
     const delayQuantizeButton = this.effectsActionSlot?.querySelector("#delay-quantize-btn");
     if (delayQuantizeButton) delayQuantizeButton.style.display = "inline-block";
     modal.hidden = false;
     modal.style.display = "flex";
-    requestAnimationFrame(() => modal.classList.add("is-open"));
+    requestAnimationFrame(() => { if (!modal.hidden) modal.classList.add("is-open"); });
     trigger?.setAttribute("aria-expanded", "true");
-    requestAnimationFrame(() => modal.querySelector("button, input")?.focus());
+    modal.querySelector("button, input")?.focus({ preventScroll: true });
   },
 
   hideEffectsModal() {
@@ -1064,7 +1069,7 @@ const SoundSettingsModal = {
     trigger?.setAttribute("aria-expanded", "false");
     const restoreTarget = this.effectsPreviouslyFocusedElement;
     this.effectsPreviouslyFocusedElement = null;
-    if (restoreTarget && typeof restoreTarget.focus === "function") requestAnimationFrame(() => restoreTarget.focus());
+    if (restoreTarget?.isConnected && typeof restoreTarget.focus === "function") restoreTarget.focus({ preventScroll: true });
   },
 
   updateDetailControls() {

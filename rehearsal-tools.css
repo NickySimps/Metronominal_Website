@@ -1,0 +1,7 @@
+.rehearsal-tools-panel { width: 100%; min-width: 0; margin: 20px 0; border: 1px solid currentColor; border-radius: 12px; padding: 12px; box-sizing: border-box; background: var(--Background, #e3ffe8); color: var(--ReadableOnBackground, #000); text-shadow: none; text-align: left; }
+.rehearsal-tools-panel > summary { min-height: 44px; display: list-item; cursor: pointer; font-size: 1rem; font-weight: 700; line-height: 1.5; padding: 8px; box-sizing: border-box; }
+.rehearsal-tools-panel > summary:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; border-radius: 4px; }
+#rehearsal-tools-status { font-size: .85rem; line-height: 1.5; margin: 8px 0 12px; overflow-wrap: anywhere; }
+#rehearsal-tools { display: grid; gap: 16px; min-width: 0; }
+.rehearsal-feature { min-width: 0; max-width: 100%; }
+@media (max-width: 390px) { .rehearsal-tools-panel { padding: 8px; } }

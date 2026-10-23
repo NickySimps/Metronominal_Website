@@ -1,0 +1,6 @@
+.edit-history { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; max-width: 100%; padding: .5rem; box-sizing: border-box; }
+.edit-history button { min-width: 4.75rem; min-height: 44px; padding: .5rem .75rem; border: 1px solid currentColor; border-radius: .5rem; background: #20252c; color: #fff; font: inherit; cursor: pointer; text-shadow: none; }
+.edit-history button:disabled { opacity: .6; cursor: not-allowed; }
+.edit-history button:focus-visible { outline: 3px solid #47b7ff; outline-offset: 2px; }
+.edit-history [role="status"] { flex: 1 1 10rem; min-width: 0; overflow-wrap: anywhere; font-size: .875rem; }
+@media (max-width: 420px) { .edit-history { gap: .375rem; } .edit-history [role="status"] { flex-basis: 100%; } }

@@ -39,6 +39,8 @@ const Oscilloscope = {
   },
 
   init() {
+    const canvas = document.getElementById("background-oscilloscope");
+    if (this.canvas === canvas && this.canvasCtx) return;
     this.canvas = document.getElementById("background-oscilloscope");
     if (!this.canvas) {
       console.error("Background oscilloscope canvas not found!");
@@ -231,14 +233,48 @@ const Oscilloscope = {
     }
   },
 
+  animationFrame: null,
+  lastFrameTime: null,
+  lastDrawTime: null,
+  renderingPolicy: { fps: 60, effects: true, onFrame: null },
+
+  setRenderingPolicy(policy = {}) {
+    this.renderingPolicy = { ...this.renderingPolicy, ...policy };
+    const fps = Number(this.renderingPolicy.fps);
+    this.renderingPolicy.fps = Number.isFinite(fps) ? Math.max(0, Math.min(60, fps)) : 60;
+    if (!this.renderingPolicy.fps) {
+      this.cancelFrame();
+      this.frameHistory = [];
+      this.canvasCtx?.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    } else if (this.isDrawing) {
+      this.scheduleFrame();
+    }
+  },
+
+  cancelFrame() {
+    if (this.animationFrame !== null) cancelAnimationFrame(this.animationFrame);
+    this.animationFrame = null;
+    this.lastFrameTime = null;
+    this.lastDrawTime = null;
+  },
+
+  scheduleFrame() {
+    if (!this.isDrawing || !this.renderingPolicy.fps || this.animationFrame !== null) return;
+    this.animationFrame = requestAnimationFrame(timestamp => {
+      this.animationFrame = null;
+      this.draw(timestamp);
+    });
+  },
+
   start() {
     if (this.isDrawing) return;
     this.isDrawing = true;
-    this.draw();
+    this.scheduleFrame();
   },
 
   stop() {
     this.isDrawing = false;
+    this.cancelFrame();
   },
 
   drawWaveform(canvasCtx, analyserNode, strokeStyle) {
@@ -680,16 +716,40 @@ const Oscilloscope = {
     this.canvasCtx.globalCompositeOperation = "source-over";
   },
 
-  draw() {
-    if (!this.isDrawing) return;
-    requestAnimationFrame(() => this.draw());
+  draw(timestamp) {
+    if (!this.isDrawing || !this.renderingPolicy.fps) return;
+    // Keep the existing explicit paint API; only RAF-driven calls are budgeted.
+    if (timestamp === undefined) {
+      this.renderFrame();
+      this.scheduleFrame();
+      return;
+    }
+    const interval = this.lastFrameTime === null ? 0 : timestamp - this.lastFrameTime;
+    this.lastFrameTime = timestamp;
+    const budget = 1000 / this.renderingPolicy.fps;
+    let cost = 0;
+    if (this.lastDrawTime === null || timestamp - this.lastDrawTime >= budget - .1) {
+      // Keep fractional remainder so 60Hz clocks can accurately deliver a 20fps cap.
+      this.lastDrawTime = this.lastDrawTime === null ? timestamp
+        : this.lastDrawTime + Math.floor((timestamp - this.lastDrawTime + .1) / budget) * budget;
+      const started = performance.now();
+      this.renderFrame();
+      cost = performance.now() - started;
+    }
+    // Observe delivered browser frames, not capped canvas updates, so recovery is possible.
+    this.renderingPolicy.onFrame?.({ timestamp, interval, cost });
+    this.scheduleFrame();
+  },
+
+  renderFrame() {
 
     const analyserNodes = AppState.getAnalyserNodes();
 
     this.resizeCanvasToDisplaySize();
     const { width, height } = this.canvas;
-    this.ensureEffectCanvases(this.canvas.width, this.canvas.height);
-    const effects = this.getVisualizerEffects();
+    const effectsEnabled = this.renderingPolicy.effects;
+    if (effectsEnabled) this.ensureEffectCanvases(this.canvas.width, this.canvas.height);
+    const effects = effectsEnabled ? this.getVisualizerEffects() : { delay: 0, distortion: 0, reverb: 0 };
 
     this.canvasCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     if (effects.delay > 0) {
@@ -804,7 +864,8 @@ const Oscilloscope = {
         }
       }
     });
-    this.applyVisualizerEffects(effects);
+    if (effectsEnabled) this.applyVisualizerEffects(effects);
+    else this.canvasCtx.globalCompositeOperation = "source-over";
   },
 };
 

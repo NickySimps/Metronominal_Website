@@ -21,6 +21,8 @@ import SongController from './js/songController.js';
 import SpeedTrainerController from './js/speedTrainerController.js';
 import MidiController from './js/midiController.js';
 import MonitoringController from './js/monitoringController.js';
+import { initializeRehearsalTools } from './js/rehearsalTools.js';
+import { initializeBeatPrecisionMount } from './js/beatPrecisionMount.js';
 
 let qrCodeInstance = null;
 let appInitialized = false;
@@ -237,6 +239,10 @@ async function initialize() {
   if(AppState.getAudioContext()?.state === 'running') {
     Oscilloscope.start();
   }
+
+  document.addEventListener('historyapplied', () => refreshUIFromState({ animate: false }));
+  await initializeRehearsalTools(document.getElementById('rehearsal-tools'));
+  await initializeBeatPrecisionMount(document.getElementById('beat-precision-controls'), document.getElementById('all-tracks-wrapper'));
   
   // Unlock AudioContext on first user interaction (Crucial for Mobile)
   const unlockAudio = async () => {

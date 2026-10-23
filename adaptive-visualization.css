@@ -1,0 +1,49 @@
+/* An intentionally neutral surface keeps controls legible in every theme. */
+.adaptive-visualization {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+  padding: .75rem;
+  border: 1px solid #667085;
+  border-radius: .5rem;
+  background: #151923;
+  color: #f5f7ff;
+  font: 400 .875rem/1.5 system-ui, sans-serif;
+  text-shadow: none;
+}
+.adaptive-visualization label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem 1rem;
+  color: #f5f7ff;
+}
+.adaptive-visualization select {
+  box-sizing: border-box;
+  min-width: 8rem;
+  max-width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: .5rem 2rem .5rem .625rem;
+  border: 1px solid #aab4ca;
+  border-radius: .25rem;
+  background: #151923;
+  color: #f5f7ff;
+  font: inherit;
+  text-shadow: none;
+  color-scheme: dark;
+}
+.adaptive-visualization select:focus-visible {
+  outline: 3px solid #8de7ff;
+  outline-offset: 3px;
+}
+.adaptive-visualization p {
+  margin: .5rem 0 0;
+  color: #f5f7ff;
+  overflow-wrap: anywhere;
+  text-shadow: none;
+}
+@media (max-width: 400px) {
+  .adaptive-visualization label { align-items: stretch; flex-direction: column; }
+  .adaptive-visualization select { width: 100%; }
+}

@@ -1,0 +1,16 @@
+.rehearsal-room { color: inherit; padding: 1rem; min-width: 0; }
+.rehearsal-room h3 { margin: 0 0 .75rem; }
+.rehearsal-room p { font-size: .875rem; line-height: 1.5; overflow-wrap: anywhere; }
+.rehearsal-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.rehearsal-actions label { display: flex; align-items: center; gap: .5rem; }
+.rehearsal-actions label:first-child { flex-direction: column; align-items: flex-start; }
+.rehearsal-room input[type=text] { width: min(19rem, 100%); box-sizing: border-box; color: inherit; background: transparent; border: 1px solid currentColor; border-radius: .3rem; padding: .5rem; }
+.rehearsal-room button { color: inherit; background: transparent; border: 1px solid currentColor; border-radius: .4rem; padding: .6rem .8rem; min-height: 44px; min-width: 44px; max-width: 100%; white-space: normal; box-sizing: border-box; cursor: pointer; }
+.rehearsal-room button:disabled { opacity: .5; cursor: not-allowed; }
+.rehearsal-room button:focus-visible, .rehearsal-room input:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.rehearsal-grid { max-width: 100%; overflow-x: auto; }
+.rehearsal-grid table { width: 100%; min-width: 38rem; border-collapse: collapse; font-size: .8rem; text-align: left; }
+.rehearsal-grid th, .rehearsal-grid td { padding: .6rem; border-bottom: 1px solid currentColor; }
+.rehearsal-grid th, .rehearsal-grid td:last-child { white-space: nowrap; }
+.rehearsal-grid td:first-child { min-width: 7rem; max-width: 15rem; overflow-wrap: anywhere; }
+@media(max-width: 600px) { .rehearsal-room { padding: .6rem; } .rehearsal-actions { align-items: stretch; } .rehearsal-actions label:first-child { width: 100%; } .rehearsal-grid th,.rehearsal-grid td { padding: .4rem; } }

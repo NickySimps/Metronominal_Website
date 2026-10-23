@@ -31,6 +31,7 @@ let lastTransportRevision = -1;
 let transportGeneration = 0;
 let intentionallyDisconnected = false;
 let joined = false;
+let needsRoomScope = false;
 let isReadyToPlay = false;
 let hasTimeSync = false;
 let timeOffset = 0; // Server clock - this browser's clock.
@@ -48,10 +49,106 @@ const pendingTimeSyncRequests = new Map();
 const MAX_SYNC_STATE_BYTES = 256 * 1024;
 const MAX_OFFSET_SAMPLES = 20;
 const SYNC_SCHEMA_VERSION = 1;
-const SYNC_CAPABILITIES = ["state-v1", "song-v1", "song-v2", "slices-v1", "beat-overrides-v1", "effects-v1"];
+const SYNC_CAPABILITIES = ["state-v1", "song-v1", "song-v2", "slices-v1", "beat-overrides-v1", "effects-v1", "rehearsal-v1"];
 let lastAcknowledgedStateRevision = -1;
 let lastAcknowledgedStateChecksum = null;
 let rejectedStateCount = 0;
+let authorityGeneration = 0;
+let rehearsalSupported = false;
+let rehearsalSnapshot = { participants: [], requests: [], cue: null, hostPeerId: null, hostConnected: false, playing: false };
+let ownPeerId = null;
+let explicitReady = false;
+let localPeerName = sessionStorage.getItem('rehearsal_name') || '';
+if (!plainText(localPeerName,40)) localPeerName = '';
+let participantCredential = null;
+let readinessTimer = null;
+let recoveryMessage = '';
+
+export function getRehearsalRoomState() {
+  return JSON.parse(JSON.stringify({ ...rehearsalSnapshot, supported: rehearsalSupported,
+    joined, isHost: joined && window.isHost === true, ownPeerId,
+    connectionState, recoveryMessage,
+    canRestoreOwnRoom: Boolean(sessionStorage.getItem('host_room_id') && sessionStorage.getItem('host_credential')),
+    localName: localPeerName, explicitReady }));
+}
+
+function emitRehearsalRoomChange() {
+  document.dispatchEvent(new CustomEvent('rehearsalroomchange', { detail: getRehearsalRoomState() }));
+}
+
+function invalidateRoomAuthority(reason) {
+  authorityGeneration += 1;
+  document.dispatchEvent(new CustomEvent('roomauthoritychange', { detail: { reason, generation: authorityGeneration } }));
+  return authorityGeneration;
+}
+
+function plainText(value, max) {
+  return typeof value === 'string' && value.length <= max && !/[<>\x00-\x1f\x7f]/.test(value);
+}
+
+function acceptRehearsalSnapshot(message) {
+  if (!joined || !rehearsalSupported || !Array.isArray(message.participants) || message.participants.length > 33
+    || !Array.isArray(message.requests) || message.requests.length > 33) return;
+  const participants = message.participants.filter(p => p && /^[a-f0-9]{16}$/.test(p.peerId)
+    && plainText(p.name, 40)).map(p => ({
+      peerId: p.peerId, name: p.name, role: p.role === 'host' ? 'host' : 'client', connected: p.connected === true,
+      supported: p.supported === true, ready: p.supported === true && typeof p.ready === 'boolean' ? p.ready : null,
+      audioState: ['running','suspended','interrupted','closed','unavailable'].includes(p.audioState) ? p.audioState : 'unknown',
+      clockQuality: ['good','fair','poor','syncing','offline'].includes(p.clockQuality) ? p.clockQuality : 'unknown',
+      rtt: Number.isFinite(p.rtt) && p.rtt >= 0 && p.rtt <= 60000 ? p.rtt : null,
+      reportedAt: Number.isFinite(p.reportedAt) ? p.reportedAt : null
+    }));
+  const cue = message.cue;
+
+  rehearsalSnapshot = { participants, requests: message.requests.filter(id => participants.some(p=>p.peerId===id)),
+    hostPeerId: participants.some(p=>p.peerId===message.hostPeerId) ? message.hostPeerId : null,
+    hostConnected: message.hostConnected === true, playing: message.playing === true,
+    cue: cue && plainText(cue.text,140) && (cue.bar === null || (Number.isInteger(cue.bar) && cue.bar>=0 && cue.bar<=4095))
+      && Number.isSafeInteger(cue.sequence) && cue.sequence>0
+      ? { text: cue.text, bar: cue.bar, sequence: cue.sequence, sentAt: Number.isFinite(cue.sentAt) ? cue.sentAt : null } : null };
+
+  emitRehearsalRoomChange();
+}
+
+function reportReadiness() {
+  if (!joined || !rehearsalSupported) return false;
+  const d = getSyncDiagnostics();
+  return sendMessage({ type:'readiness', ready:explicitReady, name: localPeerName || `Peer ${(ownPeerId || '').slice(0,6)}`,
+    audioState: ['running','suspended','interrupted','closed'].includes(d.audioState) ? d.audioState : 'unavailable',
+    clockQuality: d.quality, rtt: Number.isFinite(d.medianRtt) ? Math.min(60000,d.medianRtt) : null });
+}
+
+export function setRehearsalReadiness(ready, name = localPeerName) {
+  if (typeof ready !== 'boolean' || !plainText(name,40)) return false;
+  explicitReady = ready; localPeerName = name.trim();
+  sessionStorage.setItem('rehearsal_name',localPeerName);
+  return reportReadiness();
+}
+export function requestRehearsalControl() {
+  return joined && rehearsalSupported && !window.isHost && sendMessage({type:'control-request'});
+}
+export function approveRehearsalControl(peerId) {
+  return joined && rehearsalSupported && window.isHost && !rehearsalSnapshot.playing
+    && rehearsalSnapshot.requests.includes(peerId) && sendMessage({type:'handoff-control',peerId});
+}
+export function sendRehearsalCue({text,bar = null} = {}) {
+  return joined && rehearsalSupported && window.isHost && plainText(text,140) && Boolean(text.trim())
+    && (bar === null || (Number.isInteger(bar) && bar>=0 && bar<=4095)) && sendMessage({type:'rehearsal-cue',text,bar});
+}
+export function resyncRehearsalRoom() {
+  if (!joined) return false;
+  sendMessage({type:'state-request'}); sendMessage({type:'playback-sync-request'}); requestTimeSync(); return true;
+}
+export function restoreOwnRehearsalRoom() {
+  const storedRoom = sessionStorage.getItem('host_room_id'), credential = sessionStorage.getItem('host_credential');
+  if (!storedRoom || !credential) return false;
+  disconnect(); roomId = storedRoom; hostCredential = credential; window.isHost = true;
+  invalidateRoomAuthority('room-restored');
+  participantCredential = sessionStorage.getItem(`rehearsal_session:${roomId}`);
+  const nextUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(roomId)}`;
+  window.history.replaceState({path:nextUrl},'',nextUrl);
+  intentionallyDisconnected = false; connectToSynchronizationServer(); return true;
+}
 
 window.isHost = false;
 function median(values) {
@@ -133,7 +230,29 @@ function updateDiagnosticsUI() {
   }
 }
 
+function revokeLocalHost() {
+  window.isHost = false;
+  localRole = joined ? 'client' : 'offline';
+  invalidateRoomAuthority('host-revoked');
+  hostCredential = null;
+  resumePlaybackOnReconnect = false;
+  acceptingReplacementReplay = false;
+  clearDesiredHostPlaybackState();
+  clearTimeout(stateSendTimer);
+  pendingStatePromise = null;
+  if (sessionStorage.getItem('host_room_id') === roomId) {
+    sessionStorage.removeItem('host_room_id');
+    sessionStorage.removeItem('host_credential');
+    sessionStorage.removeItem('is_host');
+  }
+}
+
 function resetProtocolDiagnostics() {
+  clearInterval(readinessTimer);
+  readinessTimer = null;
+  rehearsalSupported = false;
+  explicitReady = false;
+  rehearsalSnapshot = { participants: [], requests: [], cue: null, hostPeerId: null, hostConnected: false, playing: false };
   localRole = "offline";
   lastStateRevision = -1;
   lastTransportRevision = -1;
@@ -192,6 +311,7 @@ function sendJoinRequest() {
     room: roomId,
     requestedRole: window.isHost ? "host" : "client",
     capabilities: SYNC_CAPABILITIES,
+    ...(participantCredential ? {participantCredential} : {}),
     ...(window.isHost ? { hostCredential } : {})
   });
 }
@@ -226,6 +346,7 @@ function updateDisconnectBtnVisibility() {
 
 function updateConnectionStatusUI(state) {
   connectionState = state;
+  emitRehearsalRoomChange();
   const shareBtn = document.getElementById("share-btn");
   const status = document.getElementById("connection-status");
   if (!shareBtn || !status) return;
@@ -394,9 +515,7 @@ function stopAt(serverTimestamp, generation) {
   const delay = Math.max(0, localTimestamp(serverTimestamp) - Date.now());
   scheduledStopTimer = setTimeout(() => {
     if (generation !== transportGeneration) return;
-    if (AppState.isPlaying()) {
-      void MetronomeEngine.togglePlay(true).catch(error => console.warn("Could not stop synchronized playback:", error));
-    }
+    MetronomeEngine.cancelPlayback();
   }, delay);
 }
 
@@ -407,6 +526,14 @@ function invalidatePendingTransport() {
   MetronomeEngine.cancelCountIn();
   clearTimeout(scheduledStopTimer);
   scheduledStopTimer = null;
+}
+
+function stopRoomPlayback() {
+  invalidatePendingTransport();
+  clearTimeout(stateSendTimer);
+  stateSendTimer = null;
+  pendingStatePromise = null;
+  MetronomeEngine.cancelPlayback();
 }
 
 function hasValidCountIn(message) {
@@ -468,6 +595,10 @@ function applyTransport(message) {
 }
 
 async function handleStateMessage(message, generation) {
+  const roleGeneration = authorityGeneration, expectedRoom = roomId, expectedSocket = socket;
+  const current = () => generation === connectionGeneration && roleGeneration === authorityGeneration
+    && expectedRoom === roomId && expectedSocket === socket && joined;
+  if (!current()) return;
   if ((window.isHost && !acceptingReplacementReplay && !message.authoritativeRefresh)
     || !message.payload || !Number.isInteger(message.revision)) return;
   if (message.revision <= lastStateRevision && !message.authoritativeRefresh) return;
@@ -476,8 +607,10 @@ async function handleStateMessage(message, generation) {
   const { selectedTheme: _ignoredTheme, ...state } = message.payload;
   const serializedState = JSON.stringify(state);
   const payloadBytes = new TextEncoder().encode(serializedState).byteLength;
+  const actualChecksum = message.checksum ? await checksum(state) : null;
+  if (!current()) return;
   if (payloadBytes > MAX_SYNC_STATE_BYTES || (message.payloadBytes !== undefined && message.payloadBytes !== payloadBytes)
-    || (message.checksum && message.checksum !== await checksum(state))
+    || (message.checksum && message.checksum !== actualChecksum)
     || !AppState.validateNetworkState(state)) {
     rejectedStateCount += 1;
     sendMessage({ type: "state-recovery-request", reason: "invalid-state-payload", revision: message.revision });
@@ -486,16 +619,22 @@ async function handleStateMessage(message, generation) {
     return;
   }
   const previousState = await AppState.getCurrentStateForPreset(true);
+  if (!current()) return;
   try {
-    await AppState.loadPresetData({ ...state, isPlaying: false });
+    await AppState.loadPresetData({ ...state, isPlaying: false }, { guard: current });
+    if (!current()) return;
   } catch (error) {
-    await AppState.loadPresetData(previousState);
+    if (!current()) return;
+    await AppState.loadPresetData(previousState, { guard: current });
+    if (!current()) return;
     console.error("Could not apply synchronized state payload:", error);
     return;
   }
+  const acknowledgedChecksum = message.checksum || await checksum(state);
+  if (!current()) return;
   lastStateRevision = message.revision;
   lastAcknowledgedStateRevision = message.revision;
-  lastAcknowledgedStateChecksum = message.checksum || await checksum(state);
+  lastAcknowledgedStateChecksum = acknowledgedChecksum;
   sendMessage({ type: "state-ack", revision: message.revision, checksum: lastAcknowledgedStateChecksum });
   if (generation !== connectionGeneration || !joined) return;
   if (receiveCallback) receiveCallback(state);
@@ -504,6 +643,9 @@ async function handleStateMessage(message, generation) {
 
 async function handleSocketMessage(event, generation) {
   if (generation !== connectionGeneration) return;
+  const roleGeneration = authorityGeneration, expectedRoom = roomId, expectedSocket = socket;
+  const current = () => generation === connectionGeneration && roleGeneration === authorityGeneration
+    && expectedRoom === roomId && expectedSocket === socket;
   let message;
   try {
     message = JSON.parse(event.data);
@@ -517,6 +659,15 @@ async function handleSocketMessage(event, generation) {
   switch (message.type) {
     case "joined":
       joined = true;
+      rehearsalSupported = Array.isArray(message.capabilities) && message.capabilities.includes('rehearsal-v1');
+      recoveryMessage = '';
+      ownPeerId = message.peerId;
+      if (typeof message.participantCredential === 'string' && /^[a-f0-9]{64}$/.test(message.participantCredential)) {
+        participantCredential = message.participantCredential;
+        sessionStorage.setItem(`rehearsal_session:${roomId}`,participantCredential);
+      }
+      clearInterval(readinessTimer);
+      if (rehearsalSupported) readinessTimer = setInterval(reportReadiness,2000);
       reconnectAttempt = 0;
       joinRetryAttempt = 0;
       clearTimeout(joinRetryTimer);
@@ -538,22 +689,51 @@ async function handleSocketMessage(event, generation) {
         sessionStorage.setItem("is_host", "true");
         if (acceptingReplacementReplay) {
           if (wasPlaying) await MetronomeEngine.togglePlay(true);
+          if (!current() || !joined || !window.isHost) return;
         } else {
           pendingStatePromise = AppState.getCurrentStateForPreset(true);
           clearTimeout(stateSendTimer);
           await flushState();
+          if (!current() || !joined || !window.isHost) return;
           if (queuedPlay) publishDesiredHostPlaybackState();
           else if (wasPlaying) broadcastScheduledPlay();
         }
       } else {
         clearDesiredHostPlaybackState();
-        sessionStorage.removeItem("host_room_id");
-        sessionStorage.removeItem("host_credential");
-        sessionStorage.removeItem("is_host");
+        // Joining someone else's room must not erase the recoverable own-room
+        // session. Explicit handoff/replacement revokes it separately.
         const modal = document.getElementById("connection-modal");
         if (modal) modal.style.display = "block";
       }
       startTimeSync();
+      reportReadiness();
+      break;
+
+    case 'rehearsal-room':
+      acceptRehearsalSnapshot(message);
+      break;
+
+    case 'role-changed':
+      if (message.isHost !== false) break;
+      revokeLocalHost();
+      stopRoomPlayback();
+      localRole = 'client';
+      updateConnectionStatusUI('connected');
+      break;
+
+    case 'host-granted':
+      if (!joined || !rehearsalSupported || !/^[a-f0-9]{64}$/.test(message.hostCredential)) break;
+      invalidateRoomAuthority('host-handoff');
+      stopRoomPlayback();
+      clearDesiredHostPlaybackState();
+      hostCredential = message.hostCredential;
+      window.isHost = true;
+      localRole = 'host';
+      isReadyToPlay = true;
+      sessionStorage.setItem('host_room_id',roomId);
+      sessionStorage.setItem('host_credential',hostCredential);
+      sessionStorage.setItem('is_host','true');
+      updateConnectionStatusUI('connected');
       break;
 
     case "presence":
@@ -620,6 +800,15 @@ async function handleSocketMessage(event, generation) {
 
     case "room-closed":
       joined = false;
+      invalidateRoomAuthority('room-closed');
+      stopRoomPlayback();
+      recoveryMessage = 'This room is closed. Ask the host for a new link; a closed room cannot be restored.';
+      if (rehearsalSupported) {
+        intentionallyDisconnected = true;
+        clearTimeout(joinRetryTimer);
+        joinRetryTimer = null;
+        if (sessionStorage.getItem('host_room_id') === roomId) revokeLocalHost();
+      }
       resetProtocolDiagnostics();
       acceptingReplacementReplay = false;
       clearDesiredHostPlaybackState();
@@ -629,12 +818,14 @@ async function handleSocketMessage(event, generation) {
       updateConnectionStatusUI("disconnected");
       if (AppState.isPlaying()) MetronomeEngine.togglePlay(true);
       if (!window.isHost) logToScreen("The host has disconnected.");
-      scheduleJoinRetry();
+      if (!intentionallyDisconnected) scheduleJoinRetry();
       break;
 
     case "host-replaced":
       intentionallyDisconnected = true;
       joined = false;
+      revokeLocalHost();
+      stopRoomPlayback();
       resetProtocolDiagnostics();
       acceptingReplacementReplay = false;
       clearDesiredHostPlaybackState();
@@ -658,7 +849,7 @@ async function handleSocketMessage(event, generation) {
 
       pendingStatePromise = AppState.getCurrentStateForPreset(true);
       await flushState();
-      if (!window.isHost || !joined) break;
+      if (!current() || !window.isHost || !joined) break;
 
       // Keep outbound settings and transport gated until the retained replay
       // has been consumed and the replacement's authoritative snapshot flushed.
@@ -676,7 +867,20 @@ async function handleSocketMessage(event, generation) {
 
     case "error":
       console.error(`Synchronization server error (${message.code}): ${message.message}`);
+      if (['invalid-host-credential','room-closed','room-expired'].includes(message.code)) {
+        authorityGeneration += 1;
+        joined = false;
+        intentionallyDisconnected = true;
+        clearTimeout(joinRetryTimer); clearTimeout(reconnectTimer);
+        joinRetryTimer = null; reconnectTimer = null;
+        revokeLocalHost(); resetProtocolDiagnostics(); invalidatePendingTransport(); stopTimeSync();
+        recoveryMessage = message.code === 'invalid-host-credential'
+          ? 'Host credential was rejected. This session cannot restore that room. Ask the current host for a link or create a new room.'
+          : 'This room is closed or expired. Ask for a new room link; the old room cannot be restored.';
+        updateConnectionStatusUI('failed');
+      }
       if (message.code === "room-not-found") {
+        recoveryMessage = 'The room is unavailable. The rightful host may reconnect; otherwise ask for a new link.';
         updateConnectionStatusUI("failed");
         logToScreen("This room is no longer available. Ask the host for a new link.");
         scheduleJoinRetry();
@@ -709,22 +913,99 @@ function connectToSynchronizationServer() {
   const currentSocket = new WebSocket(signalingUrl());
   socket = currentSocket;
 
+  let helloTimer = null, helloChallenge = null, joinSent = false;
+  let pendingReceipts = 0;
+  let receivedHostPeerId;
+  const finishHello = scope => {
+    if (joinSent || generation !== connectionGeneration || socket !== currentSocket) return;
+    joinSent = true;
+    clearTimeout(helloTimer);
+    if (scope && needsRoomScope && window.isHost) {
+      roomId = `v2_${scope}_${roomId}`;
+      sessionStorage.setItem('host_room_id', roomId);
+      const url = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(roomId)}`;
+      window.history.replaceState({path:url}, '', url);
+    }
+    needsRoomScope = false;
+    // A v2 identity must never be presented to an old server's suffix-only
+    // proof validator. New legacy identities still support server-first rollout.
+    if (!scope && roomId?.startsWith('v2_')) {
+      joined = false;
+      intentionallyDisconnected = true;
+      recoveryMessage = 'This server cannot safely restore this room. Ask for a new room link.';
+      updateConnectionStatusUI('failed');
+      currentSocket.close();
+      return;
+    }
+    sendJoinRequest();
+  };
   currentSocket.onopen = () => {
     if (generation !== connectionGeneration || socket !== currentSocket) return;
     reconnectAttempt = 0;
-    sendJoinRequest();
+    helloChallenge = [...crypto.getRandomValues(new Uint8Array(16))].map(n=>n.toString(16).padStart(2,'0')).join('');
+    sendMessage({type:'hello',challenge:helloChallenge});
+    helloTimer = setTimeout(()=>finishHello(null),500);
     clearInterval(heartbeatTimer);
     heartbeatTimer = setInterval(() => sendMessage({ type: "ping", t0: Date.now() }), 25000);
   };
 
   receiveChain = Promise.resolve();
   currentSocket.onmessage = event => {
+    // Revocation must not wait behind a pending preset/checksum operation.
+    try {
+      const immediate = JSON.parse(event.data);
+      if (immediate.type === 'hello') {
+        if (generation === connectionGeneration && socket === currentSocket
+          && immediate.challenge === helloChallenge && /^[a-f0-9]{32}$/.test(immediate.roomScope)
+          && immediate.capabilities?.includes('room-scope-v2')) finishHello(immediate.roomScope);
+        return;
+      }
+      if (!joinSent && immediate.type === 'error' && ['unknown-type','not-joined'].includes(immediate.code)) {
+        finishHello(null);
+        return;
+      }
+      if (generation === connectionGeneration && currentSocket === socket
+        && (!immediate.room || immediate.room === roomId) && immediate.type === 'rehearsal-room'
+        && Array.isArray(immediate.participants) && immediate.participants.length <= 33
+        && Array.isArray(immediate.requests) && immediate.requests.length <= 33) {
+        const nextHost = immediate.participants.some(p => p && p.peerId === immediate.hostPeerId
+          && /^[a-f0-9]{16}$/.test(p.peerId) && plainText(p.name,40)) ? immediate.hostPeerId : null;
+        // Initial host discovery must not cancel the joined replay. Later host
+        // transitions invalidate at receipt, never midway through queued work.
+        if (receivedHostPeerId !== undefined && receivedHostPeerId !== nextHost) invalidateRoomAuthority('room-host-changed');
+        receivedHostPeerId = nextHost;
+      }
+      if (generation === connectionGeneration && currentSocket === socket
+        && (!immediate.room || immediate.room === roomId)
+        && ['role-changed','host-replaced','room-closed','host-granted'].includes(immediate.type)) {
+        // Control transitions have no awaited work: apply their complete effects
+        // in wire receipt order, including private grant storage. Never replay
+        // them behind an older asynchronous snapshot or bypass its epoch guard.
+        void handleSocketMessage(event, generation).catch(error => console.error('Could not apply authority transition:', error));
+        // A grant and its following roster describe one authority, not two.
+        // Record its identity now so the roster cannot invalidate intervening
+        // transport/state packets admitted under that legitimate grant.
+        if (immediate.type === 'host-granted' && joined && window.isHost
+          && hostCredential === immediate.hostCredential) receivedHostPeerId = ownPeerId;
+        return;
+      }
+    } catch { /* Normal parser below reports malformed messages. */ }
+    const receiptAuthority = authorityGeneration;
+    if (++pendingReceipts > 128) {
+      joined = false;
+      invalidateRoomAuthority('receive-overflow');
+      stopRoomPlayback();
+      currentSocket.close(4008, 'Receive queue limit');
+      return;
+    }
     receiveChain = receiveChain
       .then(() => {
-        if (generation !== connectionGeneration || socket !== currentSocket) return;
+        if (generation !== connectionGeneration || socket !== currentSocket
+          || receiptAuthority !== authorityGeneration) return;
         return handleSocketMessage(event, generation);
       })
-      .catch(error => console.error("Could not process synchronized message:", error));
+      .catch(error => console.error("Could not process synchronized message:", error))
+      .finally(() => { pendingReceipts -= 1; });
   };
   currentSocket.onerror = error => {
     if (generation === connectionGeneration && socket === currentSocket) {
@@ -735,14 +1016,16 @@ function connectToSynchronizationServer() {
   };
   currentSocket.onclose = () => {
     if (generation !== connectionGeneration || socket !== currentSocket) return;
+    clearTimeout(helloTimer);
     const wasJoined = joined;
     connectionGeneration += 1;
     resumePlaybackOnReconnect = !intentionallyDisconnected && window.isHost && AppState.isPlaying() && wasJoined;
     joined = false;
+    invalidateRoomAuthority('connection-lost');
     resetProtocolDiagnostics();
     clearDesiredHostPlaybackState();
     invalidatePendingTransport();
-    if (wasJoined && AppState.isPlaying()) MetronomeEngine.togglePlay(true);
+    stopRoomPlayback();
     clearInterval(heartbeatTimer);
     stopTimeSync();
     clearTimeout(joinRetryTimer);
@@ -859,6 +1142,7 @@ export function initializeShareControls() {
 }
 
 export async function initializeWebRTC() {
+  const initializeGeneration = ++authorityGeneration;
   updateClientCount(0);
   onReceiveState(() => refreshUIFromState());
 
@@ -874,6 +1158,8 @@ export async function initializeWebRTC() {
     hostCredential = window.isHost ? storedCredential : null;
   } else {
     const identity = await generateHostIdentity();
+    if (initializeGeneration !== authorityGeneration) return;
+    needsRoomScope = true;
     roomId = identity.room;
     hostCredential = identity.credential;
     window.isHost = true;
@@ -884,6 +1170,8 @@ export async function initializeWebRTC() {
     window.history.replaceState({ path: nextUrl }, "", nextUrl);
   }
 
+  participantCredential = sessionStorage.getItem(`rehearsal_session:${roomId}`);
+  invalidateRoomAuthority('room-selected');
   intentionallyDisconnected = false;
   connectToSynchronizationServer();
 }
@@ -893,8 +1181,12 @@ async function flushState() {
   const statePromise = pendingStatePromise;
   pendingStatePromise = null;
   if (!joined || !window.isHost || !statePromise) return false;
+  const generation = connectionGeneration, roleGeneration = authorityGeneration, expectedRoom = roomId, expectedSocket = socket;
+  const current = () => joined && window.isHost && generation === connectionGeneration && roleGeneration === authorityGeneration
+    && expectedRoom === roomId && expectedSocket === socket;
   try {
     const state = await statePromise;
+    if (!current()) return false;
     const privateNames = privateNetworkSoundNames();
     state.Tracks = state.Tracks.map(track => sanitizeNetworkTrack(track, privateNames));
     if (state.song?.sections) {
@@ -916,6 +1208,7 @@ async function flushState() {
       return false;
     }
     const stateChecksum = await checksum(state);
+    if (!current()) return false;
     return sendMessage({ type: "state", schemaVersion: SYNC_SCHEMA_VERSION, capabilities: SYNC_CAPABILITIES,
       checksum: stateChecksum, payloadBytes, payload: state });
   } catch (error) {
@@ -955,7 +1248,9 @@ function broadcastTransportCommand(playing, forcePublication = false) {
   if (acceptingReplacementReplay) return true;
 
   const referenceTrack = AppState.getTracks()[0];
-  const publish = () => sendMessage({
+  const generation = connectionGeneration, roleGeneration = authorityGeneration, expectedRoom = roomId, expectedSocket = socket;
+  const publish = () => joined && window.isHost && generation === connectionGeneration && roleGeneration === authorityGeneration
+    && expectedRoom === roomId && expectedSocket === socket && sendMessage({
     type: "transport-command",
     playing,
     currentBar: referenceTrack?.currentBar || 0,
@@ -1022,6 +1317,7 @@ export function reconnectSynchronization() {
 
 export function disconnect() {
   intentionallyDisconnected = true;
+  invalidateRoomAuthority('disconnected');
   connectionGeneration += 1;
   const socketToClose = socket;
   socket = null;
@@ -1030,8 +1326,7 @@ export function disconnect() {
   acceptingReplacementReplay = false;
   clearDesiredHostPlaybackState();
   resumePlaybackOnReconnect = false;
-  invalidatePendingTransport();
-  if (AppState.isPlaying()) MetronomeEngine.togglePlay(true);
+  stopRoomPlayback();
   clearTimeout(reconnectTimer);
   clearTimeout(joinRetryTimer);
   clearInterval(heartbeatTimer);
@@ -1045,6 +1340,10 @@ export function disconnect() {
 
 export async function disconnectAllPeers() {
   if (!window.isHost) return false;
+  const roleGeneration = invalidateRoomAuthority('room-rotation'), expectedRoom = roomId, expectedSocket = socket;
+  const generation = connectionGeneration;
+  const current = () => roleGeneration === authorityGeneration && expectedRoom === roomId
+    && expectedSocket === socket && generation === connectionGeneration && window.isHost;
   const sent = sendMessage({ type: "close-room" });
   if (!sent) return false;
   joined = false;
@@ -1053,12 +1352,16 @@ export async function disconnectAllPeers() {
   clearDesiredHostPlaybackState();
   stopTimeSync();
   resumePlaybackOnReconnect = false;
-  invalidatePendingTransport();
-  if (AppState.isPlaying()) await MetronomeEngine.togglePlay(true);
+  stopRoomPlayback();
+  if (!current()) return false;
 
   const identity = await generateHostIdentity();
+  if (!current()) return false;
+  needsRoomScope = true;
   roomId = identity.room;
   hostCredential = identity.credential;
+  participantCredential = null;
+  invalidateRoomAuthority('room-rotated');
   joined = false;
   sessionStorage.setItem("host_room_id", roomId);
   sessionStorage.setItem("host_credential", hostCredential);
@@ -1066,7 +1369,9 @@ export async function disconnectAllPeers() {
   const nextUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(roomId)}`;
   window.history.replaceState({ path: nextUrl }, "", nextUrl);
   updateClientCount(0);
-  sendJoinRequest();
+  disconnect();
+  intentionallyDisconnected = false;
+  connectToSynchronizationServer();
   return sent;
 }
 

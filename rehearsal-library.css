@@ -1,0 +1,47 @@
+.rehearsal-library {
+  color: var(--ReadableOnBackground, CanvasText);
+  background: var(--Background, Canvas);
+  text-shadow: none;
+  display: grid;
+  gap: .6rem;
+  min-width: 0;
+  max-width: 100%;
+  font-size: .9rem;
+}
+.rehearsal-library *, .rehearsal-library *::before, .rehearsal-library *::after { box-sizing: border-box; }
+.rehearsal-library details {
+  min-width: 0;
+  border: 1px solid currentColor;
+  border-radius: .5rem;
+  padding: .65rem;
+}
+.rehearsal-library summary { cursor: pointer; font-weight: 700; padding: .25rem 0; }
+.rehearsal-library p { margin: .5rem 0; overflow-wrap: anywhere; }
+.rehearsal-library label { display: inline-flex; flex-direction: column; gap: .25rem; max-width: 100%; margin: .35rem .35rem .35rem 0; vertical-align: bottom; }
+.rehearsal-library input, .rehearsal-library select, .rehearsal-library button {
+  font: inherit;
+  color: inherit;
+  background: var(--Background, Canvas);
+  border: 1px solid currentColor;
+  border-radius: .35rem;
+  min-height: 44px;
+  max-width: 100%;
+  padding: .4rem .55rem;
+  text-shadow: none;
+}
+.rehearsal-library input, .rehearsal-library select { width: 16rem; min-width: 0; }
+.rehearsal-library input[type=file] { width: 20rem; }
+.rehearsal-library input[type=checkbox] { width: 1.2rem; min-height: 1.2rem; }
+.rehearsal-library button { cursor: pointer; margin: .2rem; white-space: normal; overflow-wrap: anywhere; }
+.rehearsal-library :disabled { opacity: .6; cursor: not-allowed; }
+.rehearsal-library :focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
+.rehearsal-library ol { padding-inline-start: 1.3rem; margin-block: .5rem; min-width: 0; }
+.rehearsal-library li { min-width: 0; overflow-wrap: anywhere; padding-block: .35rem; border-bottom: 1px solid currentColor; }
+.rehearsal-library li > span { display: block; overflow-wrap: anywhere; }
+.rehearsal-library [data-cue-display] { font-weight: 700; }
+@media (max-width: 480px) {
+  /* Avoid WebKit retaining a select's intrinsic option width in column-flex overflow. */
+  .rehearsal-library label { display: block; width: 100%; margin-right: 0; }
+  .rehearsal-library input, .rehearsal-library select { width: 100%; }
+  .rehearsal-library button { margin-inline: 0 .25rem; }
+}

@@ -11,6 +11,10 @@ import UIController from "./uiController.js";
 // --- Constants ---
 const NUM_PRESET_SLOTS = 16;
 const PRESET_STORAGE_KEY_PREFIX = "metronomePreset_";
+let presetLoadGeneration = 0;
+for (const event of ['syncrolechange', 'roomauthoritychange']) {
+  document.addEventListener(event, () => { presetLoadGeneration++; });
+}
 
 // --- Public API ---
 const PresetController = {
@@ -176,7 +180,13 @@ const PresetController = {
 
     try {
       const presetData = JSON.parse(presetString);
-      await AppState.loadPresetData(presetData);
+      const generation = ++presetLoadGeneration;
+      const current = () => window.isHost && generation === presetLoadGeneration;
+      await AppState.loadPresetData(presetData, {
+        history: AppState.isPlaying() ? 'external' : 'local',
+        guard: current,
+      });
+      if (!current()) return null;
       return {
         theme: presetData.selectedTheme || "default",
         songName: presetData.songName || "",
