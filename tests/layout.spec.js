@@ -8,7 +8,7 @@ const test = base.extend({
     const goto = page.goto.bind(page);
     page.goto = async (...args) => {
       const response = await goto(...args);
-      await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+      await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
       return response;
     };
     await use(page);
@@ -234,7 +234,7 @@ test.describe('mode controls responsive layout', () => {
   test('Synthwave menus stay above track controls at iPhone SE width', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
-    await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+    await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
     await page.locator('#theme-menu-toggle').click();
     await page.locator('[data-theme="synthwave"]').click();
     await expect(page.locator('#theme-menu')).toBeVisible();
@@ -837,7 +837,8 @@ test.describe('mode controls responsive layout', () => {
     expect(inlineControls.sameRow).toBe(true);
 
     const beatSquare = track.locator('.beat-square').first();
-    await beatSquare.scrollIntoViewIfNeeded();
+    // Center the target clear of the deliberately floating transport footer.
+    await beatSquare.evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
     const beatBox = await beatSquare.boundingBox();
     expect(beatBox).not.toBeNull();
     const beatHit = await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.className, { x: beatBox.x + beatBox.width / 2, y: beatBox.y + beatBox.height / 2 });
@@ -1342,7 +1343,7 @@ test.describe('mode controls responsive layout', () => {
 
   test('sound preview and recorded waveform controls are available', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+    await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
     const result = await page.evaluate(async () => {
       const [{ default: SoundSettingsModal }, { default: AppState }] = await Promise.all([
         import(new URL('js/soundSettingsModal.js', document.baseURI).href),
@@ -1387,7 +1388,7 @@ test.describe('mode controls responsive layout', () => {
 
   test('sample overlap and retrigger settings persist when the modal reopens', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+    await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
     const result = await page.evaluate(async () => {
       const [{ default: SoundSettingsModal }, { default: AppState }] = await Promise.all([
         import(new URL('js/soundSettingsModal.js', document.baseURI).href),
@@ -1543,6 +1544,7 @@ test.describe('mode controls responsive layout', () => {
         volume: volume && { left: volume.left, right: volume.right },
         volumeLabel: volumeLabel && { left: volumeLabel.left, right: volumeLabel.right, scrollWidth: track.querySelector('.track-volume-label')?.scrollWidth, clientWidth: track.querySelector('.track-volume-label')?.clientWidth },
         modeLabelDisplay: modeLabel && getComputedStyle(modeLabel).display,
+        modeLabelFits: modeLabel && modeLabel.scrollWidth <= modeLabel.clientWidth + 1,
         modeIconDisplay: modeIcon && getComputedStyle(modeIcon).display,
         buttons,
       };
@@ -1551,7 +1553,7 @@ test.describe('mode controls responsive layout', () => {
       expect(track.parent.scrollWidth).toBeLessThanOrEqual(track.parent.clientWidth + 1);
       expect(track.volumeLabel.right).toBeLessThanOrEqual(track.volume.right + 0.5);
       expect(track.volumeLabel.scrollWidth).toBeLessThanOrEqual(track.volumeLabel.clientWidth + 1);
-      expect(track.modeLabelDisplay).toBe('none');
+      if (track.modeLabelDisplay !== 'none') expect(track.modeLabelFits).toBe(true);
       expect(track.modeIconDisplay).not.toBe('none');
       for (const button of track.buttons) {
       expect(button.left).toBeGreaterThanOrEqual(track.parent.left - 0.5);
@@ -1730,7 +1732,7 @@ test.describe('mode controls responsive layout', () => {
 
   test('desktop Song Mode track changes use a blurred right-to-left whip transition', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+    await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
     const result = await page.evaluate(() => {
       const wrapper = document.querySelector('#all-tracks-wrapper');
       wrapper.innerHTML = '<div class="track"></div>';
@@ -1835,7 +1837,7 @@ test.describe('mode controls responsive layout', () => {
 
   test('desktop Song Mode whips even when the section keeps the same track count', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+    await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
     const result = await page.evaluate(() => {
       const wrapper = document.querySelector('#all-tracks-wrapper');
       wrapper.innerHTML = '<div class="track"></div>';
@@ -2137,7 +2139,7 @@ test.describe('mode controls responsive layout', () => {
   test('visual regression: mobile theme menu', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.goto('/');
-    await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+    await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
     await page.locator('#theme-menu-toggle').click();
     await expect(page).toHaveScreenshot('theme-menu-mobile.png', { animations: 'disabled' });
   });

@@ -1,5 +1,15 @@
 # Device-local Precision beat selection
 
+## v191 contextual interface (current)
+
+The bootstrap anchor stays empty/hidden. Compact assistance controls live inside each real track and appear only in the existing **Beat Edit** mode while host/solo and stopped. Assistance defaults on within that mode, with a device-local opt-out toggle; there is no permanent toolbar and no Previous/Next/Edit button strip.
+
+A tap, or a held/slid magnified release, opens the targeted existing sound editor once. Opening the editor does not mutate the song; changes still require editing an actual parameter. Arrow keys move a roving beat target and Enter/Space opens it. A constrained viewport that cannot fit a non-occluding lens offers keyboard targeting. Mode exit, playback, role/authority changes, cancelled/scrolling gestures, stale targets and 3D context changes remove pending assistance. Ordinary Rest/Accent/Slice/subdivision gestures remain untouched outside assistance.
+
+Controls, selected-beat ring and lens use the live theme palette, derived readable foregrounds and theme font. Track rerenders reconcile controls without attaching a global panel. The active root still requires the idempotent initialization and destroy contract shown below.
+
+The following v190 interaction notes are historical; their separate Edit action and always-visible mount no longer describe the UI.
+
 ## Integration
 
 ```js

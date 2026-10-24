@@ -115,10 +115,12 @@ for(const action of ['scheduleCountIn','scheduleStart'])test(`cancel invalidates
 test('cancel releases sample retrigger ownership before the next generation',async({browser})=>{
  const h=await peer(browser);try{await join(h.page);await hold(h.page);
  const result=await h.page.evaluate(async()=>{const a=(await import('./js/appState.js')).default,c=(await import('./js/audioController.js')).default,L=(await import('./js/audioPlaybackLifetime.js')).default,ctx=a.getAudioContext();
- const b=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate);b.getChannelData(0).fill(0.2);a.setSoundBuffer('sample lifecycle ownership',b);
+ const b=ctx.createBuffer(1,ctx.sampleRate,ctx.sampleRate),tone=b.getChannelData(0);for(let i=0;i<tone.length;i++)tone[i]=0.2*Math.sin(i*2*Math.PI*440/ctx.sampleRate);a.setSoundBuffer('sample lifecycle ownership',b);
  const first=new L(),second=new L(),settings={voiceKey:'lifecycle-test',retrigger:false};c.playRecording('sample lifecycle ownership',settings,0,0.4,ctx.currentTime,0.3,null,first);first.cancel();
- const before=window.__starts.length;c.playRecording('sample lifecycle ownership',settings,0,0.4,ctx.currentTime,0.3,null,second);return window.__starts.length-before;
- });expect(result).toBe(1);expect(await peakOutput(h.page,250)).toBeGreaterThan(0.01);expect(h.errors).toEqual([]);
+ // A sustained generated tone survives the real high-pass filter. DC only
+ // creates a brief transient and is not a reliable audible-voice fixture.
+ const before=window.__starts.length;c.playRecording('sample lifecycle ownership',settings,0,0.8,ctx.currentTime+0.1,0.3,null,second);return window.__starts.length-before;
+ });expect(result).toBe(1);expect(await peakOutput(h.page,500)).toBeGreaterThan(0.01);expect(h.errors).toEqual([]);
  }finally{await h.context.close();}
 });
 

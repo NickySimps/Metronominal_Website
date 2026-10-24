@@ -4769,7 +4769,7 @@ body.beat-edit-mode .beat-square {
   border-radius: .75rem;
   background: var(--Background);
   color: var(--ReadableOnBackground);
-  font-family: Inter, sans-serif;
+  font-family: var(--font-family, Inter, sans-serif);
   font-size: .875rem;
   line-height: 1.45;
   text-align: left;

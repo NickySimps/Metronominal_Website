@@ -2,7 +2,7 @@ const {test,expect}=require('@playwright/test');
 async function ready(page) {
   await page.goto('./');
   await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
-  await expect(page.getByRole('button',{name:'Precision beat selection',exact:true})).toBeVisible();
+  await expect(page.locator('#beat-precision-controls')).toBeHidden();
 }
 async function dense(page) {
   await page.evaluate(async()=>{
@@ -28,12 +28,15 @@ async function snapshot(page) {
     return {music:await a.getCurrentStateForPreset(true),mix:m.getState(),theme:a.getCurrentTheme(),playing:a.isPlaying()};
   });
 }
-test('mounted dense-bar precision prevents real rest paint and opens the real editor only explicitly',async({page})=>{
+test('mounted dense-bar assistance follows Beat Edit and release opens the exact editor once without painting',async({page})=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.setViewportSize({width:390,height:1200});await ready(page);await dense(page);
   await page.locator('.rest-button').first().click();
   const toggle=page.getByRole('button',{name:'Precision beat selection',exact:true});
-  await expect(toggle).toHaveAttribute('aria-pressed','false');await toggle.click();
+  await expect(toggle).toBeHidden();
+  await page.locator('.beat-edit-btn').first().click();
+  await expect(toggle).toHaveAttribute('aria-pressed','true');
+  await page.evaluate(async()=>{const m=(await import(new URL('js/soundSettingsModal.js',document.baseURI))).default,original=m.show;window.__editorOpens=0;m.show=function(...args){window.__editorOpens++;return original.apply(this,args);};});
   await beat(page,19).scrollIntoViewIfNeeded();
   const before=await snapshot(page);
   await pointer(page,'pointerdown',19);
@@ -49,9 +52,10 @@ test('mounted dense-bar precision prevents real rest paint and opens the real ed
   await pointer(page,'pointerup',19);
   await expect(page.locator('.beat-precision-selected')).toHaveAttribute('data-beat-index','19');
   expect(await snapshot(page)).toEqual(before);
-  await expect(page.locator('#sound-settings-modal')).toBeHidden();
-  await page.getByRole('button',{name:'Edit selected beat',exact:true}).click();
   await expect(page.locator('#sound-settings-modal')).toBeVisible();
+  await beat(page,19).dispatchEvent('click',{detail:1});
+  expect(await page.evaluate(()=>window.__editorOpens)).toBe(1);
+  await expect(page.getByRole('button',{name:'Edit selected beat',exact:true})).toHaveCount(0);
   expect(await page.evaluate(async()=>{
     const m=(await import(new URL('js/soundSettingsModal.js',document.baseURI))).default;
     return {track:m.currentTrackIndex,bar:m.currentBarIndex,beat:m.currentBeatIndex};
@@ -91,24 +95,28 @@ test('real participant selection cannot edit and role/playback boundaries clear 
     await client.goto(page.url());
     await expect.poll(()=>client.evaluate(async()=>(await import(new URL('js/webrtc.js',document.baseURI))).getRehearsalRoomState().joined)).toBe(true);
     const dismiss=client.locator('#dismiss-connection-modal-btn');if(await dismiss.isVisible())await dismiss.click();
-    await client.getByRole('button',{name:'Precision beat selection',exact:true}).click();
-    await client.getByRole('button',{name:'Next beat',exact:true}).click();
-    await expect(client.locator('.beat-precision-selected')).toHaveCount(1);
-    await expect(client.getByRole('button',{name:'Edit selected beat',exact:true})).toBeDisabled();
-    await page.getByRole('button',{name:'Precision beat selection',exact:true}).click();
-    await page.getByRole('button',{name:'Next beat',exact:true}).click();
-    await expect(page.getByRole('button',{name:'Edit selected beat',exact:true})).toBeEnabled();
+    await client.evaluate(()=>document.body.classList.add('beat-edit-mode'));
+    await expect(client.locator('.track .beat-precision')).toBeHidden();
+    await client.locator('.beat-square').first().dispatchEvent('click');
+    await expect(client.locator('#sound-settings-modal')).toBeHidden();
+    await page.locator('.beat-edit-btn').first().click();
+    await page.locator('[data-beat-precision-toggle]').first().focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('.beat-precision-selected')).toHaveCount(1);
     await page.locator('#start-stop-btn').click();
     await expect.poll(()=>page.evaluate(async()=>(await import(new URL('js/appState.js',document.baseURI))).default.isPlaying())).toBe(true);
     await expect(page.locator('.beat-precision-selected')).toHaveCount(0);
-    await page.getByRole('button',{name:'Next beat',exact:true}).click();
-    await expect(page.getByRole('button',{name:'Edit selected beat',exact:true})).toBeDisabled();
+    await expect(page.locator('.track .beat-precision')).toBeHidden();
+    await page.locator('.beat-square').first().dispatchEvent('click');
+    await expect(page.locator('#sound-settings-modal')).toBeHidden();
     await page.locator('#start-stop-btn').click();
   } finally {await context.close();}
 });
 for(const width of [320,390,1280])test(`mounted Precision controls fit ${width}px with ordinary controls available`,async({page})=>{
   await page.setViewportSize({width,height:1100});await ready(page);
-  const geometry=await page.locator('#beat-precision-controls').evaluate(root=>({width:innerWidth,scroll:document.documentElement.scrollWidth,buttons:[...root.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,height:r.height};})}));
+  await page.locator('.beat-edit-btn').first().click();
+  await expect(page.locator('.track .beat-precision')).toBeVisible();
+  const geometry=await page.locator('.track .beat-precision').evaluate(root=>({width:innerWidth,scroll:document.documentElement.scrollWidth,buttons:[...root.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,height:r.height};})}));
   expect(geometry.scroll).toBeLessThanOrEqual(geometry.width);
   expect(geometry.buttons.every(b=>b.left>=0&&b.right<=width&&b.width>=44&&b.height>=44)).toBe(true);
   await expect(page.locator('#start-stop-btn')).toBeVisible();

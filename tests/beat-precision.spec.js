@@ -28,11 +28,29 @@ async function fixture(page, count = 64) {
     const slots = slotsModule.getVisualBeatSlots(state.getTracks()[0].barSettings[2]);
     const bar = document.createElement('div'); bar.className = 'bar-visual'; bar.dataset.containerIndex = '0'; bar.dataset.barIndex = '2';
     for(const slot of slots){const beat=document.createElement('div');beat.className='beat-square'+(slot.mainBeat?' main-beat-marker':'');beat.dataset.beatIndex=slot.index;bar.append(beat);}
-    document.querySelector('main').append(bar);
+    const track=document.createElement('section');track.className='track';track.dataset.containerIndex='0';
+    track.innerHTML='<div class="mode-buttons-col"><button class="beat-edit-btn">Beat</button></div>';
+    track.append(bar);document.querySelector('main').append(track);
     let timer; bar.addEventListener('pointerdown',()=>{legacy++;timer=setTimeout(()=>longpress++,350)});bar.addEventListener('pointerup',()=>clearTimeout(timer));bar.addEventListener('click',()=>legacy++);
     window.controller = module.initializeBeatPrecision(document.querySelector('#controls'));
   }, count);
 }
+async function activate(page) {
+  await page.evaluate(()=>document.body.classList.add('beat-edit-mode'));
+  await expect(page.locator('[data-beat-precision-toggle]')).toHaveAttribute('aria-pressed','true');
+}
+test('contextual assist follows existing Beat Edit mode without a global toolbar', async ({page}) => {
+  await fixture(page);
+  await expect(page.locator('#controls')).toBeEmpty();
+  await expect(page.locator('.track .beat-precision')).toBeHidden();
+  await activate(page);
+  await expect(page.locator('.track .beat-precision')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Edit selected beat'})).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'Next beat',exact:true})).toHaveCount(0);
+  const r=await page.locator('[data-beat-precision-toggle]').boundingBox();expect(r.width).toBeGreaterThanOrEqual(44);expect(r.height).toBeGreaterThanOrEqual(44);
+  await page.evaluate(()=>document.body.classList.remove('beat-edit-mode'));
+  await expect(page.locator('.track .beat-precision')).toBeHidden();
+});
 async function pointer(page, type, index, opts = {}) {
   return page.evaluate(({type,index,opts}) => {
     const beat=document.querySelectorAll('.beat-square')[index], r=beat.getBoundingClientRect();
@@ -40,9 +58,9 @@ async function pointer(page, type, index, opts = {}) {
     beat.dispatchEvent(e);return e.defaultPrevented;
   },{type,index,opts});
 }
-test('hold preview maps multirow geometry, slow movement magnifies with hysteresis; release is local', async ({page}) => {
+test('hold preview maps multirow geometry and slow fine movement; release opens the exact editor without musical mutation', async ({page}) => {
   await fixture(page); await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:00Z'));
-  await page.getByRole('button',{name:'Precision beat selection',exact:true}).click();
+  await activate(page);
   const rect = await page.locator('.bar-visual').boundingBox();
   await pointer(page,'pointerdown',19); await page.clock.runFor(400);
   await expect(page.locator('.beat-precision-preview')).toBeVisible();
@@ -56,44 +74,46 @@ test('hold preview maps multirow geometry, slow movement magnifies with hysteres
   await expect(page.locator('.beat-precision-preview')).toHaveAttribute('data-scale','fine');
   await pointer(page,'pointerup',19);
   await expect(page.locator('.beat-precision-selected')).toHaveAttribute('data-beat-index','19');
-  expect(await page.evaluate(()=>edits)).toEqual([]);
+  expect(await page.evaluate(()=>edits)).toEqual([[0,'subdivisionSound',{barIndex:2,beatIndex:19}]]);
   expect(await page.evaluate(()=>legacy)).toBe(0);
   await expect(page.locator('.beat-precision-preview')).toHaveCount(0);
 });
 test('keyboard navigation, authority, playback, rerender, cancellation and cleanup', async ({page}) => {
   await fixture(page,32); await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:00Z'));
-  const toggle=page.getByRole('button',{name:'Precision beat selection',exact:true}); await toggle.click();
+  const toggle=page.getByRole('button',{name:'Precision beat selection',exact:true}); await activate(page);
   expect(await page.evaluate(()=>module.initializeBeatPrecision(document.querySelector('#controls'))===controller)).toBe(true);
   expect(await page.evaluate(()=>module.initializeBeatPrecision(null))).toBe(null);
-  await page.getByRole('button',{name:'Next beat',exact:true}).click();
+  await toggle.focus(); await page.keyboard.press('ArrowRight');
   await expect(page.locator('.beat-precision-selected')).toHaveAttribute('data-beat-index','0');
-  await page.getByRole('button',{name:'Next beat',exact:true}).focus(); await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
   await expect(page.locator('.beat-precision-selected')).toHaveAttribute('data-beat-index','1');
   await page.evaluate(()=>document.dispatchEvent(new CustomEvent('syncrolechange',{detail:{state:'connected',isHost:false}})));
-  await expect(page.getByRole('button',{name:'Edit selected beat'})).toBeDisabled();
+  await expect(page.locator('.track .beat-precision')).toBeHidden();
   await expect(page.locator('.beat-precision-selected')).toHaveCount(0);
   await pointer(page,'pointerdown',3); await page.clock.runFor(400); await pointer(page,'pointercancel',3);
   await expect(page.locator('.beat-precision-preview')).toHaveCount(0);
   await pointer(page,'pointerdown',3);await pointer(page,'pointermove',11);await page.clock.runFor(500);await pointer(page,'pointerup',11);
   await expect(page.locator('.beat-precision-selected')).toHaveCount(0);
+  expect(await page.evaluate(()=>edits)).toEqual([]);
+  await page.evaluate(()=>document.dispatchEvent(new CustomEvent('syncrolechange',{detail:{state:'connected',isHost:true}})));
   for(const name of ['roomauthoritychange','playbackstatechange','historyboundary','appstatechange','blur']) {
     await pointer(page,'pointerdown',3);await page.clock.runFor(400);
     await page.evaluate(name=>(name==='blur'?window:document).dispatchEvent(new Event(name)),name);
     await expect(page.locator('.beat-precision-preview')).toHaveCount(0);
   }
   await pointer(page,'pointerdown',3);await pointer(page,'pointerup',3);
+  expect(await page.evaluate(()=>edits.length)).toBe(1);
   await page.evaluate(()=>document.querySelector('.bar-visual').replaceChildren());
   await expect(page.locator('.beat-precision-selected')).toHaveCount(0);
-  await expect(page.getByRole('button',{name:'Edit selected beat'})).toBeDisabled();
-  await page.keyboard.press('Escape'); await expect(toggle).toBeFocused();
+  await toggle.focus(); await page.keyboard.press('Escape'); await expect(toggle).toBeFocused();
   await page.evaluate(()=>{controller.destroy();controller.destroy()});
-  await expect(toggle).toHaveCount(0);expect(await page.evaluate(()=>edits)).toEqual([]);
+  await expect(toggle).toHaveCount(0);expect(await page.evaluate(()=>edits.length)).toBe(1);
 });
 test('precision restores pan/pinch over paint modes; fast/slow exact targeting, multi-touch and outside cancel', async ({page}) => {
   await fixture(page);await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:00Z'));
   await page.addStyleTag({content:'.bar-visual.rest-mode-active{touch-action:none}'});
   await page.evaluate(()=>document.querySelector('.bar-visual').classList.add('rest-mode-active'));
-  const toggle=page.getByRole('button',{name:'Precision beat selection',exact:true}); await toggle.click();
+  const toggle=page.getByRole('button',{name:'Precision beat selection',exact:true}); await activate(page);
   expect(await page.locator('.bar-visual').evaluate(el=>getComputedStyle(el).touchAction)).toContain('pan-y');
   expect(await page.locator('.bar-visual').evaluate(el=>getComputedStyle(el).touchAction)).toContain('pinch-zoom');
   // Each event has an explicit timestamp. Same physical delta: fast = two beats, fine = one.
@@ -125,7 +145,7 @@ test('precision restores pan/pinch over paint modes; fast/slow exact targeting, 
 });
 test('continuous slow movement enters fine mode; same-DOM rerender invalidates selection; destroy restores gestures', async ({page}) => {
   await fixture(page);await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:00Z'));
-  await page.getByRole('button',{name:'Precision beat selection',exact:true}).click();
+  await activate(page);
   await pointer(page,'pointerdown',18);await page.clock.runFor(400);
   await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
   const r=await page.locator('.beat-square').nth(18).boundingBox();
@@ -136,14 +156,14 @@ test('continuous slow movement enters fine mode; same-DOM rerender invalidates s
   await expect(page.locator('.beat-precision-preview')).toHaveAttribute('data-scale','fine');
   await pointer(page,'pointerup',18);
   await page.evaluate(()=>document.querySelector('.bar-visual').dataset.containerIndex='1');
-  await expect(page.getByRole('button',{name:'Edit selected beat'})).toBeDisabled();
+  await expect(page.locator('.beat-precision-selected')).toHaveCount(0);
   await page.evaluate(()=>controller.destroy());
   expect(await page.locator('main').evaluate(el=>el.classList.contains('beat-precision-enabled'))).toBe(false);
 });
 for(const width of [320,390,1280]) test(`bounded legible geometry at ${width}px, no musical/transport/theme changes`,async({page},testInfo)=>{
   await page.setViewportSize({width,height:844});await fixture(page);await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:00Z'));
   const before=await page.evaluate(()=>({music:state.getMusicalSnapshot(),playing:state.isPlaying(),theme:document.documentElement.getAttribute('style')}));
-  await page.getByRole('button',{name:'Precision beat selection',exact:true}).click();await pointer(page,'pointerdown',19);await page.clock.runFor(700);
+  await activate(page);await pointer(page,'pointerdown',19);await page.clock.runFor(700);
   const geometry=await page.evaluate(()=>{
     const r=document.querySelector('.beat-precision-preview').getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,overflow:document.documentElement.scrollWidth>innerWidth};
   });
@@ -152,12 +172,13 @@ for(const width of [320,390,1280]) test(`bounded legible geometry at ${width}px,
   await page.screenshot({path:testInfo.outputPath(`precision-${width}.png`)});
   await pointer(page,'pointerup',19);
 });
-test('native touch vertical pan before activation is not blocked in precision or ordinary mode', async ({page})=>{
+test('native touch vertical pan before activation is not blocked in precision or ordinary mode', async ({page,browserName})=>{
+  test.skip(browserName!=='chromium','Native CDP touch input is Chromium-only; synthetic pointer/cancellation checks still run in all engines.');
   await fixture(page);const cdp=await page.context().newCDPSession(page);
   await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true});
   for(const enabled of [false,true]){
     await page.evaluate(()=>window.scrollTo(0,0));
-    if(enabled) await page.getByRole('button',{name:'Precision beat selection',exact:true}).click();
+    if(enabled) await activate(page);
     const r=await page.locator('.beat-square').nth(19).boundingBox();const x=r.x+r.width/2,y=r.y+r.height/2;
     await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
     for(let dy=10;dy<=100;dy+=10) await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y-dy,id:1}]});
@@ -167,37 +188,35 @@ test('native touch vertical pan before activation is not blocked in precision or
   }
 });
 test('edit gate checks live playback and role, not disabled styling alone',async({page})=>{
-  await fixture(page);await page.getByRole('button',{name:'Precision beat selection',exact:true}).click();
+  await fixture(page);await activate(page);
   await page.evaluate(()=>state.togglePlay());
   await pointer(page,'pointerdown',19);await pointer(page,'pointerup',19);
-  await expect(page.getByRole('button',{name:'Edit selected beat'})).toBeDisabled();
-  await page.evaluate(()=>document.querySelector('.beat-precision button:last-of-type').dispatchEvent(new Event('click')));
+  await expect(page.locator('.track .beat-precision')).toBeHidden();
+  await page.locator('.beat-square').nth(19).dispatchEvent('click');
   expect(await page.evaluate(()=>edits)).toEqual([]);
-  await page.evaluate(()=>state.togglePlay());
-  await pointer(page,'pointerdown',19);await pointer(page,'pointerup',19);
+  await page.evaluate(()=>{state.togglePlay();document.dispatchEvent(new Event('playbackstatechange'));});
   await page.evaluate(()=>document.dispatchEvent(new CustomEvent('syncrolechange',{detail:{state:'connected',isHost:false}})));
   await pointer(page,'pointerdown',19);await pointer(page,'pointerup',19);
-  await expect(page.getByRole('button',{name:'Edit selected beat'})).toBeDisabled();
-  await page.evaluate(()=>document.querySelector('.beat-precision button:last-of-type').dispatchEvent(new Event('click')));
+  await expect(page.locator('.track .beat-precision')).toBeHidden();
+  await page.locator('.beat-square').nth(19).dispatchEvent('click');
   expect(await page.evaluate(()=>edits)).toEqual([]);
   await page.evaluate(()=>document.dispatchEvent(new CustomEvent('syncrolechange',{detail:{state:'connected',isHost:true}})));
   await pointer(page,'pointerdown',19);await pointer(page,'pointerup',19);
-  await page.getByRole('button',{name:'Edit selected beat'}).click();
   expect(await page.evaluate(()=>edits)).toEqual([[0,'subdivisionSound',{barIndex:2,beatIndex:19}]]);
 });
-test('magnified cells are 44px local target hit areas, never edit actions', async({page})=>{
+test('magnified 44px target hit areas open the selected beat directly in Beat Edit mode', async({page})=>{
   await fixture(page);await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:00Z'));
-  await page.getByRole('button',{name:'Precision beat selection',exact:true}).click();
+  await activate(page);
   await pointer(page,'pointerdown',19);await page.clock.runFor(400);
-  const cell=page.locator('.beat-precision-preview').getByRole('button',{name:'Select beat 21',exact:true});
+  const cell=page.locator('.beat-precision-preview').getByRole('button',{name:'Edit beat 21',exact:true});
   await expect(cell).toBeVisible();const r=await cell.boundingBox();expect(r.width).toBeGreaterThanOrEqual(44);expect(r.height).toBeGreaterThanOrEqual(44);
   await cell.dispatchEvent('pointerup',{pointerId:1,isPrimary:true,clientX:r.x+r.width/2,clientY:r.y+r.height/2});
   await expect(page.locator('.beat-precision-selected')).toHaveAttribute('data-beat-index','20');
-  expect(await page.evaluate(()=>edits)).toEqual([]);
+  expect(await page.evaluate(()=>edits)).toEqual([[0,'subdivisionSound',{barIndex:2,beatIndex:20}]]);
 });
 test('boundary jitter is stable under controlled timestamps',async({page})=>{
   await fixture(page);await page.clock.install({time:new Date('2026-01-01T00:00:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:00Z'));
-  await page.getByRole('button',{name:'Precision beat selection',exact:true}).click();await pointer(page,'pointerdown',18);await page.clock.runFor(400);
+  await activate(page);await pointer(page,'pointerdown',18);await page.clock.runFor(400);
   const labels=await page.evaluate(()=>{
     const beat=document.querySelectorAll('.beat-square')[18],r=beat.getBoundingClientRect(),labels=[];
     for(const [i,dx] of [18,21,18,14].entries()){
@@ -209,13 +228,13 @@ test('boundary jitter is stable under controlled timestamps',async({page})=>{
 test('only enabled bar targeting suppresses native hold menus, without preventing pointer pan defaults',async({page})=>{
   await fixture(page);
   expect(await page.locator('.beat-square').first().evaluate(el=>{const e=new Event('contextmenu',{bubbles:true,cancelable:true});el.dispatchEvent(e);return e.defaultPrevented})).toBe(false);
-  await page.getByRole('button',{name:'Precision beat selection',exact:true}).click();
+  await activate(page);
   expect(await pointer(page,'pointerdown',3)).toBe(false);
   expect(await page.locator('.beat-square').first().evaluate(el=>{const e=new Event('contextmenu',{bubbles:true,cancelable:true});el.dispatchEvent(e);return e.defaultPrevented})).toBe(true);
 });
 test('Escape belongs to an unrelated editor, not merely an enabled Precision mode', async ({page}) => {
   await fixture(page);
-  await page.getByRole('button',{name:'Precision beat selection',exact:true}).click();
+  await activate(page);
   await page.evaluate(()=>{
     const input=document.createElement('input');input.setAttribute('aria-label','Other editor field');
     document.body.append(input);input.focus();
@@ -232,17 +251,17 @@ test('Escape belongs to an unrelated editor, not merely an enabled Precision mod
   await expect(page.getByRole('textbox',{name:'Other editor field'})).toBeFocused();
 });
 
-test('off is inert; quick precision tap is local and explicit editing uses exact target', async ({page}) => {
+test('outside Beat Edit is inert; quick assisted tap opens exactly the target without changing the song', async ({page}) => {
   await fixture(page);
-  await expect(page.getByRole('button',{name:'Precision beat selection',exact:true})).toHaveAttribute('aria-pressed','false');
+  await expect(page.locator('[data-beat-precision-toggle]')).toBeHidden();
   expect(await pointer(page,'pointerdown',19)).toBe(false);await pointer(page,'pointerup',19);
   expect(await page.evaluate(()=>legacy)).toBe(1);
-  await page.getByRole('button',{name:'Precision beat selection',exact:true}).click();
+  await activate(page);
   const before=await page.evaluate(()=>state.getMusicalSnapshot());
   expect(await pointer(page,'pointerdown',19)).toBe(false);await pointer(page,'pointerup',19);
   await expect(page.locator('.beat-precision-selected')).toHaveAttribute('data-beat-index','19');
-  expect(await page.evaluate(()=>legacy)).toBe(1); expect(await page.evaluate(()=>edits)).toEqual([]);
+  expect(await page.evaluate(()=>legacy)).toBe(1);
   expect(await page.evaluate(()=>state.getMusicalSnapshot())).toEqual(before);
-  await page.getByRole('button',{name:'Edit selected beat'}).click();
+  await expect(page.getByRole('button',{name:'Edit selected beat'})).toHaveCount(0);
   expect(await page.evaluate(()=>edits)).toEqual([[0,'subdivisionSound',{barIndex:2,beatIndex:19}]]);
 });

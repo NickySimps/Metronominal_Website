@@ -1,9 +1,10 @@
-const CACHE_NAME = 'metronominal-v190';
+const CACHE_NAME = 'metronominal-v191';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
   './track-actions.css',
+  './track-layout.css',
   './rehearsal-tools.css',
   './rehearsal-room.css',
   './edit-history.css',

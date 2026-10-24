@@ -154,15 +154,22 @@ test('controls remain reachable and legible at 320px across theme colors', async
     return palettes.map(background => {
       document.body.style.background = background;
       document.documentElement.style.setProperty('--Main', background);
+      document.documentElement.style.setProperty('--Background', background);
+      // The application theme supplies a derived on-surface color. This
+      // standalone fixture must supply the same contract, not expect navy.
+      const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');canvas.width=canvas.height=1;ctx.fillStyle=background;ctx.fillRect(0,0,1,1);const rgb=[...ctx.getImageData(0,0,1,1).data].slice(0,3);
+      const luminance=rgb.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((s,v,i)=>s+v*[.2126,.7152,.0722][i],0);
+      const white=1.05/(luminance+.05),black=(luminance+.05)/.05,on=black>=white?'#000':'#fff';
+      document.documentElement.style.setProperty('--ReadableOnBackground',on);
       const rect = select.getBoundingClientRect(); const style = getComputedStyle(select);
       return { left: rect.left, right: rect.right, height: rect.height, color: style.color, background: style.backgroundColor,
-        scroll: document.documentElement.scrollWidth };
+        expectedBackground:`rgb(${rgb.join(', ')})`,expectedColor:on==='#000'?'rgb(0, 0, 0)':'rgb(255, 255, 255)',contrast:Math.max(white,black),scroll: document.documentElement.scrollWidth };
     });
   });
   for (const value of result) {
     expect(value.left).toBeGreaterThanOrEqual(0); expect(value.right).toBeLessThanOrEqual(320);
     expect(value.height).toBeGreaterThanOrEqual(44); expect(value.scroll).toBeLessThanOrEqual(320);
-    expect(value.color).toBe('rgb(245, 247, 255)'); expect(value.background).toBe('rgb(21, 25, 35)');
+    expect(value.color).toBe(value.expectedColor); expect(value.background).toBe(value.expectedBackground);expect(value.contrast).toBeGreaterThanOrEqual(4.5);
   }
 });
 

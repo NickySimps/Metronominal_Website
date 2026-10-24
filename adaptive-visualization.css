@@ -1,14 +1,14 @@
-/* An intentionally neutral surface keeps controls legible in every theme. */
+/* Follow the active theme, with contrast derived for the actual surface. */
 .adaptive-visualization {
   box-sizing: border-box;
   max-width: 100%;
   min-width: 0;
   padding: .75rem;
-  border: 1px solid #667085;
-  border-radius: .5rem;
-  background: #151923;
-  color: #f5f7ff;
-  font: 400 .875rem/1.5 system-ui, sans-serif;
+  border: 1px solid currentColor;
+  border-radius: min(var(--BorderRadius, .5rem), .75rem);
+  background: var(--Background, Canvas);
+  color: var(--ReadableOnBackground, CanvasText);
+  font: 400 .875rem/1.5 var(--font-family, system-ui, sans-serif);
   text-shadow: none;
 }
 .adaptive-visualization label {
@@ -16,7 +16,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: .5rem 1rem;
-  color: #f5f7ff;
+  color: inherit;
 }
 .adaptive-visualization select {
   box-sizing: border-box;
@@ -25,21 +25,21 @@
   min-height: 44px;
   margin: 0;
   padding: .5rem 2rem .5rem .625rem;
-  border: 1px solid #aab4ca;
+  border: 1px solid currentColor;
   border-radius: .25rem;
-  background: #151923;
-  color: #f5f7ff;
+  background: var(--Background, Canvas);
+  color: var(--ReadableOnBackground, CanvasText);
   font: inherit;
   text-shadow: none;
-  color-scheme: dark;
+  color-scheme: normal;
 }
 .adaptive-visualization select:focus-visible {
-  outline: 3px solid #8de7ff;
+  outline: 3px solid currentColor;
   outline-offset: 3px;
 }
 .adaptive-visualization p {
   margin: .5rem 0 0;
-  color: #f5f7ff;
+  color: inherit;
   overflow-wrap: anywhere;
   text-shadow: none;
 }

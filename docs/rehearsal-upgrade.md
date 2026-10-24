@@ -1,4 +1,14 @@
-# Rehearsal upgrade v190
+# Rehearsal upgrade v191
+
+## v191 layout and contextual editing
+
+Precision now belongs to each track's existing Beat Edit mode, hides outside stopped host/solo editing, and directly opens the targeted editor after a tap or magnified release. The redundant Edit/Previous/Next strip is removed. Precision, adaptive visualization, Undo/Redo and personal monitoring now follow the current theme's palette/font and readable foreground tokens.
+
+Wide layouts fit at least three existing tracks across, including touch landscape at 640 CSS px and above and desktop widths of 1024 CSS px and above. Narrow cards reflow their own controls using container queries rather than shrinking touch targets. Portrait phones remain stacked; very old browsers without container queries retain the safe older-density fallback.
+
+Verification: 392 unique browser cases exercised across Chromium/Firefox/WebKit. After correcting outdated theme/layout assertions and fixtures, 390 unique cases pass; two native-CDP touch checks are explicitly Chromium-only and skipped on Firefox/WebKit. The initial source-frozen matrix passed 380, failed 10 harness/expectation cases and skipped two; the 34-case corrective run passed completely. Application source/snapshots remained unchanged across both runs. This is not a single aggregate green run. Six bootstrap/cache checks pass. Exact production build/assets and real live UI/audio checks are required separately before release is declared live.
+
+## Historical v190 release evidence
 
 ## Current release evidence
 

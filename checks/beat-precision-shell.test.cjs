@@ -37,5 +37,5 @@ test('precision selection has a visible track-adjacent mount and offline assets'
   assert.ok(html.includes('href="beat-precision.css"'));
   assert.match(script,/await initializeBeatPrecisionMount\(/);
   for(const file of ['beat-precision.css','js/beatPrecision.js','js/beatPrecisionMount.js']) assert.ok(sw.includes(`'./${file}'`),file);
-  assert.match(sw,/metronominal-v190/);
+  assert.match(sw,/metronominal-v191/);
 });

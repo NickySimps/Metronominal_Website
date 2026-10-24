@@ -1,0 +1,55 @@
+/* Track density follows available width, not mouse versus touch input. */
+#all-tracks-wrapper {
+  --track-grid-gap: clamp(.5rem, 1vw, 1rem);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  gap: var(--track-grid-gap);
+  align-items: start;
+}
+#all-tracks-wrapper > .track {
+  container: track-card / inline-size;
+  width: 100%;
+  max-width: 54rem;
+  min-width: 0;
+  margin: 0;
+  justify-self: center;
+}
+@supports (container-type: inline-size) {
+  @media (min-width: 1024px), (min-width: 640px) and (orientation: landscape) {
+    #all-tracks-wrapper {
+      grid-template-columns: repeat(auto-fit, minmax(min(18rem, calc((100% - var(--track-grid-gap) - var(--track-grid-gap)) / 3)), 1fr));
+    }
+  }
+}
+/* The card can be narrow even on a wide screen. Reflow its controls locally. */
+@container track-card (max-width: 28rem) {
+  .measures-container { box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; margin-inline: 0; flex-wrap: wrap; gap: .5rem; }
+  .measure-settings-container, .bar-settings-container { box-sizing: border-box; flex: 1 1 12rem; min-width: 0; max-width: 100%; }
+  .beat-settings, .bar-settings { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; flex-wrap: wrap; gap: .25rem; }
+  .track-controls { column-gap: .25rem; }
+  .track-action-row { display: grid; grid-template-columns: repeat(2, minmax(44px, 1fr)); gap: .35rem; height: auto; }
+  .track-action-row button { min-width: 44px; width: 100%; margin: 0; }
+  .track-sound-controls { display: grid; grid-template-columns: minmax(3rem, auto) minmax(0, 1fr); gap: .35rem; align-items: stretch; }
+  .edit-buttons-col { grid-column: 1; min-width: 0; width: auto; min-height: 94px; }
+  .edit-buttons-col .sound-label { width: 100%; padding-inline: .15rem; }
+  .sound-selectors-col { grid-column: 2; min-width: 0; width: 100%; }
+  .mode-buttons-col { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(44px, 1fr)); width: 100%; gap: .35rem; height: auto; }
+  .mode-buttons-col button { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; width: 100%; margin: 0; padding: .35rem; white-space: normal; }
+  .track-slider-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .2rem; }
+  .track-slider-row .track-slider-label { grid-column: 1; margin: 0; }
+  .track-slider-row .track-slider-value { grid-column: 2; grid-row: 1; margin: 0; }
+  .track-slider-row input[type=range] { grid-column: 1 / -1; grid-row: 2; width: 100%; margin: .35rem 0; }
+}
+@container track-card (max-width: 16rem) {
+  .track-controls { grid-template-columns: repeat(2, minmax(44px, 1fr)); }
+  .track-controls > .track-name { grid-column: 1 / -1; grid-row: 1; }
+  .track-controls > .track-record-btn { grid-column: 1; grid-row: 2; }
+  .track-controls > .track-mute-btn { grid-column: 2; grid-row: 2; }
+  .track-controls > .track-solo-btn { grid-column: 1; grid-row: 3; }
+  .track-controls > .track-remove-btn { grid-column: 2; grid-row: 3; justify-self: stretch; }
+  .track-controls > button { padding-inline: .25rem; }
+  .track-controls > .track-volume-controls { grid-column: 1 / -1; grid-row: 4; }
+}
+@container track-card (max-width: 14rem) {
+  .mode-buttons-col { grid-template-columns: minmax(44px, 1fr); }
+}

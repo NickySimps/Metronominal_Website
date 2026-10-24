@@ -162,9 +162,11 @@ for(const {width,height,stress} of modalCases)test(`Precision and sound editors 
     app.updateTrack(0,{barSettings:[{...app.getTracks()[0].barSettings[0],beats:8,subdivision:8}]});
     (await import('/js/barDisplayController.js')).default.renderBarsAndControls(-1);
   });
-  await page.getByRole('button',{name:'Precision beat selection',exact:true}).click();
-  await page.getByRole('button',{name:'Next beat',exact:true}).click();
-  await page.getByRole('button',{name:'Previous beat',exact:true}).click();
+  await page.locator('.beat-edit-btn').first().click();
+  await expect(page.locator('[data-beat-precision-toggle]').first()).toBeVisible();
+  await page.locator('[data-beat-precision-toggle]').first().focus();
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowLeft');
   const beat=page.locator('.bar-visual .beat-square').nth(19);
   await beat.evaluate(el=>el.scrollIntoView({behavior:'instant',block:'center'}));
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
@@ -173,19 +175,24 @@ for(const {width,height,stress} of modalCases)test(`Precision and sound editors 
   let lens;
   if(height<=320){
     // A tall dense bar cannot leave a non-occluding lens slot in this viewport.
-    await expect(page.locator('#beat-precision-controls [role=status]')).toContainText('Not enough preview space');
+    await expect(page.locator('.track .beat-precision [role=status]')).toContainText('Use arrow keys');
     await expect(page.locator('[data-beat-precision-lens]')).toHaveCount(0);
     lens=null;
   }else{
     await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
     lens=await textGeometry(page,'[data-beat-precision-lens]');
   }
-  const precision=await textGeometry(page,'#beat-precision-controls');
+  const precision=await textGeometry(page,'.track .beat-precision');
   await evidence('precision-text-geometry',{lens,precision});
   if(lens)expect(lens.problems).toEqual([]);expect(precision.problems).toEqual([]);
   expect(await page.locator('.bar-visual').first().evaluate(el=>({width:el.offsetWidth,height:el.offsetHeight,columns:getComputedStyle(el).gridTemplateColumns}))).toEqual(before);
-  await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));});
-  await page.getByRole('button',{name:'Edit selected beat',exact:true}).click();
+  if(height<=320){
+    await beat.dispatchEvent('pointercancel',{pointerId:7,isPrimary:true});
+    await beat.focus();await page.keyboard.press('Enter');
+  }else{
+    await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));});
+  }
+
   for(const modal of ['#sound-settings-modal','#sound-effects-modal']){
     if(modal.includes('effects'))await page.locator('#sound-effects-btn').click();
     await expect(page.locator(modal)).toBeVisible();
