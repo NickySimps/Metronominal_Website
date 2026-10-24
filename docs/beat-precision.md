@@ -1,12 +1,16 @@
 # Device-local Precision beat selection
 
-## v191 contextual interface (current)
+## v192 generalized hold-to-magnify (current)
 
-The bootstrap anchor stays empty/hidden. Compact assistance controls live inside each real track and appear only in the existing **Beat Edit** mode while host/solo and stopped. Assistance defaults on within that mode, with a device-local opt-out toggle; there is no permanent toolbar and no Previous/Next/Edit button strip.
+Hold an actual beat for about 380 ms to show nearby magnified beats in **Normal, Beat Edit, Rest, Accent and Slice** modes. Assistance defaults on while host/solo and stopped. It does not require entering Beat Edit first. The bootstrap anchor stays hidden; the optional per-track toggle appears only in explicit action modes, with no permanent global toolbar.
 
-A tap, or a held/slid magnified release, opens the targeted existing sound editor once. Opening the editor does not mutate the song; changes still require editing an actual parameter. Arrow keys move a roving beat target and Enter/Space opens it. A constrained viewport that cannot fit a non-occluding lens offers keyboard targeting. Mode exit, playback, role/authority changes, cancelled/scrolling gestures, stale targets and 3D context changes remove pending assistance. Ordinary Rest/Accent/Slice/subdivision gestures remain untouched outside assistance.
+The floating lens follows the finger/target cell and chooses a viewport-clamped above/below/side/corner location. It may cover distant rows of a tall bar, rather than disappearing when the entire source region cannot leave a free slot. It shows beat numbers and current state markers. Short mobile screens still get a lens, not a keyboard-only fallback. Styling remains tied to the active theme and its readable foregrounds/font.
 
-Controls, selected-beat ring and lens use the live theme palette, derived readable foregrounds and theme font. Track rerenders reconcile controls without attaching a global panel. The active root still requires the idempotent initialization and destroy contract shown below.
+Slide slowly for fine movement on either axis; release commits only the final target. Normal selects without editing music, Beat Edit opens the existing sound editor once, Rest toggles that beat, Accent cycles its velocity, and Slice cycles its slice count. Previewing does not mutate the initial/intermediate beats. Semantic actions use the same guarded `BarDisplayController.applyBeatAction` path as legacy controls.
+
+Before hold activation, a movement exceeding 10 px cancels the assisted gesture without painting, retaining native pan/pinch. Once a deliberate single-touch hold is active, a narrowly scoped non-passive touchmove handler supports vertical fine positioning without handing it to page scrolling. Secondary touch, pointer cancellation, scroll, authority/playback/session changes or changed semantic topology cancel without committing. Native context menus/callouts are suppressed only on assisted beat surfaces. Keyboard targeting and existing modal Escape ownership remain available.
+
+**Intentional gesture change:** assisted fast taps act on release; pre-hold dragging cancels rather than painting. Switch Precision off in a track action mode to retain legacy immediate tap/drag painting. Subdivision choices remain available from the dedicated existing subdivision indicator/background controls; holding an actual beat now belongs to magnification.
 
 The following v190 interaction notes are historical; their separate Edit action and always-visible mount no longer describe the UI.
 

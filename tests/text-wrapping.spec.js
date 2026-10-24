@@ -172,26 +172,16 @@ for(const {width,height,stress} of modalCases)test(`Precision and sound editors 
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   const before=await page.locator('.bar-visual').first().evaluate(el=>({width:el.offsetWidth,height:el.offsetHeight,columns:getComputedStyle(el).gridTemplateColumns}));
   await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));});
-  let lens;
-  if(height<=320){
-    // A tall dense bar cannot leave a non-occluding lens slot in this viewport.
-    await expect(page.locator('.track .beat-precision [role=status]')).toContainText('Use arrow keys');
-    await expect(page.locator('[data-beat-precision-lens]')).toHaveCount(0);
-    lens=null;
-  }else{
-    await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
-    lens=await textGeometry(page,'[data-beat-precision-lens]');
-  }
+  // Short screens need a finger-relative lens, not a desktop keyboard fallback.
+  await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
+  const lens=await textGeometry(page,'[data-beat-precision-lens]');
+  const lensFit=await page.locator('[data-beat-precision-lens]').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,viewport:innerWidth,height:innerHeight,cells:[...el.querySelectorAll('button')].map(cell=>{const b=cell.getBoundingClientRect(),range=document.createRange();range.selectNodeContents(cell);return {width:b.width,height:b.height,escaped:[...range.getClientRects()].filter(t=>t.left<b.left-1||t.right>b.right+1||t.top<b.top-1||t.bottom>b.bottom+1).length};})};});
+  expect(lensFit.left).toBeGreaterThanOrEqual(0);expect(lensFit.right).toBeLessThanOrEqual(lensFit.viewport);expect(lensFit.top).toBeGreaterThanOrEqual(0);expect(lensFit.bottom).toBeLessThanOrEqual(lensFit.height);expect(lensFit.cells.filter(c=>c.width<43.9||c.height<43.9||c.escaped)).toEqual([]);
   const precision=await textGeometry(page,'.track .beat-precision');
   await evidence('precision-text-geometry',{lens,precision});
   if(lens)expect(lens.problems).toEqual([]);expect(precision.problems).toEqual([]);
   expect(await page.locator('.bar-visual').first().evaluate(el=>({width:el.offsetWidth,height:el.offsetHeight,columns:getComputedStyle(el).gridTemplateColumns}))).toEqual(before);
-  if(height<=320){
-    await beat.dispatchEvent('pointercancel',{pointerId:7,isPrimary:true});
-    await beat.focus();await page.keyboard.press('Enter');
-  }else{
-    await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));});
-  }
+  await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));});
 
   for(const modal of ['#sound-settings-modal','#sound-effects-modal']){
     if(modal.includes('effects'))await page.locator('#sound-effects-btn').click();

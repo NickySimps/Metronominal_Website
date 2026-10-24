@@ -33,7 +33,7 @@ test('mounted dense-bar assistance follows Beat Edit and release opens the exact
   await page.setViewportSize({width:390,height:1200});await ready(page);await dense(page);
   await page.locator('.rest-button').first().click();
   const toggle=page.getByRole('button',{name:'Precision beat selection',exact:true});
-  await expect(toggle).toBeHidden();
+  await expect(toggle).toBeVisible();
   await page.locator('.beat-edit-btn').first().click();
   await expect(toggle).toHaveAttribute('aria-pressed','true');
   await page.evaluate(async()=>{const m=(await import(new URL('js/soundSettingsModal.js',document.baseURI))).default,original=m.show;window.__editorOpens=0;m.show=function(...args){window.__editorOpens++;return original.apply(this,args);};});
@@ -44,8 +44,8 @@ test('mounted dense-bar assistance follows Beat Edit and release opens the exact
   await expect(page.locator('[data-beat-precision-lens]')).toContainText('Track 1 · Bar 1 · Beat 20');
   await expect(page.locator('.subdivision-options-container.visible')).toHaveCount(0);
   const geometry=await page.evaluate(()=>{
-    const lens=document.querySelector('[data-beat-precision-lens]').getBoundingClientRect(),bar=document.querySelector('.bar-visual').getBoundingClientRect();
-    return {contained:lens.left>=0&&lens.right<=innerWidth&&lens.top>=0&&lens.bottom<=innerHeight,nonoverlap:lens.bottom<=bar.top||lens.top>=bar.bottom};
+    const lens=document.querySelector('[data-beat-precision-lens]').getBoundingClientRect(),bar=document.querySelector('.beat-square[data-beat-index="19"]').getBoundingClientRect();
+    return {contained:lens.left>=0&&lens.right<=innerWidth&&lens.top>=0&&lens.bottom<=innerHeight,nonoverlap:lens.bottom<=bar.top||lens.top>=bar.bottom||lens.right<=bar.left||lens.left>=bar.right};
   });
   expect(geometry).toEqual({contained:true,nonoverlap:true});
   await page.screenshot({path:test.info().outputPath('precision-live-390.png')});
@@ -71,9 +71,10 @@ test('mounted dense-bar assistance follows Beat Edit and release opens the exact
   await expect(effectsButton).toBeFocused();
   expect(errors).toEqual([]);
 });
-test('Precision off preserves actual legacy rest taps and subdivision holds',async({page})=>{
+test('Precision off preserves actual legacy rest taps and normal holds; indicator remains available',async({page})=>{
   await ready(page);
   await page.locator('.rest-button').first().click();
+  await page.locator('[data-beat-precision-toggle]').first().click();
   await pointer(page,'pointerdown',1);await pointer(page,'pointerup',1);
   await expect.poll(()=>page.evaluate(async()=>(await import(new URL('js/appState.js',document.baseURI))).default.getTracks()[0].barSettings[0].rests.includes(1))).toBe(true);
   await page.locator('.rest-button').first().click();

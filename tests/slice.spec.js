@@ -4,6 +4,7 @@ test.describe('track slice and action controls', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await page.waitForSelector('.track');
+    await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   });
 
   test('Slice mode expands only the selected beat and keeps the bar boundary', async ({ page }) => {
@@ -14,7 +15,7 @@ test.describe('track slice and action controls', () => {
     await bar.locator('.beat-square').nth(1).click();
     await expect.poll(() => bar.locator('.beat-square').count()).toBe(before);
     await expect(bar.locator('.slice-count-badge')).toHaveText('2');
-    await expect(bar.locator('.beat-square[data-slice-count="2"]')).toHaveAttribute('aria-label', 'Beat 2, 2 slices');
+    await expect(bar.locator('.beat-square[data-slice-count="2"]')).toHaveAttribute('aria-label', /Beat 2.*2 slices/);
     const badgeStyle = await bar.locator('.slice-count-badge').evaluate(element => ({
       background: getComputedStyle(element).backgroundColor,
       borderRadius: getComputedStyle(element).borderRadius,
@@ -26,11 +27,17 @@ test.describe('track slice and action controls', () => {
       return AppState.getTracks()[0].barSettings[0].beatSlices;
     })).toEqual({ 1: 2 });
     await expect(bar.locator('.beat-square')).toHaveCount(4);
+    await page.locator('.slice-btn').click();
+    await expect(bar.locator('.beat-square[data-slice-count="2"]')).toHaveAttribute('aria-label', /Beat 2.*2 slices/);
+    await page.evaluate(()=>document.dispatchEvent(new CustomEvent('syncrolechange',{detail:{state:'connected',isHost:false}})));
+    await expect(bar.locator('.beat-square[data-slice-count="2"]')).toHaveAttribute('aria-label','Beat 2, 2 slices');
   });
 
   test('Slice mode paints across beats during a real drag', async ({ page }) => {
     const bar = page.locator('.bar-visual').first();
     await page.locator('.slice-btn').click();
+    // Immediate multi-beat painting is the explicit legacy opt-out gesture.
+    await page.locator('[data-beat-precision-toggle]').first().click();
     const boxes = await bar.locator('.beat-square').evaluateAll(elements => elements.map(element => {
       const rect = element.getBoundingClientRect();
       return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };

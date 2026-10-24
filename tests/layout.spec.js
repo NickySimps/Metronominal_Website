@@ -896,8 +896,11 @@ test.describe('mode controls responsive layout', () => {
     const slice = track.locator('.slice-btn');
     const touchAction = () => bar.evaluate(element => getComputedStyle(element).touchAction);
 
-    expect(await touchAction()).toBe('pan-y');
+    expect(await touchAction()).toBe('pan-y pinch-zoom');
     await rest.click();
+    expect(await touchAction()).toBe('pan-y pinch-zoom');
+    // Assistance preserves pre-hold scrolling; explicit opt-out restores paint.
+    await track.locator('[data-beat-precision-toggle]').click();
     expect(await touchAction()).toBe('none');
     await rest.click();
     await accent.click();
@@ -1617,7 +1620,7 @@ test.describe('mode controls responsive layout', () => {
           };
         }));
         const contained = bars.every(({ track, bar, beats, touchAction, occupiedRatio }) =>
-          touchAction === 'pan-y' &&
+          touchAction.split(/\s+/).includes('pan-y') && touchAction.split(/\s+/).includes('pinch-zoom') &&
           bar.left >= track.left - 0.5 &&
           Math.abs((bar.left + bar.width / 2) - (track.left + track.width / 2)) <= 0.5 &&
           occupiedRatio >= 0.87 && occupiedRatio <= 0.93 &&

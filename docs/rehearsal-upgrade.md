@@ -1,4 +1,12 @@
-# Rehearsal upgrade v191
+# Rehearsal upgrade v192
+
+## v192 precision across beat actions
+
+Hold-to-magnify now works by default for normal beat selection, Beat Edit, Rest, Accent and Slice. The lens is positioned around the finger/selected cell, with bounded side/corner alternatives in tall grids and short viewports. It no longer disappears merely because the entire bar leaves no space above or below. Rest/accent/slice preview does not mutate intermediate beats; release applies only the final target through a shared guarded action path.
+
+Native scrolling/pinch remains available before hold activation. After deliberate activation, single-touch fine sliding can move vertically as well as horizontally. Assisted taps act on release; pre-hold movement cancels without painting. Precision off preserves legacy immediate drag painting. Existing three-across wide layout and authority/audio lifetime protections remain in place. See `beat-precision.md` for the current interaction contract.
+
+Local verification: 504 unique browser cases exercised across Chromium/Firefox/WebKit; 502 cleared across the full and corrective runs, with two explicitly Chromium-only native-CDP skips. The initial frozen run passed 498, failed four and skipped two. Corrective validation after fixing slice accessibility labels passed 219 with one clock-setup race and two skips; the final 64-pass/two-skip component rerun fixed that harness race. Runtime files match the corrective gate; only the clock fixture changed afterward. This is not a single aggregate green run. Ten native Chromium touch cases passed, including all five modes, both slide axes, pre-hold scrolling and short/tall-grid previews. Six bootstrap/cache checks passed. Production evidence is recorded separately after publication; historical v191 counts below are not a v192 result.
 
 ## v191 layout and contextual editing
 

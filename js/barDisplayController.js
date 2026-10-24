@@ -120,18 +120,9 @@ function createBeatSquareElement(
   beatSquare.classList.add("beat-square", "newly-added-beat-animation");
   beatSquare.dataset.beatIndex = indexInBar; // Add data-beat-index
   beatSquare.addEventListener("click", (event) => {
-    if (AppState.isSliceMode?.()) return;
-    if (!document.body.classList.contains("beat-edit-mode")) return;
+    if (getBeatActionMode() !== 'edit') return;
     event.stopPropagation();
-    const barDiv = beatSquare.closest(".bar-visual");
-    if (!barDiv) return;
-    const trackIndex = Number.parseInt(barDiv.dataset.containerIndex, 10);
-    const barIndex = Number.parseInt(barDiv.dataset.barIndex, 10);
-    const beatIndex = Number.parseInt(beatSquare.dataset.beatIndex, 10);
-    const soundType = beatSquare.classList.contains("main-beat-marker")
-      ? "mainBeatSound"
-      : "subdivisionSound";
-    SoundSettingsModal.show(trackIndex, soundType, { barIndex, beatIndex });
+    applyBeatAction(beatSquare);
   });
   if (isRested) {
     beatSquare.classList.add("rested");
@@ -267,6 +258,57 @@ function cycleBeatSlice(trackIndex, barIndex, slotIndex) {
   sendState(AppState.getCurrentStateForPreset(true));
 }
 
+// One semantic action path for legacy taps/painting and assisted release.
+function getBeatActionMode() {
+  if (AppState.isSliceMode?.()) return 'slice';
+  if (AppState.isRestMode()) return 'rest';
+  if (AppState.isAccentMode()) return 'accent';
+  return document.body.classList.contains('beat-edit-mode') ? 'edit' : 'normal';
+}
+function canActOnBeat() {
+  return !AppState.isPlaying() && (!document.querySelector('#share-btn.connected') || window.isHost === true);
+}
+function applyBeatAction(beat, { mode = getBeatActionMode(), paint = null } = {}) {
+  if (!canActOnBeat() || mode !== getBeatActionMode() || !beat?.isConnected || !beat.matches('.beat-square[data-beat-index]')) return null;
+  const visual = beat.closest('.bar-visual');
+  if (!visual) return null;
+  const trackIndex = Number(visual.dataset.containerIndex), barIndex = Number(visual.dataset.barIndex), beatIndex = Number(beat.dataset.beatIndex);
+  const track = AppState.getTracks()[trackIndex], bar = track?.barSettings?.[barIndex];
+  if (![trackIndex,barIndex,beatIndex].every(i=>Number.isInteger(i)&&i>=0) || !bar || !getVisualBeatSlots(bar)[beatIndex]) return null;
+  if (mode === 'edit') {
+    SoundSettingsModal.show(trackIndex, beat.classList.contains('main-beat-marker') ? 'mainBeatSound' : 'subdivisionSound', {barIndex,beatIndex});
+    return {mode};
+  }
+  if (mode === 'slice') { cycleBeatSlice(trackIndex,barIndex,beatIndex); return {mode,action:'SLICE'}; }
+  if (mode === 'rest' || mode === 'accent') {
+    let rests = [...(bar.rests || [])], velocities = {...(bar.velocities || {})};
+    let action, velocity;
+    if (mode === 'rest') {
+      action = paint?.action || (rests.includes(beatIndex) ? 'UNREST' : 'REST');
+      rests = rests.filter(i=>i!==beatIndex);
+      if (action === 'REST') rests.push(beatIndex);
+      delete velocities[beatIndex];
+    } else {
+      action = 'ACCENT';
+      const current = velocities[beatIndex] ?? (beatIndex === 0 ? 1 : .7);
+      velocity = paint?.velocity ?? (current === .7 ? 1 : current === 1 ? .3 : .7);
+      velocities[beatIndex] = velocity; rests = rests.filter(i=>i!==beatIndex);
+    }
+    const next = {...bar,rests,velocities};
+    if (mode === 'rest') clearBeatSoundOverride(next,beatIndex);
+    const barSettings = [...track.barSettings]; barSettings[barIndex] = next;
+    AppState.updateTrack(trackIndex,{barSettings});
+    BarDisplayController.updateBar(trackIndex,barIndex);
+    sendState(AppState.getCurrentStateForPreset(true));
+    return {mode,action,velocity};
+  }
+  AppState.setSelectedTrackIndex(trackIndex);AppState.setSelectedBarIndexInContainer(barIndex);
+  BarDisplayController.updateSelectionVisuals();BarControlsController.updateBeatControlsDisplay();
+  document.dispatchEvent(new CustomEvent('trackselectionchanged',{detail:{shouldScroll:false}}));
+  sendState(AppState.getCurrentStateForPreset(true));
+  return {mode};
+}
+
 function onBarPointerDown(event) {
   if (event.button !== 0) return;
 
@@ -275,58 +317,10 @@ function onBarPointerDown(event) {
   longPressInitialPosition = { x: event.clientX, y: event.clientY };
   lastPaintedBeatSquare = event.target.closest(".beat-square");
 
-  if (lastPaintedBeatSquare) {
-    const barVisual = lastPaintedBeatSquare.closest(".bar-visual");
-    if (barVisual) {
-      const containerIndex = parseInt(barVisual.dataset.containerIndex, 10);
-      const barIndex = parseInt(barVisual.dataset.barIndex, 10);
-      const beatIndex = parseInt(lastPaintedBeatSquare.dataset.beatIndex, 10);
-      const track = AppState.getTracks()[containerIndex];
-      if (track && track.barSettings[barIndex]) {
-        if (AppState.isSliceMode?.()) {
-          dragPaintAction = 'SLICE';
-          cycleBeatSlice(containerIndex, barIndex, beatIndex);
-        } else if (AppState.isRestMode()) {
-          const rests = [...(track.barSettings[barIndex].rests || [])];
-          if (rests.includes(beatIndex)) {
-            dragPaintAction = 'UNREST';
-            const idx = rests.indexOf(beatIndex);
-            rests.splice(idx, 1);
-          } else {
-            dragPaintAction = 'REST';
-            rests.push(beatIndex);
-          }
-          const velocities = { ...(track.barSettings[barIndex].velocities || {}) };
-          delete velocities[beatIndex];
-
-          const newBarSettings = [...track.barSettings];
-          newBarSettings[barIndex].rests = rests;
-          newBarSettings[barIndex].velocities = velocities;
-          clearBeatSoundOverride(newBarSettings[barIndex], beatIndex);
-          AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
-          BarDisplayController.updateBar(containerIndex, barIndex);
-        } else if (AppState.isAccentMode()) {
-          dragPaintAction = 'ACCENT';
-          const velocities = { ...(track.barSettings[barIndex].velocities || {}) };
-          const defaultVel = (beatIndex === 0) ? 1.0 : 0.7;
-          const curVel = velocities[beatIndex] !== undefined ? velocities[beatIndex] : defaultVel;
-          let nextVel = 0.7;
-          if (curVel === 0.7) nextVel = 1.0;
-          else if (curVel === 1.0) nextVel = 0.3;
-          else nextVel = 0.7;
-
-          dragPaintTargetVel = nextVel;
-          velocities[beatIndex] = nextVel;
-          const rests = [...(track.barSettings[barIndex].rests || [])].filter(r => r !== beatIndex);
-
-          const newBarSettings = [...track.barSettings];
-          newBarSettings[barIndex].velocities = velocities;
-          newBarSettings[barIndex].rests = rests;
-          AppState.updateTrack(containerIndex, { barSettings: newBarSettings });
-          BarDisplayController.updateBar(containerIndex, barIndex);
-        }
-      }
-    }
+  if (!canActOnBeat()) { resetLongPressState(); return; }
+  if (lastPaintedBeatSquare && ['rest','accent','slice'].includes(getBeatActionMode())) {
+    const result = applyBeatAction(lastPaintedBeatSquare);
+    dragPaintAction = result?.action; dragPaintTargetVel = result?.velocity;
   }
 
   const pressDuration = event.pointerType === "touch"
@@ -372,46 +366,8 @@ function onWindowPointerMove(event) {
         isLongPressActive = false;
         lastPaintedBeatSquare = beatSquare;
 
-        const barVisual = beatSquare.closest(".bar-visual");
-        if (barVisual) {
-          const clickedBarIndex = parseInt(barVisual.dataset.barIndex, 10);
-          const clickedContainerIndex = parseInt(barVisual.dataset.containerIndex, 10);
-          const beatIndex = parseInt(beatSquare.dataset.beatIndex, 10);
-          const track = AppState.getTracks()[clickedContainerIndex];
-
-          if (track && track.barSettings[clickedBarIndex]) {
-            if (AppState.isSliceMode?.() || dragPaintAction === 'SLICE') {
-              cycleBeatSlice(clickedContainerIndex, clickedBarIndex, beatIndex);
-            } else if (AppState.isRestMode()) {
-              let newRests = [...(track.barSettings[clickedBarIndex].rests || [])];
-              if (dragPaintAction === 'UNREST') {
-                newRests = newRests.filter(r => r !== beatIndex);
-              } else {
-                if (!newRests.includes(beatIndex)) {
-                  newRests.push(beatIndex);
-                }
-              }
-              const velocities = { ...(track.barSettings[clickedBarIndex].velocities || {}) };
-              delete velocities[beatIndex];
-
-              const newBarSettings = [...track.barSettings];
-              newBarSettings[clickedBarIndex].rests = newRests;
-              newBarSettings[clickedBarIndex].velocities = velocities;
-              clearBeatSoundOverride(newBarSettings[clickedBarIndex], beatIndex);
-              AppState.updateTrack(clickedContainerIndex, { barSettings: newBarSettings });
-              BarDisplayController.updateBar(clickedContainerIndex, clickedBarIndex);
-            } else if (AppState.isAccentMode()) {
-              const velocities = { ...(track.barSettings[clickedBarIndex].velocities || {}) };
-              velocities[beatIndex] = dragPaintTargetVel || 1.0;
-              const newRests = [...(track.barSettings[clickedBarIndex].rests || [])].filter(r => r !== beatIndex);
-
-              const newBarSettings = [...track.barSettings];
-              newBarSettings[clickedBarIndex].velocities = velocities;
-              newBarSettings[clickedBarIndex].rests = newRests;
-              AppState.updateTrack(clickedContainerIndex, { barSettings: newBarSettings });
-              BarDisplayController.updateBar(clickedContainerIndex, clickedBarIndex);
-            }
-          }
+        if (['rest','accent','slice'].includes(getBeatActionMode())) {
+          applyBeatAction(beatSquare,{paint:{action:dragPaintAction,velocity:dragPaintTargetVel}});
         }
     }
 
@@ -774,6 +730,9 @@ function handleBeatSquareClick(event) {
 }
 
 const BarDisplayController = {
+    applyBeatAction,
+    getBeatActionMode,
+    canActOnBeat,
     addBar: (trackIndex, barIndex) => {
         const track = AppState.getTracks()[trackIndex];
         if (!track) return;
