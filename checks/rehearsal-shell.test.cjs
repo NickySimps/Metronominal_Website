@@ -34,6 +34,8 @@ test('every locally imported application module is present in the offline cache 
     for (const match of source.matchAll(/\bfrom\s+["'](\.[^"']+\.js)["']/g)) walk(path.resolve(path.dirname(file), match[1]));
   };
   walk(path.join(root, 'script.js'));
+  // Workflow features load dynamically; include their static dependency closures too.
+  for (const entry of ['rangeEditor','arrangementTimeline','practiceTransport','performanceView']) walk(path.join(root, `js/${entry}.js`));
   for (const file of visited) {
     const relative = path.relative(root, file).replaceAll('\\', '/');
     assert.ok(sw.includes(`'./${relative}'`), `${relative} missing from service worker precache`);
@@ -54,5 +56,5 @@ test('rehearsal controls have one accessible mount and precached feature entrypo
   for (const file of ['rehearsalTools','rehearsalRoomController','editHistory','rehearsalLibrary','adaptiveVisualization']) {
     assert.ok(sw.includes(`'./js/${file}.js'`), `${file} cache`);
   }
-  assert.match(sw, /metronominal-v192/);
+  assert.match(sw, /metronominal-v193/);
 });

@@ -5,6 +5,7 @@
  */
 
 import AppState from './appState.js';
+import { beginPractice, getPracticeScheduling, getPracticeGateEvents, noteScheduledBeat, getLocalOutputOffsetSeconds, getCorrectionSchedulingLead, reportMissedOutputCorrection, cancelCalibration, applyPendingSongAtBoundary } from './practiceTransport.js';
 import DOM from './domSelectors.js';
 import ThemeController from './themeController.js';
 import BarDisplayController from './barDisplayController.js';
@@ -24,6 +25,7 @@ let isPageVisible = true;
 let visualQueue = []; // Queue for visual events
 const countInSources = new Set();
 let playbackLifetime = null;
+let practiceStopScheduled = false;
 let countInGeneration = 0;
 function ensurePlaybackLifetime() {
     if (!playbackLifetime?.active) playbackLifetime = new AudioPlaybackLifetime();
@@ -103,10 +105,10 @@ function getTrackSwingOffsetSec(track) {
 }
 
 export function isRestedSlot(bar, slotIndex, slotInfo = getSlotInfo(bar, slotIndex)) {
-    const rests = Array.isArray(bar?.rests) ? bar.rests : [];
-    if (rests.includes(slotIndex) || (slotInfo && rests.includes(slotInfo.baseIndex))) return true;
-    if (!slotInfo) return false;
-    return rests.some(restIndex => getSlotInfo(bar, restIndex)?.baseIndex === slotInfo.baseIndex);
+    // Stored metadata keys identify the visible logical beat, not a playback
+    // child whose index shifts when an earlier beat is sliced.
+    const logicalIndex = slotInfo?.baseIndex ?? slotIndex;
+    return Array.isArray(bar?.rests) && bar.rests.includes(logicalIndex);
 }
 
 const activeSynthVoices = new Map();
@@ -135,8 +137,7 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     const isAccent = slotInfo.mainBeat;
 
     const soundType = isAccent ? 'mainBeatSound' : 'subdivisionSound';
-    const isSlicedBeat = Number(currentBarData.beatSlices?.[slotInfo.baseIndex ?? beatIndex]) > 1;
-    const soundLookupBeatIndex = isSlicedBeat ? (slotInfo.baseIndex ?? beatIndex) : beatIndex;
+    const soundLookupBeatIndex = slotInfo.baseIndex ?? beatIndex;
     const soundObject = AppState.getBeatSound
         ? AppState.getBeatSound(trackIndex, track.currentBar, soundLookupBeatIndex, soundType)
         : track[soundType];
@@ -148,7 +149,7 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     const soundToPlay = soundObject.sound;
     const defaultVel = isAccent ? 1.0 : 0.7;
     const velocities = currentBarData.velocities || {};
-    const beatVelocity = velocities[beatIndex] !== undefined ? velocities[beatIndex] : defaultVel;
+    const beatVelocity = velocities[soundLookupBeatIndex] !== undefined ? velocities[soundLookupBeatIndex] : defaultVel;
 
     const trackVolume = track.volume !== undefined ? track.volume : 1.0;
     const soundVolume = soundObject.settings && soundObject.settings.volume !== undefined ? soundObject.settings.volume : 1.0;
@@ -172,8 +173,9 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
     const soundSettings = soundObject.settings || {};
     const effectivePitchShift = (soundSettings.pitchShift || 0) + trackPitchShift;
 
-    const latencyOffsetSec = (AppState.getLatencyOffset ? AppState.getLatencyOffset() : 0) / 1000.0;
-    const actualBeatTime = Math.max(audioContext.currentTime, beatTime + latencyOffsetSec);
+    const correctedTime=beatTime+getLocalOutputOffsetSeconds();
+    if(correctedTime<audioContext.currentTime)reportMissedOutputCorrection();
+    const actualBeatTime = Math.max(audioContext.currentTime + 0.01, correctedTime);
 
     const mergedSettings = {
         ...soundSettings,
@@ -214,7 +216,8 @@ function playBeatSound(track, beatTime, trackIndex = 0) {
                     const trimStart = Math.max(0, Math.min(rendered.duration, Number(soundSettings.trimStart) || 0));
                     const trimEnd = Math.max(trimStart, Math.min(rendered.duration, Number(soundSettings.trimEnd) || rendered.duration));
                     const startOffset = soundSettings.reverse === true ? rendered.duration - trimEnd : trimStart;
-                    source.start(Math.max(actualBeatTime, audioContext.currentTime), startOffset, Math.max(0, trimEnd - trimStart));
+                    if(actualBeatTime<audioContext.currentTime+0.01)reportMissedOutputCorrection();
+                    source.start(Math.max(actualBeatTime, audioContext.currentTime+0.01), startOffset, Math.max(0, trimEnd - trimStart));
                 }).catch(error => {
                     console.warn("Could not render synthesized audio:", error);
                     synthVoiceGain.disconnect();
@@ -299,10 +302,22 @@ function scheduler() {
     if (audioContext && audioContext.state === 'running') {
         const primaryTrack = allTracks[0];
         const tempoSegments = [{ time: Number.NEGATIVE_INFINITY, tempo: AppState.getPlaybackTempo(primaryTrack?.currentBar || 0) }];
-        allTracks.forEach((track, trackIndex) => {
-            if (track.barSettings.length === 0) return;
-
-            while (track.nextBeatTime < audioContext.currentTime + AppState.SCHEDULE_AHEAD_TIME) {
+        let scheduled=0;
+        while (scheduled++ < 4096) {
+            const candidates=AppState.getTracks().map((track,index)=>({track,index})).filter(({track})=>track.barSettings.length);
+            candidates.sort((a,b)=>a.track.nextBeatTime-b.track.nextBeatTime || a.index-b.index);
+            const next=candidates[0];
+            if(!next) break;
+            const horizon=audioContext.currentTime + AppState.SCHEDULE_AHEAD_TIME + getCorrectionSchedulingLead();
+            // A queued authoritative seam is itself a scheduling event. An old
+            // peer grid can precede it by more than the seam tolerance, leaving
+            // the following old slot outside lookahead until AFTER the seam.
+            // Check the seam at the horizon before waiting for that old slot,
+            // while still submitting every earlier track slot chronologically.
+            if(applyPendingSongAtBoundary(Math.min(next.track.nextBeatTime,horizon))) continue;
+            if(next.track.nextBeatTime >= horizon) break;
+            const {track,index:trackIndex}=next;
+            {
                 let tempo;
                 if (trackIndex === 0) {
                     tempo = AppState.getPlaybackTempo(track.currentBar);
@@ -322,14 +337,34 @@ function scheduler() {
                 const secondsPerMainBeat = 60.0 / tempo;
                 const currentBarData = track.barSettings[track.currentBar];
                 const beatMultiplier = parseFloat(currentBarData ? currentBarData.subdivision : 1);
-                const secondsPerSubBeat = getSlotDurationSeconds(currentBarData, track.currentBeat, secondsPerMainBeat);
+                const slotBeats = getSlotDurationSeconds(currentBarData, track.currentBeat, 1);
+                const practice = getPracticeScheduling(track.nextBeatTime, slotBeats, tempo);
+                if(practice.stop) {
+                    if(!practiceStopScheduled) {
+                        practiceStopScheduled=true;
+                        const lifetime=playbackLifetime;
+                        lifetime.timeout(()=>{
+                            if(window.isHost && isSynchronizationJoined())broadcastStop();
+                            MetronomeEngine.cancelPlayback();
+                        },Math.max(0,(track.nextBeatTime+getLocalOutputOffsetSeconds()-audioContext.currentTime)*1000));
+                    }
+                    return;
+                }
+                const secondsPerSubBeat = practice.duration;
+                if(trackIndex===0) noteScheduledBeat(track.nextBeatTime, getSlotInfo(currentBarData,track.currentBeat)?.mainBeat);
                 // Only play sound and schedule visuals if the beat is within a reasonable window (not >250ms in the past)
                 // This prevents "machine gun" bursts when syncing catches up from a late start or large drift.
                 if (track.nextBeatTime > audioContext.currentTime - 0.25) {
                     const swingOffset = getTrackSwingOffsetSec(track);
                     const swungBeatTime = track.nextBeatTime + swingOffset;
 
-                    playBeatSound(track, swungBeatTime, trackIndex);
+                    if(practice.audible) playBeatSound(track, swungBeatTime, trackIndex);
+                    // Gate the generation's post-FX routes, never the shared context or
+                    // Monitoring output: sustained voices/tails must also respect gaps.
+                    for(const event of getPracticeGateEvents(track.nextBeatTime,track.nextBeatTime+secondsPerSubBeat)) {
+                        const gateTime=Math.max(audioContext.currentTime,event.audioTime+getLocalOutputOffsetSeconds());
+                        for(const gate of playbackLifetime.routes.values())gate.gain.setValueAtTime(event.audible?1:0,gateTime);
+                    }
                     
                     // Push visual event to queue only if page is visible
                     if (isPageVisible) {
@@ -355,7 +390,7 @@ function scheduler() {
                 advanceTrackBeat(track);
                 track.nextBeatTime += secondsPerSubBeat;
             }
-        });
+        }
     }
 }
 
@@ -416,6 +451,8 @@ const MetronomeEngine = {
         return roll * 100 < probability;
     },
     cancelPlayback: () => {
+        cancelCalibration();
+        practiceStopScheduled=false;
         playbackLifetime?.cancel();
         playbackLifetime = null;
         activeSynthVoices.clear();
@@ -522,6 +559,9 @@ const MetronomeEngine = {
                 BarDisplayController.clearAllHighlights();
             }
 
+            const minimum=AppState.getAudioContext().currentTime+AppState.SCHEDULE_AHEAD_TIME+getCorrectionSchedulingLead();
+            for(const t of AppState.getTracks())t.nextBeatTime=Math.max(t.nextBeatTime,minimum);
+            beginPractice(AppState.getTracks()[0]?.nextBeatTime || AppState.getAudioContext().currentTime);
             metronomeWorker.postMessage("start");
             MidiController.sendMidiStart();
             
@@ -539,7 +579,7 @@ const MetronomeEngine = {
         return isNowPlaying;
     },
 
-    scheduleStart: async (targetTimestamp, startBar = 0, startBeat = 0, repeatIteration = 0, shouldStart = () => true) => {
+    scheduleStart: async (targetTimestamp, startBar = 0, startBeat = 0, repeatIteration = 0, shouldStart = () => true, practiceEpochTimestamp = targetTimestamp) => {
         const lifetime = ensurePlaybackLifetime();
         const current = () => lifetime.active && lifetime === playbackLifetime && shouldStart();
         const audioContext = AppState.getAudioContext();
@@ -569,6 +609,8 @@ const MetronomeEngine = {
         // Allow startAudioTime to be in the past (negative delay) to preserve grid alignment
         const startAudioTime = audioContext.currentTime + delaySeconds;
 
+        beginPractice(audioContext.currentTime + (practiceEpochTimestamp - Date.now()) / 1000);
+
         // 3. Overwrite nextBeatTime for all tracks
         const allTracks = AppState.getTracks();
         allTracks.forEach(track => {
@@ -584,7 +626,7 @@ const MetronomeEngine = {
             
             // Safety break counter to prevent infinite loops if something goes wrong
             let loops = 0;
-            while (trackStartTime < audioContext.currentTime + 0.05 && loops < 1000) {
+            while (trackStartTime < audioContext.currentTime + 0.05 + getCorrectionSchedulingLead() && loops < 1000) {
                 if (track.barSettings.length === 0) break;
                 
                 const currentBarData = track.barSettings[track.currentBar];
@@ -598,6 +640,7 @@ const MetronomeEngine = {
                     secondsPerSubBeat = secondsPerMainBeat * (1 / beatMultiplier);
                 }
                 
+                secondsPerSubBeat = getPracticeScheduling(trackStartTime, getSlotDurationSeconds(currentBarData,track.currentBeat,1), AppState.getPlaybackTempo(track.currentBar)).duration;
                 trackStartTime += secondsPerSubBeat;
                 advanceTrackBeat(track);
                 loops++;

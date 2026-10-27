@@ -1,6 +1,9 @@
 const {test,expect}=require('@playwright/test');
+const prepareWorkflowTestPage=require('./workflowTestPage.cjs');
 async function setup(page,mode){
-  await page.goto('./');await expect(page.locator('#share-btn')).toHaveClass(/connected/);
+  await prepareWorkflowTestPage(page,test.info().config.metadata);
+  await page.goto('./');await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
+  await expect(page.locator('#workflow-tools-status')).toHaveText('Editing previews never change music until applied. Timing correction and library backups stay on this device.');
   await page.evaluate(async(mode)=>{
     window.a=(await import('/js/appState.js')).default;window.d=(await import('/js/barDisplayController.js')).default;
     const m=(await import('/js/soundSettingsModal.js')).default;window.opens=[];m.show=(...args)=>opens.push(args);
@@ -11,12 +14,25 @@ async function setup(page,mode){
   await page.locator('.beat-square[data-beat-index="19"]').first().scrollIntoViewIfNeeded();
 }
 async function ptr(page,type,index,options={}){await page.locator(`.beat-square[data-beat-index="${index}"]`).first().evaluate((b,{type,options})=>{const r=b.getBoundingClientRect();b.dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true,pointerType:'touch',pointerId:51,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2,...options}));},{type,options});}
+async function zoom(page,index){await page.waitForTimeout(420);const r=await page.locator(`.beat-square[data-beat-index="${index}"]`).first().boundingBox();await ptr(page,'pointermove',index,{clientX:r.x+r.width/2+12});await ptr(page,'pointermove',index);await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();}
+test('released picker rejects a source moved outside its interaction root in the same event turn',async({page})=>{
+  await setup(page,'rest');const before=await page.evaluate(()=>a.getMusicalSnapshot());await ptr(page,'pointerdown',19);await expect(page.locator('.subdivision-options-container.visible')).not.toHaveCount(0);await ptr(page,'pointerup',19);
+  await page.evaluate(()=>{const source=document.querySelector('.bar-visual'),option=document.querySelector('.subdivision-option[data-value="4"]');document.body.append(source);option.click();});
+  expect(await page.evaluate(()=>a.getMusicalSnapshot())).toEqual(before);await expect(page.locator('.subdivision-options-container.visible')).toHaveCount(0);
+});
+
+test('stationary picker remains picker through font and theme refreshes',async({page})=>{
+  await setup(page,'rest');const before=await page.evaluate(()=>a.getMusicalSnapshot());await ptr(page,'pointerdown',19);await expect(page.locator('.subdivision-options-container.visible')).not.toHaveCount(0);
+  await page.evaluate(()=>{document.fonts.dispatchEvent(new Event('loadingdone'));document.documentElement.style.setProperty('--precision-test','1');});
+  await expect(page.locator('[data-beat-precision-lens]')).toHaveCount(0);expect(await page.evaluate(()=>a.getMusicalSnapshot())).toEqual(before);await ptr(page,'pointercancel',19);await expect(page.locator('.subdivision-options-container')).toHaveCount(0);
+});
+
 for(const mode of ['normal','edit','rest','accent','slice'])test(`${mode} hold previews without mutation and release applies final semantic action exactly once`,async({page})=>{
   await setup(page,mode);
   const before=await page.evaluate(()=>a.getMusicalSnapshot());
   await ptr(page,'pointerdown',19);
   expect(await page.evaluate(()=>a.getMusicalSnapshot())).toEqual(before);
-  await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
+  await zoom(page,19);
   const cell=page.locator('.beat-precision-cell').filter({hasText:/^21/});
   const r=await cell.boundingBox();
   await ptr(page,'pointermove',19,{clientX:r.x+r.width/2,clientY:r.y+r.height/2});
@@ -32,7 +48,7 @@ for(const mode of ['normal','edit','rest','accent','slice'])test(`${mode} hold p
 });
 for(const reason of ['pointercancel','scroll','secondary','mode','role','playback','reindex','replace','append-immediate'])test(`rest ${reason} cancellation has no mutation or editor`,async({page})=>{
   await setup(page,'rest');const before=await page.evaluate(()=>a.getMusicalSnapshot());
-  await ptr(page,'pointerdown',19);await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
+  await ptr(page,'pointerdown',19);await zoom(page,19);
   await page.evaluate(reason=>{
     if(reason==='secondary')document.querySelector('.beat-square').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,isPrimary:false,pointerId:52,pointerType:'touch'}));
     else if(reason==='mode'){a.setRestMode(false);document.body.classList.remove('rest-mode');}
@@ -48,11 +64,19 @@ for(const reason of ['pointercancel','scroll','secondary','mode','role','playbac
 });
 for(const mode of ['rest','accent','slice'])test(`${mode} fast tap commits once on release; prehold movement cancels without painting`,async({page})=>{
   await setup(page,mode);const before=await page.evaluate(()=>a.getMusicalSnapshot());
-  await ptr(page,'pointerdown',19);await ptr(page,'pointermove',20);await ptr(page,'pointerup',20);
+  // Separate locator round trips can turn a supposed fast swipe into a real
+  // 380ms hold under tracing/load. Deliver the intended fast sequence in one task.
+  const swipe=await page.evaluate(()=>{
+    const started=performance.now();const emit=(type,index)=>{const element=document.querySelector(`.beat-square[data-beat-index="${index}"]`),r=element.getBoundingClientRect();element.dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true,pointerType:'touch',pointerId:51,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));};
+    emit('pointerdown',19);const beforeMove=a.getMusicalSnapshot();emit('pointermove',20);const beforeRelease=a.getMusicalSnapshot();emit('pointerup',20);return{beforeMove,beforeRelease,elapsed:performance.now()-started};
+  });
+  expect(swipe.elapsed).toBeLessThan(380);expect(swipe.beforeMove).toEqual(before);expect(swipe.beforeRelease).toEqual(before);
   expect(await page.evaluate(()=>a.getMusicalSnapshot())).toEqual(before);
-  await ptr(page,'pointerdown',19);
-  expect(await page.evaluate(()=>a.getMusicalSnapshot())).toEqual(before);
-  await ptr(page,'pointerup',19);
+  const tap=await page.evaluate(()=>{
+    const element=document.querySelector('.beat-square[data-beat-index="19"]'),r=element.getBoundingClientRect(),started=performance.now();const emit=type=>element.dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true,pointerType:'touch',pointerId:51,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));
+    emit('pointerdown');const beforeRelease=a.getMusicalSnapshot();emit('pointerup');return{beforeRelease,elapsed:performance.now()-started};
+  });
+  expect(tap.elapsed).toBeLessThan(380);expect(tap.beforeRelease).toEqual(before);
   const bar=await page.evaluate(()=>a.getTracks()[0].barSettings[0]);
   if(mode==='rest')expect(bar.rests).toEqual([19]);
   if(mode==='accent')expect(bar.velocities).toEqual({'19':1});
@@ -63,7 +87,7 @@ test('normal short tap and held release select the correct bar/beat; dedicated i
   await setup(page,'normal');const before=await page.evaluate(()=>a.getMusicalSnapshot());
   await ptr(page,'pointerdown',19);await ptr(page,'pointerup',19);
   await expect(page.locator('.beat-precision-selected')).toHaveAttribute('data-beat-index','19');
-  await ptr(page,'pointerdown',20);await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();await ptr(page,'pointerup',20);
+  await ptr(page,'pointerdown',20);await zoom(page,20);await ptr(page,'pointerup',20);
   await expect(page.locator('.beat-precision-selected')).toHaveAttribute('data-beat-index','20');
   expect(await page.evaluate(()=>a.getMusicalSnapshot())).toEqual(before);expect(await page.evaluate(()=>opens)).toEqual([]);
   expect(await page.evaluate(()=>[a.getSelectedTrackIndex(),a.getSelectedBarIndexInContainer()])).toEqual([0,0]);

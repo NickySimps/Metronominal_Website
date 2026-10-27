@@ -1,155 +1,33 @@
-import AppState from "./appState.js";
-import TempoController from "./tempoController.js";
-import MetronomeEngine from "./metronomeEngine.js";
-import { sendState } from "./webrtc.js";
-
-let speedTrainerState = {
-  enabled: false,
-  startBpm: 100,
-  bpmStep: 5,
-  stepBars: 2,
-  maxBpm: 180,
-  onMaxAction: "hold", // "hold", "stop", "reset"
-  completedBars: 0,
-};
-
-const SpeedTrainerController = {
-  init: () => {
-    const btn = document.getElementById("speed-trainer-btn");
-    const modal = document.getElementById("speed-trainer-modal");
-    const closeBtn = modal ? modal.querySelector(".close-button") : null;
-
-    if (btn && modal) {
-      btn.addEventListener("click", () => {
-        SpeedTrainerController.syncUIFromState();
-        modal.style.display = "block";
-      });
+import AppState from './appState.js';
+import { canEditPractice, getPracticeState, setPracticeConfig } from './practiceTransport.js';
+const ids={enabled:'st-enable-toggle',startBpm:'st-start-bpm',bpmStep:'st-bpm-step',stepBars:'st-step-bars',targetBpm:'st-max-bpm',onMaxAction:'st-max-action',mode:'st-mode',warmupBars:'st-warmup-bars',rampBars:'st-ramp-bars',targetBars:'st-target-bars',recoveryBars:'st-recovery-bars',audibleBars:'st-audible-bars',silentBars:'st-silent-bars'};
+let initialized=false;
+const SpeedTrainerController={
+  init(){
+    if(initialized)return;initialized=true;
+    const modal=document.getElementById('speed-trainer-modal'),btn=document.getElementById('speed-trainer-btn');
+    if(modal){
+      const body=modal.querySelector('.modal-content')||modal;
+      const extension=document.createElement('div');extension.className='practice-grid';
+      extension.innerHTML='<label>Mode<select id="st-mode"><option value="step">Stepped trainer</option><option value="ramp">Warmup → smooth ramp → target → recovery</option></select></label>'+[['warmup','Warmup',0],['ramp','Ramp',1],['target','Target hold',1],['recovery','Recovery ramp',1],['audible','Audible',1],['silent','Silent',0]].map(([id,label,min])=>`<label>${label} bars<input type="number" id="st-${id}-bars" min="${min}" max="128" step="1"></label>`).join('')+'<p>Practice bars use the first bar’s beat count at Play. Ramp BPM follows scheduled musical position; recovery ends at the starting BPM. Configure while stopped. Gaps skip shared clicks only; auditions and transport continue.</p>';
+      body.append(extension);
+      btn?.addEventListener('click',()=>{SpeedTrainerController.syncUIFromState();modal.style.display='block';});
+      modal.querySelector('.close-button')?.addEventListener('click',()=>{modal.style.display='none';});
+      modal.addEventListener('click',e=>{if(e.target===modal)modal.style.display='none';});
     }
-
-    if (closeBtn && modal) {
-      closeBtn.addEventListener("click", () => {
-        modal.style.display = "none";
-      });
-    }
-
-    if (modal) {
-      modal.addEventListener("click", (e) => {
-        if (e.target === modal) modal.style.display = "none";
-      });
-    }
-
-    // Bind UI inputs
-    const enableToggle = document.getElementById("st-enable-toggle");
-    const startBpmInput = document.getElementById("st-start-bpm");
-    const bpmStepInput = document.getElementById("st-bpm-step");
-    const stepBarsInput = document.getElementById("st-step-bars");
-    const maxBpmInput = document.getElementById("st-max-bpm");
-    const maxActionSelect = document.getElementById("st-max-action");
-
-    if (enableToggle) {
-      enableToggle.addEventListener("change", () => {
-        speedTrainerState.enabled = enableToggle.checked;
-        if (speedTrainerState.enabled) {
-          speedTrainerState.completedBars = 0;
-          // Set starting BPM if user enabled Speed Trainer
-          AppState.setTempo(speedTrainerState.startBpm);
-          TempoController.updateTempoDisplay({ animate: true });
-        }
-        SpeedTrainerController.updateStatus();
-      });
-    }
-
-    const updateConfig = () => {
-      if (startBpmInput) speedTrainerState.startBpm = parseInt(startBpmInput.value, 10) || 100;
-      if (bpmStepInput) speedTrainerState.bpmStep = parseInt(bpmStepInput.value, 10) || 5;
-      if (stepBarsInput) speedTrainerState.stepBars = parseInt(stepBarsInput.value, 10) || 2;
-      if (maxBpmInput) speedTrainerState.maxBpm = parseInt(maxBpmInput.value, 10) || 180;
-      if (maxActionSelect) speedTrainerState.onMaxAction = maxActionSelect.value || "hold";
-      SpeedTrainerController.updateStatus();
-    };
-
-    [startBpmInput, bpmStepInput, stepBarsInput, maxBpmInput, maxActionSelect].forEach((input) => {
-      if (input) input.addEventListener("input", updateConfig);
+    for(const id of Object.values(ids))document.getElementById(id)?.addEventListener('change',()=>{
+      if(!canEditPractice()||AppState.isPlaying()){SpeedTrainerController.syncUIFromState();return;}
+      const config=AppState.getPracticeConfig();
+      for(const [key,id] of Object.entries(ids)){const el=document.getElementById(id);if(el)config[key]=key==='enabled'?el.checked:['mode','onMaxAction'].includes(key)?el.value:Number(el.value);}
+      try{setPracticeConfig(config);}catch(e){const status=document.getElementById('st-status-text');if(status)status.textContent=e.message;return;}
+      SpeedTrainerController.syncUIFromState();
     });
-
-    // Listen to bar position changes dispatched during metronome playback
-    document.addEventListener("songpositionchange", () => {
-      if (!speedTrainerState.enabled || !AppState.isPlaying()) return;
-
-      speedTrainerState.completedBars++;
-      SpeedTrainerController.onBarCompleted();
-    });
+    for(const name of ['practiceconfigchange','playbackstatechange','syncrolechange','roomauthoritychange','songpositionchange'])document.addEventListener(name,SpeedTrainerController.syncUIFromState);
+    SpeedTrainerController.syncUIFromState();
   },
-
-  onBarCompleted: () => {
-    if (!speedTrainerState.enabled || !AppState.isPlaying()) return;
-
-    if (speedTrainerState.completedBars % speedTrainerState.stepBars === 0) {
-      const currentTempo = AppState.getTempo();
-
-      if (currentTempo >= speedTrainerState.maxBpm) {
-        if (speedTrainerState.onMaxAction === "stop") {
-          MetronomeEngine.togglePlay(true);
-        } else if (speedTrainerState.onMaxAction === "reset") {
-          AppState.setTempo(speedTrainerState.startBpm);
-          TempoController.updateTempoDisplay({ animate: true });
-          speedTrainerState.completedBars = 0;
-        }
-        // If "hold", stay at maxBpm
-      } else {
-        const nextTempo = Math.min(speedTrainerState.maxBpm, currentTempo + speedTrainerState.bpmStep);
-        AppState.setTempo(nextTempo);
-        TempoController.updateTempoDisplay({ animate: true });
-        if (window.isHost) sendState(AppState.getCurrentStateForPreset(true));
-      }
-    }
-    SpeedTrainerController.updateStatus();
-  },
-
-  syncUIFromState: () => {
-    const enableToggle = document.getElementById("st-enable-toggle");
-    const startBpmInput = document.getElementById("st-start-bpm");
-    const bpmStepInput = document.getElementById("st-bpm-step");
-    const stepBarsInput = document.getElementById("st-step-bars");
-    const maxBpmInput = document.getElementById("st-max-bpm");
-    const maxActionSelect = document.getElementById("st-max-action");
-
-    if (enableToggle) enableToggle.checked = speedTrainerState.enabled;
-    if (startBpmInput) startBpmInput.value = speedTrainerState.startBpm;
-    if (bpmStepInput) bpmStepInput.value = speedTrainerState.bpmStep;
-    if (stepBarsInput) stepBarsInput.value = speedTrainerState.stepBars;
-    if (maxBpmInput) maxBpmInput.value = speedTrainerState.maxBpm;
-    if (maxActionSelect) maxActionSelect.value = speedTrainerState.onMaxAction;
-
-    SpeedTrainerController.updateStatus();
-  },
-
-  updateStatus: () => {
-    const statusText = document.getElementById("st-status-text");
-    const btn = document.getElementById("speed-trainer-btn");
-
-    if (btn) {
-      btn.classList.toggle("active", speedTrainerState.enabled);
-    }
-
-    if (!statusText) return;
-
-    if (!speedTrainerState.enabled) {
-      statusText.textContent = "Speed Trainer is inactive.";
-      return;
-    }
-
-    const currentBpm = AppState.getTempo();
-    const barsUntilNext = speedTrainerState.stepBars - (speedTrainerState.completedBars % speedTrainerState.stepBars);
-
-    if (currentBpm >= speedTrainerState.maxBpm) {
-      statusText.textContent = `Target Max BPM (${speedTrainerState.maxBpm}) reached. Action: ${speedTrainerState.onMaxAction}.`;
-    } else {
-      statusText.textContent = `Active: ${currentBpm} BPM. Accelerating by +${speedTrainerState.bpmStep} BPM in ${barsUntilNext} bar(s).`;
-    }
-  },
-
-  getState: () => ({ ...speedTrainerState }),
+  onBarCompleted(){SpeedTrainerController.updateStatus();},
+  syncUIFromState(){const c=AppState.getPracticeConfig();for(const [key,id] of Object.entries(ids)){const el=document.getElementById(id);if(!el)continue;if(key==='enabled')el.checked=c[key];else el.value=c[key];el.disabled=!canEditPractice()||AppState.isPlaying();}SpeedTrainerController.updateStatus();},
+  updateStatus(){const s=getPracticeState(),status=document.getElementById('st-status-text');document.getElementById('speed-trainer-btn')?.classList.toggle('active',s.config.enabled);if(status)status.textContent=!canEditPractice()?'Host-controlled practice. '+(s.config.enabled?s.phase:'Inactive'):s.config.enabled?`${s.phase}: ${s.config.startBpm} → ${s.config.targetBpm} BPM. ${s.config.audibleBars} audible / ${s.config.silentBars} silent bars.`:'Speed Trainer is inactive.';},
+  getState(){const c=AppState.getPracticeConfig();return{...c,maxBpm:c.targetBpm,completedBars:Math.floor(getPracticeState().position/getPracticeState().beatsPerBar)};}
 };
-
 export default SpeedTrainerController;

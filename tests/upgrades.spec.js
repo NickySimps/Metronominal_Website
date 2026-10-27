@@ -6,9 +6,15 @@ test.describe('visualizer upgrades', () => {
     await page.waitForSelector('.track');
   });
 
-  test('performance controls are removed from the top controls', async ({ page }) => {
+  test('top controls keep only the fullscreen performance launcher, not the old performance drawer or knobs', async ({ page }) => {
     await expect(page.locator('.performance-drawer, [data-performance-action]')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: /performance/i })).toHaveCount(0);
+    const launcher = page.getByRole('button', { name: 'Enter performance view', exact: true });
+    await expect(launcher).toHaveCount(1);
+    await expect(page.locator('.top-controls-area #performance-view-btn')).toHaveCount(1);
+    await expect(launcher).toHaveAttribute('id', 'performance-view-btn');
+    await expect(launcher).toBeVisible();
+    await expect(launcher).toBeEnabled();
+    await expect(page.getByRole('button', { name: /performance/i })).toHaveCount(1);
   });
   test('visualizer canvas backing resolution is capped at 2x CSS pixels', async ({ page }) => {
     const result = await page.evaluate(() => {

@@ -1,6 +1,19 @@
 # Device-local Precision beat selection
 
-## v192 generalized hold-to-magnify (current)
+## v193: stationary subdivisions, moving precision
+
+These are the versioned v193 interaction semantics. Deployment and verification status belong to the release evidence, not this document. Historical v192 behavior is archived below.
+
+- Assistance defaults on for a stopped solo user or host in Normal, Beat Edit, Rest, Accent and Slice modes. Its optional toggle remains contextual to the track, without a permanent global toolbar.
+- Hold an actual beat still for about 380 ms to open the existing subdivision picker. Moving through its options, panel padding or gaps stays in subdivision selection rather than accidentally painting a beat underneath.
+- After the hold, deliberately move more than 10 px across the source grid to switch that contact to the precision lens. Returning from the picker to the grid abandons its uncommitted choice. Once precision owns the contact, pausing refines targeting; it does not reopen subdivisions.
+- A stationary hold does not trigger a rest, accent or slice action. After precision activates, release applies only the final target using the existing semantic action handler. Intermediate preview targets never change the music.
+- Pre-hold swipes and multitouch retain native pan/pinch behavior. Cancellation, source identity changes, playback and authority boundaries discard pending actions. Explicit range picking owns its taps and makes precision yield.
+- The lens uses active theme colors/fonts and viewport-clamped finger-relative placement, including dense tall bars and short landscape screens. Keyboard targeting and modal Escape ownership remain available.
+
+The preserved focused gesture report has 68 passing cases, including native Chromium touch input, with matching before/after source manifests. This is focused evidence, not a completed integrated release gate or proof of physical iPhone behavior. Cross-browser integration and live production verification remain release requirements.
+
+## Published v192 generalized hold-to-magnify (historical behavior)
 
 Hold an actual beat for about 380 ms to show nearby magnified beats in **Normal, Beat Edit, Rest, Accent and Slice** modes. Assistance defaults on while host/solo and stopped. It does not require entering Beat Edit first. The bootstrap anchor stays hidden; the optional per-track toggle appears only in explicit action modes, with no permanent global toolbar.
 

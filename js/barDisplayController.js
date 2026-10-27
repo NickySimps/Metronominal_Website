@@ -32,6 +32,7 @@ let dragPaintTargetVel = 0.7;
 let subdivisionShield = null;
 let subdivisionTriggerElement = null;
 let subdivisionKeydownHandler = null;
+let subdivisionCanCommit = null;
 const LONG_PRESS_DURATION = 200; // ms
 const TOUCH_LONG_PRESS_DURATION = 350; // Require a deliberate touch hold instead of opening during a swipe
 const POINTER_MOVE_THRESHOLD = 45; // pixels
@@ -120,6 +121,7 @@ function createBeatSquareElement(
   beatSquare.classList.add("beat-square", "newly-added-beat-animation");
   beatSquare.dataset.beatIndex = indexInBar; // Add data-beat-index
   beatSquare.addEventListener("click", (event) => {
+    if (beatSquare.closest('[data-range-selection]')) return;
     if (getBeatActionMode() !== 'edit') return;
     event.stopPropagation();
     applyBeatAction(beatSquare);
@@ -310,6 +312,7 @@ function applyBeatAction(beat, { mode = getBeatActionMode(), paint = null } = {}
 }
 
 function onBarPointerDown(event) {
+  if (event.currentTarget.closest('[data-range-selection]')) return;
   if (event.button !== 0) return;
 
   event.preventDefault();
@@ -430,6 +433,7 @@ async function applySubdivisionChange(containerIndex, barIndex, newSubdivision) 
 }
 
 async function selectSubdivisionOption(option) {
+  if (subdivisionCanCommit && !subdivisionCanCommit()) { hideSubdivisionSelector(); return; }
   const newSubdivision = option?.dataset.value;
   const barIndex = parseInt(longPressedBarElement?.dataset.barIndex, 10);
   const containerIndex = parseInt(longPressedBarElement?.dataset.containerIndex, 10);
@@ -494,13 +498,14 @@ function resetLongPressState() {
   dragPaintAction = null;
 }
 
-function showSubdivisionSelector(barElement) {
+function showSubdivisionSelector(barElement, { gesture = false, canCommit = null } = {}) {
     longPressedBarElement = barElement;
     const isAlreadyVisible = document.querySelector('.subdivision-options-container.visible');
     const visibleForThisBar = isAlreadyVisible && isAlreadyVisible.dataset.forBar === `${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}`;
     
     hideSubdivisionSelector(); // Clear previous options first
     longPressedBarElement = barElement;
+    subdivisionCanCommit = canCommit;
     
     // If it was already visible for THIS bar, we just hide it (toggle off) and return
     if (visibleForThisBar) {
@@ -598,6 +603,7 @@ function showSubdivisionSelector(barElement) {
             element.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 if (subdivisionSelectionInProgress) return;
+                if (subdivisionCanCommit && !subdivisionCanCommit()) { hideSubdivisionSelector(); return; }
                 const newSubdivision = element.dataset.value;
                 if (newSubdivision) {
                     await applySubdivisionChange(containerIndex, barIndex, newSubdivision);
@@ -676,13 +682,14 @@ function showSubdivisionSelector(barElement) {
         }
     };
     document.addEventListener('keydown', subdivisionKeydownHandler);
-    requestAnimationFrame(() => document.querySelector('.subdivision-options-container.visible .subdivision-option')?.focus());
+    if (!gesture) requestAnimationFrame(() => document.querySelector('.subdivision-options-container.visible .subdivision-option')?.focus());
 }
 
 let currentHideOnClickOutside = null;
 
-function hideSubdivisionSelector() {
+function hideSubdivisionSelector({ restoreFocus = true, immediate = false } = {}) {
     const trigger = subdivisionTriggerElement;
+    subdivisionCanCommit = null;
     subdivisionTriggerElement = null;
     if (subdivisionKeydownHandler) {
         document.removeEventListener('keydown', subdivisionKeydownHandler);
@@ -694,8 +701,9 @@ function hideSubdivisionSelector() {
     }
     subdivisionShield?.remove();
     subdivisionShield = null;
-    const containers = document.querySelectorAll('.subdivision-options-container.visible');
+    const containers = document.querySelectorAll('.subdivision-options-container');
     containers.forEach(container => {
+        if (immediate) { container.remove(); return; }
         container.classList.remove('visible');
         container.addEventListener('transitionend', () => {
             if (container.parentElement) {
@@ -703,7 +711,24 @@ function hideSubdivisionSelector() {
             }
         }, { once: true });
     });
-    if (trigger && trigger.isConnected) trigger.focus({ preventScroll: true });
+    if (restoreFocus && trigger && trigger.isConnected) trigger.focus({ preventScroll: true });
+}
+
+// The precision owner calls semantic picker actions, never legacy pointer handlers.
+function moveSubdivisionGesture(x, y) {
+    let hit = null;
+    for (const option of document.querySelectorAll('.subdivision-options-container .subdivision-option')) {
+        const r = option.getBoundingClientRect();
+        if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) hit = option;
+        option.classList.remove('hovered');
+    }
+    hoveredSubdivisionOption = hit;
+    hit?.classList.add('hovered');
+    // Panel padding and gaps still belong to the picker, even over the grid.
+    return hit || [...document.querySelectorAll('.subdivision-options-container.visible')].find(panel => {
+        const r = panel.getBoundingClientRect();
+        return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    }) || null;
 }
 
 function handleBeatSquareClick(event) {
@@ -730,6 +755,10 @@ function handleBeatSquareClick(event) {
 }
 
 const BarDisplayController = {
+    beginSubdivisionGesture: (bar, canCommit) => showSubdivisionSelector(bar, {gesture:true,canCommit}),
+    moveSubdivisionGesture,
+    commitSubdivisionGesture: () => hoveredSubdivisionOption ? selectSubdivisionOption(hoveredSubdivisionOption) : null,
+    cancelSubdivisionGesture: () => { hideSubdivisionSelector({restoreFocus:false,immediate:true}); hoveredSubdivisionOption = null; },
     applyBeatAction,
     getBeatActionMode,
     canActOnBeat,

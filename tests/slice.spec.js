@@ -1,7 +1,9 @@
 const { test, expect } = require('@playwright/test');
+const prepareWorkflowTestPage=require('./workflowTestPage.cjs');
 
 test.describe('track slice and action controls', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page },info) => {
+    await prepareWorkflowTestPage(page,info.config.metadata);
     await page.goto('/');
     await page.waitForSelector('.track');
     await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
@@ -76,23 +78,27 @@ test.describe('track slice and action controls', () => {
   });
 
 
-  test('rested sliced notes suppress every internal playback slice', async ({ page }) => {
-    const result = await page.evaluate(async () => {
-      const [{ default: AppState }, { getBeatSlots }, { isRestedSlot }] = await Promise.all([
-        import(new URL('js/appState.js', document.baseURI).href),
-        import(new URL('js/beatTiming.js', document.baseURI).href),
-        import(new URL('js/metronomeEngine.js', document.baseURI).href),
-      ]);
-      const bar = AppState.getTracks()[0].barSettings[0];
-      bar.beatSlices = { 1: 4 };
-      bar.rests = [1];
-      const slots = getBeatSlots(bar);
-      const baseChecks = slots.filter(slot => slot.baseIndex === 1).map(slot => isRestedSlot(bar, slot.index, slot));
-      bar.rests = [slots.find(slot => slot.baseIndex === 1 && slot.slice === 2).index];
-      const expandedChecks = slots.filter(slot => slot.baseIndex === 1).map(slot => isRestedSlot(bar, slot.index, slot));
-      return { baseChecks, expandedChecks, unrelated: isRestedSlot(bar, slots.find(slot => slot.baseIndex === 0).index) };
+  test('rests follow logical note actions without colliding with overlapping expanded slice indices', async ({ page }) => {
+    const initial = await page.evaluate(async () => {
+      const a=(await import('/js/appState.js')).default;
+      a.updateTrack(0,{barSettings:[{beats:4,subdivision:1,rests:[1],beatSlices:{1:4}}]});
+      const {getBeatSlots}=await import('/js/beatTiming.js'),{isRestedSlot}=await import('/js/metronomeEngine.js');
+      const bar=a.getTracks()[0].barSettings[0];
+      return getBeatSlots(bar).filter(slot=>slot.baseIndex===1).map(slot=>isRestedSlot(bar,slot.index,slot));
     });
-    expect(result).toEqual({ baseChecks: [true, true, true, true], expandedChecks: [true, true, true, true], unrelated: false });
+    expect(initial).toEqual([true,true,true,true]);
+    await page.locator('.rest-button').first().click();
+    const beat=index=>page.locator(`.bar-visual[data-container-index="0"][data-bar-index="0"] .beat-square[data-beat-index="${index}"]`);
+    // Logical beat4 has key3, which also happens to be an expanded child of beat2.
+    // Ordinary grid actions establish the meaning: rest beat4, then un-rest beat2.
+    await beat(3).click();await beat(1).click();
+    await expect(beat(3)).toHaveClass(/rested/);await expect(beat(1)).not.toHaveClass(/rested/);
+    const result=await page.evaluate(async()=>{
+      const a=(await import('/js/appState.js')).default,{getBeatSlots}=await import('/js/beatTiming.js'),{isRestedSlot}=await import('/js/metronomeEngine.js');
+      const bar=a.getTracks()[0].barSettings[0],slots=getBeatSlots(bar);
+      return {rests:bar.rests,sliced:slots.filter(slot=>slot.baseIndex===1).map(slot=>isRestedSlot(bar,slot.index,slot)),fourth:slots.filter(slot=>slot.baseIndex===3).map(slot=>isRestedSlot(bar,slot.index,slot)),first:isRestedSlot(bar,0,slots[0])};
+    });
+    expect(result).toEqual({rests:[3],sliced:[false,false,false,false],fourth:[true],first:false});
   });
   test('sliced slots retain playback-control settings for main and subdivision sounds', async ({ page }) => {
     const result = await page.evaluate(async () => {
@@ -255,15 +261,35 @@ test.describe('track slice and action controls', () => {
   test('track action row and modal remain contained at 320px', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 });
     await page.reload();
-    await page.waitForSelector('.track');
+    // Reload exposes a provisional track before initialization/room restoration
+    // replaces it. Measure the initialized row, not that detached node's handle.
+    await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
+    await expect(page.locator('#rehearsal-tools-status')).not.toContainText('Preparing');
     const row = page.locator('.track-action-row');
-    const rowBox = await row.boundingBox();
+    await expect(row).toBeVisible();
+    const rowBox = await row.evaluate(element => {
+      const { x, width, height } = element.getBoundingClientRect();
+      return { x, width, height, current: element.isConnected && element === document.querySelector('.track-action-row') };
+    });
+    expect(rowBox.current).toBe(true);
+    expect(rowBox.width).toBeGreaterThan(0);
+    expect(rowBox.height).toBeGreaterThan(0);
     expect(rowBox.x).toBeGreaterThanOrEqual(0);
     expect(rowBox.x + rowBox.width).toBeLessThanOrEqual(320);
     await page.locator('.track-reset-btn').dispatchEvent('pointerdown');
-    await page.waitForTimeout(400);
-    const modalBox = await page.locator('.track-action-modal-content').boundingBox();
+    const modal = page.locator('.track-action-modal-content');
+    await expect(modal).toBeVisible();
+    const overlayBox = await page.locator('#track-action-modal').boundingBox();
+    expect(overlayBox.x).toBeGreaterThanOrEqual(0);
+    expect(overlayBox.x + overlayBox.width).toBeLessThanOrEqual(320);
+    const modalBox = await modal.evaluate(element => {
+      const { x, width, height } = element.getBoundingClientRect();
+      return { x, width, height };
+    });
+    expect(modalBox.width).toBeGreaterThan(0);
+    expect(modalBox.height).toBeGreaterThan(0);
     expect(modalBox.x).toBeGreaterThanOrEqual(0);
     expect(modalBox.x + modalBox.width).toBeLessThanOrEqual(320);
+    await page.locator('.track-reset-btn').dispatchEvent('pointerup');
   });
 });

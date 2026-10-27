@@ -1,0 +1,46 @@
+.performance-view[hidden] { display: none !important; }
+.performance-view {
+  --stage-bg: var(--Background, #111827);
+  --stage-fg: #fff;
+  box-sizing: border-box;
+  position: fixed; inset: 0; z-index: 10010;
+  overflow: auto; overscroll-behavior: contain;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  color: var(--stage-fg); background: var(--stage-bg);
+  font: 1rem/1.4 var(--font-family, system-ui, sans-serif); text-shadow: none;
+}
+.performance-active .main-container { visibility: hidden; }
+.performance-view * { box-sizing: border-box; min-width: 0; text-shadow: none; }
+.performance-view :is(button,input,select,textarea) { font-family: inherit; }
+.performance-view header { position: sticky; top: -1px; z-index: 1; background: var(--stage-bg); padding-block: 4px; }
+.performance-view header, .performance-actions, .performance-readout { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.performance-view h2 { margin: 0; font-size: 1.25rem; }
+.performance-view button, .performance-view select { min-height: 44px; min-width: 44px; padding: 8px 14px; border: 2px solid currentColor; border-radius: 8px; font: inherit; color: inherit; background: transparent; cursor: pointer; white-space: normal; overflow-wrap: anywhere; }
+.performance-view button:focus-visible, .performance-view select:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
+.performance-view button:disabled { opacity: .65; cursor: not-allowed; }
+.performance-tempo { display: flex; align-items: baseline; gap: 12px; }
+.performance-tempo strong { font-size: clamp(4rem, 15vw, 9rem); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.performance-position { font-size: clamp(1.6rem, 5vw, 3rem); font-weight: 700; }
+.performance-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 8px; }
+.performance-sections p { margin: 8px 0; overflow-wrap: anywhere; }
+.performance-sections strong { display: block; font-size: 1.6rem; }
+.performance-cue { border-block: 1px solid currentColor; padding: 12px 0; font-size: clamp(1.5rem, 4vw, 2.5rem); overflow-wrap: anywhere; }
+.performance-actions { justify-content: flex-start; }
+.performance-actions button { flex: 1 1 180px; font-size: 1.5rem; font-weight: 700; min-height: 60px; }
+.performance-view p { overflow-wrap: anywhere; }
+.performance-view label { display: block; margin-block: 8px; overflow-wrap: anywhere; }
+.performance-view input:not([type="checkbox"]), .performance-view select { margin-inline: 0; width: 100%; max-width: 100%; min-height: 44px; padding: 8px; font: inherit; border: 2px solid currentColor; border-radius: 6px; color: var(--stage-fg); background: var(--stage-bg); }
+.performance-view input[type="checkbox"] { width: 24px; height: 24px; margin: 10px; vertical-align: middle; }
+.performance-view .performance-check, .performance-overview-toggle { min-height: 44px; }
+.performance-midi { border-top: 1px solid currentColor; margin-top: 12px; }
+.performance-midi summary { min-height: 44px; padding-block: 10px; cursor: pointer; }
+.performance-midi-config, .performance-midi-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.performance-midi-config label { flex: 1 1 120px; }
+.performance-midi-buttons button { flex: 1 1 130px; }
+.performance-view [data-performance-overview] { padding-left: 24px; }
+
+@media (max-height: 450px) and (min-width: 600px) {
+  .performance-tempo strong { font-size: 4rem; }
+  .performance-view p { margin-block: 4px; }
+  .performance-cue { padding-block: 4px; }
+}

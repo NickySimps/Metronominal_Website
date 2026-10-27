@@ -18,7 +18,8 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
   const mode = () => AppState.isSliceMode?.() ? 'slice' : AppState.isRestMode() ? 'rest' : AppState.isAccentMode() ? 'accent' : doc.body.classList.contains('beat-edit-mode') ? 'edit' : 'normal';
   const editing = () => !doc.body.classList.contains('3dRoom-theme')
     && controlsRoot.isConnected && interactionRoot.isConnected && interactionRoot.getClientRects().length > 0;
-  const enabled = () => editing() && allowed() && assist;
+  const rangePicking = () => interactionRoot.hasAttribute('data-range-selection');
+  const enabled = () => editing() && allowed() && assist && !rangePicking();
   function restoreBeat(beat, attrs) {
     for (const [name,original] of Object.entries(attrs)) {
       let value=original;
@@ -47,7 +48,7 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
         ui = {group,toggle,status}; groups.set(track,ui);
       }
       ui.group.hidden = !shown; ui.toggle.setAttribute('aria-pressed',String(assist));
-      const hint = assist ? 'Tap to '+(mode()==='edit'?'edit':mode())+' · hold + slide to zoom' : 'Standard beat targeting';
+      const hint = assist ? 'Tap to '+(mode()==='edit'?'edit':mode())+' · hold for subdivisions · slide on beats to zoom' : 'Standard beat targeting';
       if (ui.status.textContent !== hint) ui.status.textContent = hint;
       const beats = [...track.querySelectorAll('.bar-visual .beat-square[data-beat-index]')], focusTarget = beats.includes(selected) ? selected : beats[0];
       for (const beat of beats) {
@@ -61,7 +62,7 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
     interactionRoot.classList.toggle('beat-precision-enabled',enabled());
   }
   function select(beat) { selected?.classList.remove('beat-precision-selected'); selected = valid(beat) ? beat : null; selected?.classList.add('beat-precision-selected'); render(); }
-  let pending = null, preview = null;
+  let pending = null, preview = null, picker = null;
   const lensTargets = new WeakMap();
   const lensHit = event => {
     const cell = doc.elementFromPoint(event.clientX, event.clientY)?.closest('.beat-precision-cell');
@@ -71,6 +72,7 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
   function cancel(clear = false, focus = false) {
     const track = selected?.closest('.track') || pending?.bar.closest('.track');
     if (pending) { clearTimeout(pending.hold); clearTimeout(pending.dwell); }
+    if (picker) { BarDisplayController.cancelSubdivisionGesture(); picker = null; }
     pending = null; preview?.remove(); preview = null;
     if (clear) select(null);
     if (focus) groups.get(track)?.toggle.focus({ preventScroll: true });
@@ -83,10 +85,11 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
   }
   function sameTarget(p) {
     const beats = [...p.bar.querySelectorAll('.beat-square')];
-    return p.bar.dataset.containerIndex === p.trackId && p.bar.dataset.barIndex === p.barId && beats.length === p.topology.length
+    return valid(p.bar) && valid(p.beat) && p.bar.dataset.containerIndex === p.trackId && p.bar.dataset.barIndex === p.barId && beats.length === p.topology.length
       && p.topology.every(([b,id],i)=>b === beats[i] && b.isConnected && b.dataset.beatIndex === id);
   }
   function drawPreview() {
+    if (pending?.phase !== 'precision') return;
     if (!pending || !enabled() || mode() !== pending.mode || !valid(pending.beat) || !sameTarget(pending)) return cancel(true);
     const p = pending, rect = p.beat.getBoundingClientRect();
     if (!preview) { preview = doc.createElement('aside'); preview.className = 'beat-precision-preview'; preview.dataset.beatPrecisionLens = ''; preview.setAttribute('aria-label', 'Magnified nearby beats'); doc.body.append(preview); }
@@ -134,6 +137,7 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
   }
   on(doc, 'pointerdown', event => { if (pending && (event.pointerId !== pending.id || event.isPrimary === false || !interactionRoot.contains(event.target) && !preview?.contains(event.target))) cancel(true); }, true);
   on(interactionRoot, 'pointerdown', event => {
+    if (rangePicking()) { cancel(true); return; }
     if (!editing() || event.button > 0) return;
     const beat = event.target.closest?.('.beat-square[data-beat-index]');
     const bar = beat?.closest('.bar-visual'); if (!bar || !interactionRoot.contains(bar)) return;
@@ -143,7 +147,12 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
     if (event.isPrimary === false) return;
     if (!beat) return;
     pending = { id: event.pointerId, mode:mode(), bar, beat, trackId: bar.dataset.containerIndex, barId: bar.dataset.barIndex, topology: [...bar.querySelectorAll('.beat-square')].map(b=>[b,b.dataset.beatIndex]), x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, vx: event.clientX, vy: event.clientY, time: event.timeStamp, active: false, fine: false };
-    pending.hold = setTimeout(() => { if (pending) { pending.active = true; drawPreview(); dwell(); } }, 380);
+    pending.hold = setTimeout(() => {
+      const p = pending;
+      if (!p || !enabled() || mode() !== p.mode || !sameTarget(p)) return cancel(true);
+      p.active = true; p.phase = 'picker'; picker = p;
+      BarDisplayController.beginSubdivisionGesture(p.bar, () => enabled() && mode() === p.mode && sameTarget(p));
+    }, 380);
   }, true);
   on(doc, 'pointermove', event => {
     const p = pending; if (!p || event.pointerId !== p.id) return;
@@ -153,6 +162,16 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
     if (!p.active) {
       if (Math.hypot(event.clientX - p.startX, event.clientY - p.startY) > 10) cancel(true);
       return;
+    }
+    if (p.phase === 'picker') {
+      const option = BarDisplayController.moveSubdivisionGesture(event.clientX, event.clientY);
+      if (option) { p.pickerVisited = true; return; }
+      const r = p.bar.getBoundingClientRect();
+      const inside = event.clientX >= r.left && event.clientX <= r.right && event.clientY >= r.top && event.clientY <= r.bottom;
+      if (!inside || Math.hypot(event.clientX-p.startX,event.clientY-p.startY) <= 10 && !p.pickerVisited) return;
+      // Source-grid movement irrevocably chooses precision for this contact.
+      // A later dwell refines the lens; it cannot relaunch subdivision picking.
+      BarDisplayController.cancelSubdivisionGesture(); picker = null; p.phase = 'precision';
     }
     const hit = lensHit(event);
     if (hit) {
@@ -178,13 +197,19 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
   on(doc, 'pointerup', event => {
     const p = pending; if (!p || event.pointerId !== p.id) return;
     event.stopImmediatePropagation();
+    if (p.phase === 'picker') {
+      clearTimeout(p.hold); pending = null;
+      if (!enabled() || mode() !== p.mode || !sameTarget(p)) cancel(true);
+      else if (p.pickerVisited) { BarDisplayController.moveSubdivisionGesture(event.clientX,event.clientY); void BarDisplayController.commitSubdivisionGesture(); }
+      return;
+    }
     const r = p.bar.getBoundingClientRect();
     const inside = event.clientX >= r.left && event.clientX <= r.right && event.clientY >= r.top && event.clientY <= r.bottom;
     const unchanged = sameTarget(p);
     const beat = unchanged && enabled() && mode() === p.mode ? lensHit(event) || (inside && valid(p.beat) ? p.beat : null) : null; cancel(); if (beat) openBeat(beat);
   }, true);
   for (const name of ['contextmenu', 'dragstart']) on(interactionRoot, name, event => { if (enabled() && event.target.closest?.('.bar-visual')) event.preventDefault(); }, true);
-  on(interactionRoot, 'click', event => { if (editing() && event.target.closest?.('.beat-square') && (!allowed() || assist)) { event.stopImmediatePropagation(); event.preventDefault(); if (allowed() && event.detail === 0) openBeat(event.target.closest('.beat-square')); } }, true);
+  on(interactionRoot, 'click', event => { if (!rangePicking() && editing() && event.target.closest?.('.beat-square') && (!allowed() || assist)) { event.stopImmediatePropagation(); event.preventDefault(); if (allowed() && event.detail === 0) openBeat(event.target.closest('.beat-square')); } }, true);
   function openBeat(beat) {
     if (!editing() || !valid(beat) || !allowed()) return;
     // Clear gesture ownership before the shared action notifies application state.
@@ -203,7 +228,7 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
     selected?.focus();
   }
   on(interactionRoot, 'keydown', event => {
-    if (event.defaultPrevented || !editing() || !allowed()) return;
+    if (event.defaultPrevented || rangePicking() || !editing() || !allowed()) return;
     const beat = event.target.closest?.('.beat-square'), group = event.target.closest?.('.beat-precision'); if (!beat && !group) return;
     if (beat && ['Enter',' '].includes(event.key)) { event.preventDefault(); event.stopPropagation(); openBeat(beat); }
     else if (['ArrowLeft','ArrowUp','ArrowRight','ArrowDown'].includes(event.key)) { event.preventDefault(); event.stopPropagation(); step(['ArrowLeft','ArrowUp'].includes(event.key) ? -1 : 1, beat || group); }
@@ -232,13 +257,13 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
   on(doc, 'syncrolechange', event => { role = { state: event.detail?.state, isHost: event.detail?.isHost === true }; cancel(true); render(); });
   for (const name of ['roomauthoritychange', 'historyboundary', 'appstatechange', 'historyapplied', 'playbackstatechange']) on(doc, name, () => { cancel(true); render(); });
   const observer = new MutationObserver(records => {
-    const targetBar = selected?.closest('.bar-visual') || pending?.bar;
+    const targetBar = selected?.closest('.bar-visual') || pending?.bar || picker?.bar;
     const changedTarget = targetBar && records.some(record => record.target === targetBar || targetBar.contains(record.target));
     if (!controlsRoot.isConnected || !interactionRoot.isConnected) return controller.destroy();
-    if (changedTarget || selected && !valid(selected) || pending && !valid(pending.beat)) cancel(true);
+    if (rangePicking() || changedTarget || selected && !valid(selected) || pending && !valid(pending.beat) || picker && !valid(picker.beat)) cancel(true);
     render();
   });
-  observer.observe(interactionRoot, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-container-index', 'data-bar-index', 'data-beat-index'] });
+  observer.observe(interactionRoot, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-container-index', 'data-bar-index', 'data-beat-index', 'data-range-selection'] });
   if (interactionRoot.parentNode) observer.observe(interactionRoot.parentNode, { childList: true });
   let wasEditing = `${editing()}:${mode()}`;
   const themeObserver = new MutationObserver(()=>{ const now = `${editing()}:${mode()}`; if (now !== wasEditing) { wasEditing = now; cancel(true); } render(); if (pending?.active) drawPreview(); });

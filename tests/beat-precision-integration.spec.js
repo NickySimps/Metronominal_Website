@@ -1,5 +1,7 @@
 const {test,expect}=require('@playwright/test');
 async function ready(page) {
+  const endpoint=test.info().config.metadata?.precisionNativeSignalURL;
+  if(endpoint)await page.addInitScript(endpoint=>{const Native=window.WebSocket;window.WebSocket=class extends Native{constructor(url,...args){super(String(url).replace(/ws:\/\/(?:127\.0\.0\.1|localhost):10000/,endpoint),...args);}};},endpoint);
   await page.goto('./');
   await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await expect(page.locator('#beat-precision-controls')).toBeHidden();
@@ -40,6 +42,8 @@ test('mounted dense-bar assistance follows Beat Edit and release opens the exact
   await beat(page,19).scrollIntoViewIfNeeded();
   const before=await snapshot(page);
   await pointer(page,'pointerdown',19);
+  await page.waitForTimeout(420);
+  await beat(page,19).evaluate(el=>{const r=el.getBoundingClientRect();for(const dx of [12,0])el.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,pointerType:'touch',pointerId:7,isPrimary:true,clientX:r.x+r.width/2+dx,clientY:r.y+r.height/2}));});
   await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
   await expect(page.locator('[data-beat-precision-lens]')).toContainText('Track 1 · Bar 1 · Beat 20');
   await expect(page.locator('.subdivision-options-container.visible')).toHaveCount(0);
@@ -93,6 +97,8 @@ test('real participant selection cannot edit and role/playback boundaries clear 
   });
   const context=await browser.newContext({serviceWorkers:'block'}),client=await context.newPage();
   try {
+    const endpoint=test.info().config.metadata?.precisionNativeSignalURL;
+    if(endpoint)await context.addInitScript(endpoint=>{const Native=window.WebSocket;window.WebSocket=class extends Native{constructor(url,...args){super(String(url).replace(/ws:\/\/(?:127\.0\.0\.1|localhost):10000/,endpoint),...args);}};},endpoint);
     await client.goto(page.url());
     await expect.poll(()=>client.evaluate(async()=>(await import(new URL('js/webrtc.js',document.baseURI))).getRehearsalRoomState().joined)).toBe(true);
     const dismiss=client.locator('#dismiss-connection-modal-btn');if(await dismiss.isVisible())await dismiss.click();

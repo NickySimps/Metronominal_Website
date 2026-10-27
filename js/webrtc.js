@@ -1,4 +1,5 @@
 import AppState from "./appState.js";
+import { receiveSongChange } from "./practiceTransport.js";
 import TempoController from "./tempoController.js";
 import VolumeController from "./volumeController.js";
 import TrackController from "./tracksController.js";
@@ -49,12 +50,31 @@ const pendingTimeSyncRequests = new Map();
 const MAX_SYNC_STATE_BYTES = 256 * 1024;
 const MAX_OFFSET_SAMPLES = 20;
 const SYNC_SCHEMA_VERSION = 1;
-const SYNC_CAPABILITIES = ["state-v1", "song-v1", "song-v2", "slices-v1", "beat-overrides-v1", "effects-v1", "rehearsal-v1"];
+const SYNC_CAPABILITIES = ["logical-beats-v1", "practice-v1", "song-boundary-v1", "state-v1", "song-v1", "song-v2", "slices-v1", "beat-overrides-v1", "effects-v1", "rehearsal-v1"];
 let lastAcknowledgedStateRevision = -1;
 let lastAcknowledgedStateChecksum = null;
 let rejectedStateCount = 0;
 let authorityGeneration = 0;
 let rehearsalSupported = false;
+let negotiatedCapabilities = new Set();
+let privateSongCommand = null;
+let logicalBeatsBlocked = false;
+function requiresLogicalBeats(state) {
+  const tracks = [...(Array.isArray(state?.Tracks) ? state.Tracks : []), ...(Array.isArray(state?.song?.sections) ? state.song.sections : []).flatMap(s => Array.isArray(s?.tracks) ? s.tracks : [])];
+  return tracks.some(t => Array.isArray(t?.barSettings) && t.barSettings.some(b => b && Object.keys(b.beatSlices || {}).length > 0
+    && (b.rests?.length > 0 || Object.keys(b.velocities || {}).length > 0 || Object.keys(b.beatSounds || {}).length > 0)));
+}
+function acceptLogicalBeats(state) {
+  if (!requiresLogicalBeats(state) || supportsRoomCapability('logical-beats-v1')) { logicalBeatsBlocked = false; return true; }
+  logicalBeatsBlocked = true; explicitReady = false; clearPrivateSongCommand();
+  recoveryMessage = 'This music requires logical-beats-v1. Update the synchronization server before sharing or playing sliced beat overrides.';
+  stopRoomPlayback(); reportReadiness(); updateDiagnosticsUI(); emitRehearsalRoomChange();
+  return false;
+}
+function clearPrivateSongCommand() { privateSongCommand = null; }
+for (const name of ['roomauthoritychange','syncrolechange']) document.addEventListener(name, clearPrivateSongCommand);
+document.addEventListener('playbackstatechange', e => { if (e.detail?.playing === false) clearPrivateSongCommand(); });
+export function supportsRoomCapability(capability) { return joined && negotiatedCapabilities.has(capability); }
 let rehearsalSnapshot = { participants: [], requests: [], cue: null, hostPeerId: null, hostConnected: false, playing: false };
 let ownPeerId = null;
 let explicitReady = false;
@@ -120,7 +140,7 @@ function reportReadiness() {
 
 export function setRehearsalReadiness(ready, name = localPeerName) {
   if (typeof ready !== 'boolean' || !plainText(name,40)) return false;
-  explicitReady = ready; localPeerName = name.trim();
+  explicitReady = ready && !logicalBeatsBlocked && (!joined || acceptLogicalBeats(AppState.getMusicalSnapshot())); localPeerName = name.trim();
   sessionStorage.setItem('rehearsal_name',localPeerName);
   return reportReadiness();
 }
@@ -251,6 +271,7 @@ function resetProtocolDiagnostics() {
   clearInterval(readinessTimer);
   readinessTimer = null;
   rehearsalSupported = false;
+  negotiatedCapabilities.clear();
   explicitReady = false;
   rehearsalSnapshot = { participants: [], requests: [], cue: null, hostPeerId: null, hostConnected: false, playing: false };
   localRole = "offline";
@@ -549,6 +570,7 @@ function hasValidCountIn(message) {
 }
 
 function applyTransport(message) {
+  if (logicalBeatsBlocked) return;
   if (!joined) return;
   if (!message || typeof message.playing !== "boolean"
     || !Number.isFinite(Number(message.effectiveAt))
@@ -586,7 +608,8 @@ function applyTransport(message) {
       message.currentBar || 0,
       message.currentBeat || 0,
       message.repeatIteration || 0,
-      () => generation === transportGeneration
+      () => generation === transportGeneration,
+      localTimestamp(Number.isFinite(message.practiceEpochAt) ? message.practiceEpochAt : message.effectiveAt)
     ).catch(error => console.warn("Could not schedule synchronized playback:", error));
   } else {
     stopAt(message.effectiveAt, generation);
@@ -605,6 +628,7 @@ async function handleStateMessage(message, generation) {
   if (message.schemaVersion !== undefined && message.schemaVersion !== SYNC_SCHEMA_VERSION) return;
   if (message.capabilities && !Array.isArray(message.capabilities)) return;
   const { selectedTheme: _ignoredTheme, ...state } = message.payload;
+  if (!acceptLogicalBeats(state)) return;
   const serializedState = JSON.stringify(state);
   const payloadBytes = new TextEncoder().encode(serializedState).byteLength;
   const actualChecksum = message.checksum ? await checksum(state) : null;
@@ -621,7 +645,7 @@ async function handleStateMessage(message, generation) {
   const previousState = await AppState.getCurrentStateForPreset(true);
   if (!current()) return;
   try {
-    await AppState.loadPresetData({ ...state, isPlaying: false }, { guard: current });
+    await AppState.loadPresetData({ ...state, isPlaying: false }, { guard: current, source: 'network' });
     if (!current()) return;
   } catch (error) {
     if (!current()) return;
@@ -659,6 +683,8 @@ async function handleSocketMessage(event, generation) {
   switch (message.type) {
     case "joined":
       joined = true;
+      negotiatedCapabilities = new Set(Array.isArray(message.capabilities) ? message.capabilities.filter(c => typeof c === "string").slice(0,32) : []);
+      logicalBeatsBlocked = false;
       rehearsalSupported = Array.isArray(message.capabilities) && message.capabilities.includes('rehearsal-v1');
       recoveryMessage = '';
       ownPeerId = message.peerId;
@@ -760,6 +786,21 @@ async function handleSocketMessage(event, generation) {
       }
       break;
 
+    case 'song-change':
+      if (joined && current()) {
+        if (!message.cancelled && !acceptLogicalBeats({...AppState.getMusicalSnapshot(),song:message.song})) break;
+        const local = privateSongCommand;
+        if (message.cancelled) {
+          if (!message.commandId || message.commandId === local?.commandId) clearPrivateSongCommand();
+          receiveSongChange(message);
+        } else {
+          const own = window.isHost && local && local.generation === authorityGeneration
+            && message.commandId === local.commandId && JSON.stringify({version:message.version,song:message.song,sectionIndex:message.sectionIndex,startBar:message.startBar,effectiveAt:message.effectiveAt,commandId:message.commandId}) === local.identity;
+          receiveSongChange(own ? {...message, song:local.song} : message);
+          if (own) clearPrivateSongCommand();
+        }
+      }
+      break;
     case "transport":
       applyTransport(message);
       break;
@@ -867,6 +908,11 @@ async function handleSocketMessage(event, generation) {
 
     case "error":
       console.error(`Synchronization server error (${message.code}): ${message.message}`);
+      if (['incompatible-client','invalid-song-change'].includes(message.code)) {
+        clearPrivateSongCommand(); explicitReady = false;
+        recoveryMessage = message.message || 'Incompatible room semantics.';
+        reportReadiness(); updateDiagnosticsUI(); emitRehearsalRoomChange();
+      }
       if (['invalid-host-credential','room-closed','room-expired'].includes(message.code)) {
         authorityGeneration += 1;
         joined = false;
@@ -1187,6 +1233,13 @@ async function flushState() {
   try {
     const state = await statePromise;
     if (!current()) return false;
+    if (!acceptLogicalBeats(state)) return false;
+    if(state.practice?.enabled && !supportsRoomCapability('practice-v1')) {
+      state.practice={...state.practice,enabled:false};
+      AppState.setPracticeConfig(state.practice);
+      recoveryMessage='Shared practice was disabled because this server lacks practice-v1. Update the server first.';
+      updateDiagnosticsUI();
+    }
     const privateNames = privateNetworkSoundNames();
     state.Tracks = state.Tracks.map(track => sanitizeNetworkTrack(track, privateNames));
     if (state.song?.sections) {
@@ -1226,6 +1279,27 @@ export async function sendState(statePromise) {
   return true;
 }
 
+export function sendSongChangeCommand(change) {
+  if(!joined || !window.isHost || !hasTimeSync || !supportsRoomCapability('song-boundary-v1'))return false;
+  if (change && !acceptLogicalBeats({...AppState.getMusicalSnapshot(),song:change.song})) return false;
+  clearPrivateSongCommand();
+  let wireChange = null;
+  if (change !== null) {
+    wireChange = JSON.parse(JSON.stringify(change));
+    const privateNames = privateNetworkSoundNames();
+    wireChange.song.sections = wireChange.song.sections.map(section => ({...section,
+      ...(Array.isArray(section.tracks) ? {tracks:section.tracks.map(track => sanitizeNetworkTrack(track, privateNames))} : {})}));
+    wireChange.commandId = Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2,'0')).join('');
+    privateSongCommand = {commandId:wireChange.commandId, generation:authorityGeneration,
+      identity:JSON.stringify(wireChange), song:JSON.parse(JSON.stringify(change.song))};
+  }
+  const intent = privateSongCommand;
+  const generation=connectionGeneration, roleGeneration=authorityGeneration, expectedSocket=socket, expectedRoom=roomId;
+  const publish=()=>joined && window.isHost && privateSongCommand===intent && generation===connectionGeneration && roleGeneration===authorityGeneration && expectedSocket===socket && expectedRoom===roomId && sendMessage({type:'song-change-command',change:wireChange});
+  if(pendingStatePromise){clearTimeout(stateSendTimer);void flushState().then(publish);}else publish();
+  return true;
+}
+
 export function isSynchronizationJoined() {
   return joined;
 }
@@ -1236,6 +1310,7 @@ export function getDesiredHostPlaybackState() {
 
 function broadcastTransportCommand(playing, forcePublication = false) {
   if (!window.isHost || !joined) return false;
+  if (playing && (logicalBeatsBlocked || !acceptLogicalBeats(AppState.getMusicalSnapshot()))) return false;
   if (desiredHostPlaybackState === playing && !forcePublication) return true;
 
   desiredHostPlaybackState = playing;
@@ -1275,6 +1350,7 @@ export function broadcastScheduledPlay() {
 }
 
 export function broadcastStop() {
+  clearPrivateSongCommand();
   return broadcastTransportCommand(false);
 }
 

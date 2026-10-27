@@ -3,6 +3,7 @@ import SongController from './songController.js';
 import * as Room from './webrtc.js';
 
 const KEY = 'metronominal.rehearsal.v1';
+const BACKUP_KEY = `${KEY}.backup`;
 const MAX_BYTES = 2 * 1024 * 1024;
 const text = (value, max = 80) => typeof value === 'string' && value.trim().length > 0 && value.length <= max;
 const bytes = value => new TextEncoder().encode(value).byteLength;
@@ -20,8 +21,17 @@ export function initializeRehearsalLibrary(root) {
     <label>Rename setlist <input data-rename maxlength="80"></label>
     <div data-list-actions></div><button type="button" data-add>Add current song</button>
     <div data-navigation></div>
-    <label>Import library (replaces local library) <input data-import type="file" accept="application/json,.json"></label>
+    <label>Import library (preview first) <input data-import type="file" accept="application/json,.json"></label>
+    <p data-private-warning>Private recordings and custom sounds based on them are excluded from saved songs and exports; safe synthesized fallbacks may be used. Audio files are not bundled or transferred. Keep private audio separately on its original device.</p>
+    <section data-preview hidden aria-label="Library import preview" aria-live="polite">
+      <p data-preview-summary></p><ul data-preview-names></ul>
+      <button type="button" data-merge>Merge library</button><button type="button" data-replace>Replace library</button>
+      <button type="button" data-apply-restore>Apply restore</button><button type="button" data-cancel>Cancel preview</button>
+    </section>
     <button type="button" data-export>Export library</button>
+    <p data-recovery-warning>Recovery exports (backup and original storage) preserve raw bytes and may contain damaged content or private data. Inspect locally before sharing. Keep an exported copy if browser storage is unavailable.</p>
+    <button type="button" data-restore>Restore backup</button><button type="button" data-export-backup>Export backup</button>
+    <button type="button" data-export-original>Export original storage (raw recovery)</button>
     <ol data-entries></ol></details><details><summary>Cues</summary>
     <p>Device-local cues for the current song. Send now is manual; no automatic song changes.</p>
     <label>Cue text <input data-cue-text maxlength="140"></label>
@@ -37,6 +47,10 @@ export function initializeRehearsalLibrary(root) {
   let generation = 0;
   let busy = false;
   let disposed = false;
+  let preview = null;
+  let originalRaw = null;
+  let backupRaw = null;
+  const clearPreview = () => { preview = null; find('[data-preview]').hidden = true; };
   const status = message => { find('[data-status]').textContent = message; };
   const role = () => Room.getSyncDiagnostics?.().role || 'offline';
   const allowed = () => !disposed && ['host', 'offline'].includes(role()) && !AppState.isPlaying();
@@ -54,21 +68,33 @@ export function initializeRehearsalLibrary(root) {
       }) };
     }) };
   }
+  try { backupRaw = localStorage.getItem(BACKUP_KEY); } catch { /* Recovery may still export the in-memory original. */ }
   try {
     const raw = localStorage.getItem(KEY);
+    originalRaw = raw;
     if (raw) {
       if (bytes(raw) > MAX_BYTES) throw new Error('Stored library is too large.');
       data = validate(JSON.parse(raw));
     }
   } catch (error) { storageHealthy = false; status(`Library storage unavailable or damaged: ${error.message} Existing data has not been erased.`); }
-  function save(next, shouldRender = true) {
-    if (!allowed() || !storageHealthy || busy) return false;
+  function save(next, shouldRender = true, replace = false) {
+    if (!allowed() || (!storageHealthy && !replace) || busy) return false;
     try {
       next = validate(next);
       const raw = JSON.stringify(next);
       if (bytes(raw) > MAX_BYTES) throw new Error('Library must be 2 MB or smaller.');
+      if (replace) {
+        // Two keys are not a transaction: never touch the primary until backup succeeds.
+        const previous = localStorage.getItem(KEY);
+        const recovery = previous === null ? JSON.stringify(data) : previous;
+        localStorage.setItem(BACKUP_KEY, recovery);
+        backupRaw = recovery;
+      }
       localStorage.setItem(KEY, raw);
+      originalRaw = raw;
       data = next;
+      storageHealthy = true;
+      generation++; clearPreview();
       status('Saved on this device.');
       if (shouldRender) render();
       return true;
@@ -127,9 +153,93 @@ export function initializeRehearsalLibrary(root) {
     try {
       if (typeof raw !== 'string' || bytes(raw) > MAX_BYTES) throw new Error('Library must be 2 MB or smaller.');
       const next = validate(JSON.parse(raw));
-      if (!save(next)) return false;
-      selected = 0; loaded = -1; generation++; render(); return true;
+      if (!save(next, false, true)) return false;
+      selected = 0; loaded = -1; render(); return true;
     } catch (error) { status(`Import rejected: ${error.message} Existing data has not been erased.`); return false; }
+  }
+  // Sort object keys only: ordered musical arrays remain significant.
+  function canonical(value) {
+    if (Array.isArray(value)) return value.map(canonical);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]));
+  }
+  function entryKey(entry) {
+    const payload = structuredClone(entry.payload);
+    delete payload.exportedAt;
+    for (const key of ['selectedTrackIndex', 'selectedBarIndexInContainer', 'controlsAttachedToTrack', 'isRestMode', 'isAccentMode', 'isSliceMode']) delete payload.state[key];
+    for (const track of payload.state.Tracks) for (const key of ['currentBar', 'currentBeat', 'songRepeatIteration', 'nextBeatTime']) delete track[key];
+    return JSON.stringify(canonical({ name: entry.name, payload }));
+  }
+  function mergeLibrary(incoming, base) {
+    const next = structuredClone(base);
+    let duplicates = 0;
+    // Limits on both inputs bound canonicalization and comparisons; no title-only song matches.
+    for (const list of incoming.lists) {
+      let target = next.lists.find(item => item.name === list.name);
+      if (!target) { target = {name:list.name, songs:[]}; next.lists.push(target); }
+      const keys = new Set(target.songs.map(entryKey));
+      for (const entry of list.songs) {
+        const key = entryKey(entry);
+        if (keys.has(key)) duplicates++;
+        else { target.songs.push(structuredClone(entry)); keys.add(key); }
+      }
+    }
+    const cues = new Set(next.cues.map(cue => JSON.stringify(canonical(cue))));
+    for (const cue of incoming.cues) {
+      const key = JSON.stringify(canonical(cue));
+      if (cues.has(key)) duplicates++;
+      else { next.cues.push(structuredClone(cue)); cues.add(key); }
+    }
+    const checked = validate(next);
+    if (bytes(JSON.stringify(checked)) > MAX_BYTES) throw new Error('Merged library must be 2 MB or smaller.');
+    return { next: checked, duplicates };
+  }
+  function stageImport(raw, source = 'import') {
+    if (!allowed() || busy) return false;
+    generation++;
+    clearPreview();
+    try {
+      if (typeof raw !== 'string' || !raw.trim() || bytes(raw) > MAX_BYTES) throw new Error('Library must be nonempty and 2 MB or smaller.');
+      const next = validate(JSON.parse(raw));
+      const replacement = source === 'restore' ? {next, duplicates:0} : mergeLibrary(next, {format:data.format,version:1,lists:[],cues:[]});
+      let merged = null;
+      let mergeError = '';
+      try { if (storageHealthy) merged = mergeLibrary(next, data); }
+      catch (error) { mergeError = error.message; }
+      preview = { next: replacement.next, merged: merged?.next, source, token: generation };
+      const count = next.lists.reduce((sum, list) => sum + list.songs.length, 0);
+      find('[data-preview-summary]').textContent = `${source === 'restore' ? 'Restore' : 'Import'} preview: ${next.lists.length} setlists, ${count} songs, ${next.cues.length} cues. ${merged ? `${merged.duplicates} duplicates skipped on merge; result: ${merged.next.lists.length} setlists, ${merged.next.lists.reduce((sum, list) => sum + list.songs.length, 0)} songs, ${merged.next.cues.length} cues.` : `Merge unavailable: ${mergeError || 'repair damaged storage with Replace or Restore first.'}`} ${replacement.duplicates} duplicates within import skipped on Replace. Same-named setlists combine on merge; different music and song aliases are retained. Replace saves the previous library as a local backup first.`;
+      find('[data-preview-names]').replaceChildren(...next.lists.map(list => {
+        const node = document.createElement('li'); node.textContent = `${list.name}: ${list.songs.length} songs${list.songs.length ? ' — ' + list.songs.map(entry => entry.name).join(', ') : ''}`; return node;
+      }));
+      find('[data-preview]').hidden = false;
+      find('[data-merge]').hidden = source === 'restore';
+      find('[data-replace]').hidden = source === 'restore';
+      find('[data-apply-restore]').hidden = source !== 'restore';
+      render(); return true;
+    } catch (error) { status(`Import rejected: ${error.message} Existing data has not been erased.`); return false; }
+  }
+  function commitImport(mode) {
+    if (!preview || preview.token !== generation || !allowed() || busy) return false;
+    if (!['merge', 'replace', 'restore'].includes(mode)) return false;
+    if ((preview.source === 'restore') !== (mode === 'restore')) return false;
+    const next = mode === 'merge' ? preview.merged : preview.next;
+    if (!next) return false;
+    if (!save(next, false, mode !== 'merge')) { render(); return false; }
+    selected = 0; loaded = -1; render(); return true;
+  }
+  function restoreBackup() {
+    if (!allowed() || busy) return false;
+    try { backupRaw = localStorage.getItem(BACKUP_KEY) || backupRaw; }
+    catch (error) { if (!backupRaw) { status(`Backup unavailable: ${error.message}`); return false; } }
+    return stageImport(backupRaw, 'restore');
+  }
+  function download(raw, filename, recovery = false) {
+    if (typeof raw !== 'string') throw new Error('No recovery data is available.');
+    const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
+    const link = document.createElement('a'); link.href = url; link.download = filename; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    status(recovery ? 'Raw recovery exported. It may be damaged or contain private data; inspect locally before sharing.' : 'Library exported. Private audio is not bundled.');
   }
   function exportText() {
     if (!storageHealthy) throw new Error('Cannot export an unavailable or damaged library. Original storage has not been changed.');
@@ -192,7 +302,12 @@ export function initializeRehearsalLibrary(root) {
     find('[data-name]').disabled = !can;
     const select = find('[data-select]');
     select.disabled = !can;
-    find('[data-import]').disabled = !can;
+    find('[data-import]').disabled = !allowed() || busy;
+    find('[data-restore]').disabled = !allowed() || busy || !backupRaw;
+    find('[data-export-backup]').disabled = !backupRaw;
+    find('[data-export-original]').disabled = originalRaw === null;
+    for (const selector of ['[data-merge]', '[data-replace]', '[data-apply-restore]']) find(selector).disabled = !allowed() || busy || !preview || preview.token !== generation;
+    find('[data-merge]').disabled ||= !storageHealthy || !preview?.merged;
     find('[data-export]').disabled = !storageHealthy;
     find('[data-rename]').value = data.lists[selected]?.name || '';
     find('[data-rename]').disabled = !can || !data.lists[selected];
@@ -236,14 +351,16 @@ export function initializeRehearsalLibrary(root) {
     else event.target.value = data.lists[selected].name;
   });
   find('[data-import]').addEventListener('change', async event => {
-    const token = generation;
+    const token = ++generation;
+    clearPreview();
     try {
       const file = event.target.files?.[0];
-      if (!file || file.size > MAX_BYTES) throw new Error('Library must be 2 MB or smaller.');
+      event.target.value = '';
+      if (!file) return;
+      if (file.size > MAX_BYTES) throw new Error('Library must be 2 MB or smaller.');
       const raw = await file.text();
-      if (token === generation && allowed()) importText(raw);
-    } catch (error) { status(`Import rejected: ${error.message}`); }
-    finally { event.target.value = ''; }
+      if (token === generation && allowed()) stageImport(raw);
+    } catch (error) { if (token === generation && allowed()) status(`Import rejected: ${error.message}`); }
   });
   find('[data-export]').addEventListener('click', () => {
     try {
@@ -259,10 +376,19 @@ export function initializeRehearsalLibrary(root) {
     next.cues.push({ song: AppState.getSong().name, text: find('[data-cue-text]').value.trim(), bar: Number(find('[data-cue-bar]').value) });
     if (save(next)) find('[data-cue-text]').value = '';
   });
-  const refresh = () => { generation++; render(); };
-  const roleRefresh = () => { generation++; find('[data-auto]').checked = false; displayRoomCue(); render(); };
-  const listeners = { syncrolechange: roleRefresh, roomauthoritychange: roleRefresh, playbackstatechange: refresh, appstatechange: render, rehearsalroomchange: displayRoomCue, songpositionchange: onBar };
+  find('[data-merge]').addEventListener('click', () => commitImport('merge'));
+  find('[data-replace]').addEventListener('click', () => commitImport('replace'));
+  find('[data-apply-restore]').addEventListener('click', () => commitImport('restore'));
+  find('[data-restore]').addEventListener('click', restoreBackup);
+  find('[data-cancel]').addEventListener('click', () => { generation++; clearPreview(); render(); });
+  for (const [selector, getter, filename] of [
+    ['[data-export-backup]', () => backupRaw, 'metronominal-rehearsal-backup.json'],
+    ['[data-export-original]', () => originalRaw, 'metronominal-rehearsal-raw-recovery.json'],
+  ]) find(selector).addEventListener('click', () => { try { download(getter(), filename, true); } catch (error) { status(error.message); } });
+  const refresh = () => { generation++; clearPreview(); render(); };
+  const roleRefresh = () => { generation++; clearPreview(); find('[data-auto]').checked = false; displayRoomCue(); render(); };
+  const listeners = { syncrolechange: roleRefresh, roomauthoritychange: roleRefresh, playbackstatechange: refresh, historyboundary: refresh, appstatechange: render, rehearsalroomchange: displayRoomCue, songpositionchange: onBar };
   for (const [event, listener] of Object.entries(listeners)) document.addEventListener(event, listener);
   displayRoomCue(); render();
-  return { load, importText, exportText, destroy() { disposed = true; generation++; for (const [event, listener] of Object.entries(listeners)) document.removeEventListener(event, listener); shell.remove(); } };
+  return { load, importText, exportText, stageImport, commitImport, restoreBackup, destroy() { disposed = true; generation++; for (const [event, listener] of Object.entries(listeners)) document.removeEventListener(event, listener); shell.remove(); } };
 }

@@ -1,4 +1,8 @@
 const { test, expect } = require('@playwright/test');
+const prepareWorkflowTestPage=require('./workflowTestPage.cjs');
+async function routeIsolatedSignal(page,endpoint){return prepareWorkflowTestPage(page,{precisionNativeSignalURL:endpoint});}
+test.beforeEach(async ({page}, info) => routeIsolatedSignal(page,info.config.metadata?.precisionNativeSignalURL));
+
 const errors=new WeakMap();
 test.beforeEach(({page})=>{const messages=[];errors.set(page,messages);page.on('pageerror',e=>messages.push(e.message));});
 test.afterEach(({page})=>expect(errors.get(page)).toEqual([]));
@@ -88,11 +92,15 @@ for(const width of [320,360,390,768,1280])for(const stress of [false,true])test(
   await ready(page,width);
   await theme(page,stress?'random':'dark');
   if(stress)await page.addStyleTag({content:'html{font-size:20px} body{letter-spacing:.12em;word-spacing:.16em}'});
-  await page.evaluate(async()=>{
-    const app=(await import('/js/appState.js')).default;
-    app.updateTrack(0,{name:'W'.repeat(40)});
-    (await import('/js/tracksController.js')).default.renderTracks();
-  });
+  // Hold real modules before allocating the new track DOM. An async evaluation
+  // result can be collected by Chromium during render despite completing it.
+  const modules=await page.evaluateHandle(()=>Promise.all([import('/js/appState.js'),import('/js/tracksController.js')]));
+  try {
+    await page.evaluate(([{default:app},{default:controller}])=>{
+      app.updateTrack(0,{name:'W'.repeat(40)});
+      controller.renderTracks();
+    },modules);
+  } finally { await modules.dispose(); }
   await expect(page.locator('.track-name').first()).toHaveText('W'.repeat(40));
   await settle(page);
   await page.locator('#ab-loop-toggle-btn').click();
@@ -117,6 +125,7 @@ for(const width of [320,360,390,768,1280])for(const stress of [false,true])test(
   if(stress)await page.addStyleTag({content:'html{font-size:20px} body{letter-spacing:.12em;word-spacing:.16em}'});
   const context=await browser.newContext({serviceWorkers:'block'}),peer=await context.newPage();
   try {
+    await routeIsolatedSignal(peer,test.info().config.metadata?.precisionNativeSignalURL);
     await page.evaluate(async()=>{const w=await import('/js/webrtc.js');w.setRehearsalReadiness(true,'W'.repeat(40));});
     await peer.goto(page.url());
     await expect.poll(()=>peer.evaluate(async()=>(await import('/js/webrtc.js')).getRehearsalRoomState().joined)).toBe(true);
@@ -172,6 +181,9 @@ for(const {width,height,stress} of modalCases)test(`Precision and sound editors 
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   const before=await page.locator('.bar-visual').first().evaluate(el=>({width:el.offsetWidth,height:el.offsetHeight,columns:getComputedStyle(el).gridTemplateColumns}));
   await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));});
+  // A stationary hold owns subdivisions; deliberate grid movement chooses precision.
+  await expect.poll(()=>page.evaluate(()=>!!document.querySelector('.subdivision-options-container.visible')||!!document.querySelector('[data-beat-precision-lens]'))).toBe(true);
+  await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,button:0,clientX:r.x+r.width/2+14,clientY:r.y+r.height/2}));});
   // Short screens need a finger-relative lens, not a desktop keyboard fallback.
   await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
   const lens=await textGeometry(page,'[data-beat-precision-lens]');

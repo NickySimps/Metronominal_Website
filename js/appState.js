@@ -366,7 +366,7 @@ function isSafeNetworkValue(value, depth = 0) {
   if (Array.isArray(value)) return value.length <= 512 && value.every(item => isSafeNetworkValue(item, depth + 1));
   const entries = Object.entries(value);
   return entries.length <= 512 && entries.every(([key, child]) => key.length <= 64
-    && !["__proto__", "prototype", "constructor", "analyserNode", "mainAnalyserNode", "subdivisionAnalyserNode"].includes(key)
+    && !["__proto__", "prototype", "constructor", "analyserNode", "mainAnalyserNode", "subdivisionAnalyserNode", "outputOffsetMs", "audioLatencyOffset", "outputLatencyMs", "baseLatencyMs", "outputCorrectionMs"].includes(key)
     && isSafeNetworkValue(child, depth + 1));
 }
 
@@ -400,6 +400,7 @@ function isSafeNetworkTrack(value) {
 
 function isSafeNetworkState(value) {
   if (!value || typeof value !== "object" || Array.isArray(value) || !isSafeNetworkValue(value)) return false;
+  if (value.practice !== undefined && !validatePracticeConfig(value.practice)) return false;
   if (!Number.isInteger(value.tempo) || value.tempo < 20 || value.tempo > 400
     || !Number.isFinite(Number(value.volume)) || Number(value.volume) < 0 || Number(value.volume) > 1
     || !Array.isArray(value.Tracks) || value.Tracks.length < 1 || value.Tracks.length > 16
@@ -413,9 +414,21 @@ function isSafeNetworkState(value) {
     && (section.tracks === undefined || (Array.isArray(section.tracks) && section.tracks.length <= 16 && section.tracks.every(isSafeNetworkTrack))));
 }
 
+export const DEFAULT_PRACTICE_CONFIG = Object.freeze({ version: 1, enabled: false, mode: 'step', startBpm: 100, targetBpm: 180, bpmStep: 5, stepBars: 2, onMaxAction: 'hold', warmupBars: 2, rampBars: 8, targetBars: 4, recoveryBars: 2, audibleBars: 2, silentBars: 0 });
+export function validatePracticeConfig(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length !== Object.keys(DEFAULT_PRACTICE_CONFIG).length
+    || Object.keys(value).some(key => !Object.hasOwn(DEFAULT_PRACTICE_CONFIG, key)) || value.version !== 1 || typeof value.enabled !== 'boolean'
+    || !['step', 'ramp'].includes(value.mode) || !['hold', 'stop', 'reset'].includes(value.onMaxAction)) return false;
+  return ['startBpm','targetBpm'].every(k => Number.isFinite(value[k]) && value[k] >= 20 && value[k] <= 300)
+    && Number.isInteger(value.bpmStep) && value.bpmStep >= 1 && value.bpmStep <= 100
+    && ['stepBars','rampBars','targetBars','recoveryBars','audibleBars'].every(k => Number.isInteger(value[k]) && value[k] >= 1 && value[k] <= 128)
+    && ['warmupBars','silentBars'].every(k => Number.isInteger(value[k]) && value[k] >= 0 && value[k] <= 128);
+}
+
 const AppState = (function () {
   // --- Private State ---
   let tempo = 120;
+  let practice = { ...DEFAULT_PRACTICE_CONFIG };
   let volume = 1.0;
   let countInBars = 0;
   let song = defaultSong(tempo);
@@ -598,6 +611,12 @@ const publicAPI = {
     },
 
     // Tempo
+    getPracticeConfig: () => ({ ...practice }),
+    setPracticeConfig: value => {
+      if (!validatePracticeConfig(value)) throw new RangeError('Invalid practice configuration');
+      practice = { ...value }; saveState();
+      document.dispatchEvent(new CustomEvent('practiceconfigchange'));
+    },
     getTempo: () => tempo,
     setTempo: (newTempo, options = {}) => {
       const oldTempo = tempo;
@@ -660,13 +679,14 @@ const publicAPI = {
       const section = Number.isInteger(requestedIndex) && song.sections[requestedIndex]
         ? { index: requestedIndex, ...song.sections[requestedIndex] }
         : publicAPI.getSongSectionForBar(barIndex);
-      if (!Array.isArray(section?.tracks)) return false;
+      // Legacy tempo-only sections have no ensemble replacement, including tracks: [].
+      const snapshotTracks = Array.isArray(section?.tracks) ? section.tracks : [];
       activeSongSectionIndex = section.index;
       const sectionTempo = Number(section.tempo);
       if (Number.isFinite(sectionTempo) && sectionTempo > 0 && sectionTempo !== tempo) {
         publicAPI.setTempo(sectionTempo, { reschedule: false, persist: false });
       }
-      section.tracks.forEach((snapshot, index) => {
+      snapshotTracks.forEach((snapshot, index) => {
         const track = Tracks[index] || (Tracks[index] = {
           ...JSON.parse(JSON.stringify(snapshot)),
           currentBar: 0,
@@ -700,10 +720,10 @@ const publicAPI = {
         if (!Number.isFinite(track.currentBar)) track.currentBar = 0;
         if (!Number.isFinite(track.currentBeat)) track.currentBeat = 0;
       });
-      Tracks.length = section.tracks.length;
+      if (snapshotTracks.length) Tracks.length = snapshotTracks.length;
       if (typeof document !== "undefined") {
         document.dispatchEvent(new CustomEvent("songtracksectionchange", {
-          detail: { sectionIndex: section.index, trackCount: section.tracks.length, tempo: section.tempo || tempo },
+          detail: { sectionIndex: section.index, trackCount: Tracks.length, tempo: section.tempo || tempo },
         }));
       }
       return true;
@@ -826,8 +846,10 @@ const publicAPI = {
     },
     getLatencyOffset: () => audioLatencyOffset,
     setLatencyOffset: (offsetMs) => {
-        audioLatencyOffset = Math.max(-200, Math.min(500, parseInt(offsetMs, 10) || 0));
-        saveState();
+        if(isPlaying)throw new Error('Stop playback before changing local output correction');
+        if(typeof offsetMs!=='number'||!Number.isFinite(offsetMs)||offsetMs < -200 || offsetMs > 500)throw new RangeError('Output correction must be -200 to 500 ms');
+        audioLatencyOffset=offsetMs;
+        try{localStorage.setItem('metronominal.outputCorrectionMs',String(offsetMs));return null;}catch(error){return error.message;}
     },
     isWakeLockEnabled: () => isWakeLockEnabled,
     setWakeLockEnabled: (enabled) => {
@@ -1524,6 +1546,7 @@ const publicAPI = {
         tempo: tempo,
         volume: volume,
         countInBars: countInBars,
+        practice: { ...practice },
         song: JSON.parse(JSON.stringify(song)),
         Tracks: JSON.parse(
           JSON.stringify(
@@ -1542,7 +1565,7 @@ const publicAPI = {
         isSliceMode: isSliceMode,
         isRecording: isRecording,
         customSounds: customSounds,
-        audioLatencyOffset: audioLatencyOffset,
+        // Device output correction is deliberately absent from presets/network state.
       };
 
       if (!excludeHeavyData) {
@@ -1559,9 +1582,13 @@ const publicAPI = {
       const current = () => loadGeneration === presetLoadGeneration && (!options.guard || options.guard());
       const localBefore = options.history === 'local' ? publicAPI.getMusicalSnapshot() : null;
       if (!['local', 'replay'].includes(options.history) && typeof document !== 'undefined') {
-        document.dispatchEvent(new CustomEvent('historyboundary'));
+        document.dispatchEvent(new CustomEvent('historyboundary', { detail: { source: options.source || 'load' } }));
       }
       const oldTempo = tempo;
+      const importedPractice = data.practice ?? DEFAULT_PRACTICE_CONFIG;
+      if (!validatePracticeConfig(importedPractice)) throw new RangeError('Invalid practice configuration');
+      practice = { ...importedPractice };
+      document.dispatchEvent(new CustomEvent('practiceconfigchange'));
       if (data.tempo !== undefined) {
         tempo = data.tempo;
       }
@@ -1569,9 +1596,7 @@ const publicAPI = {
       if (data.volume !== undefined) {
         volume = data.volume;
       }
-      if (data.audioLatencyOffset !== undefined) {
-        audioLatencyOffset = Math.max(-200, Math.min(500, parseInt(data.audioLatencyOffset, 10) || 0));
-      }
+      // Never restore device timing from a room snapshot or arrangement preset.
       countInBars = Number.isInteger(data.countInBars)
         ? Math.max(0, Math.min(data.countInBars, 8))
         : 0;
@@ -1801,6 +1826,7 @@ const publicAPI = {
     // Reset & Initialization
     resetState: () => {
       tempo = 120;
+      practice = { ...DEFAULT_PRACTICE_CONFIG };
       volume = 1.0;
       countInBars = 0;
       song = defaultSong();
@@ -1894,7 +1920,7 @@ const publicAPI = {
         : ['mainBeatSound', 'subdivisionSound'].includes(key) ? snapshotSound(track[key]) : cloneMusical(track[key])]));
   }
   publicAPI.getMusicalSnapshot = () => ({
-    tempo, volume, countInBars,
+    tempo, volume, countInBars, practice: { ...practice },
     customSounds: Object.fromEntries(Object.entries(customSounds).map(([name, value]) => [name, cloneMusical({ baseSound: value.baseSound, settings: value.settings })])),
     Tracks: Tracks.map(snapshotTrack),
     song: cloneMusical({ version: song.version, enabled: song.enabled, name: song.name, sections: song.sections.map(section => ({
@@ -1906,7 +1932,7 @@ const publicAPI = {
     mutationListeners.add(listener);
     return () => mutationListeners.delete(listener);
   };
-  const musicalMethods = ['setTempo', 'setVolume', 'setCountInBars', 'setSong', 'addTrack', 'removeTrack', 'duplicateTrack', 'duplicateBar', 'resetTrack', 'setBeatSlices', 'updateTrack', 'toggleSolo', 'updateBarArray', 'increaseBeatsForSelectedBar', 'decreaseBeatsForSelectedBar', 'setSubdivisionForSelectedBar', 'setBeatSound', 'clearBeatSound', 'toggleBeatRest', 'resetState', 'addCustomSound', 'deleteCustomSound', 'renameCustomSound'];
+  const musicalMethods = ['setPracticeConfig', 'setTempo', 'setVolume', 'setCountInBars', 'setSong', 'addTrack', 'removeTrack', 'duplicateTrack', 'duplicateBar', 'resetTrack', 'setBeatSlices', 'updateTrack', 'toggleSolo', 'updateBarArray', 'increaseBeatsForSelectedBar', 'decreaseBeatsForSelectedBar', 'setSubdivisionForSelectedBar', 'setBeatSound', 'clearBeatSound', 'toggleBeatRest', 'resetState', 'addCustomSound', 'deleteCustomSound', 'renameCustomSound'];
   let mutationDepth = 0;
   for (const method of musicalMethods) {
     const original = publicAPI[method];

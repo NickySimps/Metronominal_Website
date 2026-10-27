@@ -1,7 +1,23 @@
 const {test,expect}=require('@playwright/test');
+const prepareWorkflowTestPage=require('./workflowTestPage.cjs');
+test.beforeEach(async ({page},info)=>prepareWorkflowTestPage(page,info.config.metadata));
+
 async function ready(page){await page.goto('./');await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);}
 async function editMode(page){await page.locator('.beat-edit-btn').first().click();await expect(page.locator('body')).toHaveClass(/beat-edit-mode/);await expect(page.locator('.track [data-beat-precision-toggle]').first()).toBeVisible();}
-async function lens(page){await page.locator('.bar-visual .beat-square').first().scrollIntoViewIfNeeded();await page.locator('.bar-visual .beat-square').first().evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:77,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));});await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();}
+async function lens(page){
+ const beat=page.locator('.bar-visual .beat-square').first();
+ // Each palette audit is a new contact, not another down for an unreleased id.
+ await beat.evaluate(el=>el.dispatchEvent(new PointerEvent('pointercancel',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:77,isPrimary:true,button:0})));
+ await expect(page.locator('[data-beat-precision-lens]')).toHaveCount(0);
+ await page.evaluate(()=>{void document.body.offsetWidth;});
+ await expect.poll(()=>page.evaluate(()=>document.fonts.status)).toBe('loaded');
+ await beat.scrollIntoViewIfNeeded();
+ await page.evaluate(()=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Visible layout frames did not settle')),1500);requestAnimationFrame(()=>requestAnimationFrame(()=>{clearTimeout(timer);resolve();}));}));
+ await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:77,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));});
+ await expect.poll(()=>page.evaluate(()=>!!document.querySelector('.subdivision-options-container.visible')||!!document.querySelector('[data-beat-precision-lens]'))).toBe(true);
+ await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:77,isPrimary:true,button:0,clientX:r.x+r.width/2+14,clientY:r.y+r.height/2}));});
+ await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
+}
 async function metrics(page){return page.evaluate(()=>{
  const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const ctx=canvas.getContext('2d',{willReadFrequently:true});
  const rgba=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return [...ctx.getImageData(0,0,1,1).data];};

@@ -85,6 +85,22 @@ test('reorders and renames lists and entries, previous/next never loads during p
   expect(await page.evaluate(() => app.getSong().name)).toBe('Two');
 });
 
+test('rename blur preserves the exact adjacent entry Load pointer action', async ({page}) => {
+  await open(page);
+  await page.getByLabel('Setlist name',{exact:true}).fill('Pointer');
+  await page.getByRole('button',{name:'Create setlist',exact:true}).click();
+  await page.evaluate(()=>app.setSong({...app.getSong(),name:'Captured'}));
+  await page.getByRole('button',{name:'Add current song',exact:true}).click();
+  await page.evaluate(()=>app.setSong({...app.getSong(),name:'Unsaved'}));
+  await page.getByLabel('Entry name 1',{exact:true}).fill('Renamed entry');
+  await page.getByRole('button',{name:'Load entry 1',exact:true}).click();
+  expect(await page.evaluate(()=>app.getSong().name)).toBe('Captured');
+  await expect(page.getByLabel('Entry name 1',{exact:true})).toHaveValue('Renamed entry');
+  await page.getByLabel('Rename setlist',{exact:true}).fill('Renamed list');
+  await page.getByRole('button',{name:'Load entry 1',exact:true}).click();
+  await expect(page.getByLabel('Saved setlist',{exact:true})).toContainText('Renamed list');
+});
+
 test('bounded imports reject invalid data atomically and exports use the song validator', async ({ page }) => {
   await open(page);
   const result = await page.evaluate(async () => {

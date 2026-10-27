@@ -38,6 +38,23 @@
 .rehearsal-library ol { padding-inline-start: 1.3rem; margin-block: .5rem; min-width: 0; }
 .rehearsal-library li { min-width: 0; overflow-wrap: anywhere; padding-block: .35rem; border-bottom: 1px solid currentColor; }
 .rehearsal-library li > span { display: block; overflow-wrap: anywhere; }
+.rehearsal-library [data-preview] {
+  min-width: 0;
+  max-width: 100%;
+  margin-block: .75rem;
+  padding: .65rem;
+  border: 2px solid currentColor;
+  border-radius: .5rem;
+  overflow-wrap: anywhere;
+}
+.rehearsal-library [data-preview][hidden] { display: none; }
+.rehearsal-library [data-preview-names] {
+  padding-inline-start: 1.2rem;
+  max-height: 14rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.rehearsal-library [data-private-warning] { font-size: .95em; }
 .rehearsal-library [data-cue-display] { font-weight: 700; }
 @media (max-width: 480px) {
   /* Avoid WebKit retaining a select's intrinsic option width in column-flex overflow. */

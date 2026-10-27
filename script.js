@@ -23,6 +23,7 @@ import MidiController from './js/midiController.js';
 import MonitoringController from './js/monitoringController.js';
 import { initializeRehearsalTools } from './js/rehearsalTools.js';
 import { initializeBeatPrecisionMount } from './js/beatPrecisionMount.js';
+import { initializeWorkflowTools } from './js/workflowTools.js';
 
 let qrCodeInstance = null;
 let appInitialized = false;
@@ -243,6 +244,7 @@ async function initialize() {
   document.addEventListener('historyapplied', () => refreshUIFromState({ animate: false }));
   await initializeRehearsalTools(document.getElementById('rehearsal-tools'));
   await initializeBeatPrecisionMount(document.getElementById('beat-precision-controls'), document.getElementById('all-tracks-wrapper'));
+  await initializeWorkflowTools(document.getElementById('rehearsal-tools'), { refreshUI: () => refreshUIFromState({ animate: false }) });
   
   // Unlock AudioContext on first user interaction (Crucial for Mobile)
   const unlockAudio = async () => {

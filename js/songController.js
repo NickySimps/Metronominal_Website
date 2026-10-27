@@ -1,4 +1,4 @@
-import AppState from "./appState.js";
+import AppState, { DEFAULT_PRACTICE_CONFIG, validatePracticeConfig } from "./appState.js";
 import { sendState, getSyncDiagnostics } from "./webrtc.js";
 import MetronomeEngine from "./metronomeEngine.js";
 
@@ -227,6 +227,7 @@ function expandSnapshotBars(tracks, requiredBars) {
 
 function validateImportedState(state) {
   if (!AppState.validateNetworkState(state)) return false;
+  if (state.practice !== undefined && !validatePracticeConfig(state.practice)) return false;
   if (!state || typeof state !== "object" || Array.isArray(state)) return false;
   if (!Number.isInteger(state.tempo) || !isFiniteInRange(state.tempo, 20, 400) || !isFiniteInRange(state.volume, 0, 1)) return false;
   if (state.countInBars !== undefined && (!Number.isInteger(state.countInBars) || state.countInBars < 0 || state.countInBars > 8)) return false;
@@ -292,6 +293,7 @@ function reconstructImportedState(state) {
     tempo: state.tempo,
     volume: state.volume,
     countInBars: state.countInBars || 0,
+    practice: { ...(state.practice || DEFAULT_PRACTICE_CONFIG) },
     song: {
       version: 2,
       enabled: state.song.enabled,
