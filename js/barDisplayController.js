@@ -14,6 +14,7 @@ import { sendState } from "./webrtc.js";
 import ThemeController from "./themeController.js";
 import SoundSettingsModal from "./soundSettingsModal.js";
 import { getVisualBeatSlots, getSlotInfo } from "./beatTiming.js";
+import { beginEditTransaction, commitEditTransaction } from "./editHistory.js";
 
 // State variables related to display highlighting
 let previousHighlightedBeatElements = []; // To keep track of the previously highlighted beat
@@ -96,8 +97,11 @@ function applySliceBadge(beatSquare, barData, slot) {
   const existingBadge = beatSquare.querySelector(".slice-count-badge");
   if (existingBadge) existingBadge.remove();
   beatSquare.removeAttribute("data-slice-count");
-  const count = Number(barData?.beatSlices?.[slot.index]);
-  if (!Number.isInteger(count) || count < 2) return;
+  // Shrinking subdivisions keeps the retiring squares until their exit
+  // animation finishes; those decorative nodes no longer have logical slots.
+  if (!slot && beatSquare.classList.contains("removing-beat-animation")) return;
+  const count = Number(barData?.beatSlices?.[slot?.index]);
+  if (!Number.isInteger(count) || count < 2) { if (/^\d+ slices$/.test(beatSquare.getAttribute("title") || "")) beatSquare.removeAttribute("title"); if (/^Beat \d+, \d+ slices$/.test(beatSquare.getAttribute("aria-label") || "")) beatSquare.removeAttribute("aria-label"); return; }
   const badge = document.createElement("span");
   badge.className = "slice-count-badge";
   badge.textContent = String(count);
@@ -438,7 +442,7 @@ async function selectSubdivisionOption(option) {
   const barIndex = parseInt(longPressedBarElement?.dataset.barIndex, 10);
   const containerIndex = parseInt(longPressedBarElement?.dataset.containerIndex, 10);
   if (newSubdivision && !isNaN(barIndex) && !isNaN(containerIndex)) {
-    await applySubdivisionChange(containerIndex, barIndex, newSubdivision);
+    const transaction = subdivisionCanCommit ? beginEditTransaction("Subdivision") : null; if (subdivisionCanCommit && !transaction) { hideSubdivisionSelector(); cleanupPointerListeners(); resetLongPressState(); return; } try { await applySubdivisionChange(containerIndex, barIndex, newSubdivision); } finally { if (transaction) commitEditTransaction(transaction); }
   } else if (longPressTimer) {
     return;
   }
@@ -606,7 +610,7 @@ function showSubdivisionSelector(barElement, { gesture = false, canCommit = null
                 if (subdivisionCanCommit && !subdivisionCanCommit()) { hideSubdivisionSelector(); return; }
                 const newSubdivision = element.dataset.value;
                 if (newSubdivision) {
-                    await applySubdivisionChange(containerIndex, barIndex, newSubdivision);
+                    const transaction = subdivisionCanCommit ? beginEditTransaction("Subdivision") : null; if (subdivisionCanCommit && !transaction) { hideSubdivisionSelector(); cleanupPointerListeners(); resetLongPressState(); return; } try { await applySubdivisionChange(containerIndex, barIndex, newSubdivision); } finally { if (transaction) commitEditTransaction(transaction); }
                 }
                 hideSubdivisionSelector();
             });
@@ -813,7 +817,7 @@ const BarDisplayController = {
             barDiv.appendChild(beatSquare);
         }
 
-        const allBeatSquares = barDiv.querySelectorAll(".beat-square");
+        const allBeatSquares = barDiv.querySelectorAll(".beat-square:not(.removing-beat-animation)");
         const flexBasis = 100 / totalSubBeatsNeeded * 0.9;
         allBeatSquares.forEach(sq => {
           sq.style.flexBasis = barDiv.classList.contains("flex-subdivision") ? "" : `${flexBasis}%`;
@@ -902,7 +906,7 @@ const BarDisplayController = {
               }
             }
         }
-        const allBeatSquares = barDiv.querySelectorAll(".beat-square");
+        const allBeatSquares = barDiv.querySelectorAll(".beat-square:not(.removing-beat-animation)");
         allBeatSquares.forEach((sq, beatIdx) => {
             updateBeatSquareClasses(sq, beatIdx, subdivision, mainBeatsInBar);
             applyBeatStateClasses(
@@ -1090,7 +1094,7 @@ const BarDisplayController = {
               }
             }
           }
-          const allBeatSquares = barDiv.querySelectorAll(".beat-square");
+          const allBeatSquares = barDiv.querySelectorAll(".beat-square:not(.removing-beat-animation)");
           allBeatSquares.forEach((sq, beatIdx) => {
             updateBeatSquareClasses(sq, beatIdx, subdivision, mainBeatsInBar);
             applyBeatStateClasses(
@@ -1104,7 +1108,7 @@ const BarDisplayController = {
           });
         }
 
-        const allBeatSquares = barDiv.querySelectorAll(".beat-square");
+        const allBeatSquares = barDiv.querySelectorAll(".beat-square:not(.removing-beat-animation)");
         const flexBasis = 100 / totalSubBeatsNeeded * 0.9;
         allBeatSquares.forEach(sq => {
           sq.style.flexBasis = barDiv.classList.contains("flex-subdivision") ? "" : `${flexBasis}%`;

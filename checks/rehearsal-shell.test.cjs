@@ -56,5 +56,5 @@ test('rehearsal controls have one accessible mount and precached feature entrypo
   for (const file of ['rehearsalTools','rehearsalRoomController','editHistory','rehearsalLibrary','adaptiveVisualization']) {
     assert.ok(sw.includes(`'./js/${file}.js'`), `${file} cache`);
   }
-  assert.match(sw, /metronominal-v193/);
+  assert.match(sw, /metronominal-v194/);
 });

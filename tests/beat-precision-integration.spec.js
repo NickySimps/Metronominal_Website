@@ -40,10 +40,17 @@ test('mounted dense-bar assistance follows Beat Edit and release opens the exact
   await expect(toggle).toHaveAttribute('aria-pressed','true');
   await page.evaluate(async()=>{const m=(await import(new URL('js/soundSettingsModal.js',document.baseURI))).default,original=m.show;window.__editorOpens=0;m.show=function(...args){window.__editorOpens++;return original.apply(this,args);};});
   await beat(page,19).scrollIntoViewIfNeeded();
+  await page.mouse.move(1,1);
   const before=await snapshot(page);
-  await pointer(page,'pointerdown',19);
-  await page.waitForTimeout(420);
-  await beat(page,19).evaluate(el=>{const r=el.getBoundingClientRect();for(const dx of [12,0])el.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,pointerType:'touch',pointerId:7,isPrimary:true,clientX:r.x+r.width/2+dx,clientY:r.y+r.height/2}));});
+  await beat(page,19).evaluate(el=>{
+    const r=el.getBoundingClientRect(),t=performance.now();
+    const down=new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2});
+    Object.defineProperty(down,'timeStamp',{value:t});el.dispatchEvent(down);
+    for(const [dx,dt] of [[6,80],[12,160],[0,240]]){
+      const move=new PointerEvent('pointermove',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,clientX:r.x+r.width/2+dx,clientY:r.y+r.height/2});
+      Object.defineProperty(move,'timeStamp',{value:t+dt});el.dispatchEvent(move);
+    }
+  });
   await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
   await expect(page.locator('[data-beat-precision-lens]')).toContainText('Track 1 · Bar 1 · Beat 20');
   await expect(page.locator('.subdivision-options-container.visible')).toHaveCount(0);

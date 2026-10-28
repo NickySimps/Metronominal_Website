@@ -1,4 +1,4 @@
-const CACHE_NAME = 'metronominal-v193';
+const CACHE_NAME = 'metronominal-v194';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -84,7 +84,7 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME).then(async (cache) => {
       console.log('[Service Worker] Caching static assets');
       await Promise.allSettled(
-        ASSETS_TO_CACHE.map((url) => cache.add(url).catch((err) => console.warn(`Failed to cache ${url}:`, err)))
+        ASSETS_TO_CACHE.map((url) => cache.add(new Request(url, { cache: 'reload' })).catch((err) => console.warn(`Failed to cache ${url}:`, err)))
       );
     }).then(() => self.skipWaiting())
   );

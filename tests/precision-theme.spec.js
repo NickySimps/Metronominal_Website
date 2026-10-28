@@ -13,9 +13,15 @@ async function lens(page){
  await expect.poll(()=>page.evaluate(()=>document.fonts.status)).toBe('loaded');
  await beat.scrollIntoViewIfNeeded();
  await page.evaluate(()=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Visible layout frames did not settle')),1500);requestAnimationFrame(()=>requestAnimationFrame(()=>{clearTimeout(timer);resolve();}));}));
- await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:77,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));});
- await expect.poll(()=>page.evaluate(()=>!!document.querySelector('.subdivision-options-container.visible')||!!document.querySelector('[data-beat-precision-lens]'))).toBe(true);
- await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:77,isPrimary:true,button:0,clientX:r.x+r.width/2+14,clientY:r.y+r.height/2}));});
+ await beat.evaluate(el=>{
+  const r=el.getBoundingClientRect(),t=performance.now();
+  const down=new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:77,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2});
+  Object.defineProperty(down,'timeStamp',{value:t});el.dispatchEvent(down);
+  for(const [dx,dt] of [[6,80],[12,160],[0,240]]){
+   const move=new PointerEvent('pointermove',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:77,isPrimary:true,button:0,clientX:r.x+r.width/2+dx,clientY:r.y+r.height/2});
+   Object.defineProperty(move,'timeStamp',{value:t+dt});el.dispatchEvent(move);
+  }
+ });
  await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
 }
 async function metrics(page){return page.evaluate(()=>{

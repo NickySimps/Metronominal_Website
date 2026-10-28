@@ -25,6 +25,16 @@ async function ready(page) {
   });
 }
 
+test('transaction tokens never retain raw mutation arguments', async ({page}) => {
+  await ready(page);
+  const serialized=await page.evaluate(async()=>{
+    const history=await import('/js/editHistory.js'),token=history.beginEditTransaction('Owned edit');
+    app.updateTrack(0,{volume:.5,deviceCredential:'SYNTHETIC_PRIVATE_HISTORY_MARKER'});
+    const result=JSON.stringify(token);history.cancelEditTransaction(token);return result;
+  });
+  expect(serialized).not.toContain('SYNTHETIC_PRIVATE_HISTORY_MARKER');
+});
+
 test('real tempo edits undo and redo once, invalidating redo on a new edit', async ({ page }) => {
   await ready(page);
   await page.evaluate(() => app.setTempo(171));

@@ -4,6 +4,7 @@ let active = null;
 export function beginEditTransaction(label = 'Edit') { return active?.begin(label) ?? null; }
 export function commitEditTransaction(token) { return active?.commit(token) ?? false; }
 export function cancelEditTransaction(token) { return active?.cancel(token) ?? false; }
+export function interruptEditTransaction(token, change) { return active?.interrupt(token, change) ?? false; }
 
 /** Initialize after initial UI refresh, before WebRTC. No networking/UI-controller imports. */
 export function initializeHistoryControls(root) {
@@ -23,7 +24,7 @@ export function initializeHistoryControls(root) {
   status.setAttribute('aria-live', 'polite'); status.setAttribute('aria-atomic', 'true');
   group.append(undoButton, redoButton, status); root.append(group);
   const undoStack = [], redoStack = [];
-  let busy = false, generation = 0, transaction = null;
+  let busy = false, generation = 0, transaction = null, lastNotifiedBefore = null, lastNotifiedAfter = null, interruptedAfter = null;
   let baseline = AppState.getMusicalSnapshot();
   let role = { state: 'solo', isHost: true };
   const allowed = () => role.state === 'solo' || role.isHost === true;
@@ -44,13 +45,19 @@ export function initializeHistoryControls(root) {
     render(); return true;
   }
   const unsubscribe = AppState.subscribeMusicalMutations(change => {
+    if (interruptedAfter && interruptedAfter === change.after) { interruptedAfter = null; return; }
     const before = baseline;
     baseline = change.after;
     if (!editable()) {
+      lastNotifiedBefore = lastNotifiedAfter = interruptedAfter = null;
       if (JSON.stringify(before) !== JSON.stringify(change.after)) clear();
       return;
     }
-    if (transaction) return;
+    if (transaction) {
+      lastNotifiedBefore = before;
+      lastNotifiedAfter = change.after;
+      return;
+    }
     const mergeKey = ['setTempo', 'setVolume', 'updateTrack', 'setBeatSound'].includes(change.label)
       ? `${change.label}:${change.args.slice(0, change.label === 'setBeatSound' ? 4 : change.label === 'updateTrack' ? 1 : 0).join(':')}:${change.label === 'updateTrack' ? Object.keys(change.args[1] || {}).sort().join(',') : ''}` : null;
     record(before, change.after, change.label, mergeKey);
@@ -70,7 +77,7 @@ export function initializeHistoryControls(root) {
       return true;
     } finally { busy = false; render(); }
   }
-  function clear() { generation++; transaction = null; undoStack.length = redoStack.length = 0; baseline = AppState.getMusicalSnapshot(); render(); }
+  function clear() { generation++; transaction = null; lastNotifiedBefore = lastNotifiedAfter = interruptedAfter = null; undoStack.length = redoStack.length = 0; baseline = AppState.getMusicalSnapshot(); render(); }
   const loaded = () => { baseline = AppState.getMusicalSnapshot(); };
   function roleChanged(event) {
     const next = event.detail || {};
@@ -86,7 +93,7 @@ export function initializeHistoryControls(root) {
     event.preventDefault(); void apply(direction);
   }
   const undo = () => apply('undo'), redo = () => apply('redo');
-  const playbackChanged = () => { if (AppState.isPlaying()) { generation++; transaction = null; } render(); };
+  const playbackChanged = () => { if (AppState.isPlaying()) { generation++; transaction = null; lastNotifiedBefore = lastNotifiedAfter = interruptedAfter = null; } render(); };
   undoButton.addEventListener('click', undo); redoButton.addEventListener('click', redo);
   document.addEventListener('keydown', keydown);
   document.addEventListener('syncrolechange', roleChanged);
@@ -98,16 +105,29 @@ export function initializeHistoryControls(root) {
     undo, redo, clear,
     begin(label) {
       if (!editable() || transaction) return null;
+      lastNotifiedBefore = lastNotifiedAfter = interruptedAfter = null;
       transaction = { label, generation, before: AppState.getMusicalSnapshot() }; return transaction;
     },
     commit(token) {
       if (!token || token !== transaction) return false;
-      transaction = null;
+      transaction = null; lastNotifiedBefore = lastNotifiedAfter = interruptedAfter = null;
       if (!editable() || token.generation !== generation) return false;
       baseline = AppState.getMusicalSnapshot();
       return record(token.before, baseline, token.label);
     },
-    cancel(token) { if (!token || token !== transaction) return false; transaction = null; baseline = AppState.getMusicalSnapshot(); return true; },
+    interrupt(token, change) {
+      if (!token || token !== transaction || !change?.after) return false;
+      const matched = lastNotifiedAfter === change.after;
+      const preForeign = matched ? lastNotifiedBefore : baseline;
+      transaction = null; lastNotifiedBefore = lastNotifiedAfter = null;
+      if (!editable() || token.generation !== generation) { interruptedAfter = null; return false; }
+      interruptedAfter = matched ? null : change.after;
+      baseline = change.after;
+      const stroke = record(token.before, preForeign, token.label, null);
+      const foreign = record(preForeign, change.after, change.label || 'Edit', null);
+      return stroke || foreign;
+    },
+    cancel(token) { if (!token || token !== transaction) return false; transaction = null; lastNotifiedBefore = lastNotifiedAfter = interruptedAfter = null; baseline = AppState.getMusicalSnapshot(); return true; },
     destroy() {
       clear(); unsubscribe(); group.remove();
       document.removeEventListener('keydown', keydown);
