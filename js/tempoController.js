@@ -5,6 +5,7 @@
 
 import AppState from "./appState.js";
 import DOM from "./domSelectors.js";
+import { emitInteractionMotion } from "./interactionMotion.js";
 import { sendState } from "./webrtc.js";
 
 let lastTempoDescription = ""; // Private to this module
@@ -109,16 +110,28 @@ const TempoController = {
       TempoController.updateTempoDisplay();
     });
     DOM.increaseTempoBtn.addEventListener("click", () => {
+      const prevTempo = AppState.getTempo();
       AppState.increaseTempo();
       sendState(AppState.getCurrentStateForPreset(true));
+      if (AppState.getTempo() !== prevTempo) {
+        emitInteractionMotion(DOM.increaseTempoBtn, "tempo");
+      }
     });
     DOM.decreaseTempoBtn.addEventListener("click", () => {
+      const prevTempo = AppState.getTempo();
       AppState.decreaseTempo();
       sendState(AppState.getCurrentStateForPreset(true));
+      if (AppState.getTempo() !== prevTempo) {
+        emitInteractionMotion(DOM.decreaseTempoBtn, "tempo");
+      }
     });
     DOM.tempoSlider.addEventListener("input", () => {
+      const prevTempo = AppState.getTempo();
       AppState.setTempo(DOM.tempoSlider.value);
       sendState(AppState.getCurrentStateForPreset(true));
+      if (AppState.getTempo() !== prevTempo) {
+        emitInteractionMotion(DOM.tempoSlider, "tempo");
+      }
     });
     if (DOM.tapTempoBtn) {
       DOM.tapTempoBtn.addEventListener("click", () => {

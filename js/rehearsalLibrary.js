@@ -1,6 +1,7 @@
 import AppState from './appState.js';
 import SongController from './songController.js';
 import * as Room from './webrtc.js';
+import { emitInteractionMotion } from './interactionMotion.js';
 
 const KEY = 'metronominal.rehearsal.v1';
 const BACKUP_KEY = `${KEY}.backup`;
@@ -50,6 +51,13 @@ export function initializeRehearsalLibrary(root) {
   let preview = null;
   let originalRaw = null;
   let backupRaw = null;
+  let roomCueInitialized = false;
+  let roomCueKey = null;
+  // Resolve after rendering: actions may replace their original button node.
+  const motion = (kind, target) => {
+    if (disposed) return;
+    emitInteractionMotion(typeof target === 'string' ? find(target) : target, kind);
+  };
   const clearPreview = () => { preview = null; find('[data-preview]').hidden = true; };
   const status = message => { find('[data-status]').textContent = message; };
   const role = () => Room.getSyncDiagnostics?.().role || 'offline';
@@ -110,15 +118,16 @@ export function initializeRehearsalLibrary(root) {
       const next = structuredClone(data);
       next.lists[selected].songs.push({ name: payload.state.song.name, payload });
       busy = false;
-      save(next);
+      if (save(next)) motion('save', '[data-add]');
     } catch (error) { status(`Song not saved: ${error.message}`); }
     finally { busy = false; render(); }
   }
-  async function load(index) {
+  async function load(index, targetLabel = `Load entry ${index + 1}`) {
     if (!allowed() || busy) return false;
     const entry = data.lists[selected]?.songs[index];
     if (!entry) return false;
     const token = generation;
+    let accepted = false;
     busy = true; render();
     try {
       await SongController.applyPayload(entry.payload, {
@@ -127,17 +136,26 @@ export function initializeRehearsalLibrary(root) {
       });
       if (token !== generation || !allowed()) return false;
       loaded = index;
+      accepted = true;
       status(`${entry.name} loaded. Playback remains stopped.`);
       // applyPayload refreshes and publishes the local load. Only actual Undo/Redo
       // emits historyapplied; another event here would publish the same edit twice.
       return true;
     } catch (error) { status(`Not loaded: ${error.message}`); return false; }
-    finally { busy = false; render(); }
+    finally {
+      busy = false; render();
+      if (accepted) motion('load', [...shell.querySelectorAll('button')].find(node => node.textContent === targetLabel));
+    }
   }
   function button(label, action, disabled = false) {
     const node = document.createElement('button');
     node.type = 'button'; node.textContent = label; node.disabled = disabled;
-    node.addEventListener('click', action);
+    node.addEventListener('click', () => {
+      const before = data;
+      const container = node.parentElement?.parentElement;
+      action();
+      if (data !== before) motion(label.startsWith('Remove') ? 'remove' : 'select', [...shell.querySelectorAll('button')].find(node => node.textContent === label) || container);
+    });
     return node;
   }
   function editList(action) {
@@ -216,7 +234,7 @@ export function initializeRehearsalLibrary(root) {
       find('[data-merge]').hidden = source === 'restore';
       find('[data-replace]').hidden = source === 'restore';
       find('[data-apply-restore]').hidden = source !== 'restore';
-      render(); return true;
+      render(); motion('upload', source === 'restore' ? '[data-restore]' : '[data-import]'); return true;
     } catch (error) { status(`Import rejected: ${error.message} Existing data has not been erased.`); return false; }
   }
   function commitImport(mode) {
@@ -225,8 +243,8 @@ export function initializeRehearsalLibrary(root) {
     if ((preview.source === 'restore') !== (mode === 'restore')) return false;
     const next = mode === 'merge' ? preview.merged : preview.next;
     if (!next) return false;
-    if (!save(next, false, mode !== 'merge')) { render(); return false; }
-    selected = 0; loaded = -1; render(); return true;
+    if (!save(next, false, mode !== 'merge')) { render(); motion('refuse', mode === 'restore' ? '[data-apply-restore]' : `[data-${mode}]`); return false; }
+    selected = 0; loaded = -1; render(); motion('save', '[data-import]'); return true;
   }
   function restoreBackup() {
     if (!allowed() || busy) return false;
@@ -240,6 +258,7 @@ export function initializeRehearsalLibrary(root) {
     const link = document.createElement('a'); link.href = url; link.download = filename; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 0);
     status(recovery ? 'Raw recovery exported. It may be damaged or contain private data; inspect locally before sharing.' : 'Library exported. Private audio is not bundled.');
+    motion('download', filename.includes('backup') ? '[data-export-backup]' : '[data-export-original]');
   }
   function exportText() {
     if (!storageHealthy) throw new Error('Cannot export an unavailable or damaged library. Original storage has not been changed.');
@@ -249,20 +268,29 @@ export function initializeRehearsalLibrary(root) {
     const room = Room.getRehearsalRoomState?.();
     const cue = room?.supported === true ? room.cue : null;
     // Read only the protocol's authoritative state, never event.detail or local drafts.
-    find('[data-cue-display]').textContent = cue && text(cue.text, 140)
-      && (cue.bar === null || (Number.isInteger(cue.bar) && cue.bar >= 0 && cue.bar < 64))
+    const valid = cue && text(cue.text, 140)
+      && (cue.bar === null || (Number.isInteger(cue.bar) && cue.bar >= 0 && cue.bar < 64));
+    const key = valid && Number.isSafeInteger(cue.sequence) && cue.sequence > 0 ? JSON.stringify([cue.sequence, cue.text, cue.bar]) : null;
+    find('[data-cue-display]').textContent = valid
       ? `Room cue${cue.bar === null ? '' : ` · bar ${cue.bar + 1}`}: ${cue.text}` : 'No room cue';
+    if (roomCueInitialized && key && key !== roomCueKey) motion('cue', '[data-cue-display]');
+    roomCueKey = key;
+    roomCueInitialized = true;
   }
   function sendCue(cue, bar = null) {
     if (disposed || role() === 'client') return false;
     if (role() === 'offline') {
       find('[data-cue-display]').textContent = `Local cue (not room): ${cue.text}`;
+      motion('cue', '[data-cue-display]');
       return true;
     }
     if (role() !== 'host' || !Room.getRehearsalRoomState?.()?.supported || !Room.sendRehearsalCue?.({ text: cue.text, bar })) {
       status('Cue not sent: this room does not support rehearsal cues.'); return false;
     }
-    status('Cue sent to room.');
+    // sendRehearsalCue only queues a transport write. Delivery is decorated by
+    // displayRoomCue after a changed authoritative server snapshot arrives.
+    status('Cue queued for room delivery.');
+    motion('pending', [...shell.querySelectorAll('button')].find(node => node.textContent === `Send cue ${data.cues.indexOf(cue) + 1} now`));
     return true;
   }
   function onBar(event) {
@@ -316,8 +344,8 @@ export function initializeRehearsalLibrary(root) {
       button('Move setlist up', () => editList(next => { [next.lists[selected - 1], next.lists[selected]] = [next.lists[selected], next.lists[selected - 1]]; selected--; }), !can || selected === 0 || !data.lists[selected]),
       button('Move setlist down', () => editList(next => { [next.lists[selected + 1], next.lists[selected]] = [next.lists[selected], next.lists[selected + 1]]; selected++; }), !can || selected >= data.lists.length - 1));
     find('[data-navigation]').replaceChildren(
-      button('Previous song', () => load(loaded - 1), !can || loaded <= 0),
-      button('Next song', () => load(loaded + 1), !can || loaded < 0 || loaded >= (data.lists[selected]?.songs.length || 0) - 1));
+      button('Previous song', () => load(loaded - 1, 'Previous song'), !can || loaded <= 0),
+      button('Next song', () => load(loaded + 1, 'Next song'), !can || loaded < 0 || loaded >= (data.lists[selected]?.songs.length || 0) - 1));
     select.replaceChildren(...data.lists.map((list, index) => {
       const option = document.createElement('option'); option.value = index; option.textContent = list.name; return option;
     }));
@@ -327,7 +355,7 @@ export function initializeRehearsalLibrary(root) {
       const row = document.createElement('li');
       const label = document.createElement('label'); label.textContent = `Entry name ${index + 1}`;
       const input = document.createElement('input'); input.maxLength = 80; input.value = entry.name; input.disabled = !can;
-      input.addEventListener('change', () => { const next = structuredClone(data); next.lists[selected].songs[index].name = input.value; if (!save(next, false)) input.value = entry.name; });
+      input.addEventListener('change', () => { const changed = input.value !== data.lists[selected]?.songs[index]?.name; const next = structuredClone(data); next.lists[selected].songs[index].name = input.value; if (!save(next, false)) input.value = entry.name; else if (changed) motion('rename', input); });
       label.append(input); row.append(label, button(`Load entry ${index + 1}`, () => load(index), !can));
       row.append(
         button(`Remove entry ${index + 1}`, () => editList((next, list) => list.songs.splice(index, 1)), !can),
@@ -342,12 +370,14 @@ export function initializeRehearsalLibrary(root) {
     const previousSelection = selected;
     selected = next.lists.length - 1; loaded = -1;
     if (!save(next)) { selected = previousSelection; render(); }
+    else emitInteractionMotion(find('[data-create]'), 'save');
   });
   find('[data-add]').addEventListener('click', capture);
   find('[data-rename]').addEventListener('change', event => {
     if (!data.lists[selected]) return;
+    const changed = data.lists[selected].name !== event.target.value;
     const next = structuredClone(data); next.lists[selected].name = event.target.value;
-    if (save(next, false)) find('[data-select]').options[selected].textContent = event.target.value;
+    if (save(next, false)) { find('[data-select]').options[selected].textContent = event.target.value; if (changed) motion('rename', event.target); }
     else event.target.value = data.lists[selected].name;
   });
   find('[data-import]').addEventListener('change', async event => {
@@ -366,21 +396,21 @@ export function initializeRehearsalLibrary(root) {
     try {
       const url = URL.createObjectURL(new Blob([exportText()], { type: 'application/json' }));
       const link = document.createElement('a'); link.href = url; link.download = 'metronominal-rehearsal.json'; link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 0); status('Library exported.');
+      setTimeout(() => URL.revokeObjectURL(url), 0); status('Library exported.'); motion('download', '[data-export]');
     } catch (error) { status(error.message); }
   });
-  find('[data-select]').addEventListener('change', event => { generation++; selected = Number(event.target.value); loaded = -1; render(); });
+  find('[data-select]').addEventListener('change', event => { const changed = selected !== Number(event.target.value); generation++; selected = Number(event.target.value); loaded = -1; render(); if (changed) motion('select', '[data-select]'); });
   find('[data-cue-add]').addEventListener('click', () => {
     if (!allowed() || !text(find('[data-cue-text]').value, 140) || data.cues.length >= 100) { status('Enter cue text (1–140 characters).'); return; }
     const next = structuredClone(data);
     next.cues.push({ song: AppState.getSong().name, text: find('[data-cue-text]').value.trim(), bar: Number(find('[data-cue-bar]').value) });
-    if (save(next)) find('[data-cue-text]').value = '';
+    if (save(next)) { find('[data-cue-text]').value = ''; motion('save', '[data-cue-add]'); }
   });
   find('[data-merge]').addEventListener('click', () => commitImport('merge'));
   find('[data-replace]').addEventListener('click', () => commitImport('replace'));
   find('[data-apply-restore]').addEventListener('click', () => commitImport('restore'));
   find('[data-restore]').addEventListener('click', restoreBackup);
-  find('[data-cancel]').addEventListener('click', () => { generation++; clearPreview(); render(); });
+  find('[data-cancel]').addEventListener('click', () => { const hadPreview = Boolean(preview); generation++; clearPreview(); render(); if (hadPreview) motion('cancel', '[data-import]'); });
   for (const [selector, getter, filename] of [
     ['[data-export-backup]', () => backupRaw, 'metronominal-rehearsal-backup.json'],
     ['[data-export-original]', () => originalRaw, 'metronominal-rehearsal-raw-recovery.json'],

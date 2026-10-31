@@ -8,7 +8,7 @@ function context() {
   const file = path.join(root, 'js/beatPrecisionMount.js');
   assert.ok(fs.existsSync(file), 'precision bootstrap must exist');
   const c = vm.createContext({console:{warn(){}}});
-  vm.runInContext(fs.readFileSync(file,'utf8').replace(/export /g,''),c);
+  vm.runInContext(fs.readFileSync(file,'utf8').replace("import { emitInteractionMotion } from './interactionMotion.js';",'').replace(/export /g,''),c);
   return c;
 }
 test('precision mount is awaited, idempotent and safe with old cached markup', async () => {
@@ -37,5 +37,5 @@ test('precision selection has a visible track-adjacent mount and offline assets'
   assert.ok(html.includes('href="beat-precision.css"'));
   assert.match(script,/await initializeBeatPrecisionMount\(/);
   for(const file of ['beat-precision.css','js/beatPrecision.js','js/beatPrecisionMount.js']) assert.ok(sw.includes(`'./${file}'`),file);
-  assert.match(sw,/metronominal-v194/);
+  assert.match(sw,/metronominal-v195/);
 });

@@ -1,4 +1,5 @@
 import AppState, { validatePracticeConfig } from './appState.js';
+import { emitInteractionMotion } from './interactionMotion.js';
 import * as Room from './webrtc.js';
 import { getSlotDurationSeconds, getTotalSlots } from './beatTiming.js';
 export { validatePracticeConfig };
@@ -201,9 +202,15 @@ export function initializePracticeTools(root,{refreshUI=()=>{}}={}){
   root.innerHTML='<p>Advanced practice is configured in the existing Speed Trainer.</p><label>Local output correction (ms; positive = later)<input data-output-offset type="number" min="-200" max="500" step="1"></label><button type="button" data-calibrate>Click / flash alignment</button><button type="button" data-tap>Tap timing feedback</button><output data-practice-status aria-live="polite"></output>';
   const input=root.querySelector('[data-output-offset]'),status=root.querySelector('output');input.value=outputOffsetMs;
   const render=()=>{const s=getLocalTimingState();status.textContent=`${s.measurement} Output estimate: ${s.outputLatencyMs===null?'unsupported':s.outputLatencyMs.toFixed(1)+' ms'}. ${s.recheckReason}. ${s.storageError?'Storage unavailable; correction is session-only.':''} ${s.tap.count?`${s.tap.tendency}: ${s.tap.meanMs.toFixed(1)} ms; spread ${s.tap.spreadMs.toFixed(1)} ms`:''}`;};
-  input.addEventListener('change',()=>{try{setLocalOutputOffsetMs(Number(input.value));input.setCustomValidity('');render();}catch(e){input.setCustomValidity(e.message);input.reportValidity();}});
-  root.querySelector('[data-tap]').addEventListener('pointerdown',()=>{recordPracticeTap();render();});
-  root.querySelector('[data-calibrate]').addEventListener('click',async()=>{try{await startCalibration(root);render();}catch(error){status.textContent=error.message;}});
+  input.addEventListener('change',()=>{
+    const before=getLocalTimingState().outputOffsetMs;
+    try{
+      const accepted=setLocalOutputOffsetMs(Number(input.value));input.setCustomValidity('');render();
+      if(accepted.outputOffsetMs!==before)emitInteractionMotion(input,accepted.storageError?'adjust':'save');
+    }catch(e){input.setCustomValidity(e.message);input.reportValidity();emitInteractionMotion(input,'refuse');}
+  });
+  root.querySelector('[data-tap]').addEventListener('pointerdown',()=>{const accepted=recordPracticeTap();render();emitInteractionMotion(root.querySelector('[data-tap]'),accepted?({rush:'accent',drag:'ghost',centered:'confirm'}[accepted.tendency]||'adjust'):'refuse');});
+  root.querySelector('[data-calibrate]').addEventListener('click',async()=>{try{await startCalibration(root);render();}catch(error){status.textContent=error.message;emitInteractionMotion(root.querySelector('[data-calibrate]'),'refuse');}});
   document.addEventListener('localtimingchange',render);
   document.addEventListener('pendingSongChange',()=>{render();refreshUI();});
   document.addEventListener('playbackstatechange',()=>{input.disabled=AppState.isPlaying();root.querySelector('[data-calibrate]').disabled=AppState.isPlaying();render();});
@@ -211,10 +218,18 @@ export function initializePracticeTools(root,{refreshUI=()=>{}}={}){
 }
 let calibrationGeneration=0, calibrationFrame=null;
 const calibrationSources=new Set();
+let calibrationFeedbackRoot=null, calibrationPresentationDone=false;
+function acknowledgeCalibrationCompletion(generation){
+  if(generation!==calibrationGeneration||!calibrationFeedbackRoot||!calibrationPresentationDone||calibrationSources.size)return;
+  const root=calibrationFeedbackRoot;calibrationFeedbackRoot=null;
+  emitInteractionMotion(root.querySelector('[data-calibrate]')||root,'confirm');
+}
 export function cancelCalibration(){
+  const feedbackRoot=calibrationFeedbackRoot;calibrationFeedbackRoot=null;
   calibrationGeneration++;if(calibrationFrame!==null)cancelAnimationFrame(calibrationFrame);calibrationFrame=null;
   for(const source of calibrationSources){try{source.stop();}catch{}}calibrationSources.clear();
   document.querySelectorAll('.practice-flash').forEach(root=>root.classList.remove('practice-flash'));
+  if(feedbackRoot)emitInteractionMotion(feedbackRoot.querySelector('[data-calibrate]')||feedbackRoot,'cancel');
 }
 export async function startCalibration(root){
   if(AppState.isPlaying())throw new Error('Stop playback before the click / flash exercise');
@@ -224,12 +239,13 @@ export async function startCalibration(root){
   cancelCalibration();const generation=calibrationGeneration;
   await ctx.resume();if(generation!==calibrationGeneration)return null;
   if(ctx.state!=='running')throw new Error('Audio is not running; activate audio and retry');
+  calibrationFeedbackRoot=root;calibrationPresentationDone=false;
   const start=ctx.currentTime+0.5,events=[];
   for(let i=0;i<4;i++){
     const nominal=start+i*0.65,audioTime=nominal+getLocalOutputOffsetSeconds();
     const source=ctx.createOscillator(),gain=ctx.createGain();source.frequency.value=1320;source.connect(gain);gain.connect(ctx.destination);
     gain.gain.setValueAtTime(0.0001,audioTime);gain.gain.exponentialRampToValueAtTime(0.15,audioTime+0.002);gain.gain.exponentialRampToValueAtTime(0.0001,audioTime+0.04);
-    calibrationSources.add(source);source.onended=()=>{calibrationSources.delete(source);source.disconnect();gain.disconnect();};source.start(audioTime);source.stop(audioTime+0.045);
+    calibrationSources.add(source);source.onended=()=>{calibrationSources.delete(source);source.disconnect();gain.disconnect();acknowledgeCalibrationCompletion(generation);};source.start(audioTime);source.stop(audioTime+0.045);
     let stamp=null;try{stamp=ctx.getOutputTimestamp?.();}catch{}
     const mapped=stamp&&Number.isFinite(stamp.contextTime)&&Number.isFinite(stamp.performanceTime)&&stamp.performanceTime>0;
     const outputLatency=Number.isFinite(ctx.outputLatency)?ctx.outputLatency:null;
@@ -241,9 +257,9 @@ export async function startCalibration(root){
     if(generation!==calibrationGeneration)return;
     if(index<events.length&&now>=events[index].estimatedAt){const detail={...events[index++],presentedAt:now};flashUntil=now+100;root?.classList.add('practice-flash');document.dispatchEvent(new CustomEvent('calibrationframe',{detail}));}
     if(now>=flashUntil)root?.classList.remove('practice-flash');
-    if(index<events.length||now<flashUntil)calibrationFrame=requestAnimationFrame(frame);else calibrationFrame=null;
+    if(index<events.length||now<flashUntil)calibrationFrame=requestAnimationFrame(frame);else{calibrationFrame=null;calibrationPresentationDone=true;acknowledgeCalibrationCompletion(generation);}
   };
-  calibrationFrame=requestAnimationFrame(frame);return{events:clone(events),measurement:'Estimated output mapping and RAF presentation only; no microphone or acoustic measurement.'};
+  calibrationFrame=requestAnimationFrame(frame);emitInteractionMotion(root?.querySelector('[data-calibrate]')||root,'pending');return{events:clone(events),measurement:'Estimated output mapping and RAF presentation only; no microphone or acoustic measurement.'};
 }
 for(const name of ['roomauthoritychange','syncrolechange','historyboundary'])document.addEventListener(name,e=>{if(name==='historyboundary' && e.detail?.source==='network')return;clearPendingSongChange();pendingRevision=-1;cancelCalibration();});
 document.addEventListener('playbackstatechange',e=>{if(e.detail?.playing===true)cancelCalibration();if(e.detail?.playing===false){epoch=null;scheduledBeats.length=0;clearPendingSongChange();}});

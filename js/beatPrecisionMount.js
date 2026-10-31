@@ -1,3 +1,5 @@
+import { emitInteractionMotion } from './interactionMotion.js';
+
 const mounted = new WeakMap();
 
 export async function initializeBeatPrecisionMount(root, interactionRoot, load = () => import('./beatPrecision.js')) {
@@ -7,10 +9,13 @@ export async function initializeBeatPrecisionMount(root, interactionRoot, load =
   const work = (async () => {
     try {
       const module = await load();
-      return await module.initializeBeatPrecision(root, interactionRoot);
+      const controller = await module.initializeBeatPrecision(root, interactionRoot);
+      if(controller && interactionRoot.isConnected)emitInteractionMotion(interactionRoot.querySelector?.('[data-beat-precision-toggle]') || root,'ready');
+      return controller;
     } catch {
       root.textContent = 'Precision beat selection is unavailable. Normal beat controls still work; reload to retry.';
       console.warn('Precision beat selection unavailable');
+      if(root.isConnected)emitInteractionMotion(root,'refuse');
     }
   })();
   mounted.set(root, work);

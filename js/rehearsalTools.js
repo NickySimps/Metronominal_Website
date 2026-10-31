@@ -2,6 +2,7 @@ import { initializeRehearsalRoomControls } from './rehearsalRoomController.js';
 import { initializeHistoryControls } from './editHistory.js';
 import { initializeRehearsalLibrary } from './rehearsalLibrary.js';
 import { initializeAdaptiveVisualization } from './adaptiveVisualization.js';
+import { emitInteractionMotion } from './interactionMotion.js';
 
 const initialized = new WeakSet();
 export async function initializeRehearsalTools(root) {
@@ -31,4 +32,5 @@ export async function initializeRehearsalTools(root) {
   if (status) status.textContent = failed.length
     ? `Unavailable: ${failed.join(', ')}. Other rehearsal controls are ready.`
     : 'Room actions respect host authority. Personal listening and visualization preferences stay on this device.';
+  if(root.isConnected && status?.isConnected)emitInteractionMotion(status,failed.length?'refuse':'ready');
 }

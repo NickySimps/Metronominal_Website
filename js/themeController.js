@@ -8,6 +8,7 @@ import * as SceneManager from './3D/threeDSceneManager.js'; // For accessing cam
 import DOM from './domSelectors.js';
 import AppState from './appState.js';
 import ThreeDThemeManager from './3D/3dTheme.js'; // Import the new 3D theme manager
+import { emitInteractionMotion } from './interactionMotion.js';
 
 const themes = {
     default: { // Pistachio Theme (unlabeled)
@@ -433,8 +434,13 @@ const ThemeController = {
         // DOM.themeButtons is a NodeList
         DOM.themeButtons.forEach(button => {
             button.addEventListener('click', () => {
+                const previousTheme = AppState.getCurrentTheme();
                 if (button.dataset.theme === 'random') ensureRandomTheme(true);
                 handleThemeSelection(button.dataset.theme); // Use the internal handler
+                if (button.dataset.theme && AppState.getCurrentTheme() === button.dataset.theme
+                    && (previousTheme !== button.dataset.theme || button.dataset.theme === 'random')) {
+                    emitInteractionMotion(button, button.dataset.theme === 'random' ? 'randomize' : 'theme');
+                }
                 // Keep the menu open so users can compare themes quickly; it closes via toggle, outside click, or Escape.
             });
         });
@@ -447,10 +453,15 @@ const ThemeController = {
         let focusBeforeMenu = null;
         const toggleThemeMenu = (open) => {
             if (!themeMenuToggle || !themeMenu) return;
+            const wasOpen = !themeMenu.hidden;
             const show = open ?? themeMenu.hidden;
             if (show) focusBeforeMenu = document.activeElement;
             themeMenu.hidden = !show;
             themeMenuToggle.setAttribute('aria-expanded', String(show));
+            const isOpen = !themeMenu.hidden;
+            if (isOpen !== wasOpen && themeMenuToggle.getAttribute('aria-expanded') === String(isOpen)) {
+                emitInteractionMotion(themeMenuToggle, isOpen ? 'open' : 'close');
+            }
             if (show) requestAnimationFrame(() => themeButtons[0]?.focus());
             else if (focusBeforeMenu?.focus) focusBeforeMenu.focus();
         };

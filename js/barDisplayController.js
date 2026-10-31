@@ -15,6 +15,7 @@ import ThemeController from "./themeController.js";
 import SoundSettingsModal from "./soundSettingsModal.js";
 import { getVisualBeatSlots, getSlotInfo } from "./beatTiming.js";
 import { beginEditTransaction, commitEditTransaction } from "./editHistory.js";
+import { emitInteractionMotion } from "./interactionMotion.js";
 
 // State variables related to display highlighting
 let previousHighlightedBeatElements = []; // To keep track of the previously highlighted beat
@@ -275,7 +276,7 @@ function canActOnBeat() {
   return !AppState.isPlaying() && (!document.querySelector('#share-btn.connected') || window.isHost === true);
 }
 function applyBeatAction(beat, { mode = getBeatActionMode(), paint = null } = {}) {
-  if (!canActOnBeat() || mode !== getBeatActionMode() || !beat?.isConnected || !beat.matches('.beat-square[data-beat-index]')) return null;
+  if (!canActOnBeat() || mode !== getBeatActionMode() || !beat?.isConnected || !beat.matches('.beat-square[data-beat-index]:not(.removing-beat-animation)')) return null;
   const visual = beat.closest('.bar-visual');
   if (!visual) return null;
   const trackIndex = Number(visual.dataset.containerIndex), barIndex = Number(visual.dataset.barIndex), beatIndex = Number(beat.dataset.beatIndex);
@@ -285,7 +286,7 @@ function applyBeatAction(beat, { mode = getBeatActionMode(), paint = null } = {}
     SoundSettingsModal.show(trackIndex, beat.classList.contains('main-beat-marker') ? 'mainBeatSound' : 'subdivisionSound', {barIndex,beatIndex});
     return {mode};
   }
-  if (mode === 'slice') { cycleBeatSlice(trackIndex,barIndex,beatIndex); return {mode,action:'SLICE'}; }
+  if (mode === 'slice') { cycleBeatSlice(trackIndex,barIndex,beatIndex); emitInteractionMotion(beat,'slice'); return {mode,action:'SLICE'}; }
   if (mode === 'rest' || mode === 'accent') {
     let rests = [...(bar.rests || [])], velocities = {...(bar.velocities || {})};
     let action, velocity;
@@ -306,10 +307,14 @@ function applyBeatAction(beat, { mode = getBeatActionMode(), paint = null } = {}
     AppState.updateTrack(trackIndex,{barSettings});
     BarDisplayController.updateBar(trackIndex,barIndex);
     sendState(AppState.getCurrentStateForPreset(true));
-    return {mode,action,velocity};
+    emitInteractionMotion(beat,mode==='rest'?'rest':velocity<=.3?'ghost':'accent'); return {mode,action,velocity};
   }
+  const selectionChanged = AppState.getSelectedTrackIndex() !== trackIndex || AppState.getSelectedBarIndexInContainer() !== barIndex;
   AppState.setSelectedTrackIndex(trackIndex);AppState.setSelectedBarIndexInContainer(barIndex);
   BarDisplayController.updateSelectionVisuals();BarControlsController.updateBeatControlsDisplay();
+  if (selectionChanged && AppState.getSelectedTrackIndex() === trackIndex && AppState.getSelectedBarIndexInContainer() === barIndex) {
+    emitInteractionMotion(beat.closest('.bar-visual'), 'select');
+  }
   document.dispatchEvent(new CustomEvent('trackselectionchanged',{detail:{shouldScroll:false}}));
   sendState(AppState.getCurrentStateForPreset(true));
   return {mode};
@@ -408,7 +413,7 @@ function onWindowPointerMove(event) {
     }
 }
 
-async function applySubdivisionChange(containerIndex, barIndex, newSubdivision) {
+async function applySubdivisionChange(containerIndex, barIndex, newSubdivision, feedback = null) {
     if (newSubdivision === null || isNaN(containerIndex) || isNaN(barIndex)) {
         return;
     }
@@ -419,6 +424,8 @@ async function applySubdivisionChange(containerIndex, barIndex, newSubdivision) 
         await MetronomeEngine.togglePlay();
     }
 
+    const beforeSubdivision = AppState.getTracks()[containerIndex]?.barSettings?.[barIndex]?.subdivision;
+    try { feedback?.beforeCommit(); } catch { /* Decoration cannot gate the native edit. */ }
     AppState.setSelectedTrackIndex(containerIndex);
     AppState.setSelectedBarIndexInContainer(barIndex);
     AppState.setSubdivisionForSelectedBar(newSubdivision);
@@ -426,6 +433,11 @@ async function applySubdivisionChange(containerIndex, barIndex, newSubdivision) 
 
     BarDisplayController.renderBarsAndControls(-1);
     BarControlsController.updateBeatControlsDisplay();
+
+    const acceptedSubdivision = AppState.getTracks()[containerIndex]?.barSettings?.[barIndex]?.subdivision;
+    if (acceptedSubdivision !== beforeSubdivision && Number(acceptedSubdivision) === Number(newSubdivision)) {
+        try { feedback?.accepted(); } catch { /* Decoration never gates playback. */ }
+    }
 
     if (wasPlaying && AppState.getBarSettings(containerIndex).length > 0) {
         await MetronomeEngine.togglePlay();
@@ -436,13 +448,32 @@ async function applySubdivisionChange(containerIndex, barIndex, newSubdivision) 
     }
 }
 
+let subdivisionFeedbackEpoch = 0;
+document.addEventListener('roomauthoritychange', () => { subdivisionFeedbackEpoch++; });
+document.addEventListener('syncrolechange', () => { subdivisionFeedbackEpoch++; });
+function subdivisionOutcomeFeedback(option, containerIndex, barIndex) {
+  const epoch = subdivisionFeedbackEpoch, canAcknowledge = subdivisionCanCommit;
+  let validBeforeCommit = false;
+  return {
+    beforeCommit() {
+      validBeforeCommit = epoch === subdivisionFeedbackEpoch && (!canAcknowledge || canAcknowledge());
+    },
+    accepted() {
+      // The native edit owns its topology replacement. Do not revalidate its
+      // pre-edit nodes afterward; authority lifetime must still be current.
+      if (!validBeforeCommit || epoch !== subdivisionFeedbackEpoch) return;
+      emitInteractionMotion(option?.isConnected ? option : document.querySelector(`.bar-visual[data-container-index="${containerIndex}"][data-bar-index="${barIndex}"]`), 'select');
+    },
+  };
+}
+
 async function selectSubdivisionOption(option) {
   if (subdivisionCanCommit && !subdivisionCanCommit()) { hideSubdivisionSelector(); return; }
   const newSubdivision = option?.dataset.value;
   const barIndex = parseInt(longPressedBarElement?.dataset.barIndex, 10);
   const containerIndex = parseInt(longPressedBarElement?.dataset.containerIndex, 10);
   if (newSubdivision && !isNaN(barIndex) && !isNaN(containerIndex)) {
-    const transaction = subdivisionCanCommit ? beginEditTransaction("Subdivision") : null; if (subdivisionCanCommit && !transaction) { hideSubdivisionSelector(); cleanupPointerListeners(); resetLongPressState(); return; } try { await applySubdivisionChange(containerIndex, barIndex, newSubdivision); } finally { if (transaction) commitEditTransaction(transaction); }
+    const transaction = subdivisionCanCommit ? beginEditTransaction("Subdivision") : null; if (subdivisionCanCommit && !transaction) { hideSubdivisionSelector(); cleanupPointerListeners(); resetLongPressState(); return; } try { await applySubdivisionChange(containerIndex, barIndex, newSubdivision, subdivisionOutcomeFeedback(option, containerIndex, barIndex)); } finally { if (transaction) commitEditTransaction(transaction); }
   } else if (longPressTimer) {
     return;
   }
@@ -467,6 +498,9 @@ async function onWindowPointerUp(event) {
       sendState(AppState.getCurrentStateForPreset(true));
       BarDisplayController.renderBarsAndControls();
       BarControlsController.updateBeatControlsDisplay();
+      if (AppState.getSelectedTrackIndex() === clickedContainerIndex && AppState.getSelectedBarIndexInContainer() === clickedBarIndex) {
+        emitInteractionMotion(document.querySelector(`.bar-visual[data-container-index="${clickedContainerIndex}"][data-bar-index="${clickedBarIndex}"]`), 'select');
+      }
     } else {
       sendState(AppState.getCurrentStateForPreset(true));
     }
@@ -608,9 +642,9 @@ function showSubdivisionSelector(barElement, { gesture = false, canCommit = null
                 e.stopPropagation();
                 if (subdivisionSelectionInProgress) return;
                 if (subdivisionCanCommit && !subdivisionCanCommit()) { hideSubdivisionSelector(); return; }
-                const newSubdivision = element.dataset.value;
+                const option = element, newSubdivision = element.dataset.value;
                 if (newSubdivision) {
-                    const transaction = subdivisionCanCommit ? beginEditTransaction("Subdivision") : null; if (subdivisionCanCommit && !transaction) { hideSubdivisionSelector(); cleanupPointerListeners(); resetLongPressState(); return; } try { await applySubdivisionChange(containerIndex, barIndex, newSubdivision); } finally { if (transaction) commitEditTransaction(transaction); }
+                    const transaction = subdivisionCanCommit ? beginEditTransaction("Subdivision") : null; if (subdivisionCanCommit && !transaction) { hideSubdivisionSelector(); cleanupPointerListeners(); resetLongPressState(); return; } try { await applySubdivisionChange(containerIndex, barIndex, newSubdivision, subdivisionOutcomeFeedback(option, containerIndex, barIndex)); } finally { if (transaction) commitEditTransaction(transaction); }
                 }
                 hideSubdivisionSelector();
             });
@@ -637,7 +671,7 @@ function showSubdivisionSelector(barElement, { gesture = false, canCommit = null
         container.style.transform = 'scale(0.9)';
 
         requestAnimationFrame(() => {
-            container.classList.add("visible");
+            if (!container.isConnected || subdivisionTriggerElement !== barElement) return; container.classList.add("visible");
         });
         
         // Hide if clicking outside the container
@@ -659,7 +693,7 @@ function showSubdivisionSelector(barElement, { gesture = false, canCommit = null
     createContainer(lowerSubdivisions, 'lower');
     createContainer(higherSubdivisions, 'higher');
     requestAnimationFrame(() => {
-        const panels = [...document.querySelectorAll(`.subdivision-options-container[data-for-bar="${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}"]`)].filter((panel) => panel.classList.contains('lower-panel') || panel.classList.contains('higher-panel'));
+        if (subdivisionTriggerElement !== barElement) return; const panels = [...document.querySelectorAll(`.subdivision-options-container[data-for-bar="${barElement.dataset.containerIndex}-${barElement.dataset.barIndex}"]`)].filter((panel) => panel.classList.contains('lower-panel') || panel.classList.contains('higher-panel'));
         const lower = panels.find((panel) => panel.classList.contains('lower-panel'));
         const higher = panels.find((panel) => panel.classList.contains('higher-panel'));
         if (!lower || !higher) return;
@@ -686,7 +720,7 @@ function showSubdivisionSelector(barElement, { gesture = false, canCommit = null
         }
     };
     document.addEventListener('keydown', subdivisionKeydownHandler);
-    if (!gesture) requestAnimationFrame(() => document.querySelector('.subdivision-options-container.visible .subdivision-option')?.focus());
+    if (!gesture) requestAnimationFrame(() => { if (subdivisionTriggerElement === barElement) document.querySelector('.subdivision-options-container.visible .subdivision-option')?.focus(); });
 }
 
 let currentHideOnClickOutside = null;
@@ -707,7 +741,7 @@ function hideSubdivisionSelector({ restoreFocus = true, immediate = false } = {}
     subdivisionShield = null;
     const containers = document.querySelectorAll('.subdivision-options-container');
     containers.forEach(container => {
-        if (immediate) { container.remove(); return; }
+        if (immediate || !container.classList.contains('visible')) { container.remove(); return; }
         container.classList.remove('visible');
         container.addEventListener('transitionend', () => {
             if (container.parentElement) {

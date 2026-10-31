@@ -6,6 +6,7 @@
  */
 
 import AppState from './appState.js';
+import { emitInteractionMotion } from './interactionMotion.js';
 import DOM from './domSelectors.js';
 import BarDisplayController from './barDisplayController.js';
 import BarControlsController from './barControlsController.js';
@@ -105,7 +106,9 @@ const UIController = {
 
         if (dismissBtn) {
             dismissBtn.addEventListener("click", async () => {
+                const wasOpen = connectionModal && getComputedStyle(connectionModal).display !== 'none';
                 connectionModal.style.display = "none";
+                if (wasOpen) emitInteractionMotion(DOM.startStopBtn, 'close');
                 await UserInteraction.handleFirstInteraction();
                 enablePlayback();
             });
@@ -127,6 +130,7 @@ const UIController = {
                 const isEnabled = !AppState.isWakeLockEnabled();
                 AppState.setWakeLockEnabled(isEnabled);
                 UIController.updateScreenOffToggleBtn();
+                if (AppState.isWakeLockEnabled() === isEnabled) emitInteractionMotion(DOM.screenOffToggleBtn, 'select');
             });
         }
 

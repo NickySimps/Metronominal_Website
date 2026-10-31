@@ -3,6 +3,7 @@ import * as Room from './webrtc.js';
 import { beginEditTransaction, commitEditTransaction, cancelEditTransaction } from './editHistory.js';
 import { queueSongChange, getPendingSongChange, cancelPendingSongChange } from './practiceTransport.js';
 import { getBeatSlots } from './beatTiming.js';
+import { beginInteractionDrag, emitInteractionMotion, captureInteractionLayout, animateInteractionLayout } from './interactionMotion.js';
 
 const mounted = new WeakMap();
 const clone = value => JSON.parse(JSON.stringify(value));
@@ -37,18 +38,30 @@ export function initializeArrangementTimeline(root, options = {}) {
   const pendingLabel = make('p'); pendingLabel.dataset.pending = '';
   const cancel = button('Cancel queued arrangement', root, () => {
     if (!allowed()) return;
-    if (cancelPendingSongChange() === false) { announce('Cancellation was not accepted; draft retained.'); return; }
-    generation++; busy = false; awaitingAuthority = false;
+    const hadPending = Boolean(getPendingSongChange() || awaitingAuthority);
+    const joined = Room.isSynchronizationJoined();
+    if (cancelPendingSongChange() === false) { announce('Cancellation was not accepted; draft retained.'); emitInteractionMotion(cancel, 'refuse'); return; }
+    generation++; busy = false; awaitingAuthority = false; queueFeedback = null;
     render();
+    if (hadPending) emitInteractionMotion(cancel, joined ? 'pending' : 'cancel');
   });
-  live.addEventListener('change', render);
+  let livePreference = live.checked;
+  live.addEventListener('change', () => {
+    const changed = livePreference !== live.checked;
+    livePreference = live.checked; render();
+    if (changed) emitInteractionMotion(live, 'toggle');
+  });
   make('p', 'Drag handles or use Earlier/Later and length inputs. Growth inserts copies of the final section bar and shifts all following musical content. Shrinking and unequal track lengths are rejected to prevent data loss. Maximum: 64 bars / 32 sections.');
-  let disposed = false, generation = 0, busy = false, rejectedDraft = null, awaitingAuthority = false;
+  let disposed = false, generation = 0, busy = false, rejectedDraft = null, awaitingAuthority = false, queueFeedback = null;
   const allowed = () => !disposed && ['offline', 'host'].includes(Room.getSyncDiagnostics().role);
   const editable = () => allowed() && !busy && !awaitingAuthority && (!AppState.isPlaying() || live.checked);
   const stopped = () => allowed() && !busy && !AppState.isPlaying();
   const draftSong = () => clone(rejectedDraft || getPendingSongChange()?.song || AppState.getSong());
-  const discard = button('Discard rejected draft', root, ()=>{rejectedDraft=null;render();});
+  const discard = button('Discard rejected draft', root, () => {
+    const hadDraft = Boolean(rejectedDraft);
+    rejectedDraft = null; render();
+    if (hadDraft) emitInteractionMotion(pendingLabel, 'cancel');
+  });
   const announce = message => { status.textContent = message; };
   status.dataset.arrangementStatus = '';
   const barCount = () => AppState.getTracks()[0]?.barSettings?.length || 1;
@@ -70,17 +83,27 @@ export function initializeArrangementTimeline(root, options = {}) {
       const fallback = AppState.getMusicalSnapshot().Tracks;
       song = {...song,sections:song.sections.map(section=>section.tracks?.length ? section : {...section,tracks:clone(fallback)})};
       const intendedCount = Math.max(barCount(), ...song.sections.flatMap(section=>(section.tracks || []).map(track=>track.barSettings.length)));
-      validate(song, intendedCount); busy = true; render();
+      validate(song, intendedCount); busy = true;
+      // Joined-room proposals have no request-correlated ACK. A matching song,
+      // section, or even a later revision can belong to another request. Keep
+      // those cues pending-only; solo transport returns an owned local revision.
+      queueFeedback = Room.isSynchronizationJoined() ? null : {song:JSON.stringify(song), sectionIndex:intent.sectionIndex ?? null, revision:null};
+      render();
       const result = await queueSongChange(song, intent);
       if (expected !== generation || !allowed() || disposed) return false;
-      if (result?.status === 'awaiting-authority' && !getPendingSongChange()) {
-        awaitingAuthority = true; rejectedDraft = clone(song);
-        announce('Awaiting server authority. No scheduled change has been confirmed.'); return true;
+      if (result?.status === 'awaiting-authority') {
+        emitInteractionMotion(pendingLabel, 'pending');
+        if (!getPendingSongChange()) {
+          awaitingAuthority = true; rejectedDraft = clone(song);
+        }
+        announce('Awaiting server authority. No scheduled change has been confirmed.');
+        return true;
       }
       if (result === false || !getPendingSongChange()) throw new Error('Core transport did not accept a queued change.');
       rejectedDraft = null;
+      acknowledgeQueueFeedback();
       announce('Arrangement queued for the next genuinely scheduled musical boundary.'); return true;
-    } catch (error) { if (expected === generation) { rejectedDraft=clone(song); announce(error.message); } return false; }
+    } catch (error) { if (expected === generation) { queueFeedback=null; rejectedDraft=clone(song); announce(error.message); emitInteractionMotion(pendingLabel, 'refuse'); } return false; }
     finally { if (expected === generation) { busy = false; render(); } }
   }
   function selectSection(index) {
@@ -91,6 +114,7 @@ export function initializeArrangementTimeline(root, options = {}) {
     if (AppState.isPlaying()) { void enqueue(song, {sectionIndex:index}); return; }
     try {
       validate(song);
+      const before = JSON.stringify([AppState.getMusicalSnapshot(), AppState.getTracks().map(track=>[track.currentBar,track.currentBeat,track.songRepeatIteration])]);
       // Legacy metadata-only sections retain the live tracks, including private
       // native assets; applying an empty snapshot would erase the ensemble.
       const hasSnapshot = section.tracks?.length > 0;
@@ -105,6 +129,8 @@ export function initializeArrangementTimeline(root, options = {}) {
       } catch (error) { cancelEditTransaction(token); throw error; }
       Room.sendState(AppState.getCurrentStateForPreset(true)); options.refreshUI?.({animate:false});
       render(); announce(`${section.name} selected.`);
+      const after = JSON.stringify([AppState.getMusicalSnapshot(), AppState.getTracks().map(track=>[track.currentBar,track.currentBeat,track.songRepeatIteration])]);
+      if (before !== after) emitInteractionMotion(list.children[index]?.querySelector('.arrangement-actions button:last-child'), 'section');
     } catch(error) { announce(error.message); }
   }
   function commit(song, label, reorderedBars = null) {
@@ -156,21 +182,50 @@ export function initializeArrangementTimeline(root, options = {}) {
     return {song, bars: tracks.map(track=>remap(track.barSettings))};
   }
   function move(from, to) {
-    if (!editable()) return;
-    if (getPendingSongChange()) { announce('Cancel or apply the pending arrangement before another structural edit. Draft preserved.'); return; }
-    try { const next = reordered(draftSong(), from, to); commit(next.song, 'Sections reordered', next.bars); }
-    catch (error) { announce(error.message); }
+    if (!editable()) return false;
+    if (getPendingSongChange()) { announce('Cancel or apply the pending arrangement before another structural edit. Draft preserved.'); return false; }
+    const wasStopped = !AppState.isPlaying();
+    const oldCards = wasStopped ? [...list.children] : [];
+    const snapshot = wasStopped ? captureInteractionLayout(oldCards) : null;
+    try {
+      const next = reordered(draftSong(), from, to);
+      const committed = commit(next.song, 'Sections reordered', next.bars);
+      if (committed && wasStopped && !getPendingSongChange() && from !== to) {
+        const newCards = [...list.children];
+        if (snapshot?.entries?.size && oldCards.length === newCards.length) {
+          // render() replaces section DOM nodes, so remap captured pre-commit layout entries
+          // from old card nodes to newly mounted card nodes using the exact from->to splice
+          // index permutation rather than section names (which may not be unique).
+          const order = oldCards.map((_, index) => index);
+          order.splice(to, 0, order.splice(from, 1)[0]);
+          const entries = new Map();
+          order.forEach((oldIndex, newIndex) => {
+            const prev = snapshot.entries.get(oldCards[oldIndex]);
+            const nextCard = newCards[newIndex];
+            if (prev && nextCard) entries.set(nextCard, prev);
+          });
+          animateInteractionLayout({ entries }, newCards);
+        }
+        const movedCard = newCards[to];
+        const movedTarget = movedCard?.querySelector('.arrangement-handle') || movedCard;
+        if (movedTarget) emitInteractionMotion(movedTarget, 'confirm');
+        return true;
+      }
+      return false;
+    }
+    catch (error) { announce(error.message); return false; }
   }
   function resize(index, length) {
-    if (!editable()) return;
-    if (getPendingSongChange()) { announce('Cancel or apply the pending arrangement before another structural edit. Draft preserved.'); return; }
+    if (!editable()) return false;
+    if (getPendingSongChange()) { announce('Cancel or apply the pending arrangement before another structural edit. Draft preserved.'); return false; }
     const song = draftSong(), count = barCount();
     const end = song.sections[index+1]?.startBar ?? count, old = end-song.sections[index].startBar;
     if (!Number.isInteger(length) || length < 1 || length > 64 || count+length-old>64) {
-      announce('Length must be a positive whole number and the whole arrangement cannot exceed 64 bars. Draft preserved.'); return;
+      announce('Length must be a positive whole number and the whole arrangement cannot exceed 64 bars. Draft preserved.'); return false;
     }
-    if (length < old) { announce('Cannot shrink: this would remove musical bars. Draft preserved; use the range editor for explicit deletion.'); return; }
-    if (length === old) return;
+    if (length < old) { announce('Cannot shrink: this would remove musical bars. Draft preserved; use the range editor for explicit deletion.'); return false; }
+    if (length === old) return false;
+    const wasStopped = !AppState.isPlaying();
     try {
       validate(song);
       const expand = bars => {
@@ -182,24 +237,46 @@ export function initializeArrangementTimeline(root, options = {}) {
       const bars=AppState.getTracks().map(track=>expand(track.barSettings));
       song.sections = song.sections.map((section,next)=>({...section,startBar:section.startBar+(next>index?length-old:0),
         ...(section.tracks ? {tracks:section.tracks.map(track=>({...track,barSettings:expand(track.barSettings)}))} : {})}));
-      commit(song, 'Section expanded with copies of its final bar; following musical content moved intact.', bars);
-    } catch (error) { announce(error.message); }
+      const committed = commit(song, 'Section expanded with copies of its final bar; following musical content moved intact.', bars);
+      if (committed && wasStopped && !getPendingSongChange()) {
+        const card = list.children[index];
+        const lengthHandle = card?.querySelectorAll('.arrangement-handle')[1] || card;
+        if (lengthHandle) emitInteractionMotion(lengthHandle, 'trim');
+        return true;
+      }
+      return false;
+    } catch (error) { announce(error.message); return false; }
   }
   function selectLoop(bar) {
     if (!stopped()) return;
-    if (loopAnchor === null) { loopAnchor = bar; announce(`Loop A: bar ${bar+1}. Select a bar for B; Escape cancels.`); render(); return; }
+    if (loopAnchor === null) {
+      loopAnchor = bar; announce(`Loop A: bar ${bar+1}. Select a bar for B; Escape cancels.`); render();
+      const anchorBtn = ruler.children[bar];
+      if (anchorBtn) emitInteractionMotion(anchorBtn, 'loop');
+      return;
+    }
     const startBar = Math.min(loopAnchor,bar), endBar = Math.max(loopAnchor,bar);
     if (endBar >= AppState.getAbLoopBarCount()) { announce('Loop range must fit the selected track.'); return; }
     AppState.setAbLoop({enabled:true,startBar,endBar}); loopAnchor = null;
     options.refreshUI?.({animate:false}); render(); announce(`Loop set to bars ${startBar+1}–${endBar+1}, inclusive.`);
+    const applied = AppState.getAbLoop();
+    if (applied?.enabled) {
+      const startBtn = ruler.children[applied.startBar];
+      const endBtn = ruler.children[applied.endBar];
+      if (startBtn) emitInteractionMotion(startBtn, 'loop');
+      if (endBtn && endBtn !== startBtn) emitInteractionMotion(endBtn, 'loop');
+    }
   }
   const clearLoop = button('Disable timeline loop', root, () => {
     if (!stopped()) return;
+    const wasEnabled = AppState.getAbLoop().enabled;
     loopAnchor = null; AppState.setAbLoop({enabled:false}); options.refreshUI?.({animate:false}); render();
+    if (wasEnabled && !AppState.getAbLoop().enabled) emitInteractionMotion(clearLoop, 'toggle');
   });
   function cancelGesture() {
     if (!gesture) return;
     const active = gesture; gesture = null;
+    active.drag?.cancel();
     active.handle.classList.remove('is-dragging');
     if (active.handle.hasPointerCapture(active.pointerId)) active.handle.releasePointerCapture(active.pointerId);
     announce('Gesture cancelled. No changes applied.');
@@ -208,7 +285,8 @@ export function initializeArrangementTimeline(root, options = {}) {
     if (!editable() || event.button !== 0 || gesture) return;
     event.preventDefault();
     const song = draftSong();
-    gesture = {index, kind, handle, pointerId:event.pointerId, x:event.clientX, y:event.clientY,
+    const drag = beginInteractionDrag(handle, { x: event.clientX, y: event.clientY });
+    gesture = {index, kind, handle, drag, pointerId:event.pointerId, x:event.clientX, y:event.clientY,
       generation, song:JSON.stringify(song), musical:JSON.stringify(AppState.getMusicalSnapshot()),
       target:index, length:(song.sections[index+1]?.startBar ?? barCount())-song.sections[index].startBar};
     handle.setPointerCapture(event.pointerId); handle.classList.add('is-dragging');
@@ -216,14 +294,19 @@ export function initializeArrangementTimeline(root, options = {}) {
   function gestureMove(event) {
     const g = gesture;
     if (!g || event.pointerId !== g.pointerId) return;
+    g.drag?.move(event.clientX, event.clientY);
     if (g.kind === 'resize') {
       g.previewLength = g.length + Math.round((event.clientX-g.x)/48);
       announce(`Preview: ${g.previewLength} bars. Release to apply; Escape cancels.`);
     } else {
       const cards = [...list.children];
       const centers = cards.map(card => {const rect=card.getBoundingClientRect();return rect.left+rect.width/2;});
+      const previousTarget = g.target;
       g.target = centers.reduce((best, center, index) => Math.abs(center-event.clientX)<Math.abs(centers[best]-event.clientX)?index:best, 0);
       cards.forEach((card,index)=>card.classList.toggle('is-drop-target',index===g.target));
+      // A finite magnetic target halo is decoration, never a transform on the
+      // authoritative card/handle or an acknowledgement of an unreleased edit.
+      if (g.target !== previousTarget && g.target !== g.index) emitInteractionMotion(cards[g.target]?.querySelector('.arrangement-handle'), 'select');
       announce(`Preview: move to position ${g.target+1}. Release to apply; Escape cancels.`);
     }
   }
@@ -234,12 +317,22 @@ export function initializeArrangementTimeline(root, options = {}) {
     const moved = Math.hypot(event.clientX-g.x,event.clientY-g.y) >= 6;
     gesture = null;
     if (g.handle.hasPointerCapture(g.pointerId)) g.handle.releasePointerCapture(g.pointerId);
-    if (valid && moved) { if (g.kind === 'resize') resize(g.index,g.previewLength ?? g.length); else if (g.target!==g.index) move(g.index,g.target); }
-    render();
+    let committed = false;
+    if (valid && moved) { if (g.kind === 'resize') committed = resize(g.index,g.previewLength ?? g.length); else if (g.target!==g.index) committed = move(g.index,g.target); }
+    if (!committed) render();
+    const targetCard = list.children[g.target];
+    const targetHandles = targetCard?.querySelectorAll('.arrangement-handle');
+    const targetHandle = (g.kind === 'resize' ? targetHandles?.[1] : targetHandles?.[0]) || targetCard;
+    g.drag?.finish(targetHandle);
   }
   function escape(event) {
     if (event.key !== 'Escape' || (!gesture && loopAnchor === null)) return;
+    const cancelledAnchor = loopAnchor;
     event.preventDefault(); cancelGesture(); loopAnchor = null; render();
+    if (cancelledAnchor !== null) {
+      const anchorBtn = ruler.children[cancelledAnchor];
+      if (anchorBtn) emitInteractionMotion(anchorBtn, 'cancel');
+    }
   }
   function updatePosition() {
     if (disposed) return;
@@ -301,10 +394,27 @@ export function initializeArrangementTimeline(root, options = {}) {
         const wrapper = make('label', label, fields), input = make('input', undefined, wrapper);
         input.type = 'number'; input.min = min; input.max = max; input.step = 1; input.value = value;
         input.setAttribute('aria-label', `${section.name} ${label}`); input.disabled = !editable();
+        let handlingChange = false;
         input.addEventListener('change', () => {
-          const value = Number(input.value);
-          if (field === 'length') resize(index, input.value === '' ? NaN : value);
-          else { const next = draftSong(); next.sections[index][field] = input.value === '' ? NaN : value; commit(next, 'Section updated'); }
+          // render() can blur this focused input and synchronously deliver its
+          // native change again. One edit owns one outcome, including live edits.
+          if (handlingChange) return;
+          handlingChange = true;
+          try {
+            const value = Number(input.value);
+            if (field === 'length') resize(index, input.value === '' ? NaN : value);
+            else {
+              const next = draftSong(), before = AppState.getSong().sections[index]?.[field];
+              // An unchanged draft must not create a new live boundary request.
+              if (input.value !== '' && next.sections[index][field] === value) return;
+              const wasStopped = !AppState.isPlaying();
+              next.sections[index][field] = input.value === '' ? NaN : value;
+              const accepted = commit(next, 'Section updated');
+              const target = input.isConnected ? input : list.children[index]?.querySelectorAll('.arrangement-fields input')[field === 'tempo' ? 0 : 1];
+              if (!accepted) emitInteractionMotion(target, 'refuse');
+              else if (wasStopped && before !== AppState.getSong().sections[index]?.[field]) emitInteractionMotion(target, field === 'tempo' ? 'tempo' : 'adjust');
+            }
+          } finally { handlingChange = false; }
         });
       }
       const actions = make('div', undefined, card); actions.className = 'arrangement-actions';
@@ -350,21 +460,37 @@ export function initializeArrangementTimeline(root, options = {}) {
       replacement?.focus({preventScroll:true});
     }
   }
-  const invalidate = () => { generation++; busy = false; live.checked = false; loopAnchor = null; rejectedDraft = null; awaitingAuthority = false; cancelGesture(); render(); };
+  // Queue acknowledgement is not application: only the scheduler's matching
+  // committed revision may produce applied feedback for this local request.
+  function acknowledgeQueueFeedback() {
+    const pending = getPendingSongChange();
+    if (!queueFeedback || !pending || queueFeedback.song !== JSON.stringify(pending.song)
+      || queueFeedback.sectionIndex !== pending.sectionIndex || queueFeedback.revision !== null) return;
+    queueFeedback.revision = pending.revision;
+    emitInteractionMotion(pendingLabel, 'queue');
+  }
+  const invalidate = () => { generation++; busy = false; live.checked = livePreference = false; loopAnchor = null; rejectedDraft = null; awaitingAuthority = false; queueFeedback = null; cancelGesture(); render(); };
   const schemaChanged = () => { generation++; cancelGesture(); loopAnchor = null; render(); };
-  const pendingChanged = () => { awaitingAuthority = false; rejectedDraft = null; cancelGesture(); render(); };
+  const pendingChanged = () => { awaitingAuthority = false; rejectedDraft = null; cancelGesture(); render(); acknowledgeQueueFeedback(); if (!getPendingSongChange()) queueFeedback = null; };
+  const songCommitted = event => {
+    if (!allowed() || queueFeedback?.revision == null || queueFeedback.revision !== event.detail?.revision) return;
+    const index = queueFeedback.sectionIndex ?? AppState.getSongSectionForBar(event.detail.startBar).index;
+    queueFeedback = null; render();
+    emitInteractionMotion(list.children[index]?.querySelector('.arrangement-actions button:last-child'), 'section');
+  };
   const pointerCancelled = () => { cancelGesture(); render(); };
   const nextSection = () => {
     if (!allowed()) return;
     const current = AppState.getSongSectionForBar(AppState.getTracks()[0]?.currentBar || 0);
     selectSection((current.index + 1) % AppState.getSong().sections.length);
   };
-  const listeners = [['appstatechange', schemaChanged], ['songpositionchange', updatePosition], ['pendingSongChange',pendingChanged],
+  const listeners = [['appstatechange', schemaChanged], ['songpositionchange', updatePosition], ['pendingSongChange',pendingChanged], ['songchangecommitted',songCommitted],
     ['pointermove',gestureMove],['pointerup',gestureEnd],['pointercancel',pointerCancelled],['keydown',escape],
     ['metronominal:section-next',nextSection], ...['roomauthoritychange','syncrolechange','historyboundary','playbackstatechange'].map(name=>[name,invalidate])];
   for (const [name, fn] of listeners) document.addEventListener(name, fn);
   const controller = { render, destroy() {
     disposed = true; generation++;
+    gesture?.drag?.cancel(); gesture = null;
     for (const [name, fn] of listeners) document.removeEventListener(name, fn);
     mounted.delete(root); root.replaceChildren();
   }};

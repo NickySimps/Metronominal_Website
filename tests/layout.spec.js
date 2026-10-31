@@ -897,9 +897,18 @@ test.describe('mode controls responsive layout', () => {
     const touchAction = () => bar.evaluate(element => getComputedStyle(element).touchAction);
 
     expect(await touchAction()).toBe('pan-y pinch-zoom');
+    // v194 reserves vertical gestures on assisted edit grids before contact,
+    // while retaining pinch zoom. Normal mode must still allow native panning.
+    for (const mode of [rest, accent, slice, track.locator('.beat-edit-btn')]) {
+      await mode.click();
+      expect(await touchAction()).toBe('pinch-zoom');
+      await expect(bar.locator('.beat-square').first()).toHaveCSS('touch-action', 'pinch-zoom');
+      await mode.click();
+      expect(await touchAction()).toBe('pan-y pinch-zoom');
+      await expect(bar.locator('.beat-square').first()).toHaveCSS('touch-action', 'pan-y pinch-zoom');
+    }
     await rest.click();
-    expect(await touchAction()).toBe('pan-y pinch-zoom');
-    // Assistance preserves pre-hold scrolling; explicit opt-out restores paint.
+    // Explicit opt-out restores legacy paint ownership, including no panning.
     await track.locator('[data-beat-precision-toggle]').click();
     expect(await touchAction()).toBe('none');
     await rest.click();

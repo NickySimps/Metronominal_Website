@@ -1,3 +1,4 @@
+import { emitInteractionMotion } from './interactionMotion.js';
 import Monitoring from './monitoring.js';
 
 function render() {
@@ -63,17 +64,33 @@ const MonitoringController = {
         <button id="monitor-reset" type="button">Reset listening mix</button>
       </div>`;
     anchor.before(root);
-    root.querySelector('#monitor-volume').addEventListener('input', event => Monitoring.setVolume(event.target.value));
-    root.querySelector('#monitor-mute').addEventListener('click', () => Monitoring.setMuted(!Monitoring.getState().muted));
-    root.querySelector('#monitor-reset').addEventListener('click', () => Monitoring.reset());
+    root.querySelector('#monitor-volume').addEventListener('input', event => {
+      const previous = Monitoring.getState().volume;
+      Monitoring.setVolume(event.target.value);
+      if (Monitoring.getState().volume !== previous) emitInteractionMotion(event.currentTarget, 'volume');
+    });
+    root.querySelector('#monitor-mute').addEventListener('click', event => {
+      Monitoring.setMuted(!Monitoring.getState().muted);
+      emitInteractionMotion(event.currentTarget, 'toggle');
+    });
+    root.querySelector('#monitor-reset').addEventListener('click', event => {
+      Monitoring.reset();
+      emitInteractionMotion(event.currentTarget, 'reset');
+    });
     root.addEventListener('input', event => {
-      if (event.target.matches('[data-monitor-track]')) Monitoring.setTrackVolume(Number(event.target.dataset.monitorTrack), event.target.value);
+      if (event.target.matches('[data-monitor-track]')) {
+        const index = Number(event.target.dataset.monitorTrack);
+        const previous = Monitoring.getState().tracks[index]?.volume;
+        Monitoring.setTrackVolume(index, event.target.value);
+        if (Monitoring.getState().tracks[index]?.volume !== previous) emitInteractionMotion(event.target, 'volume');
+      }
     });
     root.addEventListener('click', event => {
       const button = event.target.closest('[data-monitor-mute]');
       if (!button) return;
       const index = Number(button.dataset.monitorMute);
       Monitoring.setTrackMuted(index, !Monitoring.getState().tracks[index].muted);
+      emitInteractionMotion(button, 'toggle');
     });
     document.addEventListener('monitoringchange', render);
     let room = new URL(location.href).searchParams.get('room');

@@ -5,6 +5,7 @@
 
 import AppState from "./appState.js";
 import DOM from "./domSelectors.js";
+import { emitInteractionMotion } from "./interactionMotion.js";
 import { sendState } from "./webrtc.js";
 
 const VolumeController = {
@@ -70,9 +71,13 @@ const VolumeController = {
   initializeVolumeControls: () => {
     if (DOM.volumeSlider) {
       DOM.volumeSlider.addEventListener("input", () => {
+        const prevVolume = AppState.getVolume();
         AppState.setVolume(DOM.volumeSlider.value); // Update state
         sendState(AppState.getCurrentStateForPreset(true)); // Lightweight sync
         VolumeController.updateVolumeDisplay(); // Update UI
+        if (AppState.getVolume() !== prevVolume) {
+          emitInteractionMotion(DOM.volumeSlider, "volume");
+        }
       });
     }
   },

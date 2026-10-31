@@ -1,4 +1,5 @@
 import AppState from "./appState.js";
+import { emitInteractionMotion } from './interactionMotion.js';
 import { receiveSongChange } from "./practiceTransport.js";
 import TempoController from "./tempoController.js";
 import VolumeController from "./volumeController.js";
@@ -1121,68 +1122,124 @@ export function initializeShareControls() {
   clearInterval(diagnosticsRefreshTimer);
   diagnosticsRefreshTimer = setInterval(updateDiagnosticsUI, 1000);
 
-  const closeDiagnostics = (focusButton = false) => {
+  let shareFeedbackEpoch = 0, shareFeedbackAction = 0, copyResetTimer = null;
+  let copyFeedbackOwner = null, copyFeedbackLabel = '', copyFeedbackRevision = 0;
+  const invalidateShareFeedback = () => {
+    ++shareFeedbackEpoch; ++shareFeedbackAction; ++copyFeedbackRevision;
+    clearTimeout(copyResetTimer); copyResetTimer = null;
+    if (copyFeedbackOwner?.isConnected) copyFeedbackOwner.textContent = copyFeedbackLabel;
+    const copyButton = document.getElementById("copy-link-btn");
+    if (copyButton) copyButton.onclick = null;
+    if (mobileShareBtn) mobileShareBtn.onclick = null;
+    qrContainer.replaceChildren();
+    qrContainer.removeAttribute('title');
+    qrCodeInstance = null;
+  };
+
+  const closeDiagnostics = (focusButton = false, acknowledge = true) => {
     if (!diagnosticsPanel || diagnosticsPanel.hidden) return;
     diagnosticsPanel.hidden = true;
     shareContent?.classList.remove("diagnostics-expanded");
     diagnosticsBtn?.setAttribute("aria-expanded", "false");
     if (focusButton) diagnosticsBtn?.focus();
+    if (acknowledge && shareModal.style.display === 'block') emitInteractionMotion(diagnosticsBtn, 'close');
   };
 
   shareBtn.addEventListener("click", () => {
-    if (!roomId) return;
+    if (!roomId) { emitInteractionMotion(shareBtn, 'refuse'); return; }
+    const wasOpen = shareModal.style.display === 'block';
+    invalidateShareFeedback();
+    const presentation = shareFeedbackEpoch, roomAtOpen = roomId, authorityAtOpen = authorityGeneration;
+    const isCurrent = () => presentation === shareFeedbackEpoch && roomAtOpen === roomId
+      && authorityAtOpen === authorityGeneration && shareModal.isConnected && shareModal.style.display === 'block';
+    const isActionCurrent = action => action !== null && isCurrent() && action === shareFeedbackAction;
     const shareUrl = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(roomId)}`;
     qrContainer.innerHTML = "";
-    qrCodeInstance = new QRCode(qrContainer, {
-      text: shareUrl,
-      width: 256,
-      height: 256,
-      colorDark: "#000000",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.H
-    });
+    try {
+      qrCodeInstance = new QRCode(qrContainer, {
+        text: shareUrl,
+        width: 256,
+        height: 256,
+        colorDark: "#000000",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    } catch (error) {
+      emitInteractionMotion(shareBtn, 'refuse');
+      throw error;
+    }
 
     const copyButton = document.getElementById("copy-link-btn");
     if (copyButton) {
+      copyFeedbackOwner = copyButton; copyFeedbackLabel = copyButton.textContent;
+      const originalText = copyFeedbackLabel;
       copyButton.onclick = async () => {
-        await navigator.clipboard.writeText(shareUrl);
-        const oldText = copyButton.textContent;
-        copyButton.textContent = "Copied!";
-        setTimeout(() => { copyButton.textContent = oldText; }, 2000);
+        if (!isCurrent()) return;
+        const action = ++shareFeedbackAction;
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          if (!isActionCurrent(action) || !copyButton.isConnected) return;
+          copyButton.textContent = "Copied!";
+          emitInteractionMotion(copyButton, 'copy');
+          clearTimeout(copyResetTimer);
+          const labelRevision = ++copyFeedbackRevision;
+          copyResetTimer = setTimeout(() => {
+            copyResetTimer = null;
+            // Label cleanup belongs to the displayed success, not the latest action.
+            if (isCurrent() && labelRevision === copyFeedbackRevision && copyButton.isConnected) copyButton.textContent = originalText;
+          }, 2000);
+        } catch {
+          if (isActionCurrent(action)) emitInteractionMotion(copyButton, 'refuse');
+        }
       };
     }
 
     if (mobileShareBtn) {
-      mobileShareBtn.onclick = () => navigator.share({
-        title: "Sync Metronominal",
-        text: "Join my Metronominal session!",
-        url: shareUrl
-      }).catch(error => {
-        if (error.name !== "AbortError") console.error("Could not share:", error);
-      });
+      mobileShareBtn.onclick = () => {
+        if (!isCurrent()) return;
+        const action = ++shareFeedbackAction;
+        return navigator.share({
+          title: "Sync Metronominal",
+          text: "Join my Metronominal session!",
+          url: shareUrl
+        }).then(() => {
+          if (isActionCurrent(action)) emitInteractionMotion(mobileShareBtn, 'handoff');
+        }, error => {
+          if (isActionCurrent(action)) emitInteractionMotion(mobileShareBtn, error.name === 'AbortError' ? 'cancel' : 'refuse');
+          if (error.name !== "AbortError") console.error("Could not share:", error);
+        });
+      };
     }
-    closeDiagnostics();
+    closeDiagnostics(false, false);
     shareModal.style.display = "block";
+    if (!wasOpen) emitInteractionMotion(shareContent || shareModal, 'open');
+    if (qrContainer.childElementCount) emitInteractionMotion(qrContainer, 'ready');
   });
 
-  closeBtn.addEventListener("click", () => {
-    closeDiagnostics();
+  const closeShare = () => {
+    const wasOpen = shareModal.style.display === 'block';
+    invalidateShareFeedback();
+    closeDiagnostics(false, false);
     shareModal.style.display = "none";
-  });
+    if (wasOpen) emitInteractionMotion(shareBtn, 'close');
+  };
+  document.addEventListener('roomauthoritychange', closeShare);
+  document.addEventListener('syncrolechange', closeShare);
+  closeBtn.addEventListener("click", closeShare);
   diagnosticsBtn?.addEventListener("click", () => {
     const willOpen = diagnosticsPanel?.hidden !== false;
     if (willOpen) updateDiagnosticsUI();
     if (diagnosticsPanel) diagnosticsPanel.hidden = !willOpen;
     shareContent?.classList.toggle("diagnostics-expanded", willOpen);
     diagnosticsBtn.setAttribute("aria-expanded", String(willOpen));
+    if (diagnosticsPanel && diagnosticsPanel.hidden === !willOpen) emitInteractionMotion(diagnosticsBtn, willOpen ? 'open' : 'close');
   });
   window.addEventListener("keydown", event => {
     if (event.key === "Escape" && diagnosticsPanel && !diagnosticsPanel.hidden) closeDiagnostics(true);
   });
   window.addEventListener("click", event => {
     if (event.target === shareModal) {
-      closeDiagnostics();
-      shareModal.style.display = "none";
+      closeShare();
     }
   });
 }

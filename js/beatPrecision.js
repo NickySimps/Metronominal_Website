@@ -1,6 +1,7 @@
 import AppState from './appState.js';
 import BarDisplayController from './barDisplayController.js';
 import { beginEditTransaction, commitEditTransaction, interruptEditTransaction } from './editHistory.js';
+import { beginInteractionHold, beginInteractionDrag, emitInteractionMotion } from './interactionMotion.js';
 
 const mounts = new WeakMap();
 /** Device-local targeting only. Call destroy() before removing the mount. */
@@ -47,7 +48,7 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
         const status = doc.createElement('span'); status.className = 'beat-precision-hint'; status.setAttribute('role','status'); group.append(toggle,status);
         const anchor = track.querySelector('.track-sound-controls') || track.querySelector('.mode-buttons-col');
         if (anchor) anchor.after(group); else track.prepend(group);
-        toggle.addEventListener('click',()=>{ cancel(true); assist = !assist; render(); });
+        toggle.addEventListener('click',()=>{ cancel(true); assist = !assist; render(); emitInteractionMotion(toggle, 'toggle'); });
         ui = {group,toggle,status}; groups.set(track,ui);
       }
       ui.group.hidden = !shown; ui.toggle.setAttribute('aria-pressed',String(assist));
@@ -75,9 +76,10 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
   const label = beat => { const bar = beat.closest('.bar-visual'); return `Track ${Number(bar.dataset.containerIndex) + 1} · Bar ${Number(bar.dataset.barIndex) + 1} · Beat ${Number(beat.dataset.beatIndex) + 1}`; };
   function cancel(clear = false, focus = false) {
     const track = selected?.closest('.track') || pending?.bar.closest('.track') || doc.activeElement?.closest?.('.track'), painting = pending?.phase === 'paint';
-    if (pending) { clearTimeout(pending.hold); clearTimeout(pending.dwell); if (pending.transaction) commitEditTransaction(pending.transaction); }
+    if (pending) { clearTimeout(pending.hold); clearTimeout(pending.dwell); pending.holdMotion?.cancel?.(); pending.holdMotion = null; pending.paintMotion?.cancel(); pending.paintMotion = null; if (pending.transaction) commitEditTransaction(pending.transaction); }
     if (picker) { BarDisplayController.cancelSubdivisionGesture(); picker = null; }
-    pending = null; preview?.remove(); preview = null;
+    pending = null;
+    if (preview) { emitInteractionMotion(preview, clear ? 'cancel' : 'close'); preview.remove(); preview = null; }
     if (clear) select(null); else if (painting) render();
     const ui = focus ? groups.get(track) : null;
     if (ui && !ui.group.hidden) ui.toggle.focus({ preventScroll: true });
@@ -101,9 +103,10 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
   function drawPreview() {
     if (pending?.phase !== 'precision') return;
     if (!pending || !enabled() || mode() !== pending.mode || !valid(pending.beat) || !sameTarget(pending)) return cancel(true);
-    const p = pending, rect = p.beat.getBoundingClientRect();
+    const p = pending, rect = p.beat.getBoundingClientRect(), opened = !preview;
+    const nextScale = p.fine ? 'fine' : 'coarse', scaleChanged = !opened && preview.dataset.scale !== nextScale;
     if (!preview) { preview = doc.createElement('aside'); preview.className = 'beat-precision-preview'; preview.dataset.beatPrecisionLens = ''; preview.setAttribute('aria-label', 'Magnified nearby beats'); doc.body.append(preview); }
-    preview.dataset.scale = p.fine ? 'fine' : 'coarse'; preview.replaceChildren();
+    preview.dataset.scale = nextScale; preview.replaceChildren();
     const heading = doc.createElement('div'); heading.textContent = label(p.beat); preview.append(heading);
     const row = doc.createElement('div'); row.className = 'beat-precision-cells'; preview.append(row);
     const beats = [...p.bar.querySelectorAll(BEAT)], index = beats.indexOf(p.beat);
@@ -139,6 +142,8 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
     const overlap = (x,y,r) => Math.max(0,Math.min(x+w,r.right)-Math.max(x,r.left))*Math.max(0,Math.min(y+h,r.bottom)-Math.max(y,r.top));
     const ranked=candidates.map(([x,y],i)=>{x=clamp(x,minX,maxX);y=clamp(y,minY,maxY);return {x,y,score:overlap(x,y,avoid)*100+i};}).sort((a,b)=>a.score-b.score);
     preview.style.top=`${ranked[0].y}px`;preview.style.left=`${ranked[0].x}px`;
+    if (opened) emitInteractionMotion(preview, 'open');
+    else if (scaleChanged) emitInteractionMotion(preview, 'adjust');
   }
   // Intersect each delivered segment with actual CSS cell rectangles. This
   // covers skipped pointer samples without drawing a bounding-box rectangle
@@ -185,6 +190,13 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
       p.topology=[...bar.querySelectorAll(BEAT)].map(b=>[b,b.dataset.beatIndex]);
     }
   }
+  function updatePaintMotion(p, x, y) {
+    if (pending !== p || p.phase !== 'paint' || !sameTarget(p)) return;
+    // Per-cell confirmations can evict an older decoration at the shared cap.
+    // Recreate only this contact's inert cursor; never retain a stale owner.
+    if (p.paintMotion?.move(x, y)) return;
+    p.paintMotion = beginInteractionDrag(p.beat, { x, y });
+  }
   function dwell() {
     if (!pending) return;
     clearTimeout(pending.dwell);
@@ -201,10 +213,11 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
     event.stopImmediatePropagation(); cancel();
     if (event.isPrimary === false) return;
     if (!beat) return;
-    pending = { id: event.pointerId, mode:mode(), scene:captureScene(), bar, beat, trackId: bar.dataset.containerIndex, barId: bar.dataset.barIndex, topology: [...bar.querySelectorAll(BEAT)].map(b=>[b,b.dataset.beatIndex]), x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, vx: event.clientX, vy: event.clientY, time: event.timeStamp, startTime: event.timeStamp, samples: 0, distance: 0, path: [{x:event.clientX,y:event.clientY,time:event.timeStamp}], active: false, fine: false };
+    pending = { id: event.pointerId, mode:mode(), scene:captureScene(), bar, beat, trackId: bar.dataset.containerIndex, barId: bar.dataset.barIndex, topology: [...bar.querySelectorAll(BEAT)].map(b=>[b,b.dataset.beatIndex]), x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, vx: event.clientX, vy: event.clientY, time: event.timeStamp, startTime: event.timeStamp, samples: 0, distance: 0, path: [{x:event.clientX,y:event.clientY,time:event.timeStamp}], active: false, fine: false, holdMotion: beginInteractionHold(beat, { duration: 380, x: event.clientX, y: event.clientY }) };
     pending.hold = setTimeout(() => {
       const p = pending;
       if (!p || !enabled() || mode() !== p.mode || !sameTarget(p)) return cancel(true);
+      p.holdMotion?.finish?.(); p.holdMotion = null;
       p.active = true; p.phase = 'picker'; picker = p;
       BarDisplayController.beginSubdivisionGesture(p.bar, () => enabled() && mode() === p.mode && sameTarget(p));
     }, 380);
@@ -224,9 +237,9 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
       // Normal-mode vertical movement belongs to native scrolling, not an
       // editing lane. Explicit edit modes retain direct grid manipulation.
       if (p.mode === 'normal' && Math.abs(p.y-p.startY) > Math.abs(p.x-p.startX)) { cancel(); return; }
-      clearTimeout(p.hold);
+      clearTimeout(p.hold); p.holdMotion?.cancel?.(); p.holdMotion = null;
       if (p.samples >= 1 && elapsed >= 16 && p.distance >= 24 && speed >= .6) {
-        p.active=true; p.phase='paint'; paintPath(p,p.path);p.path=null;return;
+        p.active=true; p.phase='paint'; paintPath(p,p.path);p.path=null;updatePaintMotion(p,event.clientX,event.clientY);return;
       }
       if (p.samples < 2 || elapsed < 40 || speed > .6) return;
       // Precision is an explicit phase lock: later fast movement only navigates
@@ -244,6 +257,7 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
     }
     if (p.phase === 'paint') {
       paintPath(p,[{x:p.x,y:p.y},{x:event.clientX,y:event.clientY}]);
+      updatePaintMotion(p,event.clientX,event.clientY);
       p.x=event.clientX;p.y=event.clientY;p.time=event.timeStamp;return;
     }
     const hit = lensHit(event);
@@ -282,7 +296,7 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
     const p = pending; if (!p || event.pointerId !== p.id) return;
     event.stopImmediatePropagation();
     if (p.phase === 'picker') {
-      clearTimeout(p.hold); pending = null;
+      clearTimeout(p.hold); p.holdMotion?.cancel?.(); p.holdMotion = null; pending = null;
       if (!enabled() || mode() !== p.mode || !sameTarget(p)) cancel(true);
       else if (p.pickerVisited) { if (BarDisplayController.moveSubdivisionGesture(event.clientX,event.clientY)) void BarDisplayController.commitSubdivisionGesture(); else cancel(true); }
       return;
@@ -325,9 +339,11 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
     if (!track) return;
     const beats = [...track.querySelectorAll(`.bar-visual ${BEAT}`)];
     if (!beats.length) return select(null);
-    const index = beats.indexOf(target?.matches?.(BEAT) ? target : selected);
+    const previous = target?.matches?.(BEAT) ? target : selected;
+    const index = beats.indexOf(previous);
     select(beats[index < 0 ? direction > 0 ? 0 : beats.length - 1 : Math.max(0, Math.min(beats.length - 1, index + direction))]);
     selected?.focus();
+    if (selected && selected !== previous) emitInteractionMotion(selected, 'select');
   }
   on(interactionRoot, 'keydown', event => {
     if (event.defaultPrevented || rangePicking() || !editing() || !allowed()) return;
@@ -338,6 +354,10 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
   on(doc, 'keydown', event => {
     if (!editing() || event.key !== 'Escape' || event.defaultPrevented) return;
     if (!pending && !preview && ![...groups.values()].some(ui=>ui.group.contains(doc.activeElement)) && !doc.activeElement?.matches?.(BEAT)) return;
+    // An open lens already owns its cancellation cue. Keyboard-only targets
+    // have no lens, so acknowledge their release without changing edit ownership.
+    const released = !preview && (pending?.beat || selected);
+    if (valid(released)) emitInteractionMotion(released, 'cancel');
     event.preventDefault(); cancel(true, true);
   });
   on(interactionRoot, 'touchmove', event => {

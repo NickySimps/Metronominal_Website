@@ -2,6 +2,7 @@ import AppState from './appState.js';
 import { getSlotInfo, getVisualBeatSlots } from './beatTiming.js';
 import * as Room from './webrtc.js';
 import { createMidiInputController } from './midiController.js';
+import { emitInteractionMotion } from './interactionMotion.js';
 
 const mounts = new WeakMap();
 
@@ -44,6 +45,7 @@ export function initializePerformanceView(root, options = {}) {
   const find = selector => shell.querySelector(selector);
   const listeners = [];
   let active = false, destroyed = false, generation = 0, nativeFullscreen = false, focusBefore = null;
+  let observedPlaying = AppState.isPlaying();
   const inertBefore = new Map();
   const cueAvailable = () => typeof options.onCue === 'function' && typeof options.canCue === 'function' && options.canCue() === true;
   if (typeof options.onCue === 'function') {
@@ -69,7 +71,8 @@ export function initializePerformanceView(root, options = {}) {
     actions:{start:()=>midiTransport('start'),stop:()=>midiTransport('stop'),toggle:()=>midiTransport('toggle'),nextSection:next,
       ...(typeof options.onCue === 'function' ? {cue:()=>{if(midiAllowed('cue'))return options.onCue();}} : {})},
     onStatus:message=>{if(!destroyed)find('[data-performance-midi-status]').textContent=message;},
-    onChange:()=>{if(!destroyed)renderMidi();}
+    onChange:()=>{if(!destroyed)renderMidi();},
+    onFeedback:kind=>{if(active&&!destroyed)emitInteractionMotion(find('[data-performance-midi-status]'),kind);}
   });
   function renderMidi() {
     const state = midi.getState();
@@ -128,7 +131,10 @@ export function initializePerformanceView(root, options = {}) {
     find('[data-performance-repeats]').textContent = song.enabled ? `${Math.max(0, section.repeats - (track?.songRepeatIteration || 0) - 1)} repeats remaining after this pass` : 'Continuous playback';
     const room = Room.getRehearsalRoomState();
     find('[data-performance-cue]').textContent = room.supported && room.cue?.text ? room.cue.text : 'No room cue';
-    find('[data-performance-play]').textContent = AppState.isPlaying() ? 'Stop' : 'Play';
+    const playing = AppState.isPlaying();
+    find('[data-performance-play]').textContent = playing ? 'Stop' : 'Play';
+    if (active && playing !== observedPlaying) emitInteractionMotion(find('[data-performance-play]'), playing ? 'play' : 'stop');
+    observedPlaying = playing;
     find('[data-performance-play]').disabled = !transportAllowed();
     find('[data-performance-section-next]').disabled = !nextAllowed();
     const overview = find('[data-performance-overview]');
@@ -159,8 +165,12 @@ export function initializePerformanceView(root, options = {}) {
       if (!active || destroyed || token !== generation) { if (doc.fullscreenElement === doc.documentElement) await doc.exitFullscreen(); return; }
       nativeFullscreen = doc.fullscreenElement === doc.documentElement;
       find('[data-performance-status]').textContent = nativeFullscreen ? 'Fullscreen performance view.' : 'Fullscreen unavailable. Expanded performance view is active.';
+      emitInteractionMotion(find('[data-performance-status]'), nativeFullscreen ? 'ready' : 'open');
     } catch {
-      if (active && token === generation) find('[data-performance-status]').textContent = 'Fullscreen was denied. Expanded performance view is active; Exit or Escape returns to editing.';
+      if (active && token === generation) {
+        find('[data-performance-status]').textContent = 'Fullscreen was denied. Expanded performance view is active; Exit or Escape returns to editing.';
+        emitInteractionMotion(find('[data-performance-status]'), 'refuse');
+      }
     }
   }
   function exit() {
@@ -168,15 +178,39 @@ export function initializePerformanceView(root, options = {}) {
     active = false; generation++; midi.setEnabled(false); shell.hidden = true; doc.body.classList.remove('performance-active'); trigger.setAttribute('aria-expanded', 'false');
     for (const [element, previous] of inertBefore) element.inert = previous;
     inertBefore.clear();
-    if (nativeFullscreen && doc.fullscreenElement === doc.documentElement) doc.exitFullscreen().catch(() => {});
+    const token = generation;
+    const closed = () => {
+      if (destroyed || active || token !== generation) return;
+      restoreFocus();
+      emitInteractionMotion(trigger, 'close');
+    };
+    if (nativeFullscreen && doc.fullscreenElement === doc.documentElement) doc.exitFullscreen().then(closed, () => {});
+    else closed();
     nativeFullscreen = false;
-    const returnTarget = focusBefore?.isConnected && focusBefore !== doc.body && focusBefore !== doc.documentElement ? focusBefore : trigger;
-    if (returnTarget?.isConnected) returnTarget.focus();
+    function restoreFocus() {
+      const returnTarget = focusBefore?.isConnected && focusBefore !== doc.body && focusBefore !== doc.documentElement ? focusBefore : trigger;
+      if (returnTarget?.isConnected) returnTarget.focus();
+    }
+    restoreFocus();
   }
   on(find('[data-performance-midi-connect]'), 'click', () => { void midi.connect(); });
   on(find('[data-performance-midi-device]'), 'change', event => midi.selectInput(event.target.value));
   on(find('[data-performance-midi-enabled]'), 'change', event => midi.setEnabled(event.target.checked));
-  on(find('[data-performance-midi-action]'), 'change', renderMidi);
+  const draftSelectors = ['action', 'type', 'channel', 'number'].map(key => `[data-performance-midi-${key}]`);
+  const readMidiDraft = () => draftSelectors.map(selector => find(selector).value);
+  let previousMidiDraft = readMidiDraft();
+  for (const selector of draftSelectors) on(find(selector), 'change', event => {
+    const values = readMidiDraft();
+    if (values.every((value, index) => value === previousMidiDraft[index])) return;
+    previousMidiDraft = values;
+    renderMidi();
+    const [action, type, channel, number] = values;
+    const option = [...find('[data-performance-midi-action]').options].find(item => item.value === action);
+    const valid = option && !option.disabled && ['note', 'cc'].includes(type)
+      && channel.trim() !== '' && Number.isInteger(Number(channel)) && Number(channel) >= 1 && Number(channel) <= 16
+      && number.trim() !== '' && Number.isInteger(Number(number)) && Number(number) >= 0 && Number(number) <= 127;
+    emitInteractionMotion(event.currentTarget, valid ? (event.currentTarget.matches('select') ? 'select' : 'adjust') : 'refuse');
+  });
   on(find('[data-performance-midi-learn]'), 'click', () => midi.learn(find('[data-performance-midi-action]').value));
   on(find('[data-performance-midi-cancel]'), 'click', () => midi.cancelLearn());
   on(find('[data-performance-midi-clear]'), 'click', () => midi.setMapping(find('[data-performance-midi-action]').value, null));
@@ -188,7 +222,9 @@ export function initializePerformanceView(root, options = {}) {
   on(trigger, 'click', enter); on(find('[data-performance-exit]'), 'click', exit);
   on(find('[data-performance-play]'), 'click', play);
   on(find('[data-performance-section-next]'), 'click', next);
-  on(find('[data-performance-keep-overview]'), 'change', refresh);
+  on(find('[data-performance-keep-overview]'), 'change', event => {
+    refresh(); emitInteractionMotion(event.target.closest('label'), 'toggle');
+  });
   on(doc, 'fullscreenchange', () => { if (nativeFullscreen && !doc.fullscreenElement) exit(); });
   on(doc, 'keydown', event => {
     if (!active || event.defaultPrevented || event.repeat || event.isComposing || event.ctrlKey || event.altKey || event.metaKey || modalOpen() || event.target.closest?.('input,textarea,select,[contenteditable]:not([contenteditable="false"])')) return;

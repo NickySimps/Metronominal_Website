@@ -1,3 +1,5 @@
+import { emitInteractionMotion } from './interactionMotion.js';
+
 const mounts = new WeakMap();
 const features = [
   ['range','Range editing','./rangeEditor.js','initializeRangeEditor'],
@@ -26,7 +28,10 @@ export async function initializeWorkflowTools(root, options = {}, loader = path 
         if(disposed){handle?.destroy?.();break;}handles.push(handle);
       }catch{failures.push(label);section.textContent=`${label} is unavailable. Reload to retry; other controls remain usable.`;console.warn(`Workflow feature unavailable: ${id}`);}
     }
-    if(!disposed)status.textContent=failures.length?`Unavailable: ${failures.join(', ')}.`:'Editing previews never change music until applied. Timing correction and library backups stay on this device.';
+    if(!disposed){
+      status.textContent=failures.length?`Unavailable: ${failures.join(', ')}.`:'Editing previews never change music until applied. Timing correction and library backups stay on this device.';
+      if(root.isConnected && status.isConnected)emitInteractionMotion(status,failures.length?'refuse':'ready');
+    }
     return controller;
   })();
   mounts.set(root,promise);

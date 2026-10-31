@@ -1,6 +1,7 @@
 // js/oscilloscope.js
 
 import AppState from "./appState.js";
+import { emitInteractionMotion, beginInteractionHold } from './interactionMotion.js';
 
 const VISUALIZER_LABELS = {
   waveform: "🌊 Waveform Scope", spectrum: "📊 Frequency RTA", lissajous: "🔮 Lissajous Matrix",
@@ -63,6 +64,7 @@ const Oscilloscope = {
     }
     if (btn && modeMenu) {
       let modePressTimer = null;
+      let modeHoldFeedback = null;
       let modePressStart = null;
       let longPressOpened = false;
       let suppressModeClick = false;
@@ -86,11 +88,13 @@ const Oscilloscope = {
         });
         option.addEventListener("click", () => {
           if (modeMenu.hidden) return;
+          const before = this.mode;
           this.setMode(mode);
           modeMenu.hidden = true;
           modeDragOption = null;
           btn.setAttribute("aria-expanded", "false");
           btn.focus();
+          emitInteractionMotion(btn, before === this.mode ? 'close' : 'select');
         });
         modeMenu.appendChild(option);
       });
@@ -100,6 +104,9 @@ const Oscilloscope = {
         option.setAttribute("aria-current", option.dataset.mode === this.mode ? "true" : "false");
       });
       const openModeMenu = () => {
+        const wasHidden = modeMenu.hidden;
+        modeHoldFeedback?.finish();
+        modeHoldFeedback = null;
         longPressOpened = true;
         suppressModeClick = true;
         this.suppressNextClick = true;
@@ -110,6 +117,7 @@ const Oscilloscope = {
         modeMenu.style.right = "auto";
         modeMenu.style.top = "0px";
         btn.setAttribute("aria-expanded", "true");
+        if (wasHidden) emitInteractionMotion(btn, 'open');
         requestAnimationFrame(() => {
           const buttonRect = btn.getBoundingClientRect();
           const menuRect = modeMenu.getBoundingClientRect();
@@ -129,6 +137,8 @@ const Oscilloscope = {
         clearTimeout(modePressTimer);
         modePressTimer = null;
         modePressStart = null;
+        modeHoldFeedback?.cancel();
+        modeHoldFeedback = null;
       };
 
       btn.addEventListener("click", () => {
@@ -144,6 +154,7 @@ const Oscilloscope = {
         if (event.pointerType === "touch") event.preventDefault();
         modePressStart = { x: event.clientX, y: event.clientY };
         clearModePress();
+        modeHoldFeedback = beginInteractionHold(btn, { duration: 500 });
         modePressTimer = setTimeout(openModeMenu, 500);
       });
       btn.addEventListener("pointermove", (event) => {
@@ -161,11 +172,13 @@ const Oscilloscope = {
         const releaseOption = modeDragOption;
         if (!releaseOption) return;
         event.preventDefault();
+        const before = this.mode;
         this.setMode(releaseOption.dataset.mode);
         modeMenu.hidden = true;
         modeDragOption = null;
         btn.setAttribute("aria-expanded", "false");
         btn.focus();
+        emitInteractionMotion(btn, before === this.mode ? 'close' : 'select');
       });
       document.addEventListener("pointermove", (event) => {
         if (modeMenu.hidden) return;
@@ -184,7 +197,18 @@ const Oscilloscope = {
         if (!modeMenu.hidden && !modeMenu.contains(event.target) && event.target !== btn) {
           modeMenu.hidden = true;
           btn.setAttribute("aria-expanded", "false");
+          emitInteractionMotion(btn, 'close');
         }
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key !== 'Escape' || modeMenu.hidden) return;
+        event.preventDefault();
+        clearModePress();
+        modeMenu.hidden = true;
+        modeDragOption = null;
+        btn.setAttribute('aria-expanded', 'false');
+        btn.focus();
+        emitInteractionMotion(btn, 'close');
       });
     } else if (btn) {
       btn.addEventListener("click", () => this.cycleMode());
@@ -218,6 +242,7 @@ const Oscilloscope = {
   cycleMode() {
     const idx = this.modes.indexOf(this.mode);
     this.setMode(this.modes[(idx + 1) % this.modes.length]);
+    if (this.mode !== this.modes[idx]) emitInteractionMotion(document.getElementById('visualizer-mode-btn'), 'select');
   },
 
   resizeCanvasToDisplaySize() {

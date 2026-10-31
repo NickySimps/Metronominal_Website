@@ -1,4 +1,4 @@
-const CACHE_NAME = 'metronominal-v194';
+const CACHE_NAME = 'metronominal-v195';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -10,6 +10,8 @@ const ASSETS_TO_CACHE = [
   './arrangement-timeline.css',
   './practice-tools.css',
   './performance-view.css',
+  './interaction-motion.css',
+  './js/interactionMotion.js',
   './js/workflowTools.js',
   './js/rangeEditor.js',
   './js/arrangementTimeline.js',

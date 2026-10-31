@@ -9,9 +9,11 @@ import TempoController from "./tempoController.js";
 import VolumeController from "./volumeController.js";
 import DOM from "./domSelectors.js";
 import { sendState } from "./webrtc.js";
+import { emitInteractionMotion } from "./interactionMotion.js";
 
 const StickyControls = {
   elements: {},
+  lastPlaying: null,
 
   init: () => {
     StickyControls.elements = {
@@ -44,15 +46,19 @@ const StickyControls = {
 
     // Tempo
     els.tempoDecrease.addEventListener("click", () => {
+      const before = AppState.getTempo();
       AppState.decreaseTempo();
       sendState(AppState.getCurrentStateForPreset(true));
       TempoController.updateTempoDisplay(); // Updates main UI
+      if (AppState.getTempo() !== before) emitInteractionMotion(els.tempoDecrease, 'tempo');
     });
 
     els.tempoIncrease.addEventListener("click", () => {
+      const before = AppState.getTempo();
       AppState.increaseTempo();
       sendState(AppState.getCurrentStateForPreset(true));
       TempoController.updateTempoDisplay();
+      if (AppState.getTempo() !== before) emitInteractionMotion(els.tempoIncrease, 'tempo');
     });
 
     // Play/Pause
@@ -66,6 +72,7 @@ const StickyControls = {
       let newVol = Math.max(0, currentVol - 0.05); // 5% step
       AppState.setVolume(newVol);
       VolumeController.updateVolumeDisplay();
+      if (AppState.getVolume() !== currentVol) emitInteractionMotion(els.volumeDecrease, 'volume');
       if (window.isHost) {
         sendState(AppState.getCurrentStateForPreset(true));
       }
@@ -76,6 +83,7 @@ const StickyControls = {
       let newVol = Math.min(1, currentVol + 0.05); // 5% step
       AppState.setVolume(newVol);
       VolumeController.updateVolumeDisplay();
+      if (AppState.getVolume() !== currentVol) emitInteractionMotion(els.volumeIncrease, 'volume');
       if (window.isHost) {
         sendState(AppState.getCurrentStateForPreset(true));
       }
@@ -134,9 +142,14 @@ const StickyControls = {
   updatePlayButtonState: () => {
     const els = StickyControls.elements;
     const isPlaying = AppState.isPlaying();
+    const changed = StickyControls.lastPlaying !== null && StickyControls.lastPlaying !== isPlaying;
+    StickyControls.lastPlaying = isPlaying;
     if (els.playPauseBtn) {
       els.playPauseBtn.textContent = isPlaying ? "■" : "▶";
       els.playPauseBtn.classList.toggle("active", isPlaying);
+      if (changed && els.container?.classList.contains('sticky-active')) {
+        emitInteractionMotion(els.playPauseBtn, isPlaying ? 'play' : 'stop');
+      }
     }
   }
 };

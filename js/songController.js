@@ -1,6 +1,7 @@
 import AppState, { DEFAULT_PRACTICE_CONFIG, validatePracticeConfig } from "./appState.js";
 import { sendState, getSyncDiagnostics } from "./webrtc.js";
 import MetronomeEngine from "./metronomeEngine.js";
+import { emitInteractionMotion } from "./interactionMotion.js";
 
 const FORMAT = "metronominal-song";
 const MAX_IMPORT_BYTES = 256 * 1024;
@@ -13,6 +14,50 @@ const FORBIDDEN_KEYS = new Set([
 let refreshApplicationUI = () => {};
 let canEditSong = true;
 let selectedSectionIndex = 0;
+let sectionFeedbackEpoch = 0;
+let songFeedbackEpoch = 0;
+function invalidateSongFeedback() { songFeedbackEpoch++; }
+function invalidateSectionFeedback() { sectionFeedbackEpoch++; }
+
+// A newer action owns the shared status. Never retain payloads, URLs or native
+// error messages in feedback tokens, DOM attributes, or motion decorations.
+function beginSongFeedback(target, { observeMusic = true } = {}) {
+  const epoch = ++songFeedbackEpoch;
+  let valid = true;
+  const cancel = () => { valid = false; };
+  const unsubscribe = observeMusic ? AppState.subscribeMusicalMutations(cancel) : () => {};
+  const events = observeMusic ? ['appstatechange', 'historyboundary'] : [];
+  for (const type of events) document.addEventListener(type, cancel);
+  return {
+    current: () => valid && epoch === songFeedbackEpoch && target?.isConnected,
+    finish(message, kind, isError = false) {
+      if (!this.current()) return;
+      announce(message, isError);
+      emitInteractionMotion(target, kind);
+    },
+    dispose() {
+      unsubscribe();
+      for (const type of events) document.removeEventListener(type, cancel);
+    },
+  };
+}
+
+async function shareSong(target, nativeShare = false) {
+  const feedback = beginSongFeedback(target);
+  try {
+    const url = await songUrl();
+    if (!feedback.current()) return;
+    const share = nativeShare && typeof navigator.share === 'function' ? navigator.share.bind(navigator) : null;
+    if (share) await share({ title: AppState.getSong().name, text: 'Open this Metronominal song', url });
+    else await navigator.clipboard.writeText(url);
+    feedback.finish(share ? 'Song handed to share service.' : 'Song link copied.', share ? 'handoff' : 'copy');
+  } catch (error) {
+    if (error?.name === 'AbortError') feedback.finish('Song sharing cancelled.', 'cancel');
+    else feedback.finish(error?.message === 'This song is too large for a link. Export the song file instead.'
+      ? 'This song is too large for a link. Export the song file instead.'
+      : 'Unable to share song. Try copying the link or exporting a file.', 'refuse', true);
+  } finally { feedback.dispose(); }
+}
 
 const SNAPSHOT_BAR_KEYS = new Set(["beats", "subdivision", "rests", "velocities", "beatSounds", "beatSlices", "beatSliceAnchors"]);
 
@@ -368,21 +413,48 @@ function validatePayload(payload) {
 }
 
 async function applyPayload(payload, { allowBeforeConnection = false, shouldApply = () => true } = {}) {
-  if (!shouldApply()) throw new Error("Song import was cancelled because room authority or playback changed.");
-  if (!allowBeforeConnection && (!canEditSong || !window.isHost || AppState.isPlaying())) {
+  const canLoad = () => canEditSong && getSyncDiagnostics().role !== 'client' && !AppState.isPlaying()
+    && (allowBeforeConnection || window.isHost);
+  if (!shouldApply()) throw new DOMException('Song import cancelled.', 'AbortError');
+  if (!canLoad()) {
     throw new Error("Only a connected host can import a song while playback is stopped.");
   }
   const validated = validatePayload(payload);
-  if (!allowBeforeConnection && (!canEditSong || !window.isHost || AppState.isPlaying())) {
-    throw new Error("Song import was cancelled because room authority or playback changed.");
+  if (!canLoad() || !shouldApply()) {
+    throw new DOMException('Song import cancelled.', 'AbortError');
   }
-  await AppState.loadPresetData(validated.state, {
-    history: 'local',
-    guard: () => shouldApply() && !AppState.isPlaying() && (allowBeforeConnection || (canEditSong && window.isHost)),
+  // loadPresetData intentionally returns undefined for both acceptance and
+  // refusal. Only its appstatechange for this exact reconstructed track array
+  // is a receipt; a later replacement/edit must not publish or claim this load.
+  let receipt = null;
+  let valid = true;
+  const cancel = () => { valid = false; };
+  const onState = () => {
+    if (receipt !== null || AppState.getTracks() !== validated.state.Tracks || AppState.getTempo() !== validated.state.tempo) cancel();
+    else receipt = JSON.stringify(AppState.getMusicalSnapshot());
+  };
+  const unsubscribe = AppState.subscribeMusicalMutations(() => {
+    if (receipt !== null || AppState.getTracks() !== validated.state.Tracks) cancel();
   });
-  if (!shouldApply()) throw new Error("Song import was cancelled because room authority or playback changed.");
-  refreshApplicationUI();
-  if (window.isHost) sendState(AppState.getCurrentStateForPreset(true));
+  document.addEventListener('appstatechange', onState);
+  document.addEventListener('historyboundary', cancel);
+  try {
+    await AppState.loadPresetData(validated.state, {
+      history: 'local',
+      guard: () => valid && shouldApply() && canLoad(),
+    });
+    if (!valid || !shouldApply() || !canLoad() || (receipt !== null
+      && (AppState.getTracks() !== validated.state.Tracks || JSON.stringify(AppState.getMusicalSnapshot()) !== receipt))) {
+      throw new DOMException('Song import cancelled.', 'AbortError');
+    }
+    if (receipt === null) throw new Error('Song import was not applied.');
+    refreshApplicationUI();
+    if (window.isHost) sendState(AppState.getCurrentStateForPreset(true));
+  } finally {
+    unsubscribe();
+    document.removeEventListener('appstatechange', onState);
+    document.removeEventListener('historyboundary', cancel);
+  }
 }
 
 async function songUrl() {
@@ -400,19 +472,140 @@ function announce(message, isError = false) {
   status.classList.toggle("error", isError);
 }
 
-async function publishSongChange(nextSong, shouldRender = true) {
+function emitSongSectionMotion(index, kind, action = null) {
+  const row = document.querySelector(`.song-section-row[data-section-index="${index}"]`);
+  const control = action ? row?.querySelector(`[data-song-section-action="${action}"]`) : null;
+  return [control, row?.querySelector('.song-section-number'), row, document.getElementById('add-song-section-btn')]
+    .some(target => target && emitInteractionMotion(target, kind));
+}
+
+function getMetadataChangeSpec(target, nextSong) {
+  if (!target || typeof target.matches !== "function") return null;
+  if (target.matches("#song-name-input")) {
+    return {
+      kind: "rename",
+      shouldRender: false,
+      hasChanged: (before, after) => before.name !== after.name,
+      resolveTarget: () => document.getElementById("song-name-input"),
+    };
+  }
+  if (target.matches("[data-song-section-name]")) {
+    const index = Number.parseInt(target.dataset.songSectionName, 10);
+    return {
+      kind: "rename",
+      shouldRender: false,
+      hasChanged: (before, after) => before.sections[index]?.name !== after.sections[index]?.name,
+      resolveTarget: () => document.querySelector(`[data-song-section-name="${index}"]`),
+    };
+  }
+  if (target.matches("[data-song-section-tempo]")) {
+    const index = Number.parseInt(target.dataset.songSectionTempo, 10);
+    return {
+      kind: "tempo",
+      shouldRender: true,
+      hasChanged: (before, after) => before.sections[index]?.tempo !== after.sections[index]?.tempo,
+      resolveTarget: () => document.querySelector(`[data-song-section-tempo="${index}"]`),
+    };
+  }
+  if (target.matches("[data-song-section-start]")) {
+    const index = Number.parseInt(target.dataset.songSectionStart, 10);
+    // Follow normalizeSong's stable permutation, without using non-unique names
+    // or adding identity fields to the published musical data.
+    const safeBarCount = Math.max(1, Math.min(Number.parseInt(AppState.getTracks()[0]?.barSettings?.length, 10) || 1, 64));
+    const permutation = nextSong.sections.slice(0, 32).map((section, sourceIndex) => ({
+      sourceIndex,
+      startBar: Math.max(0, Math.min(Number.parseInt(section?.startBar, 10) || 0, safeBarCount - 1)),
+    })).sort((a, b) => a.startBar - b.startBar);
+    const sortedIndex = permutation.findIndex(section => section.sourceIndex === index);
+    const destinationIndex = sortedIndex < 0 ? -1 : sortedIndex + (permutation[0]?.startBar !== 0 ? 1 : 0);
+    return {
+      kind: "section",
+      shouldRender: true,
+      hasChanged: (before, after) => JSON.stringify(before.sections) !== JSON.stringify(after.sections),
+      resolveTarget: () => destinationIndex < 0 ? null : document.querySelector(`[data-song-section-start="${destinationIndex}"]`),
+    };
+  }
+  if (target.matches("[data-song-section-repeats]")) {
+    const index = Number.parseInt(target.dataset.songSectionRepeats, 10);
+    return {
+      kind: "section",
+      shouldRender: true,
+      hasChanged: (before, after) => before.sections[index]?.repeats !== after.sections[index]?.repeats,
+      resolveTarget: () => document.querySelector(`[data-song-section-repeats="${index}"]`),
+    };
+  }
+  return null;
+}
+
+async function publishSongChange(nextSong, shouldRender = true, onAccepted = null) {
   const syncRole = getSyncDiagnostics().role;
   const connectedClient = syncRole === "client";
   if (connectedClient || !canEditSong || AppState.isPlaying()) {
     render();
     return;
   }
+
+  const previousSong = AppState.getSong();
   AppState.setSong(nextSong);
+
+  const currentSong = AppState.getSong();
+  if (JSON.stringify(previousSong) !== JSON.stringify(currentSong)) invalidateSectionFeedback();
   if (shouldRender) render();
+  if (typeof onAccepted === "function" && JSON.stringify(previousSong) !== JSON.stringify(currentSong)) {
+    onAccepted(previousSong, currentSong);
+  }
   sendState(AppState.getCurrentStateForPreset(true));
 }
 
-async function loadSectionSnapshot(song, index, { enableSong = false } = {}) {
+// Observe the native loader's receipt, not its undefined return value. The loader
+// adopts state.Tracks by identity and dispatches appstatechange after normalizing
+// the song. Only that first receipt belongs to this Apply; later operations end it.
+function observeSectionLoadFeedback(state, index) {
+  const before = JSON.stringify(AppState.getMusicalSnapshot());
+  const safeBarCount = Math.max(1, Math.min(Number.parseInt(state.Tracks[0]?.barSettings?.length, 10) || 1, 64));
+  const permutation = state.song.sections.slice(0, 32).map((section, sourceIndex) => ({
+    sourceIndex,
+    startBar: Math.max(0, Math.min(Number.parseInt(section?.startBar, 10) || 0, safeBarCount - 1)),
+  })).sort((a, b) => a.startBar - b.startBar);
+  const sortedIndex = permutation.findIndex(section => section.sourceIndex === index);
+  const targetIndex = sortedIndex < 0 ? -1 : sortedIndex + (permutation[0]?.startBar !== 0 ? 1 : 0);
+  let boundarySeen = false;
+  let receipt = null;
+  let valid = true;
+  const cancel = () => { valid = false; };
+  const onBoundary = () => {
+    if (boundarySeen || receipt !== null) cancel();
+    boundarySeen = true;
+  };
+  const onState = () => {
+    if (!valid) return;
+    if (!boundarySeen || receipt !== null || AppState.getTracks() !== state.Tracks || AppState.getTempo() !== state.tempo) {
+      cancel();
+      return;
+    }
+    try {
+      const accepted = JSON.stringify(AppState.getMusicalSnapshot());
+      if (accepted === before || targetIndex < 0 || !AppState.getSong().sections[targetIndex]) cancel();
+      else receipt = accepted;
+    } catch { cancel(); }
+  };
+  // Ignore notification payloads: no private arguments or history tokens are kept.
+  const unsubscribe = AppState.subscribeMusicalMutations(cancel);
+  document.addEventListener('historyboundary', onBoundary);
+  document.addEventListener('appstatechange', onState);
+  return {
+    targetIndex,
+    isCurrent: () => valid && receipt !== null && AppState.getTracks() === state.Tracks
+      && JSON.stringify(AppState.getMusicalSnapshot()) === receipt,
+    dispose: () => {
+      unsubscribe();
+      document.removeEventListener('historyboundary', onBoundary);
+      document.removeEventListener('appstatechange', onState);
+    },
+  };
+}
+
+async function loadSectionSnapshot(song, index, { enableSong = false, observeLoad = null } = {}) {
   const section = song.sections[index];
   if (!section) return null;
   const requiredBars = Math.max(
@@ -426,6 +619,8 @@ async function loadSectionSnapshot(song, index, { enableSong = false } = {}) {
   state.Tracks = section.tracks?.length
     ? runtimeTracksFromSnapshot(expandSnapshotBars(section.tracks, requiredBars))
     : state.Tracks.map(track => ({ ...track, currentBar: 0, currentBeat: 0, songRepeatIteration: 0 }));
+  // Decoration observes the existing operation; it must never gate the load.
+  try { observeLoad?.(state); } catch { /* Feedback is optional. */ }
   await AppState.loadPresetData(state);
   return section;
 }
@@ -445,6 +640,7 @@ async function goToSection(index) {
 }
 
 function markSelectedSection(index) {
+  if (selectedSectionIndex !== index) invalidateSectionFeedback();
   selectedSectionIndex = index;
   document.querySelectorAll(".song-section-row").forEach(row => {
     const rowIndex = Number.parseInt(row.dataset.sectionIndex, 10);
@@ -456,8 +652,10 @@ function markSelectedSection(index) {
 
 function selectSection(index) {
   if (!Number.isInteger(index) || index < 0 || selectedSectionIndex === index) return;
+  invalidateSectionFeedback();
   selectedSectionIndex = index;
   render();
+  if (selectedSectionIndex === index) emitSongSectionMotion(index, 'select');
 }
 
 function renderSavedSectionDetails(section, tracks) {
@@ -599,7 +797,7 @@ async function updateSection(index) {
   section.tempo = AppState.getTempo();
   section.tracks = snapshotCurrentTracks();
   selectedSectionIndex = index;
-  await publishSongChange(song);
+  await publishSongChange(song, true, () => emitSongSectionMotion(index, 'save', 'update'));
   announce(`${section.tracks.length} track${section.tracks.length === 1 ? "" : "s"} saved to ${section.name}.`);
 }
 
@@ -608,11 +806,33 @@ async function applySection(index) {
   const song = updatedSongFromFields();
   const section = song.sections[index];
   if (!section?.tracks?.length) return;
+  const feedbackEpoch = ++sectionFeedbackEpoch;
+  let feedback = null;
+  // Cover the preset-read await as well as the native load itself. Foreign
+  // boundaries invalidate decoration, never the accepted musical operation.
+  let preparingLoad = true;
+  let preparationCurrent = true;
+  const cancelPreparation = () => { if (preparingLoad) preparationCurrent = false; };
+  const unsubscribePreparation = AppState.subscribeMusicalMutations(cancelPreparation);
+  document.addEventListener('historyboundary', cancelPreparation);
+  document.addEventListener('appstatechange', cancelPreparation);
   selectedSectionIndex = index;
-  await loadSectionSnapshot(song, index);
-  refreshApplicationUI({ animate: false });
-  sendState(AppState.getCurrentStateForPreset(true));
-  announce(`${section.name} tracks applied.`);
+  try {
+    await loadSectionSnapshot(song, index, { observeLoad: state => {
+      feedback = observeSectionLoadFeedback(state, index);
+      preparingLoad = false;
+    } });
+    refreshApplicationUI({ animate: false });
+    sendState(AppState.getCurrentStateForPreset(true));
+    announce(`${section.name} tracks applied.`);
+    if (preparationCurrent && feedbackEpoch === sectionFeedbackEpoch && canEditSong && !AppState.isPlaying() && getSyncDiagnostics().role !== 'client'
+      && feedback?.isCurrent()) emitSongSectionMotion(feedback.targetIndex, 'load', 'apply');
+  } finally {
+    feedback?.dispose();
+    unsubscribePreparation();
+    document.removeEventListener('historyboundary', cancelPreparation);
+    document.removeEventListener('appstatechange', cancelPreparation);
+  }
 }
 
 async function copySection(index) {
@@ -627,7 +847,12 @@ async function copySection(index) {
     tracks: source.tracks ? JSON.parse(JSON.stringify(source.tracks)) : [],
   });
   selectedSectionIndex = song.sections.length - 1;
-  publishSongChange(song);
+  publishSongChange(song, true, (_before, after) => {
+    // The appended copy starts at zero; stable start-bar sorting places it last
+    // among the zero-start sections, not necessarily at its old append index.
+    const copiedIndex = after.sections.reduce((last, section, i) => section.startBar === 0 ? i : last, 0);
+    emitSongSectionMotion(copiedIndex, 'copy');
+  });
   announce(`${source.name || `Section ${index + 1}`} copied.`);
 }
 
@@ -644,7 +869,7 @@ async function moveSection(index, direction) {
     song.sections[targetIndex].startBar = startBar;
   }
   selectedSectionIndex = targetIndex;
-  publishSongChange(song);
+  publishSongChange(song, true, () => emitSongSectionMotion(targetIndex, 'section', direction < 0 ? 'move-up' : 'move-down'));
   announce(`${song.sections[targetIndex].name} moved ${direction < 0 ? "up" : "down"}.`);
 }
 
@@ -656,12 +881,18 @@ async function initialize(callback) {
   document.getElementById("song-mode-enabled")?.addEventListener("click", () => {
     const song = AppState.getSong();
     song.enabled = !song.enabled;
-    publishSongChange(song);
+    publishSongChange(song, true, () => emitInteractionMotion(document.getElementById('song-mode-enabled'), 'toggle'));
   });
   panel.addEventListener("change", event => {
     if (event.target.matches("#song-name-input, [data-song-section-name], [data-song-section-start], [data-song-section-tempo], [data-song-section-repeats]")) {
       const shouldRender = !event.target.matches("#song-name-input, [data-song-section-name]");
-      publishSongChange(updatedSongFromFields(), shouldRender);
+      const nextSong = updatedSongFromFields();
+      const metadataSpec = getMetadataChangeSpec(event.target, nextSong);
+      publishSongChange(nextSong, shouldRender, (previousSong, currentSong) => {
+        if (!metadataSpec?.hasChanged(previousSong, currentSong)) return;
+        const motionTarget = event.target.isConnected ? event.target : metadataSpec.resolveTarget();
+        if (motionTarget) emitInteractionMotion(motionTarget, metadataSpec.kind);
+      });
     }
   });
 
@@ -676,7 +907,7 @@ async function initialize(callback) {
       repeats: 1,
     });
     selectedSectionIndex = song.sections.length - 1;
-    await publishSongChange(song);
+    await publishSongChange(song, true, () => emitInteractionMotion(document.getElementById('add-song-section-btn'), 'section'));
     refreshApplicationUI();
   });
   const sectionList = document.getElementById("song-sections-list");
@@ -713,58 +944,87 @@ async function initialize(callback) {
       song.sections.splice(index, 1);
       if (index === 0 && song.sections[0]) song.sections[0].startBar = 0;
       selectedSectionIndex = Math.min(selectedSectionIndex, song.sections.length - 1);
-      await publishSongChange(song);
+      await publishSongChange(song, true, (_before, after) => emitSongSectionMotion(Math.min(index, after.sections.length - 1), 'remove'));
     }
   });
-  document.getElementById("copy-song-link-btn")?.addEventListener("click", async () => {
-    try { await navigator.clipboard.writeText(await songUrl()); announce("Song link copied."); }
-    catch (error) { announce(error.message, true); }
-  });
-  document.getElementById("share-song-btn")?.addEventListener("click", async () => {
-    try {
-      const url = await songUrl();
-      if (navigator.share) await navigator.share({ title: AppState.getSong().name, text: "Open this Metronominal song", url });
-      else await navigator.clipboard.writeText(url);
-      announce(navigator.share ? "Song shared." : "Song link copied.");
-    } catch (error) { if (error.name !== "AbortError") announce(error.message, true); }
-  });
-  document.getElementById("export-song-btn")?.addEventListener("click", async () => {
+  document.getElementById("copy-song-link-btn")?.addEventListener("click", event => shareSong(event.currentTarget));
+  document.getElementById("share-song-btn")?.addEventListener("click", event => shareSong(event.currentTarget, true));
+  document.getElementById("export-song-btn")?.addEventListener("click", async event => {
+    const feedback = beginSongFeedback(event.currentTarget);
+    let blobUrl = null;
     try {
       const payload = await createPayload();
-      const blobUrl = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+      if (!feedback.current()) return;
+      blobUrl = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
       const link = document.createElement("a");
       link.href = blobUrl;
       link.download = `${AppState.getSong().name.replace(/[^a-z0-9_-]+/gi, "-") || "metronominal-song"}.metronominal.json`;
       link.click();
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
-      announce("Song exported.");
-    } catch (error) { announce(error.message, true); }
+      // Browsers expose initiation, not whether the user ultimately saved it.
+      feedback.finish("Song download started.", 'download');
+    } catch {
+      feedback.finish('Unable to export song. Try again.', 'refuse', true);
+    } finally {
+      if (blobUrl) setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
+      feedback.dispose();
+    }
   });
   document.getElementById("import-song-input")?.addEventListener("change", async event => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    // Clear before awaiting: an older finally must never clear a newer choice.
+    input.value = '';
+    if (!file) return;
+    const feedback = beginSongFeedback(input.closest('label') || input, { observeMusic: false });
+    let reading = true;
+    let readCurrent = true;
+    const cancelRead = () => { if (reading) readCurrent = false; };
+    const unsubscribe = AppState.subscribeMusicalMutations(cancelRead);
+    document.addEventListener('appstatechange', cancelRead);
+    document.addEventListener('historyboundary', cancelRead);
     try {
-      const file = event.target.files?.[0];
-      if (!file || file.size > MAX_IMPORT_BYTES) throw new Error("Song files must be 256 KB or smaller.");
-      await applyPayload(JSON.parse(await file.text()));
-      announce("Song imported.");
-    } catch (error) { announce(error.message, true); }
-    event.target.value = "";
+      if (file.size > MAX_IMPORT_BYTES) throw new Error('Song files must be 256 KB or smaller.');
+      const text = await file.text();
+      if (!feedback.current() || !readCurrent) return;
+      reading = false;
+      await applyPayload(JSON.parse(text), { shouldApply: () => feedback.current() && readCurrent });
+      feedback.finish('Song imported.', 'load');
+    } catch (error) {
+      if (readCurrent && error?.name !== 'AbortError') feedback.finish(error?.message === 'Song files must be 256 KB or smaller.'
+        ? 'Song files must be 256 KB or smaller.'
+        : 'Unable to import song. Choose a valid Metronominal song file.', 'refuse', true);
+    } finally {
+      unsubscribe();
+      document.removeEventListener('appstatechange', cancelRead);
+      document.removeEventListener('historyboundary', cancelRead);
+      feedback.dispose();
+    }
   });
   document.addEventListener("appstatechange", render);
   document.addEventListener("songpositionchange", updateNowPlaying);
-  document.addEventListener("playbackstatechange", render);
+  document.addEventListener("playbackstatechange", () => {
+    if (AppState.isPlaying()) { invalidateSectionFeedback(); invalidateSongFeedback(); }
+    render();
+  });
+  document.addEventListener("roomauthoritychange", () => { invalidateSectionFeedback(); invalidateSongFeedback(); });
   document.addEventListener("syncrolechange", event => {
+    invalidateSectionFeedback();
+    invalidateSongFeedback();
     canEditSong = !event.detail || event.detail.state !== "connected" || event.detail.isHost === true;
     render();
   });
 
   const hashValue = new URL(window.location.href).hash;
   if (hashValue.startsWith("#song=")) {
+    const feedback = beginSongFeedback(document.getElementById('song-share-status'), { observeMusic: false });
     try {
       const encoded = hashValue.slice(6);
       if (encoded.length > 140000) throw new Error("Song link is too large.");
-      await applyPayload(JSON.parse(decodeBase64Url(encoded)), { allowBeforeConnection: true });
-      announce("Shared song loaded.");
-    } catch (error) { announce(error.message, true); }
+      await applyPayload(JSON.parse(decodeBase64Url(encoded)), { allowBeforeConnection: true, shouldApply: () => feedback.current() });
+      feedback.finish('Shared song loaded.', 'load');
+    } catch {
+      feedback.finish('Unable to load shared song. Use a valid Metronominal song link.', 'refuse', true);
+    } finally { feedback.dispose(); }
   }
   render();
 }

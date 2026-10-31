@@ -1,4 +1,5 @@
 import AppState from "./appState.js";
+import { beginInteractionHold, emitInteractionMotion } from "./interactionMotion.js";
 import BarControlsController from "./barControlsController.js";
 import { sendState } from "./webrtc.js";
 import BarDisplayController from "./barDisplayController.js";
@@ -6,6 +7,19 @@ import SoundSettingsModal from "./soundSettingsModal.js";
 import AudioController from "./audioController.js";
 import SoundSynth from "./soundSynth.js";
 import Monitoring from './monitoring.js';
+
+function trackMotionSignature(index) {
+  try {
+    const track = AppState.getMusicalSnapshot().Tracks[index];
+    return track ? JSON.stringify(track) : null;
+  } catch { return null; }
+}
+
+function trackMotionChanged(index, before) {
+  if (window.isHost === false || before === null) return false;
+  const after = trackMotionSignature(index);
+  return after !== null && after !== before;
+}
 
 function animateRangeValue(input, targetValue, duration = 300) {
   if (!input) return;
@@ -107,13 +121,24 @@ async function previewSound(soundName) {
   const destination = Monitoring.getTrackOutput(audioContext, activeSoundPicker?.trackIndex);
   if (baseSound.startsWith("Synth")) {
     const synthFunctionName = `play${baseSound.replace("Synth ", "").replace(/ /g, "")}`;
-    if (SoundSynth[synthFunctionName]) SoundSynth[synthFunctionName](audioContext, playTime, settings, destination);
+    if (!SoundSynth[synthFunctionName]) return false;
+    SoundSynth[synthFunctionName](audioContext, playTime, settings, destination);
+    return true;
   } else if (AppState.getSoundBuffer(baseSound)) {
+    const voiceKey = settings.voiceKey || baseSound;
+    const previousSource = AudioController.activeRecordingSources.get(voiceKey);
     AudioController.playRecording(baseSound, settings, settings.trimStart || 0, settings.trimEnd || null, playTime, 0.8, destination);
+    const source = AudioController.activeRecordingSources.get(voiceKey);
+    return Boolean(source && source !== previousSource);
   }
+  return false;
 }
 
 function closeSoundPicker() {
+  const pickerModal = document.getElementById("sound-picker-modal");
+  if (pickerModal && !pickerModal.hidden && pickerModal.style.display !== "none") {
+    emitInteractionMotion(pickerModal.querySelector(".modal-content") || pickerModal, "close");
+  }
   const modal = document.getElementById("sound-picker-modal");
   if (!modal) return;
   modal.hidden = true;
@@ -148,6 +173,7 @@ function openSoundPicker(trackIndex, soundType) {
   modal.hidden = false;
   modal.style.display = "flex";
   document.querySelector(".sound-picker-select[aria-pressed=\"true\"]")?.focus();
+  emitInteractionMotion(modal.querySelector(".modal-content") || modal, "open");
 }
 
 
@@ -282,6 +308,7 @@ function updateTrackElement(trackElement, track, index) {
 
 let songWhipTimer = null;
 let songMobileSwoopTimer = null;
+let actionHoldDecoration = null;
 
 function ensureTrackActionModal() {
   let modal = document.getElementById("track-action-modal");
@@ -296,7 +323,13 @@ function ensureTrackActionModal() {
     <div class="modal-actions"><button type="button" data-track-action-cancel>Cancel</button><button type="button" class="primary" data-track-action-apply>Apply</button></div>
   </div>`;
   document.body.appendChild(modal);
-  const close = () => { modal.hidden = true; modal.classList.remove("is-open"); };
+  const close = () => {
+    if (!modal.hidden) {
+      emitInteractionMotion(modal.querySelector(".modal-content") || modal, "close");
+    }
+    modal.hidden = true;
+    modal.classList.remove("is-open");
+  };
   modal.querySelector("[data-track-action-close]").addEventListener("click", close);
   modal.querySelector("[data-track-action-cancel]").addEventListener("click", close);
   modal.addEventListener("click", event => { if (event.target === modal) close(); });
@@ -380,8 +413,10 @@ function openTrackActionModal(type, trackIndex) {
       const parent = modal.querySelector(`[data-track-option="${target.dataset.trackParent}"]`);
       const children = modal.querySelectorAll(`[data-track-parent="${target.dataset.trackParent}"]`);
       parent.checked = [...children].every(child => child.checked);
+      emitInteractionMotion(target, "toggle");
     } else {
       modal.querySelectorAll(`[data-track-parent="${target.dataset.trackOption}"]`).forEach(child => { child.checked = target.checked; });
+      emitInteractionMotion(target, "toggle");
     }
   }));
   modal.hidden = false;
@@ -398,6 +433,7 @@ function openTrackActionModal(type, trackIndex) {
         selected[input.dataset.trackOption] = input.checked;
       }
     });
+    const before = trackMotionSignature(trackIndex);
     if (isReset) AppState.resetTrack(trackIndex, {
       track: selected.track,
       sounds: { main: selected.mainSound, sub: selected.subSound },
@@ -406,12 +442,20 @@ function openTrackActionModal(type, trackIndex) {
       beatSounds: selected.beatSounds,
     });
     else randomizeTrack(trackIndex, selected);
+    if (trackMotionChanged(trackIndex, before)) {
+      emitInteractionMotion(
+        modal.querySelector("[data-track-action-apply]"),
+        isReset ? "reset" : "randomize"
+      );
+    }
     sendState(AppState.getCurrentStateForPreset(true));
     TrackController.renderTracks();
+    emitInteractionMotion(modal.querySelector("[data-track-action-apply]"), "close");
     modal.hidden = true;
     modal.classList.remove("is-open");
   };
   modal.querySelector("[data-track-action-close]").focus();
+  emitInteractionMotion(modal.querySelector(".modal-content") || modal, "open");
 }
 
 function setSongTransitionDuration(wrapper, tempo) {
@@ -507,22 +551,29 @@ const TrackController = {
     });
     document.getElementById("sound-picker-close")?.addEventListener("click", closeSoundPicker);
     document.getElementById("sound-picker-bottom-close")?.addEventListener("click", closeSoundPicker);
-    document.getElementById("sound-picker-options")?.addEventListener("click", (event) => {
+    document.getElementById("sound-picker-options")?.addEventListener("click", async (event) => {
       const card = event.target.closest(".sound-picker-card");
       if (!card) return;
       event.stopPropagation();
       if (event.target.closest(".sound-picker-preview")) {
-        previewSound(card.dataset.sound);
+        let accepted = false;
+        try { accepted = await previewSound(card.dataset.sound); }
+        catch { /* Native resume/source failures are meaningful audition refusals. */ }
+        emitInteractionMotion(event.target.closest(".sound-picker-preview"), accepted ? "audition" : "refuse");
         return;
       }
       if (!event.target.closest(".sound-picker-select") || !activeSoundPicker) return;
       const { trackIndex, soundType } = activeSoundPicker;
       const newSound = card.dataset.sound;
+      const before = trackMotionSignature(trackIndex);
       const defaultSettings = AppState.getDefaultSoundSettings(newSound);
       AppState.updateTrack(trackIndex, {
         [soundType]: { sound: newSound, settings: defaultSettings ? { ...defaultSettings } : {} },
       });
       sendState(AppState.getCurrentStateForPreset(true));
+      if (trackMotionChanged(trackIndex, before) && AppState.getTracks()[trackIndex]?.[soundType]?.sound === newSound) {
+        emitInteractionMotion(event.target.closest(".sound-picker-select"), "select");
+      }
       closeSoundPicker();
       TrackController.renderTracks();
     });
@@ -773,8 +824,14 @@ const TrackController = {
         finished = true;
         const name = input.value.trim();
         if (save && name) {
+          const previousName = AppState.getTracks()[containerIndex]?.name || `Track ${containerIndex + 1}`;
           AppState.updateTrack(containerIndex, { name });
+          if (name !== previousName && AppState.getTracks()[containerIndex]?.name === name) {
+            emitInteractionMotion(input, "rename");
+          }
           sendState(AppState.getCurrentStateForPreset(true));
+        } else if (!save) {
+          emitInteractionMotion(input, "cancel");
         }
         TrackController.renderTracks();
       };
@@ -793,15 +850,27 @@ const TrackController = {
 
     if (target.matches(".track-mute-btn")) {
       const track = AppState.getTracks()[containerIndex];
+      const previousMuted = Boolean(track?.muted);
       AppState.updateTrack(containerIndex, { muted: !track.muted });
+      if (Boolean(AppState.getTracks()[containerIndex]?.muted) !== previousMuted) {
+        emitInteractionMotion(target, "toggle");
+      }
       sendState(AppState.getCurrentStateForPreset(true));
       TrackController.renderTracks();
     } else if (target.matches(".track-solo-btn")) {
+      const previousSolo = Boolean(AppState.getTracks()[containerIndex]?.solo);
       AppState.toggleSolo(containerIndex);
+      if (Boolean(AppState.getTracks()[containerIndex]?.solo) !== previousSolo) {
+        emitInteractionMotion(target, "toggle");
+      }
       sendState(AppState.getCurrentStateForPreset(true));
       TrackController.renderTracks();
     } else if (target.matches(".track-remove-btn")) {
+      const previousCount = AppState.getTracks().length;
       AppState.removeTrack(containerIndex);
+      if (AppState.getTracks().length < previousCount) {
+        emitInteractionMotion(target, "remove");
+      }
       sendState(AppState.getCurrentStateForPreset(true));
       TrackController.renderTracks();
       setTimeout(() => {
@@ -844,6 +913,9 @@ const TrackController = {
         }
         BarDisplayController.renderBarsAndControls();
         updateSelectionUI();
+        if (restActive === newRestModeState) {
+            emitInteractionMotion(target.closest(".rest-button") || target, "toggle");
+        }
     } else if (target.matches(".accent-button") || target.closest(".accent-button")) {
         const newAccentModeState = !AppState.isAccentMode();
         AppState.setAccentMode(newAccentModeState);
@@ -880,6 +952,9 @@ const TrackController = {
         }
         BarDisplayController.renderBarsAndControls();
         updateSelectionUI();
+        if (accentActive === newAccentModeState) {
+            emitInteractionMotion(target.closest(".accent-button") || target, "toggle");
+        }
     } else if (target.matches(".record-btn") || target.closest(".record-btn")) {
         AudioController.toggleRecording(containerIndex);
     } else if (target.matches(".beat-edit-btn") || target.closest(".beat-edit-btn")) {
@@ -892,18 +967,30 @@ const TrackController = {
           button.setAttribute("aria-pressed", String(isBeatEditMode));
         });
         BarDisplayController.renderBarsAndControls();
+        emitInteractionMotion(target.closest(".beat-edit-btn") || target, "toggle");
     } else if (target.matches(".slice-btn") || target.closest(".slice-btn")) {
         const active = !AppState.isSliceMode?.();
         if (active) setExclusiveEditMode("slice");
         AppState.setSliceMode?.(active);
         syncModeControls();
         BarDisplayController.renderBarsAndControls();
+        if (Boolean(AppState.isSliceMode?.()) === active) {
+            emitInteractionMotion(target.closest(".slice-btn") || target, "toggle");
+        }
     } else if (target.matches(".duplicate-track-btn") || target.closest(".duplicate-track-btn")) {
+        const previousCount = AppState.getTracks().length;
         AppState.duplicateTrack(containerIndex);
+        if (AppState.getTracks().length > previousCount) {
+          emitInteractionMotion(target.closest(".duplicate-track-btn") || target, "copy");
+        }
         sendState(AppState.getCurrentStateForPreset(true));
         TrackController.renderTracks();
     } else if (target.matches(".duplicate-bar-btn") || target.closest(".duplicate-bar-btn")) {
+        const previousBarCount = AppState.getTracks()[containerIndex]?.barSettings?.length ?? 0;
         AppState.duplicateBar(containerIndex, AppState.getSelectedBarIndexInContainer());
+        if ((AppState.getTracks()[containerIndex]?.barSettings?.length ?? 0) > previousBarCount) {
+          emitInteractionMotion(target.closest(".duplicate-bar-btn") || target, "copy");
+        }
         sendState(AppState.getCurrentStateForPreset(true));
         TrackController.renderTracks();
     } else if (target.matches(".track-reset-btn") || target.closest(".track-reset-btn")) {
@@ -911,7 +998,11 @@ const TrackController = {
             TrackController.actionLongPressTriggered = false;
             return;
         }
+        const before = trackMotionSignature(containerIndex);
         AppState.resetTrack(containerIndex, { track: true, sounds: true, structure: true, pattern: true });
+        if (trackMotionChanged(containerIndex, before)) {
+            emitInteractionMotion(target.closest(".track-reset-btn") || target, "reset");
+        }
         sendState(AppState.getCurrentStateForPreset(true));
         TrackController.renderTracks();
     } else if (target.matches(".random-btn") || target.closest(".random-btn")) {
@@ -919,6 +1010,7 @@ const TrackController = {
             TrackController.actionLongPressTriggered = false;
             return;
         }
+        const before = trackMotionSignature(containerIndex);
         const track = AppState.getTracks()[containerIndex];
         if (track && track.barSettings) {
             track.barSettings.forEach(bar => {
@@ -951,6 +1043,7 @@ const TrackController = {
                 if (Object.keys(bar.beatSliceAnchors).length === 0) delete bar.beatSliceAnchors;
             });
             sendState(AppState.getCurrentStateForPreset(true));
+            if (trackMotionChanged(containerIndex, before)) emitInteractionMotion(target.closest(".random-btn") || target, "randomize");
             BarDisplayController.renderBarsAndControls();
         }
     } else if (target.closest(".sound-picker-preview")) {
@@ -962,12 +1055,16 @@ const TrackController = {
         if (!activeSoundPicker || !card) return;
         const { trackIndex, soundType } = activeSoundPicker;
         const newSound = card.dataset.sound;
+        const before = trackMotionSignature(trackIndex);
         const defaultSettings = AppState.getDefaultSoundSettings(newSound);
         AppState.updateTrack(trackIndex, {
           [soundType]: { sound: newSound, settings: defaultSettings ? { ...defaultSettings } : {} },
         });
         sendState(AppState.getCurrentStateForPreset(true));
-        closeSoundPicker();
+        if (trackMotionChanged(trackIndex, before) && AppState.getTracks()[trackIndex]?.[soundType]?.sound === newSound) {
+        emitInteractionMotion(event.target.closest(".sound-picker-select"), "select");
+      }
+      closeSoundPicker();
         TrackController.renderTracks();
     } else if (target.matches(".sound-selector-trigger") || target.closest(".sound-selector-trigger")) {
         event.stopPropagation();
@@ -1008,6 +1105,10 @@ const TrackController = {
 
         if (selectionChanged) {
              BarDisplayController.updateSelectionVisuals();
+             if (barVisual && AppState.getSelectedTrackIndex() === containerIndex
+               && AppState.getSelectedBarIndexInContainer() === Number.parseInt(barVisual.dataset.barIndex, 10)) {
+               emitInteractionMotion(barVisual, 'select');
+             }
         }
 
         updateSelectionUI();
@@ -1057,19 +1158,31 @@ const TrackController = {
 
     if (target.matches(".track-volume-slider")) {
       const newVolume = parseFloat(target.value);
+      const previousVolume = AppState.getTracks()[containerIndex]?.volume ?? 1.0;
       AppState.updateTrack(containerIndex, { volume: newVolume });
+      if ((AppState.getTracks()[containerIndex]?.volume ?? 1.0) !== previousVolume) {
+        emitInteractionMotion(target, "volume");
+      }
       sendState(AppState.getCurrentStateForPreset(true));
       const valDisplay = trackElement.querySelector(".track-volume-value");
       if (valDisplay) valDisplay.textContent = `${(newVolume * 100).toFixed(0)}%`;
     } else if (target.matches(".track-pitch-slider")) {
       const pitchVal = parseInt(target.value, 10) || 0;
+      const previousPitch = AppState.getTracks()[containerIndex]?.pitchShift ?? 0;
       AppState.updateTrack(containerIndex, { pitchShift: pitchVal });
+      if ((AppState.getTracks()[containerIndex]?.pitchShift ?? 0) !== previousPitch) {
+        emitInteractionMotion(target, "adjust");
+      }
       sendState(AppState.getCurrentStateForPreset(true));
       const pitchDisplay = trackElement.querySelector(".track-pitch-value");
       if (pitchDisplay) pitchDisplay.textContent = `${pitchVal > 0 ? '+' : ''}${pitchVal}st`;
     } else if (target.matches(".track-swing-slider")) {
       const swingVal = parseInt(target.value, 10) || 0;
+      const previousSwing = AppState.getTracks()[containerIndex]?.swing ?? 0;
       AppState.updateTrack(containerIndex, { swing: swingVal });
+      if ((AppState.getTracks()[containerIndex]?.swing ?? 0) !== previousSwing) {
+        emitInteractionMotion(target, "adjust");
+      }
       sendState(AppState.getCurrentStateForPreset(true));
       const swingDisplay = trackElement.querySelector(".track-swing-value");
       if (swingDisplay) swingDisplay.textContent = `${swingVal}%`;
@@ -1084,13 +1197,19 @@ const TrackController = {
     const trackIndex = Number(track.dataset.containerIndex);
     TrackController.actionLongPressTriggered = false;
     clearTimeout(TrackController.actionLongPressTimer);
+    actionHoldDecoration?.cancel();
+    actionHoldDecoration = beginInteractionHold(target, { duration: 350 });
     TrackController.actionLongPressTimer = setTimeout(() => {
+      actionHoldDecoration?.cancel();
+      actionHoldDecoration = null;
       TrackController.actionLongPressTriggered = true;
       openTrackActionModal(target.matches(".track-reset-btn") ? "reset" : "random", trackIndex);
     }, 350);
   },
 
   handleActionPointerUp: () => {
+    actionHoldDecoration?.cancel();
+    actionHoldDecoration = null;
     clearTimeout(TrackController.actionLongPressTimer);
   },
 
@@ -1126,7 +1245,11 @@ const TrackController = {
    * Adds a new track and then re-renders the UI.
    */
   addTrack: () => {
+    const previousCount = AppState.getTracks().length;
     AppState.addTrack();
+    if (AppState.getTracks().length > previousCount) {
+      emitInteractionMotion(document.getElementById("add-track-btn"), "open");
+    }
     sendState(AppState.getCurrentStateForPreset(true)); // Lightweight sync
     TrackController.renderTracks();
     setTimeout(() => {

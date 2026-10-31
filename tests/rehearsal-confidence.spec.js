@@ -47,6 +47,8 @@ test('confidence never treats unsynchronized, stale or implausibly future report
   await page.route('http://confidence.test/**', async route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/js/rehearsalRoomController.js') return route.fulfill({contentType:'text/javascript', body:source});
+    // The real controller imports motion; serve its genuine dependency, not the HTML fixture.
+    if (url.pathname === '/js/interactionMotion.js') return route.fulfill({contentType:'text/javascript', path:path.resolve(__dirname, '../js/interactionMotion.js')});
     if (url.pathname === '/js/webrtc.js') return route.fulfill({contentType:'text/javascript', body:`
       export const getRehearsalRoomState = () => window.fixture;
       export const getSyncDiagnostics = () => window.diagnostics;

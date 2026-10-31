@@ -180,10 +180,18 @@ for(const {width,height,stress} of modalCases)test(`Precision and sound editors 
   await beat.evaluate(el=>el.scrollIntoView({behavior:'instant',block:'center'}));
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   const before=await page.locator('.bar-visual').first().evaluate(el=>({width:el.offsetWidth,height:el.offsetHeight,columns:getComputedStyle(el).gridTemplateColumns}));
-  await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,button:0,clientX:r.x+r.width/2,clientY:r.y+r.height/2}));});
-  // A stationary hold owns subdivisions; deliberate grid movement chooses precision.
-  await expect.poll(()=>page.evaluate(()=>!!document.querySelector('.subdivision-options-container.visible')||!!document.querySelector('[data-beat-precision-lens]'))).toBe(true);
-  await beat.evaluate(el=>{const r=el.getBoundingClientRect();el.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,button:0,clientX:r.x+r.width/2+14,clientY:r.y+r.height/2}));});
+  // A stationary hold latches subdivisions for the entire contact. Deliver a
+  // slow pre-hold slide in one browser task so automation latency cannot turn
+  // this layout fixture into a long press. Return to the original release point.
+  await beat.evaluate(el=>{
+    const r=el.getBoundingClientRect();
+    for(const [type,dx,timeStamp] of [['pointerdown',0,100],['pointermove',6,180],['pointermove',12,260],['pointermove',0,340]]){
+      const event=new PointerEvent(type,{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,button:0,clientX:r.x+r.width/2+dx,clientY:r.y+r.height/2});
+      Object.defineProperty(event,'timeStamp',{value:timeStamp});
+      el.dispatchEvent(event);
+    }
+  });
+  await expect(page.locator('.subdivision-options-container.visible')).toHaveCount(0);
   // Short screens need a finger-relative lens, not a desktop keyboard fallback.
   await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
   const lens=await textGeometry(page,'[data-beat-precision-lens]');

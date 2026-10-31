@@ -7,6 +7,7 @@
 
 import AppState from './appState.js';
 import Oscilloscope from './oscilloscope.js';
+import { emitInteractionMotion } from './interactionMotion.js';
 
 function configureAudioSession() {
     // iOS 16.4+: without this, Web Audio is silenced by the hardware
@@ -45,7 +46,7 @@ const UserInteraction = {
      * Initializes the AudioContext after the first user gesture.
      * This is crucial for browser compatibility, especially on iOS.
      */
-    handleFirstInteraction: async () => {
+    handleFirstInteraction: async (anchor = document.querySelector('#sticky-mobile-controls.sticky-active #sticky-play-pause-btn') || document.getElementById('start-stop-btn')) => {
         if (UserInteraction.audioContextInitialized) {
             return;
         }
@@ -56,7 +57,10 @@ const UserInteraction = {
         if (!audioContext) {
             audioContext = AppState.initializeAudioContext();
         }
-        if (!audioContext) return;
+        if (!audioContext) {
+            emitInteractionMotion(anchor, 'refuse');
+            return;
+        }
 
         // iOS uses 'interrupted' (calls, Siri, backgrounding) in addition to
         // 'suspended'; both need an explicit resume from a user gesture.
@@ -72,9 +76,13 @@ const UserInteraction = {
         playSilentUnlockBuffer(audioContext);
 
         if (audioContext.state === 'running') {
+            const firstUnlock = !UserInteraction.audioContextInitialized;
             UserInteraction.audioContextInitialized = true;
             Oscilloscope.start();
             UserInteraction.watchForInterruptions(audioContext);
+            if (firstUnlock) emitInteractionMotion(anchor, 'ready');
+        } else {
+            emitInteractionMotion(anchor, 'refuse');
         }
         // If still not running, keep the flag false so the next tap retries.
     },

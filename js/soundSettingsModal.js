@@ -1,4 +1,5 @@
 import DOM from "./domSelectors.js";
+import { emitInteractionMotion } from "./interactionMotion.js";
 import AppState from "./appState.js";
 import { sendState } from "./webrtc.js";
 import RecordingVisualizer from './recordingVisualizer.js';
@@ -10,6 +11,15 @@ import { Slider } from './slider.js';
 import SoundSynth from './soundSynth.js';
 import Monitoring from './monitoring.js';
 import { normalizeFilterSettings, normalizeEffectSettings, createSoundFilterInput, getReversedAudioBuffer, renderSynthAudioBuffer } from './audioEffects.js';
+// Detached comparison is required: existing parameter setters mutate the live
+// override before saveCurrentSoundInfo receives it. This observes, never gates, saves.
+function beatSoundFingerprint(info) {
+  if (!info?.sound || !info.settings || typeof info.settings !== "object") return null;
+  const entries = Object.entries(info.settings).sort(([a], [b]) => a.localeCompare(b));
+  if (entries.some(([, value]) => typeof value === "number" && !Number.isFinite(value))) return null;
+  return JSON.stringify([info.sound, entries]);
+}
+
 const SoundSettingsModal = {
   isNoteSnapping: false,
   isQuantizing: false,
@@ -42,6 +52,17 @@ const SoundSettingsModal = {
   previouslyFocusedElement: null,
   effectsPreviouslyFocusedElement: null,
   init() {
+    if (!this.authorityBoundaryHandler) {
+      this.authorityBoundaryHandler = () => {
+        // Role equality is not an authority lifetime: host -> guest -> host and
+        // room changes must never revive pending editor work.
+        this.editorGeneration = (this.editorGeneration || 0) + 1;
+        this.closeSoundConfirmation?.();
+        if (this.previewSource || this.previewPending) this.stopPreview();
+      };
+      document.addEventListener('roomauthoritychange', this.authorityBoundaryHandler);
+      document.addEventListener('syncrolechange', this.authorityBoundaryHandler);
+    }
     this.advancedControls = true;
     try {
       // An older cached shell has no disclosure button: keep every parameter reachable.
@@ -54,6 +75,10 @@ const SoundSettingsModal = {
       try {
         localStorage.setItem("metronominal.soundEditorDetail", this.advancedControls ? "advanced" : "basic");
       } catch (_) { /* The view remains usable without persistence. */ }
+      emitInteractionMotion(
+        DOM.soundSettingsModal.querySelector("#sound-advanced-toggle"),
+        this.advancedControls ? "open" : "close"
+      );
     });
     const closeButton = DOM.soundSettingsModal.querySelector(".close-button");
     const bottomCloseButton = DOM.soundSettingsModal.querySelector("#sound-settings-bottom-close");
@@ -142,17 +167,20 @@ const SoundSettingsModal = {
                 slider.updateSnapPoints(snapPoints);
             }
         });
+        emitInteractionMotion(e.currentTarget, "toggle");
     });
 
     const quantizeButton = DOM.soundSettingsModal.querySelector("#quantize-btn");
     quantizeButton?.addEventListener("click", (event) => {
       this.isQuantizing = !this.isQuantizing;
       event.currentTarget.classList.toggle("active", this.isQuantizing);
+      emitInteractionMotion(event.currentTarget, "toggle");
     });
     const gridSnapButton = DOM.soundSettingsModal.querySelector("#grid-snap-btn");
     gridSnapButton?.addEventListener("click", (event) => {
       this.isGridSnapping = !this.isGridSnapping;
       event.currentTarget.classList.toggle("active", this.isGridSnapping);
+      emitInteractionMotion(event.currentTarget, "toggle");
       if (this.currentAudioBuffer && this.drawWaveformAndTrimLines) this.drawWaveformAndTrimLines(this.currentAudioBuffer);
     });
 
@@ -160,10 +188,14 @@ const SoundSettingsModal = {
     DOM.soundSettingsModal.querySelector("#sound-preview-original")?.addEventListener("click", () => this.selectPreviewVersion("original"));
     DOM.soundSettingsModal.querySelector("#sound-preview-edited")?.addEventListener("click", () => this.selectPreviewVersion("edited"));
     DOM.soundSettingsModal.querySelector("#sound-scope-mode-select").addEventListener("change", (e) => {
-        this.scopeMode = e.target.value;
+        const nextMode = e.target.value;
+        if (nextMode === this.scopeMode) return;
+        this.scopeMode = nextMode;
+        emitInteractionMotion(e.currentTarget, "select");
     });
     DOM.soundSettingsModal.querySelector("#sample-probability").addEventListener("input", (event) => {
       if (!this.currentSoundSettings) return;
+      const previous = this.getCurrentSoundInfo()?.settings?.probability;
       const probability = Math.max(0, Math.min(100, Number(event.target.value) || 0));
       this.currentSoundSettings.probability = probability;
       const output = DOM.soundSettingsModal.querySelector("#sample-probability-value");
@@ -172,6 +204,7 @@ const SoundSettingsModal = {
       const soundInfo = this.getCurrentSoundInfo();
       if (soundInfo) this.saveCurrentSoundInfo({ ...soundInfo, settings: this.currentSoundSettings });
       sendState(AppState.getCurrentStateForPreset(true));
+      if (previous !== probability && this.getCurrentSoundInfo()?.settings?.probability === probability) emitInteractionMotion(event.currentTarget, "adjust");
     });
     [
       ["#sample-overlap-toggle", "allowOverlap"],
@@ -181,10 +214,15 @@ const SoundSettingsModal = {
     ].forEach(([selector, setting]) => {
       DOM.soundSettingsModal.querySelector(selector).addEventListener("change", (event) => {
         if (!this.currentSoundSettings) return;
-        this.currentSoundSettings[setting] = event.target.checked;
+        const nextChecked = event.target.checked;
+        const prevSaved = this.getCurrentSoundInfo()?.settings?.[setting];
+        this.currentSoundSettings[setting] = nextChecked;
         const soundInfo = this.getCurrentSoundInfo();
         if (soundInfo) this.saveCurrentSoundInfo({ ...soundInfo, settings: this.currentSoundSettings });
         sendState(AppState.getCurrentStateForPreset(true));
+        if (setting === "reverse" || (setting === "fxBypass" && prevSaved !== nextChecked && this.getCurrentSoundInfo()?.settings?.[setting] === nextChecked)) {
+          emitInteractionMotion(event.currentTarget, "toggle");
+        }
         if (setting === "reverse" && this.currentAudioBuffer && this.drawWaveformAndTrimLines) {
           this.drawWaveformAndTrimLines(this.currentAudioBuffer);
         } else if (setting === "reverse" && this.drawSynthWaveform) {
@@ -211,10 +249,17 @@ const SoundSettingsModal = {
             modalTitle.appendChild(input);
             input.focus();
 
+            const generation = this.editorGeneration;
+            const authority = window.isHost;
+            let committed = false;
             const commitChange = () => {
+                if (committed || generation !== this.editorGeneration || authority !== window.isHost || DOM.soundSettingsModal.style.display === "none") return;
+                committed = true;
+                const previous = this.displaySoundName;
                 if (input.value.trim() !== "") {
                     this.displaySoundName = input.value.trim();
                     modalTitle.textContent = `Editing: ${this.displaySoundName}`;
+                    if (previous !== this.displaySoundName) emitInteractionMotion(renameBtn, "rename");
                 } else {
                     modalTitle.textContent = `Editing: ${currentText}`; // Revert if empty
                 }
@@ -251,6 +296,7 @@ const SoundSettingsModal = {
                         document.dispatchEvent(new CustomEvent("soundSaved"));
                         // Refresh modal to show updated state (defaults or fallback sound)
                         this.show(this.currentTrackIndex, this.currentSoundType);
+                        if (!AppState.getCustomSoundData(soundName)) this.acknowledgeCustomSoundPersistence(soundName, "remove", DOM.soundSettingsModal.querySelector(".modal-content"));
                     }
                 );
             }
@@ -267,11 +313,21 @@ const SoundSettingsModal = {
 
       if (!modal || !titleEl || !messageEl || !confirmBtn || !cancelBtn) return;
 
+      this.closeSoundConfirmation?.();
+      const generation = this.editorGeneration;
+      const authority = window.isHost;
+      const previousFocus = document.activeElement;
+      const previousZIndex = modal.style.zIndex;
+      const parentZIndex = Number.parseInt(getComputedStyle(DOM.soundSettingsModal).zIndex, 10) || 0;
+      modal.style.zIndex = String(parentZIndex + 1);
       titleEl.textContent = title;
       messageEl.textContent = message;
 
       const closeModal = () => {
           modal.style.display = "none";
+          modal.style.zIndex = previousZIndex;
+          if (this.closeSoundConfirmation === closeModal) this.closeSoundConfirmation = null;
+          if (previousFocus?.isConnected && DOM.soundSettingsModal.style.display !== "none") previousFocus.focus({ preventScroll: true });
           // Remove event listeners to prevent duplicates/memory leaks
           confirmBtn.removeEventListener("click", handleConfirm);
           cancelBtn.removeEventListener("click", handleCancel);
@@ -279,7 +335,7 @@ const SoundSettingsModal = {
       };
 
       const handleConfirm = () => {
-          onConfirm();
+          if (generation === this.editorGeneration && authority === window.isHost && DOM.soundSettingsModal.style.display !== "none") onConfirm();
           closeModal();
       };
 
@@ -297,7 +353,33 @@ const SoundSettingsModal = {
       cancelBtn.addEventListener("click", handleCancel);
       window.addEventListener("click", handleOutsideClick);
 
+      this.closeSoundConfirmation = closeModal;
       modal.style.display = "block";
+      confirmBtn.focus({ preventScroll: true });
+  },
+
+  async acknowledgeCustomSoundPersistence(name, kind, target) {
+      // AppState persistence is debounced and catches storage failures itself.
+      // Read back the actual durable result; never decorate the queued write as success.
+      const generation = this.editorGeneration;
+      const operation = this.customFeedbackGeneration = (this.customFeedbackGeneration || 0) + 1;
+      const authority = window.isHost;
+      const expected = JSON.stringify(AppState.getCustomSoundData(name) ?? null);
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+          if (generation !== this.editorGeneration || operation !== this.customFeedbackGeneration
+              || authority !== window.isHost || DOM.soundSettingsModal.style.display === "none"
+              || JSON.stringify(AppState.getCustomSoundData(name) ?? null) !== expected) return;
+          try {
+              const stored = JSON.parse(localStorage.getItem("metronominalState"));
+              if (stored && JSON.stringify(stored.customSounds?.[name] ?? null) === expected) {
+                  emitInteractionMotion(target, kind);
+                  return;
+              }
+          } catch (_) { /* No durable acknowledgement is available. */ }
+          await new Promise(resolve => setTimeout(resolve, 75));
+      }
+      if (generation === this.editorGeneration && operation === this.customFeedbackGeneration
+          && authority === window.isHost && DOM.soundSettingsModal.style.display !== "none") emitInteractionMotion(target, "refuse");
   },
 
   saveCustomSound() {
@@ -359,7 +441,7 @@ const SoundSettingsModal = {
             deleteBtn.style.display = "inline-block";
         }
 
-        console.log(`Saved custom sound: ${nameToSave}`);
+        this.acknowledgeCustomSoundPersistence(nameToSave, "save", DOM.soundSettingsModal.querySelector("#save-sound-btn"));
 
       } catch (e) {
           console.error("Error saving sound:", e);
@@ -578,8 +660,8 @@ const SoundSettingsModal = {
     if (this.drawSynthWaveform && !["pitchShift", "distortion", "delayMix", "delayTime", "delayFeedback", "reverbMix", "reverbFeedback"].includes(param)) this.refreshSynthWaveform();
 
     if (["trimStart", "trimEnd"].includes(param)) {
-        if (this.drawWaveformAndTrimLines) {
-            this.drawWaveformAndTrimLines(soundInfo.audioBuffer);
+        if (this.drawWaveformAndTrimLines && this.currentAudioBuffer) {
+            this.drawWaveformAndTrimLines(this.currentAudioBuffer);
         }
         if (this.drawSynthWaveform && this.currentSynthWaveformBuffer) {
             this.drawSynthWaveform(this.currentSynthWaveformBuffer);
@@ -956,6 +1038,63 @@ const SoundSettingsModal = {
             }
         }
     });
+    {
+      let preGestureHasSound = Boolean(this.getCurrentSoundInfo()?.settings);
+      let preGestureSaved = this.getCurrentSoundInfo()?.settings?.[param];
+      const capturePreGestureSaved = () => {
+        const info = this.getCurrentSoundInfo();
+        preGestureHasSound = Boolean(info?.settings);
+        preGestureSaved = info?.settings?.[param];
+      };
+      const isIntersectingViewport = (el) => {
+        if (!el || !el.isConnected || el.hidden || el.closest?.("[hidden]")) return false;
+        const rect = el.getBoundingClientRect?.();
+        if (!rect || rect.width <= 0 || rect.height <= 0) return false;
+        const vw = el.ownerDocument?.defaultView?.innerWidth || window.innerWidth;
+        const vh = el.ownerDocument?.defaultView?.innerHeight || window.innerHeight;
+        return rect.left + rect.width > 0 && rect.top + rect.height > 0 && rect.left < vw && rect.top < vh;
+      };
+      const resolveVisibleMotionTarget = (target) => {
+        const candidates = [
+          target,
+          slider,
+          sliderWrapper,
+          sliderContainer,
+          controlGroup,
+          targetContainer,
+          target?.closest?.(".modal-content"),
+          target?.closest?.(".modal"),
+          DOM.soundSettingsModal?.querySelector?.(".modal-content"),
+          DOM.soundSettingsModal,
+        ];
+        return candidates.find(isIntersectingViewport) || target;
+      };
+      const emitIfSavedChanged = (target) => {
+        if (!target || target.disabled || target.getAttribute?.("aria-disabled") === "true") {
+          const info = this.getCurrentSoundInfo();
+          preGestureHasSound = Boolean(info?.settings);
+          preGestureSaved = info?.settings?.[param];
+          return;
+        }
+        const info = this.getCurrentSoundInfo();
+        const postHasSound = Boolean(info?.settings);
+        const postSaved = info?.settings?.[param];
+        if (preGestureHasSound && postHasSound && !Object.is(postSaved, preGestureSaved)) {
+          preGestureHasSound = postHasSound;
+          preGestureSaved = postSaved;
+          emitInteractionMotion(resolveVisibleMotionTarget(target), ["trimStart", "trimEnd"].includes(param) ? "trim" : "adjust");
+        } else {
+          preGestureHasSound = postHasSound;
+          preGestureSaved = postSaved;
+        }
+      };
+      slider.addEventListener("input", capturePreGestureSaved, true);
+      slider.addEventListener("input", () => emitIfSavedChanged(slider));
+      [decrementButton, incrementButton].forEach((button) => {
+        button.addEventListener("click", capturePreGestureSaved, true);
+        button.addEventListener("click", () => emitIfSavedChanged(button));
+      });
+    }
     if (delayQuantizeButton) {
       delayQuantizeButton.addEventListener("click", () => {
         const enabled = delayQuantizeButton.getAttribute("aria-pressed") !== "true";
@@ -972,6 +1111,7 @@ const SoundSettingsModal = {
           const display = sliderContainer.querySelector(":scope > span");
           if (display) display.textContent = this.formatDelayTimeDisplay(sliderInstance.value, max);
         }
+        emitInteractionMotion(delayQuantizeButton, "toggle");
       });
       const refreshDelayQuantization = () => {
         const options = this.getDelaySubdivisionOptions(max);
@@ -1008,7 +1148,25 @@ const SoundSettingsModal = {
   saveCurrentSoundInfo(soundInfo) {
     if (!soundInfo?.sound) return;
     if (this.getCurrentBeatContext()) {
-      AppState.setBeatSound(this.currentTrackIndex, this.currentBarIndex, this.currentBeatIndex, this.currentSoundType, soundInfo);
+      const feedback = this.beatEditFeedback;
+      const accepted = AppState.setBeatSound(this.currentTrackIndex, this.currentBarIndex, this.currentBeatIndex, this.currentSoundType, soundInfo);
+      const saved = AppState.getBeatSound(this.currentTrackIndex, this.currentBarIndex, this.currentBeatIndex, this.currentSoundType);
+      const fingerprint = beatSoundFingerprint(saved);
+      if (feedback && accepted === true) {
+        const changed = fingerprint !== null && fingerprint !== feedback.fingerprint && fingerprint !== feedback.sourceFingerprint;
+        feedback.fingerprint = fingerprint;
+        feedback.sourceFingerprint = fingerprint;
+        const selector = `.bar-visual[data-container-index="${this.currentTrackIndex}"][data-bar-index="${this.currentBarIndex}"] .beat-square[data-beat-index="${this.currentBeatIndex}"]:not(.removing-beat-animation)`;
+        if (changed && fingerprint === beatSoundFingerprint(soundInfo)
+          && feedback.generation === this.editorGeneration && feedback.authority === window.isHost
+          && (!document.querySelector('#share-btn.connected') || window.isHost === true)
+          && !AppState.isPlaying() && DOM.soundSettingsModal.style.display !== "none"
+          && feedback.track === AppState.getTracks()[this.currentTrackIndex]
+          && feedback.bar === feedback.track.barSettings[this.currentBarIndex]
+          && feedback.target === document.querySelector(selector)) {
+          emitInteractionMotion(feedback.target, "adjust");
+        }
+      }
     } else {
       AppState.updateTrack(this.currentTrackIndex, { [this.currentSoundType]: soundInfo });
     }
@@ -1061,6 +1219,7 @@ const SoundSettingsModal = {
     const modal = document.getElementById("sound-effects-modal");
     const trigger = DOM.soundSettingsModal.querySelector("#sound-effects-btn");
     if (!modal) return;
+    const wasOpen = !modal.hidden && modal.style.display !== 'none';
     modal.classList.remove("is-open");
     modal.style.display = "none";
     modal.hidden = true;
@@ -1070,6 +1229,7 @@ const SoundSettingsModal = {
     const restoreTarget = this.effectsPreviouslyFocusedElement;
     this.effectsPreviouslyFocusedElement = null;
     if (restoreTarget?.isConnected && typeof restoreTarget.focus === "function") restoreTarget.focus({ preventScroll: true });
+    if (wasOpen && modal.hidden && modal.style.display === 'none') emitInteractionMotion(trigger, 'close');
   },
 
   updateDetailControls() {
@@ -1109,8 +1269,12 @@ const SoundSettingsModal = {
     const trimEndSlider = this.mainSlidersContainer.querySelector('[data-param="trimEnd"]');
     const trimStartSeconds = Math.max(0, Math.min(durationSeconds, Number(this.currentSoundSettings.trimStart) || 0));
     const trimEndSeconds = Math.max(trimStartSeconds, Math.min(durationSeconds, Number(this.currentSoundSettings.trimEnd) || durationSeconds));
+    const feedback = this.beatEditFeedback;
+    const unchangedFeedback = feedback?.fingerprint === beatSoundFingerprint({ sound: soundInfo?.sound, settings: this.currentSoundSettings });
     this.currentSoundSettings.trimStart = trimStartSeconds;
     this.currentSoundSettings.trimEnd = trimEndSeconds;
+    // Initial waveform duration clamps are presentation setup, not accepted edits.
+    if (feedback && unchangedFeedback) feedback.fingerprint = beatSoundFingerprint({ sound: soundInfo?.sound, settings: this.currentSoundSettings });
     if (!trimStartSlider || !trimEndSlider) {
       this.createSlider(this.mainSlidersContainer, "trimStart", 0, durationMs, 1, trimStartSeconds * 1000);
       this.createSlider(this.mainSlidersContainer, "trimEnd", 0, durationMs, 1, trimEndSeconds * 1000);
@@ -1124,6 +1288,8 @@ const SoundSettingsModal = {
   },
 
   show(trackIndex, soundType, beatContext = null) {
+    this.closeSoundConfirmation?.();
+    this.editorGeneration = (this.editorGeneration || 0) + 1;
     this.hideEffectsModal();
     this.stopPreview();
     this.previouslyFocusedElement = document.activeElement;
@@ -1221,6 +1387,18 @@ const SoundSettingsModal = {
     const numericProbability = Number(soundSettings.probability);
     soundSettings.probability = Number.isFinite(numericProbability) ? Math.max(0, Math.min(100, numericProbability)) : 100;
     this.currentSoundSettings = soundSettings;
+    this.beatEditFeedback = this.getCurrentBeatContext()
+      && [trackIndex, this.currentBarIndex, this.currentBeatIndex].every(index => Number.isInteger(index) && index >= 0)
+      && ["mainBeatSound", "subdivisionSound"].includes(soundType)
+      ? {
+        generation: this.editorGeneration,
+        authority: window.isHost,
+        track,
+        bar: track.barSettings[this.currentBarIndex],
+        target: document.querySelector(`.bar-visual[data-container-index="${trackIndex}"][data-bar-index="${this.currentBarIndex}"] .beat-square[data-beat-index="${this.currentBeatIndex}"]:not(.removing-beat-animation)`),
+        fingerprint: beatSoundFingerprint({ sound: soundInfo.sound, settings: soundSettings }),
+        sourceFingerprint: beatSoundFingerprint(sourceSoundInfo),
+      } : null;
     this.currentSynthWaveformBuffer = null;
     const previewTarget = [trackIndex, soundType, this.currentBarIndex, this.currentBeatIndex].join(":");
     if (this.previewTarget !== previewTarget || !this.originalPreviewSound) {
@@ -1261,6 +1439,17 @@ const SoundSettingsModal = {
     if (effectsSlidersContainer) effectsSlidersContainer.innerHTML = "";
     this.sliders = [];
 
+    const waveformFeedbackEpoch = this.editorGeneration;
+    const acknowledgeWaveform = (target, kind) => {
+      if (waveformFeedbackEpoch === this.editorGeneration) emitInteractionMotion(target, kind);
+    };
+    const savedTrim = () => {
+      try {
+        const settings = this.getCurrentSoundInfo()?.settings;
+        return settings ? JSON.stringify([settings.trimStart, settings.trimEnd]) : null;
+      } catch { return null; }
+    };
+
     if (typeof AudioBuffer !== 'undefined' && soundInfo.audioBuffer instanceof AudioBuffer) {
         // Recorded sound
         noteSnapBtn.style.display = 'none';
@@ -1282,12 +1471,14 @@ const SoundSettingsModal = {
         slidersContainer.appendChild(waveformTools);
         const zoomInput = waveformTools.querySelector(".waveform-zoom");
         const panInput = waveformTools.querySelector(".waveform-pan");
-        const redrawZoomedWaveform = () => {
+        const redrawZoomedWaveform = (event) => {
+            const beforeZoom = this.waveformZoom, beforePan = this.waveformPan;
             this.waveformZoom = Number(zoomInput.value);
             this.waveformPan = Number(panInput.value);
             waveformTools.querySelector('.waveform-zoom-value').textContent = `${this.waveformZoom}×`;
             waveformTools.querySelector('.waveform-pan-value').textContent = `${Math.round(this.waveformPan * 100)}%`;
             if (this.drawWaveformAndTrimLines) this.drawWaveformAndTrimLines(this.currentAudioBuffer);
+            if (beforeZoom !== this.waveformZoom || beforePan !== this.waveformPan) acknowledgeWaveform(event.currentTarget, 'adjust');
         };
         zoomInput.addEventListener("input", redrawZoomedWaveform);
         panInput.addEventListener("input", redrawZoomedWaveform);
@@ -1358,6 +1549,7 @@ const SoundSettingsModal = {
         let activeTrimHandle = null;
         const updateTrimFromPointer = (event) => {
             if (!activeTrimHandle) return;
+            const before = savedTrim();
             const rect = waveformCanvas.getBoundingClientRect();
             const visibleSpan = 1 / this.waveformZoom;
             const visibleStart = this.waveformPan * (1 - visibleSpan);
@@ -1369,6 +1561,8 @@ const SoundSettingsModal = {
             if (activeTrimHandle === "start" && startSlider) startSlider.setValue(Math.min(time, endSlider?.value ?? time));
             if (activeTrimHandle === "end" && endSlider) endSlider.setValue(Math.max(time, startSlider?.value ?? time));
             this.drawWaveformAndTrimLines(this.currentAudioBuffer);
+            const after = savedTrim();
+            if (before !== null && after !== null && before !== after) acknowledgeWaveform(waveformCanvas, 'trim');
         };
         waveformCanvas.addEventListener("pointerdown", (event) => {
             const rect = waveformCanvas.getBoundingClientRect();
@@ -1442,8 +1636,16 @@ const SoundSettingsModal = {
             synthWaveformTools.querySelector('.waveform-zoom-value').textContent = `${Number(synthZoom.value).toFixed(2).replace(/\.00$/, '')}×`;
             synthWaveformTools.querySelector('.waveform-pan-value').textContent = `${Math.round(Number(synthPan.value) * 100)}%`;
         };
-        synthWaveformTools.querySelector('.waveform-zoom').addEventListener('input', (event) => { this.waveformZoom = Number(event.target.value); updateSynthWaveformToolLabels(); this.drawSynthWaveform(this.currentSynthWaveformBuffer); });
-        synthWaveformTools.querySelector('.waveform-pan').addEventListener('input', (event) => { this.waveformPan = Number(event.target.value); updateSynthWaveformToolLabels(); this.drawSynthWaveform(this.currentSynthWaveformBuffer); });
+        synthWaveformTools.querySelector('.waveform-zoom').addEventListener('input', (event) => {
+            const before = this.waveformZoom;
+            this.waveformZoom = Number(event.target.value); updateSynthWaveformToolLabels(); this.drawSynthWaveform(this.currentSynthWaveformBuffer);
+            if (before !== this.waveformZoom && this.currentSynthWaveformBuffer) acknowledgeWaveform(event.currentTarget, 'adjust');
+        });
+        synthWaveformTools.querySelector('.waveform-pan').addEventListener('input', (event) => {
+            const before = this.waveformPan;
+            this.waveformPan = Number(event.target.value); updateSynthWaveformToolLabels(); this.drawSynthWaveform(this.currentSynthWaveformBuffer);
+            if (before !== this.waveformPan && this.currentSynthWaveformBuffer) acknowledgeWaveform(event.currentTarget, 'adjust');
+        });
         // Synths are rendered offline so the displayed shape matches Reverse playback.
         this.refreshSynthWaveform();
 
@@ -1486,6 +1688,7 @@ const SoundSettingsModal = {
 
     this.reorderMainSoundCategories();
     DOM.soundSettingsModal.style.display = "block";
+    emitInteractionMotion(DOM.soundSettingsModal, "open");
     this.updateDetailControls();
     if (AppState.createTrackAnalysers) AppState.createTrackAnalysers();
     const modalAnalyser = soundType === "mainBeatSound"
@@ -1509,8 +1712,11 @@ const SoundSettingsModal = {
   },
 
   hide() {
+    this.closeSoundConfirmation?.();
+    this.editorGeneration = (this.editorGeneration || 0) + 1;
     this.hideEffectsModal();
     this.stopPreview();
+    emitInteractionMotion(DOM.soundSettingsModal, "close");
     DOM.soundSettingsModal.style.display = "none";
     this.stopDrawing();
     this.originalPreviewSound = null;
@@ -1548,44 +1754,63 @@ const SoundSettingsModal = {
     this.stopPreview();
     this.previewVersion = version;
     this.updatePreviewControls();
+    emitInteractionMotion(
+      DOM.soundSettingsModal.querySelector(`#sound-preview-${version}`),
+      "compare"
+    );
     if (wasActive) await this.togglePreview();
   },
 
   async togglePreview() {
     if (this.previewSource || this.previewPending) {
+      const kind = this.previewSource ? "stop" : "cancel";
       this.stopPreview();
+      emitInteractionMotion(DOM.soundSettingsModal.querySelector("#sound-preview-btn"), kind);
       return false;
     }
     const audioContext = AppState.getAudioContext();
     const track = AppState.getTracks()[this.currentTrackIndex];
     const soundInfo = this.getPreviewSoundInfo();
-    if (!audioContext || !track || !soundInfo) return false;
+    const button = DOM.soundSettingsModal.querySelector("#sound-preview-btn");
+    if (DOM.soundSettingsModal.style.display === "none") return false;
+    if (!audioContext || !track || !soundInfo) {
+      emitInteractionMotion(button, "refuse");
+      return false;
+    }
     const generation = ++this.previewGeneration;
+    const target = this.previewTarget;
+    const authority = window.isHost;
+    const isCurrent = () => generation === this.previewGeneration
+      && target === this.previewTarget && track === AppState.getTracks()[this.currentTrackIndex]
+      && authority === window.isHost && DOM.soundSettingsModal.style.display !== "none";
     this.previewPending = true;
     this.updatePreviewControls();
     try {
       if (audioContext.state === "suspended") await audioContext.resume();
-      if (generation !== this.previewGeneration) return false;
+      if (!isCurrent()) { if (generation === this.previewGeneration) this.stopPreview(); return false; }
       const settings = soundInfo.settings;
       const isSynth = soundInfo.sound?.startsWith("Synth");
       let buffer;
       if (isSynth) {
         const functionName = `play${soundInfo.sound.replace("Synth ", "").replace(/ /g, "")}`;
+        emitInteractionMotion(button, "pending");
         buffer = await renderSynthAudioBuffer(audioContext, SoundSynth[functionName], settings);
       } else {
         buffer = this.previewVersion === "original" && this.originalPreviewBuffer
           ? this.originalPreviewBuffer : AppState.getSoundBuffer(soundInfo.sound);
       }
       // A close, Stop, target change, or A/B switch cancels in-flight renders.
-      if (generation !== this.previewGeneration) return false;
+      if (!isCurrent()) { if (generation === this.previewGeneration) this.stopPreview(); return false; }
       if (!buffer) {
         this.stopPreview();
+        emitInteractionMotion(button, "refuse");
         return false;
       }
       const start = Math.max(0, Math.min(buffer.duration, Number(settings.trimStart) || 0));
       const end = Math.max(start, Math.min(buffer.duration, Number.isFinite(Number(settings.trimEnd)) ? Number(settings.trimEnd) : buffer.duration));
       if (end <= start) {
         this.stopPreview();
+        emitInteractionMotion(button, "refuse");
         return false;
       }
       const analyser = audioContext.createAnalyser();
@@ -1611,15 +1836,23 @@ const SoundSettingsModal = {
       }
       this.previewSource = source;
       source.onended = () => {
-        if (generation === this.previewGeneration && this.previewSource === source) this.stopPreview();
+        if (generation === this.previewGeneration && this.previewSource === source) {
+          const acknowledge = isCurrent();
+          this.stopPreview();
+          if (acknowledge) emitInteractionMotion(button, "stop");
+        }
       };
       source.start(0, reverse ? buffer.duration - end : start, end - start);
+      emitInteractionMotion(button, "audition");
       this.previewPending = false;
       this.updatePreviewControls();
       this.startDrawing(analyser);
       return true;
     } catch (error) {
-      if (generation === this.previewGeneration) this.stopPreview();
+      if (isCurrent()) {
+        this.stopPreview();
+        emitInteractionMotion(button, "refuse");
+      } else if (generation === this.previewGeneration) this.stopPreview();
       console.warn("Sound preview could not start:", error.message);
       return false;
     }

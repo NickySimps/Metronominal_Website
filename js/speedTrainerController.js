@@ -1,4 +1,5 @@
 import AppState from './appState.js';
+import { emitInteractionMotion } from './interactionMotion.js';
 import { canEditPractice, getPracticeState, setPracticeConfig } from './practiceTransport.js';
 const ids={enabled:'st-enable-toggle',startBpm:'st-start-bpm',bpmStep:'st-bpm-step',stepBars:'st-step-bars',targetBpm:'st-max-bpm',onMaxAction:'st-max-action',mode:'st-mode',warmupBars:'st-warmup-bars',rampBars:'st-ramp-bars',targetBars:'st-target-bars',recoveryBars:'st-recovery-bars',audibleBars:'st-audible-bars',silentBars:'st-silent-bars'};
 let initialized=false;
@@ -11,18 +12,33 @@ const SpeedTrainerController={
       const extension=document.createElement('div');extension.className='practice-grid';
       extension.innerHTML='<label>Mode<select id="st-mode"><option value="step">Stepped trainer</option><option value="ramp">Warmup → smooth ramp → target → recovery</option></select></label>'+[['warmup','Warmup',0],['ramp','Ramp',1],['target','Target hold',1],['recovery','Recovery ramp',1],['audible','Audible',1],['silent','Silent',0]].map(([id,label,min])=>`<label>${label} bars<input type="number" id="st-${id}-bars" min="${min}" max="128" step="1"></label>`).join('')+'<p>Practice bars use the first bar’s beat count at Play. Ramp BPM follows scheduled musical position; recovery ends at the starting BPM. Configure while stopped. Gaps skip shared clicks only; auditions and transport continue.</p>';
       body.append(extension);
-      btn?.addEventListener('click',()=>{SpeedTrainerController.syncUIFromState();modal.style.display='block';});
-      modal.querySelector('.close-button')?.addEventListener('click',()=>{modal.style.display='none';});
-      modal.addEventListener('click',e=>{if(e.target===modal)modal.style.display='none';});
+      btn?.addEventListener('click',()=>{const opening=getComputedStyle(modal).display==='none';SpeedTrainerController.syncUIFromState();modal.style.display='block';if(opening)emitInteractionMotion(body,'open');});
+      const close=()=>{if(getComputedStyle(modal).display==='none')return;modal.style.display='none';emitInteractionMotion(btn,'close');};
+      modal.querySelector('.close-button')?.addEventListener('click',close);
+      modal.addEventListener('click',e=>{if(e.target===modal)close();});
     }
-    for(const id of Object.values(ids))document.getElementById(id)?.addEventListener('change',()=>{
-      if(!canEditPractice()||AppState.isPlaying()){SpeedTrainerController.syncUIFromState();return;}
-      const config=AppState.getPracticeConfig();
+    for(const id of Object.values(ids))document.getElementById(id)?.addEventListener('change',event=>{
+      const target=event.currentTarget;
+      if(!canEditPractice()||AppState.isPlaying()){SpeedTrainerController.syncUIFromState();emitInteractionMotion(target,'refuse');return;}
+      const before=AppState.getPracticeConfig(),config={...before};
       for(const [key,id] of Object.entries(ids)){const el=document.getElementById(id);if(el)config[key]=key==='enabled'?el.checked:['mode','onMaxAction'].includes(key)?el.value:Number(el.value);}
-      try{setPracticeConfig(config);}catch(e){const status=document.getElementById('st-status-text');if(status)status.textContent=e.message;return;}
+      try{setPracticeConfig(config);}catch(e){const status=document.getElementById('st-status-text');if(status)status.textContent=e.message;emitInteractionMotion(target,'refuse');return;}
       SpeedTrainerController.syncUIFromState();
+      const accepted=AppState.getPracticeConfig();
+      if(Object.keys(before).some(key=>before[key]!==accepted[key]))emitInteractionMotion(target,id===ids.enabled?'toggle':[ids.mode,ids.onMaxAction].includes(id)?'select':'adjust');
     });
-    for(const name of ['practiceconfigchange','playbackstatechange','syncrolechange','roomauthoritychange','songpositionchange'])document.addEventListener(name,SpeedTrainerController.syncUIFromState);
+    let observed=getPracticeState();
+    for(const name of ['practiceconfigchange','playbackstatechange','syncrolechange','roomauthoritychange','songpositionchange'])document.addEventListener(name,()=>{
+      const current=getPracticeState();
+      // Observe only existing transport events; diagnostic renders never acknowledge.
+      const phaseChanged=name==='songpositionchange'&&observed.playing&&current.playing&&current.config.enabled&&current.phase!==observed.phase;
+      observed=current;
+      SpeedTrainerController.syncUIFromState();
+      if(phaseChanged){
+        const status=document.getElementById('st-status-text'),modal=document.getElementById('speed-trainer-modal');
+        emitInteractionMotion(modal&&getComputedStyle(modal).display!=='none'?status:document.getElementById('speed-trainer-btn'),'section');
+      }
+    });
     SpeedTrainerController.syncUIFromState();
   },
   onBarCompleted(){SpeedTrainerController.updateStatus();},

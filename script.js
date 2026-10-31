@@ -24,6 +24,7 @@ import MonitoringController from './js/monitoringController.js';
 import { initializeRehearsalTools } from './js/rehearsalTools.js';
 import { initializeBeatPrecisionMount } from './js/beatPrecisionMount.js';
 import { initializeWorkflowTools } from './js/workflowTools.js';
+import { initializeInteractionMotion, emitInteractionMotion } from './js/interactionMotion.js';
 
 let qrCodeInstance = null;
 let appInitialized = false;
@@ -148,6 +149,7 @@ function hideKeyboardShortcutsOnTouch() {
 }
 
 async function initialize() {
+  initializeInteractionMotion(document);
   hideKeyboardShortcutsOnTouch();
   // Theme selection is device-local and must not wait for audio/network I/O.
   ThemeController.initializeThemeControls();
@@ -169,11 +171,39 @@ async function initialize() {
 
   // 4. Initialize all controllers.
   Oscilloscope.init(); // INITIALIZE the oscilloscope
+  // Keep Reset's authority, stop and restore work in its existing owner. The
+  // shell decorates only the completed outcome, shared by button and shortcut.
+  const resetToDefaults = UIController.resetToDefaults;
+  UIController.resetToDefaults = async (...args) => {
+    const before = JSON.stringify(AppState.getMusicalSnapshot());
+    const wasPlaying = AppState.isPlaying();
+    const accepted = await resetToDefaults(...args);
+    if (accepted === true && !AppState.isPlaying()
+      && (wasPlaying || JSON.stringify(AppState.getMusicalSnapshot()) !== before)) {
+      const reset = DOM.resetButton;
+      const rect = reset?.getBoundingClientRect();
+      const anchor = rect && rect.bottom > 0 && rect.top < innerHeight
+        ? reset : document.getElementById('sticky-play-pause-btn');
+      emitInteractionMotion(anchor, 'reset');
+    }
+    return accepted;
+  };
   UIController.initializeUIControls(refreshUIFromState);
   // Loading saved musical state can restore an older theme. Keep the latest
   // device choice, including a choice made while the audio files were loading.
   ThemeController.applyTheme(localStorage.getItem('selectedTheme') || AppState.getCurrentTheme());
   TempoController.initializeTempoControls();
+  // Observe the existing synchronous TAP handler; never calculate or apply a second tempo.
+  const tapBefore = new WeakMap();
+  DOM.tapTempoBtn?.addEventListener('click', event => {
+    tapBefore.set(event, AppState.getTempo());
+  }, true);
+  DOM.tapTempoBtn?.addEventListener('click', event => {
+    if (window.isHost && AppState.getTapCount() >= 2
+      && tapBefore.has(event) && AppState.getTempo() !== tapBefore.get(event)) {
+      emitInteractionMotion(DOM.tapTempoBtn, 'tempo');
+    }
+  });
   PlaybackController.initializePlaybackControls();
   BarControlsController.initializeBarControls();
   TrackController.init();
@@ -198,6 +228,7 @@ async function initialize() {
   const abInputs = document.getElementById("ab-loop-inputs");
   if (abStart && abEnd && abBtn && abInputs) {
     const updateAb = (event) => {
+      const before = JSON.stringify(AppState.getAbLoop());
       let s = (parseInt(abStart.value, 10) || 1) - 1;
       let e = (parseInt(abEnd.value, 10) || 1) - 1;
       if (s > e) {
@@ -206,6 +237,7 @@ async function initialize() {
       }
       AppState.setAbLoop({ startBar: s, endBar: e });
       refreshUIFromState();
+      if (JSON.stringify(AppState.getAbLoop()) !== before) emitInteractionMotion(event?.target, 'adjust');
     };
     abStart.addEventListener("input", updateAb);
     abEnd.addEventListener("input", updateAb);
@@ -216,6 +248,8 @@ async function initialize() {
       abBtn.textContent = nextEnabled ? "🔂 Loop ON" : "🔂 A/B Loop";
       abBtn.classList.toggle("active", nextEnabled);
       abInputs.classList.toggle("open", nextEnabled);
+      const accepted = AppState.getAbLoop();
+      if (accepted.enabled !== current.enabled) emitInteractionMotion(abBtn, accepted.enabled ? 'loop' : 'toggle');
     });
   }
   SoundSettingsModal.init();
@@ -247,8 +281,9 @@ async function initialize() {
   await initializeWorkflowTools(document.getElementById('rehearsal-tools'), { refreshUI: () => refreshUIFromState({ animate: false }) });
   
   // Unlock AudioContext on first user interaction (Crucial for Mobile)
-  const unlockAudio = async () => {
-      await UserInteraction.handleFirstInteraction();
+  const unlockAudio = async (event) => {
+      const anchor = event.target?.closest?.('button, input, select, summary');
+      await UserInteraction.handleFirstInteraction(anchor || undefined);
       // Only remove listeners once the context is genuinely running;
       // on iOS the first attempt can fail (interrupted state, mute switch).
       if (UserInteraction.audioContextInitialized) {
@@ -326,18 +361,25 @@ if ('serviceWorker' in navigator) {
       const registration = await navigator.serviceWorker.register('./sw.js');
       const banner = document.getElementById('app-update-banner');
       const updateDismissedKey = 'metronominal-update-dismissed';
-      const hideUpdate = () => { if (banner) banner.hidden = true; };
+      const hideUpdate = () => {
+        const wasVisible = Boolean(banner && !banner.hidden);
+        if (banner) banner.hidden = true;
+        return wasVisible;
+      };
       const showUpdate = () => {
         if (banner && sessionStorage.getItem(updateDismissedKey) !== '1') banner.hidden = false;
       };
       document.getElementById('app-update-btn')?.addEventListener('click', () => {
         sessionStorage.setItem(updateDismissedKey, '1');
         hideUpdate();
+        // Only the navigation request is known here. Never delay native reload
+        // or imply that activation/offline upgrade has already completed.
+        emitInteractionMotion(DOM.startStopBtn, 'pending');
         window.location.reload();
       });
       document.getElementById('app-update-dismiss')?.addEventListener('click', () => {
         sessionStorage.setItem(updateDismissedKey, '1');
-        hideUpdate();
+        if (hideUpdate()) emitInteractionMotion(DOM.startStopBtn, 'cancel');
       });
       if (registration.waiting) showUpdate();
       registration.addEventListener('updatefound', () => {

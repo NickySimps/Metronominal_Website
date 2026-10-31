@@ -5,6 +5,7 @@
 
 import AppState from "./appState.js";
 import DOM from "./domSelectors.js"; // Assuming AppState and DOM selectors are correctly imported
+import { emitInteractionMotion } from "./interactionMotion.js";
 import ThemeController from "./themeController.js";
 import UIController from "./uiController.js";
 
@@ -63,8 +64,38 @@ const PresetController = {
         UIController.updateCurrentPresetDisplay(loadedData.songName);
 
         console.log(`Loaded preset. Theme: ${loadedData.theme}, Song: "${loadedData.songName}"`);
+        emitInteractionMotion(DOM.presetSlotSelect, "load");
+      } else {
+        emitInteractionMotion(DOM.presetSlotSelect, "refuse");
       }
     });
+
+    // Title edits are local drafts, not preset writes. Only Save persists them.
+    const titleInput = DOM.presetNameInput;
+    let titleDraft = null;
+    titleInput.addEventListener("focus", () => {
+      titleDraft = {
+        value: titleInput.value,
+        slot: DOM.presetSlotSelect.value,
+        generation: presetLoadGeneration,
+      };
+    });
+    titleInput.addEventListener("change", () => {
+      if (!titleDraft || titleInput.disabled || titleInput.readOnly ||
+          titleDraft.slot !== DOM.presetSlotSelect.value ||
+          titleDraft.generation !== presetLoadGeneration) return;
+      const changed = titleInput.value.trim() !== titleDraft.value.trim();
+      titleDraft.value = titleInput.value;
+      if (changed) emitInteractionMotion(titleInput, "rename");
+    });
+    titleInput.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape" || !titleDraft || titleInput.disabled || titleInput.readOnly ||
+          titleDraft.slot !== DOM.presetSlotSelect.value ||
+          titleDraft.generation !== presetLoadGeneration) return;
+      event.preventDefault();
+      titleInput.value = titleDraft.value;
+    });
+    titleInput.addEventListener("blur", () => { titleDraft = null; });
 
     // Add event listener for the "Save" button
     DOM.savePresetButton.addEventListener("click", async () => {
@@ -85,6 +116,9 @@ const PresetController = {
         }
 
         refreshUIFromState(); // Refresh UI to show new preset name
+        emitInteractionMotion(DOM.savePresetButton, "save");
+      } else {
+        emitInteractionMotion(DOM.savePresetButton, "refuse");
       }
     });
 
@@ -92,7 +126,10 @@ const PresetController = {
     if (DOM.clearPresetButton) {
       DOM.clearPresetButton.addEventListener("click", () => {
         const selectedSlot = parseInt(DOM.presetSlotSelect.value, 10);
-        PresetController.clearPreset(selectedSlot);
+        if (!PresetController.clearPreset(selectedSlot)) {
+          emitInteractionMotion(DOM.clearPresetButton, "refuse");
+          return;
+        }
         const option = DOM.presetSlotSelect.querySelector(`option[value="${selectedSlot}"]`);
         if (option) {
           option.textContent = `Slot ${selectedSlot + 1}`;
@@ -102,6 +139,7 @@ const PresetController = {
         }
         UIController.updateCurrentPresetDisplay(`Slot ${selectedSlot + 1}`);
         console.log(`Cleared preset in slot ${selectedSlot + 1}`);
+        emitInteractionMotion(DOM.clearPresetButton, "remove");
       });
     }
 

@@ -1,4 +1,5 @@
 import Oscilloscope from './oscilloscope.js';
+import { emitInteractionMotion } from './interactionMotion.js';
 
 // A device preference, deliberately not part of AppState or any room/preset payload.
 const STORAGE_KEY = 'metronominal.visualizationQuality';
@@ -63,9 +64,11 @@ export function initializeAdaptiveVisualization(root) {
   }
   const environmentChanged = () => { resetMeasurement(); apply(); };
   const changed = () => {
+    const previous = preference;
     preference = select.value;
     try { localStorage.setItem(STORAGE_KEY, preference); } catch { /* Session only. */ }
     tier = 'full'; resetMeasurement(); apply();
+    if (preference !== previous) emitInteractionMotion(select, 'quality');
   };
   select.addEventListener('change', changed);
   motion.addEventListener('change', environmentChanged);
