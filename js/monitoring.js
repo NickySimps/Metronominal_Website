@@ -48,6 +48,50 @@ const Monitoring = {
     tracks = labels.map(label => ({ label, volume: 1, muted: false }));
     changed();
   },
+  prepareTrackAppend(nextTracks, context) {
+    if (!Array.isArray(nextTracks) || nextTracks.length !== tracks.length + 1 || !context || context.state === 'closed')
+      throw new TypeError('Cannot prepare melody track monitoring');
+    const labels = nextTracks.map((track, index) => {
+      const position = `Track ${index + 1}`;
+      return track.name && track.name !== position ? `${position} · ${track.name}` : position;
+    });
+    if (tracks.some((track, index) => track.label !== labels[index]))
+      throw new Error('Monitoring track layout changed; retry the melody insertion');
+    const output = outputs.get(context), nodes = trackOutputs.get(context);
+    if (!output || !nodes) throw new Error('Track monitoring is not initialized');
+    const index = tracks.length, previous = tracks;
+    const next = [...tracks.map(track => ({ ...track })), { label: labels[index], volume: 1, muted: false }];
+    const stagedOutput = context.createGain();
+    try {
+      stagedOutput.gain.value = 1;
+      stagedOutput.connect(output);
+    } catch (error) {
+      try { stagedOutput.disconnect(); } catch (cleanupError) { console.error('Could not roll back staged melody monitor output:', cleanupError); }
+      throw error;
+    }
+    let state = 'prepared';
+    return {
+      output: stagedOutput,
+      commit() {
+        if (state !== 'prepared' || tracks !== previous || trackOutputs.get(context) !== nodes)
+          throw new Error('Melody monitoring transaction is stale');
+        nodes.set(index, stagedOutput);
+        tracks = next;
+        state = 'committed';
+        document.dispatchEvent(new CustomEvent('monitoringchange'));
+      },
+      rollback() {
+        if (state === 'rolled-back') return;
+        if (state === 'committed') {
+          if (nodes.get(index) === stagedOutput) nodes.delete(index);
+          tracks = previous;
+          state = 'rolled-back';
+          document.dispatchEvent(new CustomEvent('monitoringchange'));
+        } else state = 'rolled-back';
+        try { stagedOutput.disconnect(); } catch (error) { console.error('Could not disconnect staged melody monitor output:', error); }
+      },
+    };
+  },
   resetTracks() {
     tracks = tracks.map(track => ({ ...track, volume: 1, muted: false }));
     changed();

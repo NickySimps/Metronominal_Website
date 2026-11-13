@@ -70,6 +70,16 @@ const DOM = {
     get soundSettingsModal() { return document.getElementById('sound-settings-modal'); },
 
     // Recording Modal
+    get recordingMode() { return document.getElementById('recording-mode'); },
+    get voiceRecordingStatus() { return document.getElementById('voice-recording-status'); },
+    get voiceNoteContainer() { return document.getElementById('voice-note-container'); },
+    get voiceRecordingReview() { return document.getElementById('voice-recording-review'); },
+    get voiceTakeEditorContainer() { return document.getElementById('voice-take-editor-container'); },
+    get voiceTakeDestinationControls() { return document.getElementById('voice-take-destination-controls'); },
+    get voiceTakeDestination() { return document.getElementById('voice-take-destination'); },
+    get voiceTakeSampleRootControls() { return document.getElementById('voice-take-sample-root-controls'); },
+    get voiceTakeSampleRoot() { return document.getElementById('voice-take-sample-root-midi'); },
+    get recordingCancelBtn() { return document.getElementById('recording-cancel-btn'); },
     get recordingDisplayModal() { return document.getElementById('recording-display-modal'); },
     get recordingTimer() { return document.getElementById('recording-timer'); },
     get recordingWaveformCanvas() { return document.getElementById('recording-waveform-canvas'); },
