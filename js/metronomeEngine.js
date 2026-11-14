@@ -11,6 +11,8 @@ import ThemeController from './themeController.js';
 import BarDisplayController from './barDisplayController.js';
 import SoundSynth from './soundSynth.js';
 import AudioPlaybackLifetime from './audioPlaybackLifetime.js';
+import { prepareEngineMelodyInstrument, createMelodyCursor } from './melodyScheduler.js';
+import { TICKS_PER_MAIN_BEAT } from './melodySchema.js';
 import { sendState, broadcastScheduledPlay, broadcastStop, requestPlaybackSync, broadcastSyncPulse, getDesiredHostPlaybackState, isSynchronizationJoined } from './webrtc.js';
 import AudioController from './audioController.js';
 import MidiController from './midiController.js';
@@ -274,14 +276,100 @@ function advanceTrackBeat(track) {
                 track.barSettings.length,
                 { useLongestTrack: track === conductorTrack || track.barSettings.length === conductorTrack.barSettings.length }
             );
+            const previousSection = AppState.getSongSectionForBar(track.currentBar).index;
             track.currentBar = nextPosition.bar;
             track.songRepeatIteration = nextPosition.repeatIteration;
-            if (track === conductorTrack && nextPosition.sectionTransition) {
-                AppState.applySongSectionForBar(track.currentBar, nextPosition.sectionIndex);
+            const nextSection = AppState.getSongSectionForBar(track.currentBar).index;
+            const melodySectionBoundary = AppState.getTracks().some(candidate => 'melody' in candidate) && nextSection !== previousSection;
+            if (track === conductorTrack && (nextPosition.sectionTransition || melodySectionBoundary)) {
+                AppState.applySongSectionForBar(track.currentBar, nextPosition.sectionTransition ? nextPosition.sectionIndex : nextSection);
             }
         }
     }
 }
+
+const melodyTraversals = new Set();
+const melodyTrackCursors = new Map();
+let schedulingAuthority = false;
+let melodyGeneration = 0;
+function cancelMelodies(boundaryTime = null) {
+    for (const entry of melodyTraversals) entry.cursor.cancel('transport-boundary', boundaryTime === null ? undefined : boundaryTime + entry.correction);
+    melodyTraversals.clear();
+    melodyTrackCursors.clear();
+    melodyGeneration++;
+}
+function melodyFailure(error, trackIndex) {
+    document.dispatchEvent(new CustomEvent('melodyplaybackerror', { detail: { trackIndex, message: error.message } }));
+    console.error('Melody playback refused:', error.message);
+    MetronomeEngine.cancelPlayback();
+}
+function prepareTrackMelody(track, trackIndex, tempo, anchor = null) {
+    const previous = melodyTrackCursors.get(trackIndex);
+    if (!anchor && previous && previous.track === track && previous.bar === track.currentBar && previous.repeat === track.songRepeatIteration && track.currentBeat !== 0) return;
+    const context = AppState.getAudioContext();
+    const selection = Object.getOwnPropertyDescriptor(track, 'melody');
+    if (!selection || !selection.enumerable || !Object.hasOwn(selection, 'value')) throw new TypeError('Invalid melody selection property');
+    const barIndex = anchor?.bar ?? track.currentBar;
+    const bar = track.barSettings[barIndex];
+
+    for (const meter of track.barSettings) {
+        const ticks = getBeatSlots(meter).map((_, index) => getSlotDurationSeconds(meter, index, 1) * TICKS_PER_MAIN_BEAT);
+        if (ticks.some(tick => !Number.isSafeInteger(tick) || tick <= 0) || ticks.reduce((sum, tick) => sum + tick, 0) !== meter.beats * TICKS_PER_MAIN_BEAT) {
+            throw new TypeError('Melody timing unsupported: grid must cover each bar in whole ticks');
+        }
+    }
+    const slotTick = anchor?.tick ?? getBeatSlots(bar).slice(0, track.currentBeat)
+        .reduce((sum, _, index) => sum + getSlotDurationSeconds(bar, index, 1) * TICKS_PER_MAIN_BEAT, 0);
+    const offset = track.barSettings.slice(0, barIndex).reduce((sum, bar) => sum + bar.beats * TICKS_PER_MAIN_BEAT, 0);
+    if (!Number.isSafeInteger(slotTick)) throw new TypeError('Melody timing must resolve to whole ticks');
+    const snapshot = { ...track, barSettings: structuredClone(track.barSettings), melody: structuredClone(track.melody),
+        mainBeatSound: structuredClone(track.mainBeatSound), volume: (track.volume ?? 1) * AppState.getVolume() };
+    const instrument = prepareEngineMelodyInstrument({ sound: snapshot.mainBeatSound, buffer: AppState.getSoundBuffer(snapshot.mainBeatSound.sound), rootMidi: snapshot.melody.sampleRootMidi, filterInput: createSoundFilterInput });
+    const authority = { generation: melodyGeneration, tempo, playing: true, practice: 'mapped' };
+    const correction = getLocalOutputOffsetSeconds();
+    const nominalOrigin = anchor?.time ?? track.nextBeatTime;
+    const grid = [0];
+    for (let i = 0; i < getTotalSlots(bar); i++) grid.push(grid.at(-1) + getSlotDurationSeconds(bar, i, 1) * TICKS_PER_MAIN_BEAT);
+    const swingOffsets = grid.map((_, i) => i === grid.length - 1 ? 0 : getTrackSwingOffsetSec({ ...snapshot, currentBar: barIndex, currentBeat: i }));
+    const timeAtTick = tick => {
+        const local = tick - offset;
+        let i = 0;
+        while (i < grid.length - 2 && local > grid[i + 1]) i++;
+        const fraction = (local - grid[i]) / (grid[i + 1] - grid[i]);
+        const swing = swingOffsets[i] + fraction * (swingOffsets[i + 1] - swingOffsets[i]);
+        return nominalOrigin + getPracticeScheduling(nominalOrigin, (local - slotTick) / TICKS_PER_MAIN_BEAT, tempo).duration + swing + correction;
+    };
+    const cursor = createMelodyCursor({ track: snapshot, instrument, context,
+        destination: track.mainAnalyserNode || track.analyserNode || Monitoring.getTrackOutput(context, trackIndex), lifetime: playbackLifetime,
+        authority, originTick: offset + slotTick, originTime: (anchor?.time ?? track.nextBeatTime) + correction,
+        endTick: offset + bar.beats * TICKS_PER_MAIN_BEAT, timeAtTick });
+    const entry = { track, trackIndex, bar: barIndex, repeat: track.songRepeatIteration, cursor, authority, correction,
+        nextAnchorTick: anchor?.nextAnchorTick ?? slotTick, scheduledSlots: [] };
+    melodyTraversals.add(entry);
+    melodyTrackCursors.set(trackIndex, entry);
+}
+function reanchorMelodies() {
+    const entries = [...melodyTrackCursors.values()];
+    cancelMelodies();
+    if (!AppState.isPlaying()) return;
+    for (const entry of entries) {
+        const track = AppState.getTracks()[entry.trackIndex];
+        if (track !== entry.track) continue;
+        const tempo = AppState.getPlaybackTempo(entry.bar), secondsPerTick = 60 / tempo / TICKS_PER_MAIN_BEAT;
+        const barStart = track.nextBeatTime - entry.nextAnchorTick * secondsPerTick;
+        const now = AppState.getAudioContext().currentTime;
+        const tick = Math.max(0, Math.ceil((now + .003 - getLocalOutputOffsetSeconds() - barStart) / secondsPerTick));
+        if (tick >= track.barSettings[entry.bar].beats * TICKS_PER_MAIN_BEAT) continue;
+        try { prepareTrackMelody(track, entry.trackIndex, tempo, { bar: entry.bar, tick, time: barStart + tick * secondsPerTick, nextAnchorTick: entry.nextAnchorTick }); }
+        catch (error) { melodyFailure(error, entry.trackIndex); break; }
+    }
+}
+AppState.subscribeMusicalMutations(event => {
+    if (schedulingAuthority) return;
+    if (event.label === 'setTempo' || event.label === 'updateTrack' || event.label === 'toggleSolo') reanchorMelodies();
+    else cancelMelodies();
+});
+document.addEventListener('songchangecommitted', event => cancelMelodies(event.detail.audioTime));
 
 function scheduler() {
     // If we managed to get a tick while stopped (race condition), ignore it.
@@ -300,6 +388,16 @@ function scheduler() {
     const allTracks = AppState.getTracks();
 
     if (audioContext && audioContext.state === 'running') {
+        schedulingAuthority = true;
+        try {
+        // A traversal owns at most one bar; retire finished leases on the same
+        // worker tick rather than accumulating cursors during long rehearsals.
+        for (const entry of melodyTraversals) {
+            if (entry.cursor.endTime <= audioContext.currentTime) {
+                entry.cursor.cancel('lease-ended');
+                melodyTraversals.delete(entry);
+            }
+        }
         const primaryTrack = allTracks[0];
         const tempoSegments = [{ time: Number.NEGATIVE_INFINITY, tempo: AppState.getPlaybackTempo(primaryTrack?.currentBar || 0) }];
         let scheduled=0;
@@ -309,13 +407,25 @@ function scheduler() {
             const next=candidates[0];
             if(!next) break;
             const horizon=audioContext.currentTime + AppState.SCHEDULE_AHEAD_TIME + getCorrectionSchedulingLead();
+            const melodyNext = [...melodyTraversals].sort((a,b) => (a.cursor.nextEventTime-a.correction)-(b.cursor.nextEventTime-b.correction))[0];
+            const melodyTime = melodyNext ? melodyNext.cursor.nextEventTime - melodyNext.correction : Infinity;
+            const nextTime = Math.min(next.track.nextBeatTime, melodyTime);
             // A queued authoritative seam is itself a scheduling event. An old
             // peer grid can precede it by more than the seam tolerance, leaving
             // the following old slot outside lookahead until AFTER the seam.
             // Check the seam at the horizon before waiting for that old slot,
             // while still submitting every earlier track slot chronologically.
-            if(applyPendingSongAtBoundary(Math.min(next.track.nextBeatTime,horizon))) continue;
-            if(next.track.nextBeatTime >= horizon) break;
+            if(applyPendingSongAtBoundary(Math.min(nextTime,horizon))) continue;
+            if(nextTime >= horizon) break;
+            if (melodyTime < next.track.nextBeatTime) {
+                try {
+                    const live = AppState.getTracks()[melodyNext.trackIndex];
+                    const notePractice = getPracticeScheduling(melodyTime, 0, melodyNext.authority.tempo);
+                    melodyNext.cursor.advance({ horizonTime: melodyNext.cursor.nextEventTime + 1e-9, authority: melodyNext.authority,
+                        audible: !notePractice.stop && notePractice.audible && !live?.muted && (!AppState.isAnyTrackSoloed() || live.solo) });
+                } catch (error) { melodyFailure(error, melodyNext.trackIndex); return; }
+                continue;
+            }
             const {track,index:trackIndex}=next;
             {
                 let tempo;
@@ -358,7 +468,10 @@ function scheduler() {
                     const swingOffset = getTrackSwingOffsetSec(track);
                     const swungBeatTime = track.nextBeatTime + swingOffset;
 
-                    if(practice.audible) playBeatSound(track, swungBeatTime, trackIndex);
+                    if ('melody' in track) {
+                        try { prepareTrackMelody(track, trackIndex, tempo); }
+                        catch (error) { melodyFailure(error, trackIndex); return; }
+                    } else if(practice.audible) playBeatSound(track, swungBeatTime, trackIndex);
                     // Gate the generation's post-FX routes, never the shared context or
                     // Monitoring output: sustained voices/tails must also respect gaps.
                     for(const event of getPracticeGateEvents(track.nextBeatTime,track.nextBeatTime+secondsPerSubBeat)) {
@@ -387,10 +500,17 @@ function scheduler() {
                     lastSyncPulseTime = Date.now();
                 }
                 
+                const melodyEntry = melodyTrackCursors.get(trackIndex);
+                if ('melody' in track && melodyEntry) {
+                    melodyEntry.scheduledSlots.push({ bar: track.currentBar, beat: track.currentBeat,
+                        repeat: track.songRepeatIteration || 0, time: track.nextBeatTime });
+                    melodyEntry.nextAnchorTick += slotBeats * TICKS_PER_MAIN_BEAT;
+                }
                 advanceTrackBeat(track);
                 track.nextBeatTime += secondsPerSubBeat;
             }
         }
+        } finally { schedulingAuthority = false; }
     }
 }
 
@@ -444,6 +564,11 @@ function performEngineStopActions() {
 }
 
 const MetronomeEngine = {
+    // Protocol support is distinct from worker/audio readiness. This certifies
+    // note selection, mapped timing and boundary cancellation, not every sound:
+    // four pitched waveforms or an explicitly rooted native sample are accepted;
+    // unsupported instruments/settings fail visibly, never fall back to rhythm.
+    supportsMelodyProtocol: capability => capability === 'melody-v1',
     shouldPlayProbability: (probability, roll) => {
         if (!Number.isFinite(probability)) return true;
         if (probability <= 0) return false;
@@ -453,6 +578,7 @@ const MetronomeEngine = {
     cancelPlayback: () => {
         cancelCalibration();
         practiceStopScheduled=false;
+        cancelMelodies();
         playbackLifetime?.cancel();
         playbackLifetime = null;
         activeSynthVoices.clear();
@@ -580,6 +706,7 @@ const MetronomeEngine = {
     },
 
     scheduleStart: async (targetTimestamp, startBar = 0, startBeat = 0, repeatIteration = 0, shouldStart = () => true, practiceEpochTimestamp = targetTimestamp) => {
+        cancelMelodies();
         const lifetime = ensurePlaybackLifetime();
         const current = () => lifetime.active && lifetime === playbackLifetime && shouldStart();
         const audioContext = AppState.getAudioContext();
@@ -680,6 +807,14 @@ const MetronomeEngine = {
         // Use first track as reference
         if (tracks.length > 0) {
             const track = tracks[0];
+
+            // A host pulse describes its submitted slot, not necessarily our
+            // next unscheduled slot: independent workers can have different
+            // lookahead progress. Do not rewind an already aligned melody slot
+            // and cancel/recreate its native voices. Real mismatches still snap.
+            if ([...melodyTraversals].some(entry => entry.track === track && entry.scheduledSlots.some(slot =>
+                slot.bar === bar && slot.beat === beat && slot.repeat === repeatIteration &&
+                Math.abs(slot.time - targetAudioTime) <= .005))) return;
             
             // Structural Check: Are we on the same beat?
             // Note: 'bar' and 'beat' from Host are the indices of the NEXT beat (targetAudioTime).
@@ -690,6 +825,7 @@ const MetronomeEngine = {
                 console.warn(`Sync Mismatch! Client: ${track.currentBar}:${track.currentBeat}, Host: ${bar}:${beat}. Snapping structure...`);
                 
                 // Hard snap indices
+                cancelMelodies();
                 track.currentBar = bar;
                 track.currentBeat = beat;
                 track.songRepeatIteration = repeatIteration;
@@ -722,6 +858,7 @@ const MetronomeEngine = {
                 tracks.forEach(t => {
                     t.nextBeatTime += drift;
                 });
+                reanchorMelodies();
             } else if (Math.abs(drift) >= 1.0) {
                 console.warn(`Massive drift detected: ${Math.round(drift * 1000)}ms. Ignoring nudge to prevent jumpiness.`);
             }

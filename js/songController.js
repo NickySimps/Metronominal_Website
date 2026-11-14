@@ -1,7 +1,16 @@
 import AppState, { DEFAULT_PRACTICE_CONFIG, validatePracticeConfig } from "./appState.js";
-import { sendState, getSyncDiagnostics } from "./webrtc.js";
+import { sendState, getSyncDiagnostics, isPublicMelodyState } from "./webrtc.js";
 import MetronomeEngine from "./metronomeEngine.js";
 import { emitInteractionMotion } from "./interactionMotion.js";
+import { validateMelody } from "./melodySchema.js";
+
+function melodyFields(track) {
+  return Object.hasOwn(track, "melody") ? { melody: validateMelody(track.melody, track.barSettings) } : {};
+}
+function hasMelody(state) {
+  return [...(state?.Tracks || []), ...(state?.song?.sections || []).flatMap(section => section.tracks || [])]
+    .some(track => Object.hasOwn(track, "melody"));
+}
 
 const FORMAT = "metronominal-song";
 const MAX_IMPORT_BYTES = 256 * 1024;
@@ -62,7 +71,7 @@ async function shareSong(target, nativeShare = false) {
 const SNAPSHOT_BAR_KEYS = new Set(["beats", "subdivision", "rests", "velocities", "beatSounds", "beatSlices", "beatSliceAnchors"]);
 
 const SNAPSHOT_TRACK_KEYS = new Set([
-  "name", "barSettings", "muted", "solo", "volume", "pitchShift", "swing", "mainBeatSound", "subdivisionSound"
+  "name", "barSettings", "muted", "solo", "volume", "pitchShift", "swing", "mainBeatSound", "subdivisionSound", "melody"
 ]);
 
 function hasOnlyKeys(value, keys) {
@@ -82,6 +91,13 @@ function publicSoundSettings(value) {
     || (PUBLIC_BOOLEAN_SOUND_SETTINGS.has(key) && typeof setting === 'boolean')
     || (key === 'type' && ['sine','square','sawtooth','triangle'].includes(setting))
   ));
+}
+
+function publicBeatSounds(value, privateSounds = new Set()) {
+  return Object.fromEntries(Object.entries(value || {}).map(([index, overrides]) => [index,
+    Object.fromEntries(['mainBeatSound', 'subdivisionSound'].filter(key => overrides[key]).map(key => [key,
+      { sound: privateSounds.has(overrides[key].sound) || /^Recording:/i.test(overrides[key].sound)
+        ? (key === 'mainBeatSound' ? 'Synth Kick' : 'Synth HiHat') : overrides[key].sound, settings: publicSoundSettings(overrides[key].settings) }]))]));
 }
 
 function stripUnsafeData(value) {
@@ -129,7 +145,8 @@ async function createPayload() {
       }
     }
   }
-  return { format: FORMAT, version: 1, exportedAt: new Date().toISOString(), state };
+  const publicState = reconstructImportedState(state);
+  return validatePayload({ format: FORMAT, version: hasMelody(publicState) ? 2 : 1, exportedAt: new Date().toISOString(), state: publicState });
 }
 
 function isFiniteInRange(value, minimum, maximum) {
@@ -184,6 +201,7 @@ function isSafeBeatSounds(value) {
 
 function isSafeSnapshotTrack(track) {
   if (!track || typeof track !== "object" || Array.isArray(track) || !hasOnlyKeys(track, SNAPSHOT_TRACK_KEYS)) return false;
+  try { melodyFields(track); } catch { return false; }
   if (track.name !== undefined && (typeof track.name !== "string" || track.name.length < 1 || track.name.length > 64)) return false;
   if (!Array.isArray(track.barSettings) || track.barSettings.length < 1 || track.barSettings.length > 64) return false;
   if (typeof track.muted !== "boolean" || typeof track.solo !== "boolean" || !isFiniteInRange(track.volume, 0, 1)) return false;
@@ -221,13 +239,14 @@ function privateSoundNames() {
 function snapshotCurrentTracks() {
   const privateSounds = privateSoundNames();
   return AppState.getTracks().slice(0, 16).map((track, index) => ({
+    ...melodyFields(track),
     name: String(track.name || `Track ${index + 1}`).trim().slice(0, 64) || `Track ${index + 1}`,
     barSettings: track.barSettings.slice(0, 64).map(bar => ({
       beats: bar.beats,
       subdivision: Number(bar.subdivision),
       rests: [...(bar.rests || [])].slice(0, 256),
       velocities: { ...(bar.velocities || {}) },
-      beatSounds: JSON.parse(JSON.stringify(bar.beatSounds || {})),
+      beatSounds: publicBeatSounds(bar.beatSounds, privateSounds),
       beatSlices: { ...(bar.beatSlices || {}) },
       beatSliceAnchors: { ...(bar.beatSliceAnchors || {}) },
     })),
@@ -238,13 +257,23 @@ function snapshotCurrentTracks() {
     swing: Number.isFinite(track.swing) ? track.swing : 0,
     mainBeatSound: {
       sound: privateSounds.has(track.mainBeatSound?.sound) ? "Synth Kick" : track.mainBeatSound.sound,
-      settings: JSON.parse(JSON.stringify(track.mainBeatSound?.settings || {})),
+      settings: publicSoundSettings(track.mainBeatSound?.settings),
     },
     subdivisionSound: {
       sound: privateSounds.has(track.subdivisionSound?.sound) ? "Synth HiHat" : track.subdivisionSound.sound,
-      settings: JSON.parse(JSON.stringify(track.subdivisionSound?.settings || {})),
+      settings: publicSoundSettings(track.subdivisionSound?.settings),
     },
   }));
+}
+
+// The loader may detach track/bar/melody containers, but retains these validated
+// sound objects by identity. Bind the first receipt through that native seam,
+// then fence all later work against the exact adopted track-array identity.
+function matchesLoadedTracks(source) {
+  const tracks = AppState.getTracks();
+  return tracks === source || (Array.isArray(source) && tracks.length === source.length
+    && tracks.every((track, i) => track.mainBeatSound === source[i].mainBeatSound
+      && track.subdivisionSound === source[i].subdivisionSound));
 }
 
 function runtimeTracksFromSnapshot(tracks) {
@@ -266,7 +295,13 @@ function expandSnapshotBars(tracks, requiredBars) {
     }));
     const lastBar = bars[bars.length - 1];
     while (bars.length < requiredBars) bars.push(JSON.parse(JSON.stringify(lastBar)));
-    return { ...track, barSettings: bars };
+    // Padding an arrangement is not a new performance of the final melody bar:
+    // keep every existing note ID and append empty note bars, never duplicate IDs.
+    const savedMelody = melodyFields(track);
+    if (savedMelody.melody) {
+      while (savedMelody.melody.bars.length < bars.length) savedMelody.melody.bars.push([]);
+    }
+    return { ...track, ...savedMelody, barSettings: bars };
   });
 }
 
@@ -311,6 +346,7 @@ function validateImportedState(state) {
     if (!section || typeof section.name !== "string" || section.name.length < 1 || section.name.length > 48) return false;
     if (!Number.isInteger(section.startBar) || section.startBar < previousStart || section.startBar >= barCount) return false;
     if (!Number.isInteger(section.tempo) || section.tempo < 20 || section.tempo > 300) return false;
+    if (song.version !== 2 && section.tracks?.some(track => Object.hasOwn(track, "melody"))) return false;
     if (song.version === 2) {
       if (!Number.isInteger(section.repeats) || section.repeats < 1 || section.repeats > 16) return false;
       if (section.tracks !== undefined
@@ -350,9 +386,10 @@ function reconstructImportedState(state) {
         repeats: state.song.version === 2 ? section.repeats : 1,
         ...(state.song.version === 2 && Array.isArray(section.tracks)
           ? { tracks: section.tracks.map(track => ({
+            ...melodyFields(track),
             ...(typeof track.name === "string" ? { name: track.name } : {}),
             barSettings: track.barSettings.map(bar => ({
-              beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests], velocities: { ...(bar.velocities || {}) }, beatSounds: JSON.parse(JSON.stringify(bar.beatSounds || {})), beatSlices: { ...(bar.beatSlices || {}) }, beatSliceAnchors: { ...(bar.beatSliceAnchors || {}) }
+              beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests], velocities: { ...(bar.velocities || {}) }, beatSounds: publicBeatSounds(bar.beatSounds), beatSlices: { ...(bar.beatSlices || {}) }, beatSliceAnchors: { ...(bar.beatSliceAnchors || {}) }
             })),
             muted: track.muted,
             solo: track.solo,
@@ -366,8 +403,9 @@ function reconstructImportedState(state) {
       }))
     },
     Tracks: state.Tracks.map(track => ({
+      ...melodyFields(track),
       ...(typeof track.name === "string" ? { name: track.name } : {}),
-      barSettings: track.barSettings.map(bar => ({ beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests], velocities: { ...(bar.velocities || {}) }, beatSounds: JSON.parse(JSON.stringify(bar.beatSounds || {})), beatSlices: { ...(bar.beatSlices || {}) }, beatSliceAnchors: { ...(bar.beatSliceAnchors || {}) } })),
+      barSettings: track.barSettings.map(bar => ({ beats: bar.beats, subdivision: Number(bar.subdivision), rests: [...bar.rests], velocities: { ...(bar.velocities || {}) }, beatSounds: publicBeatSounds(bar.beatSounds), beatSlices: { ...(bar.beatSlices || {}) }, beatSliceAnchors: { ...(bar.beatSliceAnchors || {}) } })),
       muted: track.muted === true,
       solo: track.solo === true,
       volume: isFiniteInRange(track.volume, 0, 1) ? track.volume : 1,
@@ -389,14 +427,14 @@ function reconstructImportedState(state) {
 }
 
 function validatePayload(payload) {
-  if (!payload || payload.format !== FORMAT || payload.version !== 1 || !payload.state) {
+  if (!payload || payload.format !== FORMAT || ![1, 2].includes(payload.version) || !payload.state) {
     throw new Error("This is not a supported Metronominal song file.");
   }
   const serialized = JSON.stringify(payload);
   if (new TextEncoder().encode(serialized).byteLength > MAX_IMPORT_BYTES) {
     throw new Error("Song files must be 256 KB or smaller.");
   }
-  if (containsForbiddenKey(payload) || !validateImportedState(payload.state)) {
+  if ((payload.version === 1 && hasMelody(payload.state)) || containsForbiddenKey(payload) || !validateImportedState(payload.state)) {
     throw new Error("Song contains invalid or unsafe data.");
   }
   const privateSounds = privateSoundNames();
@@ -405,9 +443,10 @@ function validatePayload(payload) {
     || (typeof value.baseSound === 'string' && (privateSounds.has(value.baseSound) || /^Recording:/i.test(value.baseSound)))
     || Object.values(value).some(hasPrivateReference));
   if (hasPrivateReference(payload.state)) throw new Error("Song contains private recording references.");
+  if (hasMelody(payload.state) && !isPublicMelodyState(payload.state)) throw new Error("Melody requires a public score without private assets.");
   // Reconstruct the envelope too: unknown personal metadata must never survive
   // a library import/export just because the musical state is valid.
-  return { format: FORMAT, version: 1,
+  return { format: FORMAT, version: payload.version,
     ...(typeof payload.exportedAt === 'string' && payload.exportedAt.length <= 64 ? { exportedAt: payload.exportedAt } : {}),
     state: reconstructImportedState(payload.state) };
 }
@@ -423,18 +462,18 @@ async function applyPayload(payload, { allowBeforeConnection = false, shouldAppl
   if (!canLoad() || !shouldApply()) {
     throw new DOMException('Song import cancelled.', 'AbortError');
   }
-  // loadPresetData intentionally returns undefined for both acceptance and
-  // refusal. Only its appstatechange for this exact reconstructed track array
-  // is a receipt; a later replacement/edit must not publish or claim this load.
+  // Undefined is not an acceptance receipt. Match the loader-owned sound
+  // identities at its first event, then retain only its exact adopted array.
   let receipt = null;
+  let receiptTracks = null;
   let valid = true;
   const cancel = () => { valid = false; };
   const onState = () => {
-    if (receipt !== null || AppState.getTracks() !== validated.state.Tracks || AppState.getTempo() !== validated.state.tempo) cancel();
-    else receipt = JSON.stringify(AppState.getMusicalSnapshot());
+    if (receipt !== null || !matchesLoadedTracks(validated.state.Tracks) || AppState.getTempo() !== validated.state.tempo) cancel();
+    else { receiptTracks = AppState.getTracks(); receipt = JSON.stringify(AppState.getMusicalSnapshot()); }
   };
   const unsubscribe = AppState.subscribeMusicalMutations(() => {
-    if (receipt !== null || AppState.getTracks() !== validated.state.Tracks) cancel();
+    if (receipt !== null || !matchesLoadedTracks(validated.state.Tracks)) cancel();
   });
   document.addEventListener('appstatechange', onState);
   document.addEventListener('historyboundary', cancel);
@@ -444,7 +483,7 @@ async function applyPayload(payload, { allowBeforeConnection = false, shouldAppl
       guard: () => valid && shouldApply() && canLoad(),
     });
     if (!valid || !shouldApply() || !canLoad() || (receipt !== null
-      && (AppState.getTracks() !== validated.state.Tracks || JSON.stringify(AppState.getMusicalSnapshot()) !== receipt))) {
+      && (AppState.getTracks() !== receiptTracks || JSON.stringify(AppState.getMusicalSnapshot()) !== receipt))) {
       throw new DOMException('Song import cancelled.', 'AbortError');
     }
     if (receipt === null) throw new Error('Song import was not applied.');
@@ -558,8 +597,8 @@ async function publishSongChange(nextSong, shouldRender = true, onAccepted = nul
 }
 
 // Observe the native loader's receipt, not its undefined return value. The loader
-// adopts state.Tracks by identity and dispatches appstatechange after normalizing
-// the song. Only that first receipt belongs to this Apply; later operations end it.
+// adopts the validated sound objects and dispatches appstatechange after
+// normalizing the song. Only that first receipt belongs to this Apply.
 function observeSectionLoadFeedback(state, index) {
   const before = JSON.stringify(AppState.getMusicalSnapshot());
   const safeBarCount = Math.max(1, Math.min(Number.parseInt(state.Tracks[0]?.barSettings?.length, 10) || 1, 64));
@@ -571,6 +610,7 @@ function observeSectionLoadFeedback(state, index) {
   const targetIndex = sortedIndex < 0 ? -1 : sortedIndex + (permutation[0]?.startBar !== 0 ? 1 : 0);
   let boundarySeen = false;
   let receipt = null;
+  let receiptTracks = null;
   let valid = true;
   const cancel = () => { valid = false; };
   const onBoundary = () => {
@@ -579,14 +619,14 @@ function observeSectionLoadFeedback(state, index) {
   };
   const onState = () => {
     if (!valid) return;
-    if (!boundarySeen || receipt !== null || AppState.getTracks() !== state.Tracks || AppState.getTempo() !== state.tempo) {
+    if (!boundarySeen || receipt !== null || !matchesLoadedTracks(state.Tracks) || AppState.getTempo() !== state.tempo) {
       cancel();
       return;
     }
     try {
       const accepted = JSON.stringify(AppState.getMusicalSnapshot());
       if (accepted === before || targetIndex < 0 || !AppState.getSong().sections[targetIndex]) cancel();
-      else receipt = accepted;
+      else { receiptTracks = AppState.getTracks(); receipt = accepted; }
     } catch { cancel(); }
   };
   // Ignore notification payloads: no private arguments or history tokens are kept.
@@ -595,7 +635,7 @@ function observeSectionLoadFeedback(state, index) {
   document.addEventListener('appstatechange', onState);
   return {
     targetIndex,
-    isCurrent: () => valid && receipt !== null && AppState.getTracks() === state.Tracks
+    isCurrent: () => valid && receipt !== null && AppState.getTracks() === receiptTracks
       && JSON.stringify(AppState.getMusicalSnapshot()) === receipt,
     dispose: () => {
       unsubscribe();

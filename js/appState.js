@@ -1,6 +1,29 @@
 import { audioBufferToWav, wavToArrayBuffer } from './audioSerialization.js';
 import { getBeatSlots, normalizeSliceCount } from './beatTiming.js';
 import Monitoring from './monitoring.js';
+import { validateMelody, MELODY_LIMITS } from './melodySchema.js';
+
+// Legacy absence remains absent. Explicit malformed data never gets stripped.
+function trackMelody(track) {
+  if (!track || typeof track !== 'object' || !('melody' in track)) return {};
+  const descriptor = Object.getOwnPropertyDescriptor(track, 'melody');
+  if (!descriptor || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) throw new TypeError('Invalid melody property');
+  const melody = validateMelody(descriptor.value, track.barSettings);
+  const canonical = JSON.stringify({ ...track, melody }, (key, value) =>
+    ['analyserNode', 'mainAnalyserNode', 'subdivisionAnalyserNode'].includes(key) ? undefined : value);
+  if (new TextEncoder().encode(canonical).byteLength > MELODY_LIMITS.maxSerializedBytes) throw new TypeError('Invalid melody: track byte limit');
+  return { melody };
+}
+function validateSongMelodies(value) {
+  if (Array.isArray(value?.sections)) for (const section of value.sections) {
+    if (Array.isArray(section?.tracks)) section.tracks.forEach(trackMelody);
+  }
+}
+function validateStateMelodies(value) {
+  if (Array.isArray(value?.Tracks)) value.Tracks.forEach(trackMelody);
+  validateSongMelodies(value?.song);
+}
+
 
 /**
  * @typedef {Object} BarSetting
@@ -283,6 +306,7 @@ function normalizeSectionSound(value, fallbackSound, fallbackSettings) {
 
 function normalizeSectionTrack(value, index) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const melody = trackMelody(value);
   const bars = Array.isArray(value.barSettings) ? value.barSettings.slice(0, 64).map(bar => ({
     beats: Math.max(1, Math.min(Number.parseInt(bar?.beats, 10) || 4, 32)),
     subdivision: Math.max(0.25, Math.min(Number(bar?.subdivision) || 1, 16)),
@@ -308,6 +332,7 @@ function normalizeSectionTrack(value, index) {
       ? { name: value.name.trim().slice(0, 64) }
       : { name: `Track ${index + 1}` }),
     barSettings: bars,
+    ...melody,
     muted: value.muted === true,
     solo: value.solo === true,
     volume: Number.isFinite(Number(value.volume)) ? Math.max(0, Math.min(Number(value.volume), 1)) : 1,
@@ -326,6 +351,7 @@ const defaultSong = (tempo = 120) => ({
 });
 
 function normalizeSong(value, barCount, fallbackTempo = 120) {
+  validateSongMelodies(value);
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : defaultSong(fallbackTempo);
   const safeBarCount = Math.max(1, Math.min(Number.parseInt(barCount, 10) || 1, 64));
   const sections = Array.isArray(source.sections) ? source.sections : [];
@@ -390,6 +416,7 @@ function isSafeNetworkBar(value) {
 }
 
 function isSafeNetworkTrack(value) {
+  try { trackMelody(value); } catch { return false; }
   return value && typeof value === "object" && !Array.isArray(value)
     && Array.isArray(value.barSettings) && value.barSettings.length >= 1 && value.barSettings.length <= 64
     && value.barSettings.every(isSafeNetworkBar)
@@ -681,6 +708,14 @@ const publicAPI = {
         : publicAPI.getSongSectionForBar(barIndex);
       // Legacy tempo-only sections have no ensemble replacement, including tracks: [].
       const snapshotTracks = Array.isArray(section?.tracks) ? section.tracks : [];
+      // Preflight the whole ensemble before changing tempo or any track.
+      snapshotTracks.forEach((snapshot, index) => {
+        trackMelody(snapshot);
+        const existing = Tracks[index]?.barSettings || [];
+        const bars = snapshot.barSettings || existing;
+        trackMelody({ ...snapshot, barSettings: Array.from({ length: Math.max(existing.length, bars.length, 1) }, (_, i) =>
+          bars[i] || existing[i] || bars.at(-1) || existing.at(-1)) });
+      });
       activeSongSectionIndex = section.index;
       const sectionTempo = Number(section.tempo);
       if (Number.isFinite(sectionTempo) && sectionTempo > 0 && sectionTempo !== tempo) {
@@ -708,6 +743,8 @@ const publicAPI = {
         track.swing = Number.isFinite(snapshot.swing) ? snapshot.swing : track.swing;
         track.mainBeatSound = JSON.parse(JSON.stringify(snapshot.mainBeatSound || track.mainBeatSound));
         track.subdivisionSound = JSON.parse(JSON.stringify(snapshot.subdivisionSound || track.subdivisionSound));
+        if (Object.hasOwn(snapshot, 'melody')) track.melody = trackMelody(snapshot).melody;
+        else delete track.melody;
         track.currentBar = Math.min(currentBar, Math.max(0, track.barSettings.length - 1));
         track.currentBeat = 0;
       });
@@ -1035,8 +1072,50 @@ const publicAPI = {
       publicAPI.setControlsAttachedToTrack(true);
       saveState();
     },
+    addMelodyTrack: ({ melody, barSettings, name = 'Voice Melody' } = {}) => {
+      if (isPlaying) throw new Error('Stop playback before applying voice notes');
+      if (!audioContext || audioContext.state === 'closed') throw new Error('Open audio context required to add a melody track');
+      if (!Array.isArray(barSettings) || !barSettings.length) throw new TypeError('Melody track needs bar settings');
+      const canonicalMelody = validateMelody(melody, barSettings);
+      const bars = barSettings.map(bar => ({ ...structuredClone(bar), rests: Array.from({ length: bar.beats }, (_, index) => index) }));
+      const newTrack = {
+        name, barSettings: bars, melody: canonicalMelody,
+        muted: false, solo: false, volume: 1, pitchShift: 0, swing: 0,
+        currentBar: 0, currentBeat: 0, nextBeatTime: 0,
+        mainBeatSound: { sound: 'Synth Sine', settings: { volume: 1, pitchShift: 0, release: 0.2 } },
+        subdivisionSound: { sound: 'Synth HiHat', settings: { ...defaultHiHat } },
+        analyserNode: null, mainAnalyserNode: null, subdivisionAnalyserNode: null,
+      };
+      const index = Tracks.length;
+      const monitoring = Monitoring.prepareTrackAppend([...Tracks, newTrack], audioContext);
+      const oldSelection = selectedTrackIndex, oldBar = selectedBarIndexInContainer, oldAttached = controlsAttachedToTrack;
+      try {
+        newTrack.analyserNode = audioContext.createAnalyser();
+        newTrack.mainAnalyserNode = audioContext.createAnalyser();
+        newTrack.subdivisionAnalyserNode = audioContext.createAnalyser();
+        newTrack.mainAnalyserNode.connect(newTrack.analyserNode);
+        newTrack.subdivisionAnalyserNode.connect(newTrack.analyserNode);
+        newTrack.analyserNode.connect(monitoring.output);
+        Tracks.push(newTrack);
+        selectedTrackIndex = index;
+        selectedBarIndexInContainer = 0;
+        controlsAttachedToTrack = true;
+        monitoring.commit();
+        saveState();
+        return index;
+      } catch (error) {
+        if (Tracks[index] === newTrack) Tracks.pop();
+        selectedTrackIndex = oldSelection;
+        selectedBarIndexInContainer = oldBar;
+        controlsAttachedToTrack = oldAttached;
+        monitoring.rollback();
+        disconnectTrackAnalysers(newTrack);
+        throw error;
+      }
+    },
     removeTrack: (indexToRemove) => {
         if (Tracks.length <= 1) {
+            if ('melody' in Tracks[0]) throw new TypeError('Cannot clear bars of a melody track');
             // If it's the last track, just clear its bars instead of removing it.
             Tracks[0].barSettings = [];
             publicAPI.setSelectedBarIndexInContainer(-1); // No bar is selected
@@ -1075,6 +1154,7 @@ const publicAPI = {
     duplicateTrack: (index) => {
       const source = Tracks[index];
       if (!source) return -1;
+      trackMelody(source);
       const copy = JSON.parse(JSON.stringify(source, (key, value) =>
         ["analyserNode", "mainAnalyserNode", "subdivisionAnalyserNode"].includes(key) ? undefined : value
       ));
@@ -1096,6 +1176,7 @@ const publicAPI = {
       const track = Tracks[trackIndex];
       const bar = track?.barSettings?.[barIndex];
       if (!bar) return false;
+      if ('melody' in track) throw new TypeError('Update bars and melody together');
       track.barSettings.splice(barIndex + 1, 0, JSON.parse(JSON.stringify(bar)));
       selectedTrackIndex = trackIndex;
       selectedBarIndexInContainer = barIndex + 1;
@@ -1103,8 +1184,9 @@ const publicAPI = {
       return true;
     },
     resetTrack: (trackIndex, options = {}) => {
-      const track = Tracks[trackIndex];
-      if (!track) return false;
+      const originalTrack = Tracks[trackIndex];
+      if (!originalTrack) return false;
+      const track = { ...originalTrack };
       const trackOptions = options.track === true ? { muted: true, solo: true, volume: true, pitchShift: true, swing: true } : (options.track || {});
       if (options.track) {
         if (trackOptions.muted) track.muted = false;
@@ -1143,6 +1225,7 @@ const publicAPI = {
           ...(patternOptions.slices ? { beatSlices: {}, beatSliceAnchors: {} } : {}),
         }));
       }
+      Object.assign(originalTrack, track, trackMelody(track));
       saveState();
       return true;
     },
@@ -1180,7 +1263,12 @@ const publicAPI = {
     },
     updateTrack: (containerIndex, updatedProperties) => {
       if (Tracks[containerIndex]) {
-        Object.assign(Tracks[containerIndex], updatedProperties);
+        if ('melody' in updatedProperties) {
+          const descriptor = Object.getOwnPropertyDescriptor(updatedProperties, 'melody');
+          if (!descriptor || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) throw new TypeError('Invalid melody property');
+        }
+        const candidate = { ...Tracks[containerIndex], ...updatedProperties };
+        Object.assign(Tracks[containerIndex], updatedProperties, trackMelody(candidate));
         saveState();
       }
     },
@@ -1230,6 +1318,7 @@ const publicAPI = {
       const currentContainer = Tracks[selectedTrackIndex];
       if (!currentContainer) return;
 
+      if ('melody' in currentContainer && Number.parseInt(newTotalBars, 10) !== currentContainer.barSettings.length) throw new TypeError('Update bars and melody together');
       const previousNumberOfBars = currentContainer.barSettings.length;
       newTotalBars = parseInt(newTotalBars, 10);
 
@@ -1307,6 +1396,8 @@ const publicAPI = {
         selectedBarIndexInContainer !== -1 &&
         currentContainer.barSettings[selectedBarIndexInContainer]
       ) {
+        trackMelody({ ...currentContainer, barSettings: currentContainer.barSettings.map((bar, i) =>
+          i === selectedBarIndexInContainer ? { ...bar, beats: bar.beats + 1 } : bar) });
         currentContainer.barSettings[selectedBarIndexInContainer].beats++;
         saveState();
       }
@@ -1321,6 +1412,8 @@ const publicAPI = {
         if (
           currentContainer.barSettings[selectedBarIndexInContainer].beats > 1
         ) {
+          trackMelody({ ...currentContainer, barSettings: currentContainer.barSettings.map((bar, i) =>
+            i === selectedBarIndexInContainer ? { ...bar, beats: bar.beats - 1 } : bar) });
           currentContainer.barSettings[selectedBarIndexInContainer].beats--;
           
           // Handle case where currentBeat is now out of bounds
@@ -1526,6 +1619,7 @@ const publicAPI = {
 
     // Presets & State
     getCurrentStateForPreset: async (excludeHeavyData = false) => {
+      validateStateMelodies({ Tracks, song });
       const serializedRecordings = {};
       if (!excludeHeavyData) {
           for (const name of recordings) {
@@ -1552,7 +1646,7 @@ const publicAPI = {
           JSON.stringify(
             Tracks.map((track) => {
               const { analyserNode, mainAnalyserNode, subdivisionAnalyserNode, ...remaningTrack } = track;
-              return remaningTrack;
+              return { ...remaningTrack, ...trackMelody(track) };
             })
           )
         ),
@@ -1578,6 +1672,10 @@ const publicAPI = {
     },
     loadPresetData: async (data, options = {}) => {
       if (!data || (options.guard && !options.guard())) return;
+      validateStateMelodies(data);
+      // Detach validated note payloads before load mutates track defaults.
+      const importedTracks = Array.isArray(data.Tracks)
+        ? data.Tracks.map(track => ({ ...track, ...trackMelody(track), barSettings: JSON.parse(JSON.stringify(track.barSettings)) })) : null;
       const loadGeneration = ++presetLoadGeneration;
       const current = () => loadGeneration === presetLoadGeneration && (!options.guard || options.guard());
       const localBefore = options.history === 'local' ? publicAPI.getMusicalSnapshot() : null;
@@ -1638,7 +1736,7 @@ const publicAPI = {
         const previousTrackCount = Tracks.length;
         Tracks.forEach(disconnectTrackAnalysers);
         
-        Tracks = data.Tracks;
+        Tracks = importedTracks;
         
         Tracks.forEach((track, index) => {
           if (track.solo === undefined) track.solo = false;
@@ -1893,7 +1991,7 @@ const publicAPI = {
   };
   // Explicit musical mutation seam. Runtime/audio/device state is never captured.
   const mutationListeners = new Set();
-  const trackKeys = ['name', 'muted', 'solo', 'volume', 'pitchShift', 'swing', 'barSettings', 'mainBeatSound', 'subdivisionSound'];
+  const trackKeys = ['name', 'muted', 'solo', 'volume', 'pitchShift', 'swing', 'barSettings', 'mainBeatSound', 'subdivisionSound', 'melody'];
   function cloneMusical(value, depth = 0) {
     if (depth > 16) return undefined;
     if (value === null || typeof value === 'boolean' || typeof value === 'string') return value;
@@ -1915,7 +2013,9 @@ const publicAPI = {
     return copy;
   }
   function snapshotTrack(track) {
+    const melody = trackMelody(track);
     return Object.fromEntries(trackKeys.filter(key => track[key] !== undefined).map(key => [key,
+      key === 'melody' ? melody.melody :
       key === 'barSettings' ? track[key].map(snapshotBar)
         : ['mainBeatSound', 'subdivisionSound'].includes(key) ? snapshotSound(track[key]) : cloneMusical(track[key])]));
   }
@@ -1932,17 +2032,18 @@ const publicAPI = {
     mutationListeners.add(listener);
     return () => mutationListeners.delete(listener);
   };
-  const musicalMethods = ['setPracticeConfig', 'setTempo', 'setVolume', 'setCountInBars', 'setSong', 'addTrack', 'removeTrack', 'duplicateTrack', 'duplicateBar', 'resetTrack', 'setBeatSlices', 'updateTrack', 'toggleSolo', 'updateBarArray', 'increaseBeatsForSelectedBar', 'decreaseBeatsForSelectedBar', 'setSubdivisionForSelectedBar', 'setBeatSound', 'clearBeatSound', 'toggleBeatRest', 'resetState', 'addCustomSound', 'deleteCustomSound', 'renameCustomSound'];
+  const musicalMethods = ['setPracticeConfig', 'setTempo', 'setVolume', 'setCountInBars', 'setSong', 'addTrack', 'addMelodyTrack', 'removeTrack', 'duplicateTrack', 'duplicateBar', 'resetTrack', 'setBeatSlices', 'updateTrack', 'toggleSolo', 'updateBarArray', 'increaseBeatsForSelectedBar', 'decreaseBeatsForSelectedBar', 'setSubdivisionForSelectedBar', 'setBeatSound', 'clearBeatSound', 'toggleBeatRest', 'resetState', 'addCustomSound', 'deleteCustomSound', 'renameCustomSound'];
   let mutationDepth = 0;
   for (const method of musicalMethods) {
     const original = publicAPI[method];
     publicAPI[method] = (...args) => {
       const outer = mutationDepth++ === 0;
       const before = outer && mutationListeners.size ? publicAPI.getMusicalSnapshot() : null;
-      try { return original(...args); }
+      let succeeded = false;
+      try { const result = original(...args); succeeded = true; return result; }
       finally {
         mutationDepth--;
-        if (before) {
+        if (before && succeeded) {
           const after = publicAPI.getMusicalSnapshot();
           // Legacy controllers sometimes mutate a nested object before updateTrack.
           // Notify even on identical before/after: subscribers retain their last baseline.
@@ -1953,6 +2054,7 @@ const publicAPI = {
   }
   publicAPI.applyMusicalSnapshot = async (snapshot, guard = () => true) => {
     if (!guard() || isPlaying) return false;
+    validateStateMelodies(snapshot);
     const data = cloneMusical(snapshot);
     // Preset names are identifiers, not metadata keys (e.g. 'Clockwork').
     data.customSounds = Object.fromEntries(Object.entries(snapshot.customSounds || {}).map(([name, value]) => [name, cloneMusical(value)]));

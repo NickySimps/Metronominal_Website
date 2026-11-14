@@ -1,4 +1,4 @@
-const CACHE_NAME = 'metronominal-v195';
+const CACHE_NAME = 'metronominal-v196';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -25,6 +25,17 @@ const ASSETS_TO_CACHE = [
   './beat-precision.css',
   './js/beatPrecision.js',
   './js/beatPrecisionMount.js',
+  './voice-note-display.css',
+  './voice-take-editor.css',
+  './js/melodySchema.js',
+  './js/melodyScheduler.js',
+  './js/melodyVoice.js',
+  './js/voiceCaptureSession.js',
+  './js/voicePitchDetector.js',
+  './js/voiceNoteTracker.js',
+  './js/voiceNoteDisplay.js',
+  './js/voiceTakeEditor.js',
+  './js/voiceTakeMapping.js',
   './script.js',
   './Click1.mp3',
   './Click2.mp3',

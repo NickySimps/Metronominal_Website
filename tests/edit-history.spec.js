@@ -50,7 +50,7 @@ test('real tempo edits undo and redo once, invalidating redo on a new edit', asy
 
 test('local song imports become one undoable edit instead of clearing musical history', async ({ page }) => {
   // Isolate the import/history seam; room authority is verified by the real multi-peer suite.
-  await page.route('**/js/webrtc.js', route => route.fulfill({ contentType: 'text/javascript', body: 'export function getSyncDiagnostics(){return {role:"host"}}; export function sendState(){};' }));
+  await page.route('**/js/webrtc.js', route => route.fulfill({ contentType: 'text/javascript', body: 'export function getSyncDiagnostics(){return {role:"host"}}; export function sendState(){}; export function isPublicMelodyState(){return true;}' }));
   await page.route('**/js/metronomeEngine.js', route => route.fulfill({ contentType: 'text/javascript', body: 'export default {};' }));
   await ready(page);
   const result = await page.evaluate(async () => {

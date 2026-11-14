@@ -6,6 +6,56 @@ import VolumeController from "./volumeController.js";
 import TrackController from "./tracksController.js";
 import BarControlsController from "./barControlsController.js";
 import MetronomeEngine from "./metronomeEngine.js";
+import { validateMelody } from './melodySchema.js';
+
+// Melody promotes the entire envelope to a closed public-score contract. Do
+// not let opaque rhythm siblings, unused aliases or runtime drafts ride along.
+const PUBLIC_MELODY_SOURCES = new Set(['Synth Kick','Synth Snare','Synth HiHat','Synth Open HiHat','Synth Hi Tom','Synth Mid Tom','Synth Low Tom','Synth Clap','Synth Claves','Synth Shaker','Synth Cymbal','Synth Cowbell','Synth Woodblock','Synth Triangle','Synth Maraca','Synth Sine','Synth Square','Synth Sawtooth','Synth Ultrasaw','Synth Noise','Click1.mp3','Click2.mp3','Crank1.mp3','Crank2.mp3']);
+const PUBLIC_MELODY_NUMBERS = new Set(['volume','startFrequency','endFrequency','attack','decay','sustain','release','pitchEnvelopeTime','pitchShift','bodyFrequencyStart','bodyFrequencyEnd','noiseFilterFrequency','filterFrequency','frequency','frequency1','frequency2','qValue','detune','trimStart','trimEnd','highPassFrequency','lowPassFrequency','distortion','delayMix','delayTime','delayFeedback','reverbMix','reverbFeedback','probability']);
+export function isPublicMelodyState(state) {
+  const keys = (value, allowed) => value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).every(k => allowed.includes(k));
+  const settings = value => value && typeof value === 'object' && !Array.isArray(value)
+    && Object.entries(value).every(([k,v]) => (PUBLIC_MELODY_NUMBERS.has(k) && typeof v === 'number' && Number.isFinite(v))
+      || (['reverse','allowOverlap','retrigger','fxBypass'].includes(k) && typeof v === 'boolean')
+      || (k === 'type' && ['sine','square','sawtooth','triangle'].includes(v)));
+  try {
+    if (!keys(state, ['tempo','volume','countInBars','practice','song','Tracks','selectedTrackIndex','selectedBarIndexInContainer','controlsAttachedToTrack','isPlaying','isRestMode','isAccentMode','isSliceMode','isRecording','customSounds','selectedTheme'])) return false;
+    if (!['controlsAttachedToTrack','isPlaying','isRestMode','isAccentMode','isSliceMode','isRecording'].every(k => state[k] === undefined || typeof state[k] === 'boolean')
+      || !['tempo','volume','countInBars','selectedTrackIndex','selectedBarIndexInContainer'].every(k => state[k] === undefined || (typeof state[k] === 'number' && Number.isFinite(state[k])))) return false;
+    const custom = state.customSounds || {};
+    if (!keys(custom, Object.keys(custom)) || Object.keys(custom).length > 64) return false;
+    const source = (name, seen = new Set()) => {
+      if (seen.has(name) || seen.size >= 64) return false;
+      if (!Object.hasOwn(custom, name)) return PUBLIC_MELODY_SOURCES.has(name);
+      seen.add(name);
+      return source(custom[name].baseSound, seen);
+    };
+    if (!Object.values(custom).every(v => keys(v, ['baseSound','settings']) && settings(v.settings))
+      || !Object.keys(custom).every(name => source(name))) return false;
+    const sound = value => keys(value, ['sound','settings']) && source(value.sound) && settings(value.settings);
+    const track = (value, runtime = false) => {
+      if (!keys(value, ['name','barSettings','muted','solo','volume','pitchShift','swing','mainBeatSound','subdivisionSound','melody',
+        ...(runtime ? ['currentBar','currentBeat','nextBeatTime','songRepeatIteration'] : [])])
+        || !sound(value.mainBeatSound) || !sound(value.subdivisionSound)
+        || !['muted','solo'].every(k => value[k] === undefined || typeof value[k] === 'boolean')
+        || !['volume','pitchShift','swing', ...(runtime ? ['currentBar','currentBeat','nextBeatTime','songRepeatIteration'] : [])].every(k => value[k] === undefined || (typeof value[k] === 'number' && Number.isFinite(value[k])))) return false;
+      if (Object.hasOwn(value,'melody')) validateMelody(value.melody,value.barSettings);
+      const map = (v, valid) => v === undefined || (keys(v,Object.keys(v)) && Object.entries(v).every(([i,n]) => /^(0|[1-9][0-9]*)$/.test(i) && Number(i) <= 511 && valid(n)));
+      return value.barSettings.every(bar => keys(bar, ['beats','subdivision','rests','velocities','beatSounds','beatSlices','beatSliceAnchors'])
+        && map(bar.velocities,n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1)
+        && map(bar.beatSlices,n => [2,3,4,6,8,16,32].includes(n))
+        && map(bar.beatSliceAnchors,n => Number.isInteger(n) && n >= 0 && n <= 511)
+        && map(bar.beatSounds,() => true)
+        && Object.values(bar.beatSounds || {}).every(v => keys(v, ['mainBeatSound','subdivisionSound'])
+          && Object.values(v).every(sound)));
+    };
+    return AppState.validateNetworkState(state) && state.Tracks.every(t => track(t,true))
+      && keys(state.song, ['version','enabled','name','sections']) && [1,2].includes(state.song.version) && typeof state.song.enabled === 'boolean'
+      && state.song.sections.every(s => keys(s, ['name','startBar','tempo','repeats','tracks'])
+        && (s.tracks === undefined || s.tracks.every(t => track(t))));
+  } catch { return false; }
+}
 
 let socket = null;
 let roomId = null;
@@ -60,6 +110,34 @@ let rehearsalSupported = false;
 let negotiatedCapabilities = new Set();
 let privateSongCommand = null;
 let logicalBeatsBlocked = false;
+let melodyBlocked = false;
+let queuedMelodyRequired = false;
+// Integration seam: the engine must explicitly certify the complete melody-v1
+// scheduler/voice/section contract after native integration tests. Module
+// availability or generic scheduler readiness is NOT proof of melody support.
+export function isMelodyProtocolReady() {
+  try { return MetronomeEngine.supportsMelodyProtocol?.('melody-v1') === true; }
+  catch { return false; }
+}
+function advertisedCapabilities() {
+  return isMelodyProtocolReady() ? [...SYNC_CAPABILITIES, 'melody-v1'] : [...SYNC_CAPABILITIES];
+}
+function requiresMelody(state) {
+  const tracks = [...(Array.isArray(state?.Tracks) ? state.Tracks : []),
+    ...(Array.isArray(state?.song?.sections) ? state.song.sections : []).flatMap(s => Array.isArray(s?.tracks) ? s.tracks : [])];
+  return tracks.some(t => t && Object.hasOwn(t, 'melody'));
+}
+function acceptMelody(state) {
+  if (!requiresMelody(state) && !queuedMelodyRequired) { melodyBlocked = false; return true; }
+  const publicScore = isPublicMelodyState(state);
+  if (publicScore && isMelodyProtocolReady() && supportsRoomCapability('melody-v1')) { melodyBlocked = false; return true; }
+  melodyBlocked = true; explicitReady = false; clearPrivateSongCommand(); clearDesiredHostPlaybackState();
+  recoveryMessage = !publicScore ? 'melody-v1 requires a validated public score without private assets or capture drafts.' : isMelodyProtocolReady()
+    ? 'This music requires melody-v1. Update the synchronization server before sharing or playing melody.'
+    : 'melody-v1 room sharing and playback are unavailable until engine integration is validated. Notes have not been removed.';
+  stopRoomPlayback(); reportReadiness(); updateDiagnosticsUI(); emitRehearsalRoomChange();
+  return false;
+}
 function requiresLogicalBeats(state) {
   const tracks = [...(Array.isArray(state?.Tracks) ? state.Tracks : []), ...(Array.isArray(state?.song?.sections) ? state.song.sections : []).flatMap(s => Array.isArray(s?.tracks) ? s.tracks : [])];
   return tracks.some(t => Array.isArray(t?.barSettings) && t.barSettings.some(b => b && Object.keys(b.beatSlices || {}).length > 0
@@ -141,7 +219,7 @@ function reportReadiness() {
 
 export function setRehearsalReadiness(ready, name = localPeerName) {
   if (typeof ready !== 'boolean' || !plainText(name,40)) return false;
-  explicitReady = ready && !logicalBeatsBlocked && (!joined || acceptLogicalBeats(AppState.getMusicalSnapshot())); localPeerName = name.trim();
+  explicitReady = ready && !melodyBlocked && !logicalBeatsBlocked && (!joined || (acceptMelody(AppState.getMusicalSnapshot()) && acceptLogicalBeats(AppState.getMusicalSnapshot()))); localPeerName = name.trim();
   sessionStorage.setItem('rehearsal_name',localPeerName);
   return reportReadiness();
 }
@@ -273,6 +351,8 @@ function resetProtocolDiagnostics() {
   readinessTimer = null;
   rehearsalSupported = false;
   negotiatedCapabilities.clear();
+  melodyBlocked = false;
+  queuedMelodyRequired = false;
   explicitReady = false;
   rehearsalSnapshot = { participants: [], requests: [], cue: null, hostPeerId: null, hostConnected: false, playing: false };
   localRole = "offline";
@@ -332,7 +412,7 @@ function sendJoinRequest() {
     type: "join",
     room: roomId,
     requestedRole: window.isHost ? "host" : "client",
-    capabilities: SYNC_CAPABILITIES,
+    capabilities: advertisedCapabilities(),
     ...(participantCredential ? {participantCredential} : {}),
     ...(window.isHost ? { hostCredential } : {})
   });
@@ -571,7 +651,8 @@ function hasValidCountIn(message) {
 }
 
 function applyTransport(message) {
-  if (logicalBeatsBlocked) return;
+  if (melodyBlocked || logicalBeatsBlocked) return;
+  if (message?.playing && !acceptMelody(AppState.getMusicalSnapshot())) return;
   if (!joined) return;
   if (!message || typeof message.playing !== "boolean"
     || !Number.isFinite(Number(message.effectiveAt))
@@ -629,7 +710,12 @@ async function handleStateMessage(message, generation) {
   if (message.schemaVersion !== undefined && message.schemaVersion !== SYNC_SCHEMA_VERSION) return;
   if (message.capabilities && !Array.isArray(message.capabilities)) return;
   const { selectedTheme: _ignoredTheme, ...state } = message.payload;
-  if (!acceptLogicalBeats(state)) return;
+  // An incompatible publication is a refusal, not permission to erase the
+  // host's local notes with the server's older rhythm-only rollback. Keep it
+  // stopped and unsynchronized until an explicit supported edit/reconnect.
+  if (window.isHost && !acceptingReplacementReplay && message.authoritativeRefresh && melodyBlocked
+    && requiresMelody(AppState.getMusicalSnapshot()) && !requiresMelody(state)) return;
+  if (!acceptMelody(state) || !acceptLogicalBeats(state)) return;
   const serializedState = JSON.stringify(state);
   const payloadBytes = new TextEncoder().encode(serializedState).byteLength;
   const actualChecksum = message.checksum ? await checksum(state) : null;
@@ -686,6 +772,7 @@ async function handleSocketMessage(event, generation) {
       joined = true;
       negotiatedCapabilities = new Set(Array.isArray(message.capabilities) ? message.capabilities.filter(c => typeof c === "string").slice(0,32) : []);
       logicalBeatsBlocked = false;
+      melodyBlocked = false;
       rehearsalSupported = Array.isArray(message.capabilities) && message.capabilities.includes('rehearsal-v1');
       recoveryMessage = '';
       ownPeerId = message.peerId;
@@ -789,7 +876,8 @@ async function handleSocketMessage(event, generation) {
 
     case 'song-change':
       if (joined && current()) {
-        if (!message.cancelled && !acceptLogicalBeats({...AppState.getMusicalSnapshot(),song:message.song})) break;
+        if (!message.cancelled && (!acceptMelody({...AppState.getMusicalSnapshot(),song:message.song}) || !acceptLogicalBeats({...AppState.getMusicalSnapshot(),song:message.song}))) break;
+        queuedMelodyRequired = !message.cancelled && requiresMelody({song:message.song});
         const local = privateSongCommand;
         if (message.cancelled) {
           if (!message.commandId || message.commandId === local?.commandId) clearPrivateSongCommand();
@@ -807,7 +895,7 @@ async function handleSocketMessage(event, generation) {
       break;
 
     case "playback-sync-pulse":
-      if (!window.isHost && isReadyToPlay && AppState.isPlaying()
+      if (!melodyBlocked && !logicalBeatsBlocked && !window.isHost && isReadyToPlay && AppState.isPlaying()
         && Number.isInteger(message.revision)
         && message.revision >= lastTransportRevision
         && Number.isInteger(message.currentBar) && message.currentBar >= 0 && message.currentBar <= 4095
@@ -911,6 +999,7 @@ async function handleSocketMessage(event, generation) {
       console.error(`Synchronization server error (${message.code}): ${message.message}`);
       if (['incompatible-client','invalid-song-change'].includes(message.code)) {
         clearPrivateSongCommand(); explicitReady = false;
+        if (requiresMelody(AppState.getMusicalSnapshot())) { melodyBlocked = true; stopRoomPlayback(); clearDesiredHostPlaybackState(); }
         recoveryMessage = message.message || 'Incompatible room semantics.';
         reportReadiness(); updateDiagnosticsUI(); emitRehearsalRoomChange();
       }
@@ -1290,7 +1379,7 @@ async function flushState() {
   try {
     const state = await statePromise;
     if (!current()) return false;
-    if (!acceptLogicalBeats(state)) return false;
+    if (!acceptMelody(state) || !acceptLogicalBeats(state)) return false;
     if(state.practice?.enabled && !supportsRoomCapability('practice-v1')) {
       state.practice={...state.practice,enabled:false};
       AppState.setPracticeConfig(state.practice);
@@ -1318,8 +1407,8 @@ async function flushState() {
       return false;
     }
     const stateChecksum = await checksum(state);
-    if (!current()) return false;
-    return sendMessage({ type: "state", schemaVersion: SYNC_SCHEMA_VERSION, capabilities: SYNC_CAPABILITIES,
+    if (!current() || !acceptMelody(state)) return false;
+    return sendMessage({ type: "state", schemaVersion: SYNC_SCHEMA_VERSION, capabilities: advertisedCapabilities(),
       checksum: stateChecksum, payloadBytes, payload: state });
   } catch (error) {
     console.error("Could not send synchronized state:", error);
@@ -1337,8 +1426,12 @@ export async function sendState(statePromise) {
 }
 
 export function sendSongChangeCommand(change) {
+  if (change !== null && (!change || typeof change !== 'object' || Array.isArray(change)
+    || Object.keys(change).some(key => !['version','song','sectionIndex','startBar','effectiveAt'].includes(key))
+    || change.version !== 1 || !Number.isInteger(change.sectionIndex) || change.sectionIndex < 0 || change.sectionIndex > 31
+    || !Number.isInteger(change.startBar) || change.startBar < 0 || change.startBar > 4095 || !Number.isFinite(change.effectiveAt))) return false;
   if(!joined || !window.isHost || !hasTimeSync || !supportsRoomCapability('song-boundary-v1'))return false;
-  if (change && !acceptLogicalBeats({...AppState.getMusicalSnapshot(),song:change.song})) return false;
+  if (change && (!acceptMelody({...AppState.getMusicalSnapshot(),song:change.song}) || !acceptLogicalBeats({...AppState.getMusicalSnapshot(),song:change.song}))) return false;
   clearPrivateSongCommand();
   let wireChange = null;
   if (change !== null) {
@@ -1347,13 +1440,14 @@ export function sendSongChangeCommand(change) {
     wireChange.song.sections = wireChange.song.sections.map(section => ({...section,
       ...(Array.isArray(section.tracks) ? {tracks:section.tracks.map(track => sanitizeNetworkTrack(track, privateNames))} : {})}));
     wireChange.commandId = Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2,'0')).join('');
+    queuedMelodyRequired = requiresMelody({song:wireChange.song});
     privateSongCommand = {commandId:wireChange.commandId, generation:authorityGeneration,
       identity:JSON.stringify(wireChange), song:JSON.parse(JSON.stringify(change.song))};
   }
   const intent = privateSongCommand;
   const generation=connectionGeneration, roleGeneration=authorityGeneration, expectedSocket=socket, expectedRoom=roomId;
   const publish=()=>joined && window.isHost && privateSongCommand===intent && generation===connectionGeneration && roleGeneration===authorityGeneration && expectedSocket===socket && expectedRoom===roomId && sendMessage({type:'song-change-command',change:wireChange});
-  if(pendingStatePromise){clearTimeout(stateSendTimer);void flushState().then(publish);}else publish();
+  if(pendingStatePromise){clearTimeout(stateSendTimer);void flushState().then(sent => { if (sent && !melodyBlocked) publish(); });}else publish();
   return true;
 }
 
@@ -1367,7 +1461,7 @@ export function getDesiredHostPlaybackState() {
 
 function broadcastTransportCommand(playing, forcePublication = false) {
   if (!window.isHost || !joined) return false;
-  if (playing && (logicalBeatsBlocked || !acceptLogicalBeats(AppState.getMusicalSnapshot()))) return false;
+  if (playing && (melodyBlocked || logicalBeatsBlocked || !acceptMelody(AppState.getMusicalSnapshot()) || !acceptLogicalBeats(AppState.getMusicalSnapshot()))) return false;
   if (desiredHostPlaybackState === playing && !forcePublication) return true;
 
   desiredHostPlaybackState = playing;
@@ -1390,7 +1484,7 @@ function broadcastTransportCommand(playing, forcePublication = false) {
   });
   if (pendingStatePromise) {
     clearTimeout(stateSendTimer);
-    flushState().then(publish);
+    flushState().then(sent => { if (sent && (!playing || (!melodyBlocked && acceptMelody(AppState.getMusicalSnapshot())))) publish(); });
   } else {
     publish();
   }
@@ -1412,7 +1506,7 @@ export function broadcastStop() {
 }
 
 export function broadcastSyncPulse(nextBeatWallTime, currentBar, currentBeat, repeatIteration = 0) {
-  if (!window.isHost || !joined) return false;
+  if (!window.isHost || !joined || melodyBlocked || !acceptMelody(AppState.getMusicalSnapshot())) return false;
   if (countInEndsAt && Date.now() + timeOffset < countInEndsAt) return false;
   countInEndsAt = 0;
   return sendMessage({

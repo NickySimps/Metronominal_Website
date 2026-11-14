@@ -21,6 +21,8 @@
     <link rel="stylesheet" href="arrangement-timeline.css" />
     <link rel="stylesheet" href="practice-tools.css" />
     <link rel="stylesheet" href="performance-view.css" />
+    <link rel="stylesheet" href="voice-note-display.css" />
+    <link rel="stylesheet" href="voice-take-editor.css" />
     <link rel="stylesheet" href="interaction-motion.css" />
     <link rel="icon" href="assets/logo.jpg" type="image/jpeg" />
     <link rel="manifest" href="manifest.json" />
@@ -360,6 +362,15 @@
             <div class="bar-display">
                 <div id="all-tracks-wrapper"></div>
             </div>
+            <fieldset id="recording-mode-controls">
+                <legend>Microphone Rec mode</legend>
+                <label for="recording-mode">Capture as</label>
+                <select id="recording-mode" aria-describedby="recording-mode-help">
+                    <option value="sample" selected>Audio sample (existing Rec behavior)</option>
+                    <option value="voice">Voice → editable local notes</option>
+                </select>
+                <p id="recording-mode-help">Choose before pressing a track’s Rec button. Sample records audio. Voice detects one sung note at a time without keeping raw audio. Stop playback first. Correct notes in a private draft at the captured BPM, first note at bar 1. No automatic saving or sharing. New-track Apply requires atomic insertion support and currently refuses without changing music.</p>
+            </fieldset>
             <button id="add-track-btn" aria-label="Add track" title="Add track">+ Track</button>
             <details id="rehearsal-tools-panel" class="rehearsal-tools-panel">
                 <summary>Rehearsal tools</summary>
@@ -581,11 +592,25 @@
             </div>
         </div>
     </div>
-    <div id="recording-display-modal" class="modal">
+    <div id="recording-display-modal" class="modal" role="dialog" aria-modal="true" aria-label="Microphone capture" tabindex="-1">
         <div class="modal-content recording-modal-content">
             <h2 id="recording-timer">00:00</h2>
+            <p id="voice-recording-status" role="status" hidden></p>
+            <section id="voice-note-container" aria-label="Live voice notes" hidden></section>
+            <pre id="voice-recording-review" aria-label="Local captured notes" hidden style="white-space:pre-wrap;max-height:35vh;overflow:auto"></pre>
+            <fieldset id="voice-take-destination-controls" hidden>
+                <legend>Voice note destination</legend>
+                <label for="voice-take-destination">Destination</label>
+                <select id="voice-take-destination"><option value="new-track">New pitched melody track (Synth Sine)</option></select>
+                <label id="voice-take-sample-root-controls" for="voice-take-sample-root-midi" hidden>Sample root MIDI
+                    <input id="voice-take-sample-root-midi" type="number" min="0" max="127" step="1" inputmode="numeric">
+                </label>
+                <p>Existing tracks keep their instrument. Recorded samples require an explicit root MIDI; unsupported instruments are refused without changes.</p>
+            </fieldset>
+            <section id="voice-take-editor-container" aria-label="Voice correction preview"></section>
             <canvas id="recording-waveform-canvas" width="800" height="200"></canvas>
             <button id="recording-stop-btn">Stop Recording</button>
+            <button id="recording-cancel-btn">Cancel / discard</button>
         </div>
     </div>
 </body>
