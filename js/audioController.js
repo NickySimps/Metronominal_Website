@@ -137,8 +137,71 @@ import { emitInteractionMotion } from './interactionMotion.js';
 
 const noteLabel = midi => `${['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'][midi % 12]}${Math.floor(midi / 12) - 1}`;
 
+// Optional contract controls: cached (pre-menu) HTML may lack them.
+const menuElement = (getter, id) => DOM[getter] ?? document.getElementById(id);
+const startButton = () => menuElement('recordingStartBtn', 'recording-start-btn');
+let recordingMode = 'sample';
+let menuTrack = null;
+let idleView = null;
+function destroyIdleView() {
+    idleView?.destroy();
+    idleView = null;
+}
+function syncModeControls() {
+    if (DOM.recordingMode) DOM.recordingMode.value = recordingMode;
+    menuElement('recordingModeSampleBtn', 'recording-mode-sample-btn')?.setAttribute('aria-pressed', String(recordingMode === 'sample'));
+    menuElement('recordingModeVoiceBtn', 'recording-mode-voice-btn')?.setAttribute('aria-pressed', String(recordingMode === 'voice'));
+}
+function showStartButton(visible) {
+    const start = startButton();
+    if (!start) return;
+    start.hidden = !visible;
+    start.disabled = !visible;
+}
+/** Idle menu: no device request. Waveform area for sample, note UI for voice. */
+function renderIdleMenu({ focus = true } = {}) {
+    discardVoiceReview();
+    destroyIdleView();
+    syncModeControls();
+    const voice = recordingMode === 'voice';
+    DOM.recordingDisplayModal.style.display = 'flex';
+    DOM.recordingTimer.textContent = '00:00';
+    DOM.voiceRecordingStatus.hidden = !voice;
+    DOM.voiceRecordingStatus.textContent = voice ? 'Voice mode: press Start, then sing one note at a time. Notes stay private until you apply them.' : '';
+    DOM.voiceNoteContainer.hidden = !voice;
+    if (voice) idleView = createVoiceNoteDisplay(DOM.voiceNoteContainer, { stabilityMs: 0 });
+    DOM.recordingWaveformCanvas.hidden = voice;
+    if (!voice) DOM.recordingWaveformCanvas.getContext?.('2d')?.clearRect(0, 0, DOM.recordingWaveformCanvas.width, DOM.recordingWaveformCanvas.height);
+    DOM.recordingStopBtn.hidden = true;
+    showStartButton(true);
+    if (focus) (startButton() || DOM.recordingCancelBtn)?.focus();
+}
+function showIdleMessage(message) {
+    if (startButton()) renderIdleMenu({ focus: false });
+    else {
+        DOM.recordingDisplayModal.style.display = 'flex';
+        DOM.recordingStopBtn.hidden = true;
+    }
+    DOM.voiceRecordingStatus.hidden = false;
+    DOM.voiceRecordingStatus.textContent = message;
+    (startButton() || DOM.recordingCancelBtn)?.focus();
+}
+function microphoneFailureMessage(error) {
+    const name = error?.name;
+    if (name === 'NotAllowedError' || name === 'SecurityError')
+        return 'Microphone capture failed: microphone permission was denied. Allow microphone access for this site in your browser settings, then press Start again. Nothing was recorded or saved.';
+    if (name === 'NotFoundError' || name === 'OverconstrainedError')
+        return 'Microphone capture failed: no usable microphone was found. Connect or enable a microphone, then press Start again. Nothing was recorded or saved.';
+    if (name === 'NotReadableError' || name === 'AbortError')
+        return 'Microphone capture failed: the microphone is busy or unavailable. Close other apps using it, check permission, then press Start again. Nothing was recorded or saved.';
+    return 'Microphone capture failed. Check permission or device availability, then press Start again. Nothing was recorded or saved.';
+}
+
 function prepareRecordingUI(session) {
     discardVoiceReview();
+    destroyIdleView();
+    showStartButton(false);
+    session.shown = true;
     const voice = session.mode === 'voice';
     DOM.voiceRecordingStatus.hidden = !voice;
     DOM.voiceRecordingStatus.textContent = voice ? 'Listening locally. Stop to review; notes are not saved or aligned to the song.' : '';
@@ -204,6 +267,7 @@ function cleanupRecordingSession(session) {
     AudioController.audioChunks = [];
     AppState.setRecording(false);
     TrackController.renderTracks();
+    destroyIdleView();
     if (DOM.recordingDisplayModal) DOM.recordingDisplayModal.style.display = 'none';
     RecordingVisualizer.stop();
     if (AudioController.timerIntervalId) clearInterval(AudioController.timerIntervalId);
@@ -243,25 +307,33 @@ const AudioController = {
         const dismissRecording = () => {
             AudioController.recordingSession?.cancel();
             discardVoiceReview();
+            destroyIdleView();
             DOM.voiceRecordingReview.textContent = '';
             DOM.voiceRecordingReview.hidden = true;
             DOM.recordingDisplayModal.style.display = 'none';
         };
-        const dismissVoice = () => {
-            const session = AudioController.recordingSession;
-            if (!session || session.mode === 'voice') dismissRecording();
-        };
+        // Close/Escape/backdrop cancel any open capture (sample or voice):
+        // a hidden menu must never own a live microphone.
         document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && DOM.recordingDisplayModal?.style.display !== 'none') dismissVoice();
+            if (event.key === 'Escape' && DOM.recordingDisplayModal && DOM.recordingDisplayModal.style.display !== 'none'
+                && getComputedStyle(DOM.recordingDisplayModal).display !== 'none') dismissRecording();
         });
         DOM.recordingDisplayModal?.addEventListener('click', event => {
-            if (event.target === DOM.recordingDisplayModal) dismissVoice();
+            if (event.target === DOM.recordingDisplayModal) dismissRecording();
         });
         if (DOM.recordingDisplayModal) {
             const observer = new MutationObserver(() => {
                 const modal = DOM.recordingDisplayModal;
                 const style = getComputedStyle(modal);
-                if (modal.hidden || style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') cancelVoice();
+                if (!(modal.hidden || style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse')) return;
+                const session = AudioController.recordingSession;
+                // Cancel a sample take the menu was showing. A stopping one is
+                // finalizing its decode after owned cleanup closed the menu; a
+                // not-yet-shown legacy direct start must not be cancelled by a
+                // queued hide record from the previous session's cleanup.
+                if (session && session.mode !== 'voice' && session.shown && !session.stopping) session.cancel();
+                cancelVoice();
+                destroyIdleView();
             });
             observer.observe(DOM.recordingDisplayModal, { attributes: true, attributeFilter: ['style', 'hidden', 'class'] });
         }
@@ -278,12 +350,56 @@ const AudioController = {
                 AudioController.stopRecording();
             });
         }
+        startButton()?.addEventListener('click', () => {
+            if (AudioController.recordingSession) return;
+            const index = AppState.getTracks().indexOf(menuTrack);
+            if (index < 0) {
+                showIdleMessage('This track changed or was removed while the menu was open. Close this menu and press Rec on a track again. Nothing was recorded.');
+                return;
+            }
+            void AudioController.startRecording(index);
+        });
+        menuElement('recordingModeSampleBtn', 'recording-mode-sample-btn')?.addEventListener('click', () => AudioController.setRecordingMode('sample'));
+        menuElement('recordingModeVoiceBtn', 'recording-mode-voice-btn')?.addEventListener('click', () => AudioController.setRecordingMode('voice'));
+        // Cached pre-menu HTML exposes a <select>; keep it as a mode input only.
+        if (DOM.recordingMode instanceof HTMLSelectElement)
+            DOM.recordingMode.addEventListener('change', () => AudioController.setRecordingMode(DOM.recordingMode.value));
+        syncModeControls();
+    },
+
+    getRecordingMode: () => recordingMode,
+
+    /** Opens the idle recording menu for a track. Never requests a device.
+     * Each opening defaults to sample mode. */
+    openRecordingMenu: (trackIndex) => {
+        if (AudioController.recordingSession) return;
+        menuTrack = AppState.getTracks()[trackIndex] ?? null;
+        recordingMode = 'sample';
+        renderIdleMenu();
+    },
+
+    /** Switch mode. Any active take (pending, capturing or decoding) is
+     * cancelled and any private review discarded BEFORE the switch; an open
+     * menu returns to idle in the new mode without acquiring a microphone. */
+    setRecordingMode: (mode) => {
+        if (mode !== 'sample' && mode !== 'voice') throw new TypeError(`Unknown recording mode: ${mode}`);
+        if (mode === recordingMode) { syncModeControls(); return; } // Re-pressing the active mode keeps the take.
+        const menuOpen = DOM.recordingDisplayModal && DOM.recordingDisplayModal.style.display !== 'none'
+            && getComputedStyle(DOM.recordingDisplayModal).display !== 'none';
+        AudioController.recordingSession?.cancel();
+        discardVoiceReview();
+        recordingMode = mode;
+        syncModeControls();
+        if (menuOpen && startButton()) renderIdleMenu();
     },
 
     toggleRecording: async (trackIndex) => {
         if (AudioController.recordingSession) {
             AudioController.stopRecording(trackIndex);
+        } else if (startButton()) {
+            AudioController.openRecordingMenu(trackIndex);
         } else {
+            // Cached pre-menu HTML: no Start button, keep the direct legacy flow.
             await AudioController.startRecording(trackIndex);
         }
     },
@@ -291,7 +407,9 @@ const AudioController = {
     startRecording: async (trackIndex) => {
         if (AudioController.recordingSession) return;
         discardVoiceReview();
-        const session = { mode: DOM.recordingMode?.value === 'voice' ? 'voice' : 'sample', track: AppState.getTracks()[trackIndex], authority: window.isHost, chunks: [], cancelled: false, stopping: false };
+        const session = { mode: recordingMode, track: AppState.getTracks()[trackIndex], authority: window.isHost, chunks: [], cancelled: false, stopping: false };
+        menuTrack = session.track ?? null;
+        showStartButton(false);
         session.authorityGeneration = recordingAuthorityGeneration;
         if (session.mode === 'voice') {
             session.recordedBpm = AppState.getTempo();
@@ -315,21 +433,16 @@ const AudioController = {
             if (owns) {
                 emitInteractionMotion(recordingTarget(session), 'refuse');
                 console.error('Could not record microphone:', error);
-                if (session.mode === 'voice') {
-                    prepareRecordingUI(session);
-                    DOM.recordingStopBtn.hidden = true;
-                    DOM.voiceRecordingStatus.textContent = 'Microphone capture failed. Check permission or device availability, then try again. Nothing was recorded or saved.';
-                    DOM.recordingCancelBtn.focus();
-                }
+                // Same menu, idle, with a helpful reason; Start retries cleanly.
+                if (session.mode === 'voice' || startButton()) showIdleMessage(session.stopping
+                    ? 'Recording could not be finalized. Check the audio device or try again. Nothing was saved.'
+                    : microphoneFailureMessage(error));
             }
         };
         AudioController.recordingSession = session;
         if (session.mode === 'voice' && AppState.isPlaying()) {
             session.cancel();
-            prepareRecordingUI(session);
-            DOM.recordingStopBtn.hidden = true;
-            DOM.voiceRecordingStatus.textContent = 'Stop playback before voice capture. Notes use capture-relative timing, not song alignment. Nothing was recorded or saved.';
-            DOM.recordingCancelBtn.focus();
+            showIdleMessage('Stop playback before voice capture. Notes use capture-relative timing, not song alignment. Nothing was recorded or saved.');
             return;
         }
         try {
@@ -337,13 +450,20 @@ const AudioController = {
             session.captureOrigin = audioContext.currentTime;
             if (audioContext.state === 'suspended') await audioContext.resume();
             if (!current()) { session.cancel(); return; }
-            if (session.mode === 'voice') {
+            // Visible pending state for both modes: an acquisition is never hidden.
+            if (session.mode === 'voice' || startButton()) {
                 prepareRecordingUI(session);
+                DOM.voiceRecordingStatus.hidden = false;
                 DOM.voiceRecordingStatus.textContent = 'Waiting for microphone permission. You can discard this request.';
                 DOM.recordingStopBtn.hidden = true;
                 DOM.recordingCancelBtn.focus();
             }
-            session.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Pitch analysis needs the raw voice: browser speech processing
+            // (echo cancellation, noise suppression, AGC) can gate sustained
+            // sung tones. Ideal constraints never reject a device.
+            session.stream = await navigator.mediaDevices.getUserMedia(session.mode === 'voice'
+                ? { audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }
+                : { audio: true });
             if (!current()) { session.cancel(); return; }
             AudioController.recordingStream = session.stream;
             session.source = audioContext.createMediaStreamSource(session.stream);
@@ -414,7 +534,12 @@ const AudioController = {
                     TrackController.renderTracks();
                     if (current()) emitInteractionMotion(recordingTarget(session), accepted ? 'save' : 'refuse');
                 } catch (error) {
-                    if (current()) refuse(error);
+                    if (current()) {
+                        // Finalization closes capture resources before decode. Restore
+                        // the idle menu on decode/apply failure so the error is visible
+                        // and the user can explicitly start another take.
+                        refuse(error);
+                    }
                 } finally {
                     if (AudioController.recordingSession === session) AudioController.recordingSession = null;
                 }

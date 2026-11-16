@@ -14,7 +14,7 @@ test.beforeAll(async () => {
 });
 test.afterAll(async () => { await new Promise(r => web.close(r)); });
 async function fixture(page, count = 64) {
-  await page.route('**/js/barDisplayController.js', route => route.fulfill({contentType:'text/javascript',body:`import m from './soundSettingsModal.js';import a from './appState.js';export default {beginSubdivisionGesture(){},moveSubdivisionGesture(){return null},cancelSubdivisionGesture(){},applyBeatAction(b){const bar=b.closest('.bar-visual');if(document.body.classList.contains('beat-edit-mode')&&!a.isRestMode()&&!a.isAccentMode()&&!a.isSliceMode())m.show(Number(bar.dataset.containerIndex),b.classList.contains('main-beat-marker')?'mainBeatSound':'subdivisionSound',{barIndex:Number(bar.dataset.barIndex),beatIndex:Number(b.dataset.beatIndex)});return {mode:'fixture'};}};`}));
+  await page.route('**/js/barDisplayController.js', route => route.fulfill({contentType:'text/javascript',body:`import m from './soundSettingsModal.js';import a from './appState.js';export default {beginSubdivisionGesture(){window.subdivisionStarts=(window.subdivisionStarts||0)+1;},moveSubdivisionGesture(){return null},cancelSubdivisionGesture(){},applyBeatAction(b){const bar=b.closest('.bar-visual');if(document.body.classList.contains('beat-edit-mode')&&!a.isRestMode()&&!a.isAccentMode()&&!a.isSliceMode())m.show(Number(bar.dataset.containerIndex),b.classList.contains('main-beat-marker')?'mainBeatSound':'subdivisionSound',{barIndex:Number(bar.dataset.barIndex),beatIndex:Number(b.dataset.beatIndex)});return {mode:'fixture'};}};`}));
   await page.route('**/js/soundSettingsModal.js', route => route.fulfill({contentType:'text/javascript', body:'export default {show(...args){window.edits.push(args)}};'}));
   await page.route('**/fixture.html', route => route.fulfill({contentType:'text/html', body:`<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/beat-precision.css"><style>body{margin:12px;min-height:1600px}.bar-visual{display:grid;grid-template-columns:repeat(8,1fr);width:280px;gap:2px;margin-top:200px}.beat-square{height:16px;background:#bbb}</style><div id="controls"></div><main id="all-tracks-wrapper"></main>`}));
   await page.goto(origin + '/fixture.html');
@@ -38,7 +38,8 @@ async function fixture(page, count = 64) {
 }
 async function activate(page) {
   await page.evaluate(()=>document.body.classList.add('beat-edit-mode'));
-  await expect(page.locator('[data-beat-precision-toggle]')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('[data-beat-precision-toggle]')).toHaveCount(0);
+  await expect(page.locator('body')).toHaveClass(/beat-edit-mode/);
 }
 test('explicit range picking yields pointer and click capture without legacy painting',async({page})=>{
   await fixture(page);await activate(page);
@@ -58,11 +59,11 @@ test('assisted bar padding does not enter legacy handlers', async ({page}) => {
   }
 });
 
-test('Escape from a focused beat returns to its visible assistance control', async ({page}) => {
+test('Escape from a focused beat clears assistance without requiring a removed toggle', async ({page}) => {
   await fixture(page); await activate(page);
   await page.locator('.beat-square').first().focus();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('button',{name:'Precision beat selection',exact:true})).toBeFocused();
+  await expect(page.locator('.beat-precision-preview')).toHaveCount(0);
   expect(await page.evaluate(()=>edits)).toEqual([]);
 });
 
@@ -74,20 +75,17 @@ test('destroy releases explicit editing touch ownership', async ({page}) => {
   expect(await page.locator('.bar-visual').evaluate(el=>getComputedStyle(el).touchAction)).toBe('auto');
 });
 
-test('contextual assist follows existing Beat Edit mode without a global toolbar', async ({page}) => {
+test('automatic targeting has no Precision toggle and retains slow zoom and stationary subdivision hold', async ({ page }) => {
   await fixture(page);
-  await expect(page.locator('#controls')).toBeEmpty();
-  await expect(page.locator('.track .beat-precision')).toBeHidden();
-  await activate(page);
-  await expect(page.locator('.track .beat-precision')).toBeVisible();
-  await expect(page.locator('.beat-precision-hint')).toContainText('hold for subdivisions');
-  await expect(page.locator('.beat-precision-hint')).toContainText('slow slide to zoom');
-  await expect(page.locator('.beat-precision-hint')).toContainText('fast slide to choose');
-  await expect(page.getByRole('button',{name:'Edit selected beat'})).toHaveCount(0);
-  await expect(page.getByRole('button',{name:'Next beat',exact:true})).toHaveCount(0);
-  const r=await page.locator('[data-beat-precision-toggle]').boundingBox();expect(r.width).toBeGreaterThanOrEqual(44);expect(r.height).toBeGreaterThanOrEqual(44);
-  await page.evaluate(()=>document.body.classList.remove('beat-edit-mode'));
-  await expect(page.locator('.track .beat-precision')).toBeHidden();
+  await page.clock.install();
+  await page.evaluate(()=>document.body.classList.add('beat-edit-mode'));
+  await expect(page.locator('[data-beat-precision-toggle]')).toHaveCount(0);
+  await pointer(page,'pointerdown',19); await slide(page);
+  await expect(page.locator('[data-beat-precision-lens]')).toBeVisible();
+  await pointer(page,'pointercancel',19);
+  await pointer(page,'pointerdown',0); await page.clock.runFor(400);
+  expect(await page.evaluate(()=>window.subdivisionStarts)).toBe(1);
+  expect(await page.evaluate(()=>legacy)).toBe(0);
 });
 const contacts = new WeakMap();
 async function slide(page) {
@@ -132,13 +130,13 @@ test('slow pre-hold preview maps multirow geometry and slow fine movement; relea
 });
 test('keyboard navigation, authority, playback, rerender, cancellation and cleanup', async ({page}) => {
   await fixture(page,32); await page.clock.install({time:new Date('2025-12-31T23:59:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:00Z'));
-  const toggle=page.getByRole('button',{name:'Precision beat selection',exact:true}); await activate(page);
+  await activate(page);
   expect(await page.evaluate(()=>module.initializeBeatPrecision(document.querySelector('#controls'))===controller)).toBe(true);
   expect(await page.evaluate(()=>module.initializeBeatPrecision(null))).toBe(null);
-  await toggle.focus(); await page.keyboard.press('ArrowRight');
-  await expect(page.locator('.beat-precision-selected')).toHaveAttribute('data-beat-index','0');
-  await page.keyboard.press('ArrowRight');
+  await page.locator('.beat-square').first().focus(); await page.keyboard.press('ArrowRight');
   await expect(page.locator('.beat-precision-selected')).toHaveAttribute('data-beat-index','1');
+  await page.keyboard.press('ArrowRight');
+  await expect(page.locator('.beat-precision-selected')).toHaveAttribute('data-beat-index','2');
   await page.evaluate(()=>document.dispatchEvent(new CustomEvent('syncrolechange',{detail:{state:'connected',isHost:false}})));
   await expect(page.locator('.track .beat-precision')).toBeHidden();
   await expect(page.locator('.beat-precision-selected')).toHaveCount(0);
@@ -157,9 +155,9 @@ test('keyboard navigation, authority, playback, rerender, cancellation and clean
   expect(await page.evaluate(()=>edits.length)).toBe(1);
   await page.evaluate(()=>document.querySelector('.bar-visual').replaceChildren());
   await expect(page.locator('.beat-precision-selected')).toHaveCount(0);
-  await toggle.focus(); await page.keyboard.press('Escape'); await expect(toggle).toBeFocused();
+  await page.locator('.beat-precision-hint').focus(); await page.keyboard.press('Escape');
   await page.evaluate(()=>{controller.destroy();controller.destroy()});
-  await expect(toggle).toHaveCount(0);expect(await page.evaluate(()=>edits.length)).toBe(1);
+  await expect(page.locator('[data-beat-precision-toggle]')).toHaveCount(0);expect(await page.evaluate(()=>edits.length)).toBe(1);
 });
 test('precision restores pan/pinch in normal mode and direct vertical touch in edit mode; fast/slow exact targeting, multi-touch and outside cancel', async ({page}) => {
   await fixture(page);await page.clock.install({time:new Date('2025-12-31T23:59:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:00Z'));
@@ -167,7 +165,7 @@ test('precision restores pan/pinch in normal mode and direct vertical touch in e
   await page.evaluate(()=>document.querySelector('.bar-visual').classList.add('rest-mode-active'));
   expect(await page.locator('.bar-visual').evaluate(el=>getComputedStyle(el).touchAction)).toContain('pan-y');
   expect(await page.locator('.bar-visual').evaluate(el=>getComputedStyle(el).touchAction)).toContain('pinch-zoom');
-  const toggle=page.getByRole('button',{name:'Precision beat selection',exact:true}); await activate(page);
+  await activate(page);
   expect(await page.locator('.bar-visual').evaluate(el=>getComputedStyle(el).touchAction)).toBe('pinch-zoom');
   // Each event has an explicit timestamp. Same physical delta: fast = two beats, fine = one.
   async function drag(slow) {
@@ -191,10 +189,9 @@ test('precision restores pan/pinch in normal mode and direct vertical touch in e
   await pointer(page,'pointerup',3);await expect(page.locator('.beat-precision-selected')).toHaveCount(0);
   await pointer(page,'pointerdown',3);await pointer(page,'pointerup',3,{clientX:-20});
   await expect(page.locator('.beat-precision-selected')).toHaveCount(0);
-  await toggle.click();
-  expect(await page.locator('.bar-visual').evaluate(el=>getComputedStyle(el).touchAction)).toBe('none');
-  await pointer(page,'pointerdown',3);await page.clock.runFor(400);await pointer(page,'pointerup',3);
-  expect(await page.evaluate(()=>longpress)).toBe(1);
+  await page.evaluate(()=>document.body.classList.remove('beat-edit-mode'));
+  expect(await page.locator('.bar-visual').evaluate(el=>getComputedStyle(el).touchAction)).toContain('pan-y');
+  await expect(page.locator('[data-beat-precision-toggle]')).toHaveCount(0);
 });
 test('continuous slow movement enters fine mode; same-DOM rerender invalidates selection; destroy restores gestures', async ({page}) => {
   await fixture(page);await page.clock.install({time:new Date('2025-12-31T23:59:00Z')});await page.clock.pauseAt(new Date('2026-01-01T00:00:00Z'));

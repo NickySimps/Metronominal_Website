@@ -24,6 +24,7 @@ import MonitoringController from './js/monitoringController.js';
 import { initializeRehearsalTools } from './js/rehearsalTools.js';
 import { initializeBeatPrecisionMount } from './js/beatPrecisionMount.js';
 import { initializeWorkflowTools } from './js/workflowTools.js';
+import { initializeMelodyReuse } from './js/melodyReuse.js';
 import { initializeInteractionMotion, emitInteractionMotion } from './js/interactionMotion.js';
 
 let qrCodeInstance = null;
@@ -259,6 +260,10 @@ async function initialize() {
   UIController.initializeConnectionModal();
   console.log('DOM.recordingDisplayModal:', DOM.recordingDisplayModal);
   AudioController.initialize();
+  initializeMelodyReuse({ onApplied: () => {
+    TrackController.renderTracks();
+    sendState(AppState.getCurrentStateForPreset(true));
+  } });
   StickyControls.init();
   await SongController.initialize(refreshUIFromState);
   

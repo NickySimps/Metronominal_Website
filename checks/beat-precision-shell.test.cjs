@@ -32,10 +32,12 @@ test('precision selection has a visible track-adjacent mount and offline assets'
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
   const script=fs.readFileSync(path.join(root,'script.js'),'utf8');
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
+  const candidateCache = sw.match(/const CACHE_NAME\s*=\s*['"](metronominal-v\d+)['"]/);
+  assert.ok(candidateCache, 'service worker must declare a versioned cache name');
   assert.equal((html.match(/id="beat-precision-controls"/g)||[]).length,1);
   assert.ok(html.indexOf('id="beat-precision-controls"')<html.indexOf('id="all-tracks-wrapper"'));
   assert.ok(html.includes('href="beat-precision.css"'));
   assert.match(script,/await initializeBeatPrecisionMount\(/);
   for(const file of ['beat-precision.css','js/beatPrecision.js','js/beatPrecisionMount.js']) assert.ok(sw.includes(`'./${file}'`),file);
-  assert.match(sw,/metronominal-v195/);
+  assert.match(sw,new RegExp(candidateCache[1]));
 });

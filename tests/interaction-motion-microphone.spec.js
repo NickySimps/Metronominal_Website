@@ -52,6 +52,19 @@ async function ready(page) {
   });
 }
 const recordButton = page => page.locator('.track-record-btn').first();
+// Track Rec opens the idle recording menu (no device request); Start acquires.
+// Cached/legacy markup without #recording-start-btn keeps direct Rec start.
+async function recordViaMenu(page) {
+  const before = await page.evaluate(() => generatedStreams.length);
+  await recordButton(page).click();
+  const start = page.locator('#recording-display-modal #recording-start-btn');
+  if (await start.count()) {
+    await expect(start).toBeVisible();
+    await expect(page.locator('#recording-mode')).toHaveValue('sample');
+    expect(await page.evaluate(() => ({ streams: generatedStreams.length, session: audio.recordingSession, recording: a.isRecording() }))).toEqual({ streams: before, session: null, recording: false });
+    await start.click();
+  }
+}
 async function assertReleased(page) {
   await expect.poll(() => page.evaluate(() => generatedStreams.every(stream => stream.getTracks().every(track => track.readyState === 'ended')))).toBe(true);
   expect(await page.evaluate(() => ({ recording: a.isRecording(), stream: audio.recordingStream, recorder: audio.mediaRecorder, timer: audio.timerIntervalId, analyser: audio.analyserNode }))).toEqual({ recording: false, stream: null, recorder: null, timer: null, analyser: null });
@@ -68,7 +81,7 @@ test('generated microphone start and stop are truthful; saved feedback waits for
       return nativeDecoded;
     };
   });
-  await recordButton(page).click();
+  await recordViaMenu(page);
   await expect.poll(() => page.evaluate(() => observed.includes('record-start'))).toBe(true);
   expect(await page.evaluate(() => audio.mediaRecorder.state)).toBe('recording');
   expect(await page.evaluate(() => {
@@ -107,7 +120,7 @@ for (const boundary of ['roomauthoritychange', 'syncrolechange', 'remove-track',
           return buffer;
         };
       });
-      await recordButton(page).click();
+      await recordViaMenu(page);
       await expect.poll(() => page.evaluate(() => nativeEvents.includes('start'))).toBe(true);
       await page.evaluate(() => { window.ownedRecorder = audio.mediaRecorder; window.ownedSource = audio.recordingSession.source; });
       if (phase === 'decoding') {
@@ -155,7 +168,7 @@ for (const failure of ['resume', 'permission', 'constructor', 'start', 'decode',
       if (failure === 'start') MediaRecorder.prototype.start = fail;
       if (failure === 'decode') a.getAudioContext().decodeAudioData = fail;
     }, failure);
-    await recordButton(page).click();
+    await recordViaMenu(page);
     if (failure === 'decode' || failure === 'native-error') {
       await expect.poll(() => page.evaluate(() => observed.includes('record-start'))).toBe(true);
       if (failure === 'decode') {
@@ -179,7 +192,7 @@ test('authority drift before the native start event cancels capture instead of l
       return result;
     };
   });
-  await recordButton(page).click();
+  await recordViaMenu(page);
   await expect.poll(() => page.evaluate(() => nativeEvents.includes('start'))).toBe(true);
   await assertReleased(page);
   expect(await page.evaluate(() => ({ session: audio.recordingSession, feedback: observed, count: a.getRecordings().length }))).toEqual({ session: null, feedback: [], count: 0 });
@@ -187,7 +200,7 @@ test('authority drift before the native start event cancels capture instead of l
 
 test('native stop after unannounced authority drift releases session ownership for reentry', async ({ page }) => {
   await ready(page);
-  await recordButton(page).click();
+  await recordViaMenu(page);
   await expect.poll(() => page.evaluate(() => nativeEvents.includes('start'))).toBe(true);
   await page.evaluate(() => {
     observed = [];

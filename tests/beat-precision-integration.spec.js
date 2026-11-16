@@ -5,6 +5,7 @@ async function ready(page) {
   await page.goto('./');
   await expect(page.locator('#share-btn')).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   await expect(page.locator('#beat-precision-controls')).toBeHidden();
+  await expect(page.locator('[data-beat-precision-toggle]')).toHaveCount(0);
 }
 async function dense(page) {
   await page.evaluate(async()=>{
@@ -34,10 +35,9 @@ test('mounted dense-bar assistance follows Beat Edit and release opens the exact
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.setViewportSize({width:390,height:1200});await ready(page);await dense(page);
   await page.locator('.rest-button').first().click();
-  const toggle=page.getByRole('button',{name:'Precision beat selection',exact:true});
-  await expect(toggle).toBeVisible();
+  await expect(page.locator('[data-beat-precision-toggle]')).toHaveCount(0);
   await page.locator('.beat-edit-btn').first().click();
-  await expect(toggle).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('[data-beat-precision-toggle]')).toHaveCount(0);
   await page.evaluate(async()=>{const m=(await import(new URL('js/soundSettingsModal.js',document.baseURI))).default,original=m.show;window.__editorOpens=0;m.show=function(...args){window.__editorOpens++;return original.apply(this,args);};});
   await beat(page,19).scrollIntoViewIfNeeded();
   await page.mouse.move(1,1);
@@ -82,10 +82,10 @@ test('mounted dense-bar assistance follows Beat Edit and release opens the exact
   await expect(effectsButton).toBeFocused();
   expect(errors).toEqual([]);
 });
-test('Precision off preserves actual legacy rest taps and normal holds; indicator remains available',async({page})=>{
+test('automatic precision preserves actual rest taps and normal subdivision holds',async({page})=>{
   await ready(page);
   await page.locator('.rest-button').first().click();
-  await page.locator('[data-beat-precision-toggle]').first().click();
+  await expect(page.locator('[data-beat-precision-toggle]')).toHaveCount(0);
   await pointer(page,'pointerdown',1);await pointer(page,'pointerup',1);
   await expect.poll(()=>page.evaluate(async()=>(await import(new URL('js/appState.js',document.baseURI))).default.getTracks()[0].barSettings[0].rests.includes(1))).toBe(true);
   await page.locator('.rest-button').first().click();
@@ -114,7 +114,7 @@ test('real participant selection cannot edit and role/playback boundaries clear 
     await client.locator('.beat-square').first().dispatchEvent('click');
     await expect(client.locator('#sound-settings-modal')).toBeHidden();
     await page.locator('.beat-edit-btn').first().click();
-    await page.locator('[data-beat-precision-toggle]').first().focus();
+    await page.locator('.beat-square').first().focus();
     await page.keyboard.press('ArrowRight');
     await expect(page.locator('.beat-precision-selected')).toHaveCount(1);
     await page.locator('#start-stop-btn').click();
@@ -130,8 +130,9 @@ for(const width of [320,390,1280])test(`mounted Precision controls fit ${width}p
   await page.setViewportSize({width,height:1100});await ready(page);
   await page.locator('.beat-edit-btn').first().click();
   await expect(page.locator('.track .beat-precision')).toBeVisible();
-  const geometry=await page.locator('.track .beat-precision').evaluate(root=>({width:innerWidth,scroll:document.documentElement.scrollWidth,buttons:[...root.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,height:r.height};})}));
+  const geometry=await page.locator('.track .beat-precision').evaluate(root=>({width:innerWidth,scroll:document.documentElement.scrollWidth,hint:root.textContent,buttons:[...root.querySelectorAll('button')].map(b=>{const r=b.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width,height:r.height};})}));
   expect(geometry.scroll).toBeLessThanOrEqual(geometry.width);
-  expect(geometry.buttons.every(b=>b.left>=0&&b.right<=width&&b.width>=44&&b.height>=44)).toBe(true);
+  expect(geometry.buttons).toHaveLength(0);
+  expect(geometry.hint).toContain('slow slide');
   await expect(page.locator('#start-stop-btn')).toBeVisible();
 });

@@ -46,6 +46,8 @@ test('rehearsal controls have one accessible mount and precached feature entrypo
   const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const script = fs.readFileSync(path.join(root, 'script.js'), 'utf8');
   const sw = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
+  const candidateCache = sw.match(/const CACHE_NAME\s*=\s*['"](metronominal-v\d+)['"]/);
+  assert.ok(candidateCache, 'service worker must declare a versioned cache name');
   assert.equal((html.match(/id="rehearsal-tools"/g) || []).length, 1);
   assert.match(html, /<summary[^>]*>Rehearsal tools<\/summary>/);
   assert.match(script, /await initializeRehearsalTools\(/);
@@ -56,5 +58,5 @@ test('rehearsal controls have one accessible mount and precached feature entrypo
   for (const file of ['rehearsalTools','rehearsalRoomController','editHistory','rehearsalLibrary','adaptiveVisualization']) {
     assert.ok(sw.includes(`'./js/${file}.js'`), `${file} cache`);
   }
-  assert.match(sw, /metronominal-v195/);
+  assert.match(sw, new RegExp(candidateCache[1]));
 });

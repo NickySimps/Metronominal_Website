@@ -11,7 +11,8 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
   const doc = controlsRoot.ownerDocument;
   controlsRoot.replaceChildren(); controlsRoot.hidden = true;
   const groups = new Map(), managed = new Map();
-  let assist = true, selected = null, destroyed = false;
+  const assist = true;
+  let selected = null, destroyed = false;
   let role = { state: doc.querySelector('#share-btn.connected') ? 'connected' : 'solo', isHost: window.isHost === true };
   const listeners = [];
   function on(target, name, handler, options) { target.addEventListener(name, handler, options); listeners.push(() => target.removeEventListener(name, handler, options)); }
@@ -44,15 +45,13 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
       let ui = groups.get(track);
       if (!ui) {
         const group = doc.createElement('div'); group.className = 'beat-precision'; group.setAttribute('aria-label','Beat targeting assistance');
-        const toggle = doc.createElement('button'); toggle.type = 'button'; toggle.textContent = 'Precision'; toggle.dataset.beatPrecisionToggle = ''; toggle.setAttribute('aria-label','Precision beat selection');
-        const status = doc.createElement('span'); status.className = 'beat-precision-hint'; status.setAttribute('role','status'); group.append(toggle,status);
+        const status = doc.createElement('span'); status.className = 'beat-precision-hint'; status.setAttribute('role','status'); status.tabIndex = -1; group.append(status);
         const anchor = track.querySelector('.track-sound-controls') || track.querySelector('.mode-buttons-col');
         if (anchor) anchor.after(group); else track.prepend(group);
-        toggle.addEventListener('click',()=>{ cancel(true); assist = !assist; render(); emitInteractionMotion(toggle, 'toggle'); });
-        ui = {group,toggle,status}; groups.set(track,ui);
+        ui = {group,status}; groups.set(track,ui);
       }
-      ui.group.hidden = !shown; ui.toggle.setAttribute('aria-pressed',String(assist));
-      const hint = assist ? 'Tap to '+(mode()==='edit'?'edit':mode())+' · hold for subdivisions · slow slide to zoom · '+(mode()==='edit'?'fast slide to choose':'fast slide to paint') : 'Standard beat targeting';
+      ui.group.hidden = !shown;
+      const hint = 'Tap to '+(mode()==='edit'?'edit':mode())+' · hold for subdivisions · slow slide to zoom · '+(mode()==='edit'?'fast slide to choose':'fast slide to paint');
       if (ui.status.textContent !== hint) ui.status.textContent = hint;
       const beats = [...track.querySelectorAll(`.bar-visual ${BEAT}`)], focusTarget = beats.includes(selected) ? selected : beats[0];
       for (const beat of beats) {
@@ -82,7 +81,7 @@ export function initializeBeatPrecision(controlsRoot, interactionRoot = document
     if (preview) { emitInteractionMotion(preview, clear ? 'cancel' : 'close'); preview.remove(); preview = null; }
     if (clear) select(null); else if (painting) render();
     const ui = focus ? groups.get(track) : null;
-    if (ui && !ui.group.hidden) ui.toggle.focus({ preventScroll: true });
+    if (ui && !ui.group.hidden) ui.status.focus({ preventScroll: true });
   }
   function nearest(bar, x, y, current = null) {
     let best = current, distance = Infinity;

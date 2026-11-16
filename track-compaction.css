@@ -1,0 +1,25 @@
+/* Reduce decorative spacing only. Never clip or fade focusable controls/beat UI. */
+#all-tracks-wrapper > .track:not(.selected) {
+  gap: .35rem;
+  padding: .5rem;
+  transition: gap 180ms ease, padding 180ms ease;
+}
+#all-tracks-wrapper > .track:not(.selected) .track-controls,
+#all-tracks-wrapper > .track:not(.selected) .track-action-row,
+#all-tracks-wrapper > .track:not(.selected) .track-sound-controls,
+#all-tracks-wrapper > .track:not(.selected) .track-bottom-sliders-row,
+#all-tracks-wrapper > .track:not(.selected) .measures-container {
+  margin-block: 0;
+}
+#all-tracks-wrapper > .track:not(.selected) .track-action-row,
+#all-tracks-wrapper > .track:not(.selected) .track-sound-controls,
+#all-tracks-wrapper > .track:not(.selected) .track-bottom-sliders-row,
+#all-tracks-wrapper > .track:not(.selected) .measures-container {
+  transition: margin 180ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  #all-tracks-wrapper > .track:not(.selected),
+  #all-tracks-wrapper > .track:not(.selected) * {
+    transition-duration: 0s !important;
+  }
+}

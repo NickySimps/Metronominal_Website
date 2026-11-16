@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const os = require('node:os');
+const { recordingModalMarkup } = require('./recordingMenuMarkup.cjs');
 
 // Generated PCM only: no physical input, no external server/CDN, no captured fixture.
 const fixtureDir = fs.mkdtempSync(path.join(process.env.TMPDIR || os.tmpdir(), 'voice-lifecycle-'));
@@ -20,10 +21,10 @@ test.beforeAll(async () => {
   const root = path.join(__dirname, '..');
   server = http.createServer((req, res) => {
     if (req.url === '/') {
-      const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-      const mode = html.match(/<fieldset id="recording-mode-controls"[\s\S]*?<\/fieldset>/)?.[0] || '';
-      const modal = html.match(/<div id="recording-display-modal"[\s\S]*?<\/div>\s*<\/div>/)?.[0] || '';
-      res.end(`<!doctype html><link rel="stylesheet" href="/voice-note-display.css"><style>.modal{display:none;padding:20px}</style>${mode}<button id="rec">Rec</button>${modal}`); return;
+      // Real modal bytes; mode controls live INSIDE the modal per the menu contract.
+      const { modal } = recordingModalMarkup(root);
+      res.setHeader('Content-Type', 'text/html');
+      res.end(`<!doctype html><link rel="stylesheet" href="/voice-note-display.css"><style>.modal{display:none;padding:20px}</style><button id="rec">Rec</button>${modal}`); return;
     }
     // Presentation refresh is the only replaced module: retain actual app-state,
     // capture, analysis, display, native microphone, graph and sample recording.
@@ -53,7 +54,7 @@ async function ready(page) {
   });
 }
 async function startVoice(page) {
-  await page.locator('#recording-mode').selectOption('voice');
+  await page.evaluate(() => audio.setRecordingMode('voice'));
   await page.locator('#rec').click();
   await expect.poll(() => page.evaluate(() => audio.recordingSession?.voice?.state)).toBe('capturing');
 }
@@ -97,7 +98,7 @@ for (const name of ['discard', 'escape', 'backdrop', 'hide-modal', 'hidden-attri
 for (const name of ['discard', 'pagehide', 'roomauthoritychange', 'replace-track', 'hidden-attribute', 'visibility-hidden', 'class-hidden']) {
   test(`${name} cancels pending acquisition; late old stream cannot disturb a new voice session`, async ({ page }) => {
     await ready(page);
-    await page.locator('#recording-mode').selectOption('voice');
+    await page.evaluate(() => audio.setRecordingMode('voice'));
     await page.evaluate(() => {
       const acquire = navigator.mediaDevices.getUserMedia;
       window.restoreAcquire = () => { navigator.mediaDevices.getUserMedia = acquire; };
@@ -149,7 +150,7 @@ for (const finish of ['stop', 'discard']) {
       await page.locator('#recording-stop-btn').click();
       await expect(page.locator('#voice-recording-review')).toBeVisible();
     } else await boundary(page, 'discard');
-    await page.locator('#recording-mode').selectOption('sample');
+    await page.evaluate(() => audio.setRecordingMode('sample'));
     await page.locator('#rec').click();
     await expect.poll(() => page.evaluate(() => a.isRecording() && audio.mediaRecorder?.state === 'recording')).toBe(true);
     await expect(page.locator('#recording-waveform-canvas')).toBeVisible();
@@ -171,7 +172,7 @@ for (const finish of ['stop', 'discard']) {
 
 test('permission denied produces visible refusal and permits a clean retry', async ({ page }) => {
   await ready(page);
-  await page.locator('#recording-mode').selectOption('voice');
+  await page.evaluate(() => audio.setRecordingMode('voice'));
   await page.evaluate(() => { const acquire = navigator.mediaDevices.getUserMedia; window.restoreAcquire = () => { navigator.mediaDevices.getUserMedia = acquire; }; navigator.mediaDevices.getUserMedia = () => Promise.reject(new DOMException('denied', 'NotAllowedError')); });
   await page.locator('#rec').click();
   await expect(page.locator('#voice-recording-status')).toContainText('Microphone capture failed');
@@ -182,7 +183,7 @@ test('permission denied produces visible refusal and permits a clean retry', asy
 
 test('voice refuses playing transport before device permission with truthful local status', async ({ page }) => {
   await ready(page);
-  await page.locator('#recording-mode').selectOption('voice');
+  await page.evaluate(() => audio.setRecordingMode('voice'));
   await page.evaluate(async () => { await a.getAudioContext().resume(); await a.togglePlay(); });
   await page.locator('#rec').click();
   await expect(page.locator('#voice-recording-status')).toContainText('Stop playback');

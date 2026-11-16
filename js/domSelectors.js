@@ -71,6 +71,9 @@ const DOM = {
 
     // Recording Modal
     get recordingMode() { return document.getElementById('recording-mode'); },
+    get recordingStartBtn() { return document.getElementById('recording-start-btn'); },
+    get recordingModeSampleBtn() { return document.getElementById('recording-mode-sample-btn'); },
+    get recordingModeVoiceBtn() { return document.getElementById('recording-mode-voice-btn'); },
     get voiceRecordingStatus() { return document.getElementById('voice-recording-status'); },
     get voiceNoteContainer() { return document.getElementById('voice-note-container'); },
     get voiceRecordingReview() { return document.getElementById('voice-recording-review'); },

@@ -1,10 +1,12 @@
-const CACHE_NAME = 'metronominal-v196';
+const CACHE_NAME = 'metronominal-v198';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
   './track-actions.css',
   './track-layout.css',
+  './compact-track-icons.css',
+  './track-compaction.css',
   './workflow-tools.css',
   './range-editor.css',
   './arrangement-timeline.css',
@@ -27,6 +29,8 @@ const ASSETS_TO_CACHE = [
   './js/beatPrecisionMount.js',
   './voice-note-display.css',
   './voice-take-editor.css',
+  './melody-reuse.css',
+  './js/melodyReuse.js',
   './js/melodySchema.js',
   './js/melodyScheduler.js',
   './js/melodyVoice.js',

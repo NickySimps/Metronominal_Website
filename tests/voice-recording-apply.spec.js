@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const os = require('node:os');
+const { recordingModalMarkup } = require('./recordingMenuMarkup.cjs');
 
 // Isolated real state/capture/editor composition; generated input only.
 const temp = fs.mkdtempSync(path.join(process.env.TMPDIR || os.tmpdir(), 'voice-apply-'));
@@ -20,10 +21,10 @@ test.beforeAll(async () => {
   const root = path.join(__dirname, '..');
   server = http.createServer((req, res) => {
     if (req.url === '/') {
-      const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-      const mode = html.match(/<fieldset id="recording-mode-controls"[\s\S]*?<\/fieldset>/)[0];
-      const modal = html.match(/<div id="recording-display-modal"[\s\S]*?<\/div>\s*<\/div>/)[0];
-      res.end(`<!doctype html><link rel="stylesheet" href="/voice-note-display.css"><link rel="stylesheet" href="/voice-take-editor.css"><style>body{margin:0}.modal{display:none;position:fixed;inset:0;padding:8px;background:#111}.modal-content{width:100%;max-width:900px;margin:auto;box-sizing:border-box}button{min-height:44px}</style>${mode}<button id="rec">Rec</button><div id="history"></div>${modal}`); return;
+      // Real modal bytes; mode controls live INSIDE the modal per the menu contract.
+      const { modal } = recordingModalMarkup(root);
+      res.setHeader('Content-Type', 'text/html');
+      res.end(`<!doctype html><link rel="stylesheet" href="/voice-note-display.css"><link rel="stylesheet" href="/voice-take-editor.css"><style>body{margin:0}.modal{display:none;position:fixed;inset:0;padding:8px;background:#111}.modal-content{width:100%;max-width:900px;margin:auto;box-sizing:border-box}button{min-height:44px}</style><button id="rec">Rec</button><div id="history"></div>${modal}`); return;
     }
     if (req.url === '/js/tracksController.js') { res.setHeader('Content-Type', 'text/javascript'); res.end('export default {renderTracks(){}}'); return; }
     if (req.url === '/js/3D/threeDSceneManager.js') { res.setHeader('Content-Type', 'text/javascript'); res.end(''); return; }
@@ -171,6 +172,10 @@ test('Unsupported percussion destinations fail closed without creating a sample-
   await preview(page);
   await page.getByLabel('Destination', { exact: true }).selectOption('track:0');
   await expect(page.getByLabel('Sample root MIDI', { exact: true })).toBeHidden();
+  // Drain the setup setter's real 300ms debounced persistence before measuring
+  // the refused Apply. Otherwise its pending write is misattributed to Apply.
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('metronominalState'))?.Tracks?.[0]?.mainBeatSound?.sound)).toBe('Synth Kick');
+  await page.evaluate(() => { window.mutations = 0; window.storageWrites = 0; });
   await page.getByRole('button', { name: 'Apply draft', exact: true }).click();
   await expect(page.locator('.voice-take-editor [role="status"]')).toContainText('Unsupported melody instrument: Synth Kick');
   expect(await page.evaluate(() => ({ same: JSON.stringify(a.getMusicalSnapshot()) === unsupportedBefore, mutations, storageWrites })))
@@ -235,7 +240,7 @@ test('Apply to a recorded sample track requires and preserves an explicit MIDI r
 });
 
 test('tempo and origin are captured before held native acquisition; later BPM does not remap preview', async ({ page }) => {
-  await ready(page, true); await page.locator('#recording-mode').selectOption('voice');
+  await ready(page, true); await page.evaluate(() => audio.setRecordingMode('voice'));
   await page.evaluate(() => {
     const acquire = navigator.mediaDevices.getUserMedia;
     navigator.mediaDevices.getUserMedia = async constraints => {
@@ -284,12 +289,24 @@ async function ready(page, source = false) {
     Storage.prototype.setItem = function(...args) { storageWrites++; return store.apply(this, args); };
     document.querySelector('#rec').onclick = () => { void audio.startRecording(0); };
   }, source);
+  // Await the real setup persistence, including its async serialization, before
+  // counting any writes caused by capture or Apply. A fixed sleep can race it.
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('metronominalState'))?.Tracks?.[0]?.barSettings?.length)).toBe(4);
+  await page.evaluate(() => {
+    window.storageWrites = 0;
+    window.persistedBefore = JSON.stringify(Object.fromEntries(Object.keys(localStorage).map(key => [key, localStorage.getItem(key)])));
+  });
 }
 async function preview(page) {
-  await page.locator('#recording-mode').selectOption('voice'); await page.locator('#rec').click();
+  await page.evaluate(() => audio.setRecordingMode('voice')); await page.locator('#rec').click();
   await expect(page.locator('.voice-note-display__glyph')).toHaveText('A4');
+  // The legacy recording flag also persists. Drain both native lifecycle writes
+  // before measuring the later Apply; waiting only for setup persistence misses
+  // a queued saveStateImmediate from Stop while the draft is being edited.
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('metronominalState'))?.isRecording)).toBe(true);
   await page.locator('#recording-stop-btn').click();
   await expect(page.getByRole('region', { name: 'Note timeline, scroll horizontally for beats' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('metronominalState'))?.isRecording)).toBe(false);
 }
 for (const width of [320, 390, 1280]) for (const source of [false, true]) {
   test(`${width}px ${source ? 'native generated source' : 'generated microphone'} edits detached preview and applies a pitched track`, async ({ page }) => {

@@ -204,11 +204,12 @@ function createTrackElement(track, index) {
     <div class="track-controls">
       <span class="track-name">${track.name || `Track ${index + 1}`}</span>
       <button class="record-btn track-record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon" aria-hidden="true">●</span><span class="record-label">Rec</span></button>
+      <button class="track-reuse-notes-btn" type="button" title="Copy this melody to another track’s instrument" ${track.melody?.bars?.some(bar => bar.length) ? '' : 'hidden'}>Use notes…</button>
       <button class="track-mute-btn" title="${track.muted ? "Unmute track" : "Mute track"}"
-        aria-label="${track.muted ? "Unmute track" : "Mute track"}" aria-pressed="${track.muted}">⍉</button>
+        aria-label="${track.muted ? "Unmute track" : "Mute track"}" aria-pressed="${track.muted}"><span class="track-action-icon" aria-hidden="true">${track.muted ? "◉" : "⍉"}</span><span class="track-action-label">${track.muted ? "Unmute" : "Mute"}</span></button>
       <button class="track-solo-btn" title="${track.solo ? "Unsolo track" : "Solo track"}"
-        aria-pressed="${track.solo}">${track.solo ? "Unsolo" : "Solo"}</button>
-      <button class="track-remove-btn" title="Remove track" aria-label="Remove track">✖</button>
+        aria-label="${track.solo ? "Unsolo track" : "Solo track"}" aria-pressed="${track.solo}"><span class="track-action-icon" aria-hidden="true">★</span><span class="track-action-label">${track.solo ? "Unsolo" : "Solo"}</span></button>
+      <button class="track-remove-btn" title="Remove track" aria-label="Remove track"><span class="track-action-icon" aria-hidden="true">✖</span><span class="track-action-label">Remove</span></button>
       <div class="track-volume-controls">
         <span class="track-volume-label"><span class="volume-label-text">Vol:</span><svg class="volume-icon" aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M4 9v6h4l5 4V5L8 9H4Zm12.5 3a4.5 4.5 0 0 0-2.5-4.03v8.06A4.5 4.5 0 0 0 16.5 12Zm0-8.5v2.1A7 7 0 0 1 20 12a7 7 0 0 1-3.5 6.4v2.1A9 9 0 0 0 22 12a9 9 0 0 0-5.5-8.5Z"/></svg></span>
         <input type="range" id="track-volume-${index}" class="track-volume-slider" min="0" max="1" step="0.01" value="${
@@ -258,6 +259,8 @@ function createTrackElement(track, index) {
  * @param {number} index - The new index of the track.
  */
 function updateTrackElement(trackElement, track, index) {
+  const reuseButton = trackElement.querySelector('.track-reuse-notes-btn');
+  if (reuseButton) reuseButton.hidden = !track.melody?.bars?.some(bar => bar.length);
   // Update data-container-index (important if tracks are reordered/removed)
   trackElement.dataset.containerIndex = index;
 
@@ -627,14 +630,16 @@ const TrackController = {
         <div class="track-controls">
           <span class="track-name">${track.name || `Track ${index + 1}`}</span>
           <button class="record-btn track-record-btn ${AppState.isRecording() ? 'active' : ''}" aria-label="Toggle recording" title="Toggle Recording"><span class="control-icon" aria-hidden="true">●</span><span class="record-label">Rec</span></button>
+          <button class="track-reuse-notes-btn" type="button" title="Copy this melody to another track’s instrument" ${track.melody?.bars?.some(bar => bar.length) ? '' : 'hidden'}>Use notes…</button>
           <button class="track-mute-btn"
             title="${track.muted ? "Unmute track" : "Mute track"}"
             aria-label="${track.muted ? "Unmute track" : "Mute track"}"
-            aria-pressed="${track.muted}">⍉</button>
+            aria-pressed="${track.muted}"><span class="track-action-icon" aria-hidden="true">${track.muted ? "◉" : "⍉"}</span><span class="track-action-label">${track.muted ? "Unmute" : "Mute"}</span></button>
           <button class="track-solo-btn"
             title="${track.solo ? "Unsolo track" : "Solo track"}"
-            aria-pressed="${track.solo}">${track.solo ? "Unsolo" : "Solo"}</button>
-          <button class="track-remove-btn" title="Remove track" aria-label="Remove track">✖</button>
+            aria-label="${track.solo ? "Unsolo track" : "Solo track"}"
+            aria-pressed="${track.solo}"><span class="track-action-icon" aria-hidden="true">★</span><span class="track-action-label">${track.solo ? "Unsolo" : "Solo"}</span></button>
+          <button class="track-remove-btn" title="Remove track" aria-label="Remove track"><span class="track-action-icon" aria-hidden="true">✖</span><span class="track-action-label">Remove</span></button>
         </div>
         <div class="track-action-row" aria-label="Track actions">
           <button class="duplicate-track-btn" type="button" title="Duplicate track"><span class="control-icon" aria-hidden="true">⧉</span> Track</button>
@@ -955,6 +960,9 @@ const TrackController = {
         if (accentActive === newAccentModeState) {
             emitInteractionMotion(target.closest(".accent-button") || target, "toggle");
         }
+    } else if (target.closest(".track-reuse-notes-btn")) {
+        event.stopPropagation();
+        document.dispatchEvent(new CustomEvent('melodyreuse', { detail: { trackIndex: containerIndex } }));
     } else if (target.matches(".record-btn") || target.closest(".record-btn")) {
         AudioController.toggleRecording(containerIndex);
     } else if (target.matches(".beat-edit-btn") || target.closest(".beat-edit-btn")) {

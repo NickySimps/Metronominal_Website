@@ -1,0 +1,52 @@
+.melody-reuse-modal {
+  display: flex;
+  box-sizing: border-box;
+  padding: 12px;
+  align-items: center;
+  justify-content: center;
+  z-index: 2100;
+}
+.melody-reuse-content {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(100%, 680px);
+  max-width: 100%;
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  padding: clamp(12px, 3vw, 24px);
+  border: 2px solid var(--Main);
+  border-radius: var(--BorderRadius);
+  background: var(--Background);
+  color: var(--ReadableOnBackground);
+  font-family: var(--font-family, sans-serif);
+  text-shadow: none;
+}
+.melody-reuse-content :is(h2, p) { margin: 0; overflow-wrap: anywhere; line-height: 1.5; }
+.melody-reuse-content :is(button, select) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  height: auto;
+  padding: 10px 14px;
+  margin: 0;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.4;
+  text-shadow: none;
+  border: 1px solid currentColor;
+  border-radius: var(--BorderRadius);
+}
+.melody-reuse-content select {
+  width: 100%;
+  background: var(--Background);
+  color: var(--ReadableOnBackground);
+}
+.melody-reuse-content button { width: auto; background: var(--Highlight); color: var(--ReadableOnHighlight); }
+.melody-reuse-content button:disabled { opacity: .7; cursor: not-allowed; }
+.melody-reuse-content :is(button, select):focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
+.melody-reuse-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.melody-reuse-actions button { flex: 1 1 10rem; }
+.melody-reuse-content [hidden] { display: none !important; }

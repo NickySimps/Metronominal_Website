@@ -16,6 +16,8 @@
     <link rel="stylesheet" href="adaptive-visualization.css" />
     <link rel="stylesheet" href="beat-precision.css" />
     <link rel="stylesheet" href="track-layout.css" />
+    <link rel="stylesheet" href="compact-track-icons.css" />
+    <link rel="stylesheet" href="track-compaction.css" />
     <link rel="stylesheet" href="workflow-tools.css" />
     <link rel="stylesheet" href="range-editor.css" />
     <link rel="stylesheet" href="arrangement-timeline.css" />
@@ -23,6 +25,7 @@
     <link rel="stylesheet" href="performance-view.css" />
     <link rel="stylesheet" href="voice-note-display.css" />
     <link rel="stylesheet" href="voice-take-editor.css" />
+    <link rel="stylesheet" href="melody-reuse.css" />
     <link rel="stylesheet" href="interaction-motion.css" />
     <link rel="icon" href="assets/logo.jpg" type="image/jpeg" />
     <link rel="manifest" href="manifest.json" />
@@ -362,15 +365,7 @@
             <div class="bar-display">
                 <div id="all-tracks-wrapper"></div>
             </div>
-            <fieldset id="recording-mode-controls">
-                <legend>Microphone Rec mode</legend>
-                <label for="recording-mode">Capture as</label>
-                <select id="recording-mode" aria-describedby="recording-mode-help">
-                    <option value="sample" selected>Audio sample (existing Rec behavior)</option>
-                    <option value="voice">Voice → editable local notes</option>
-                </select>
-                <p id="recording-mode-help">Choose before pressing a track’s Rec button. Sample records audio. Voice detects one sung note at a time without keeping raw audio. Stop playback first. Correct notes in a private draft at the captured BPM, first note at bar 1. No automatic saving or sharing. New-track Apply requires atomic insertion support and currently refuses without changing music.</p>
-            </fieldset>
+
             <button id="add-track-btn" aria-label="Add track" title="Add track">+ Track</button>
             <details id="rehearsal-tools-panel" class="rehearsal-tools-panel">
                 <summary>Rehearsal tools</summary>
@@ -592,8 +587,18 @@
             </div>
         </div>
     </div>
-    <div id="recording-display-modal" class="modal" role="dialog" aria-modal="true" aria-label="Microphone capture" tabindex="-1">
+    <div id="recording-display-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="recording-title" tabindex="-1">
         <div class="modal-content recording-modal-content">
+            <h2 id="recording-title">Record a sound</h2>
+            <fieldset id="recording-mode-controls" aria-describedby="recording-mode-help">
+                <legend>Recording mode</legend>
+                <input id="recording-mode" type="hidden" value="sample">
+                <div class="recording-mode-buttons">
+                    <button id="recording-mode-sample-btn" type="button" aria-pressed="true" aria-controls="recording-waveform-canvas">Audio sample</button>
+                    <button id="recording-mode-voice-btn" type="button" aria-pressed="false" aria-controls="voice-note-container">Voice to notes</button>
+                </div>
+                <p id="recording-mode-help">Record audio, or switch to Voice to notes to sing a melody. Press Start recording when ready. Stop playback before voice capture; sing one note at a time.</p>
+            </fieldset>
             <h2 id="recording-timer">00:00</h2>
             <p id="voice-recording-status" role="status" hidden></p>
             <section id="voice-note-container" aria-label="Live voice notes" hidden></section>
@@ -609,7 +614,8 @@
             </fieldset>
             <section id="voice-take-editor-container" aria-label="Voice correction preview"></section>
             <canvas id="recording-waveform-canvas" width="800" height="200"></canvas>
-            <button id="recording-stop-btn">Stop Recording</button>
+            <button id="recording-start-btn" type="button">Start recording</button>
+            <button id="recording-stop-btn" type="button" hidden>Stop recording</button>
             <button id="recording-cancel-btn">Cancel / discard</button>
         </div>
     </div>

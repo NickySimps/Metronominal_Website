@@ -21,6 +21,7 @@ const required = [
   '/js/voiceCaptureSession.js', '/js/voicePitchDetector.js', '/js/voiceNoteTracker.js',
   '/js/voiceNoteDisplay.js', '/js/voiceTakeEditor.js', '/js/voiceTakeMapping.js',
   '/voice-note-display.css', '/voice-take-editor.css',
+  '/js/melodyReuse.js', '/melody-reuse.css',
 ];
 const mime = url => url.endsWith('.js') ? 'text/javascript' : url.endsWith('.css') ? 'text/css' : url.endsWith('.mp3') ? 'audio/mpeg' : url.endsWith('.png') ? 'image/png' : url.endsWith('.json') ? 'application/json' : 'text/html';
 

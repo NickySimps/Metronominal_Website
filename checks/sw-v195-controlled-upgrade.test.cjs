@@ -15,14 +15,21 @@ const gitFile = file => execFileSync('git', ['show', `2a68cf5:${file}`], { cwd: 
 const assets = source => [...source.matchAll(/'\.\/([^']*)'/g)].map(match => '/' + match[1]);
 const fileFor = url => url === '/' ? 'index.html' : url.slice(1);
 const mime = url => url.endsWith('.js') ? 'text/javascript' : url.endsWith('.css') ? 'text/css' : url.endsWith('.mp3') ? 'audio/mpeg' : url.endsWith('.png') ? 'image/png' : url.endsWith('.json') ? 'application/json' : 'text/html';
+const cacheName = source => {
+  const match = source.match(/const CACHE_NAME\s*=\s*['"](metronominal-v\d+)['"]/);
+  assert.ok(match, 'service worker must declare a versioned cache name');
+  return match[1];
+};
 
-test('v194 controlled cached client upgrades to v195 and serves exact candidate bytes offline', { timeout: 120000 }, async () => {
+test('v194 controlled cached client upgrades to the current candidate and serves exact candidate bytes offline', { timeout: 120000 }, async () => {
   const baselineSW = gitFile('sw.js');
   assert.match(baselineSW.toString(), /metronominal-v194/);
   const candidateSW = fs.readFileSync(path.join(root, 'sw.js'));
+  const candidateCache = cacheName(candidateSW.toString());
+  assert.notEqual(candidateCache, cacheName(baselineSW.toString()), 'candidate must advance beyond the preserved v194 baseline');
   // Fault injection is test-server-only: prove genuine fresh old HTTP entries
   // defeat installation if the existing reload policy is accidentally removed.
-  const servedCandidateSW = process.env.SW_V195_NEGATIVE_NO_RELOAD === '1'
+  const servedCandidateSW = process.env.SW_UPGRADE_NEGATIVE_NO_RELOAD === '1'
     ? Buffer.from(candidateSW.toString().replace("{ cache: 'reload' }", "{ cache: 'default' }"))
     : candidateSW;
   const oldPaths = assets(baselineSW.toString()), newPaths = assets(candidateSW.toString());
@@ -94,17 +101,17 @@ test('v194 controlled cached client upgrades to v195 and serves exact candidate 
     const deadline = Date.now() + 15000;
     do {
       rollout = await page.evaluate(async () => ({ keys: await caches.keys(), changes: window.__controllerChanges }));
-      if (rollout.keys.length === 1 && rollout.keys[0] === 'metronominal-v195' && rollout.changes > 0) break;
+      if (rollout.keys.length === 1 && rollout.keys[0] === candidateCache && rollout.changes > 0) break;
       await new Promise(resolve => setTimeout(resolve, 50));
     } while (Date.now() < deadline);
-    assert.ok(rollout.keys.length === 1 && rollout.keys[0] === 'metronominal-v195' && rollout.changes > 0, `Candidate did not roll to v195: ${JSON.stringify(rollout)}`);
-    assert.deepEqual(await page.evaluate(() => caches.keys()), ['metronominal-v195']);
+    assert.ok(rollout.keys.length === 1 && rollout.keys[0] === candidateCache && rollout.changes > 0, `Candidate did not roll to ${candidateCache}: ${JSON.stringify(rollout)}`);
+    assert.deepEqual(await page.evaluate(() => caches.keys()), [candidateCache]);
     const controllerEvidence = await page.evaluate(() => ({ changes: window.__controllerChanges, replaced: navigator.serviceWorker.controller !== window.__oldController }));
     assert.equal(controllerEvidence.replaced, true);
     assert.equal(controllerEvidence.changes, 1);
     const missingNetwork = newPaths.filter(url => !requests.some(req => req.phase === 'candidate' && req.url === url));
-    const cacheHashes = await page.evaluate(async urls => {
-      const cache = await caches.open('metronominal-v195');
+    const cacheHashes = await page.evaluate(async ({ urls, candidateCache }) => {
+      const cache = await caches.open(candidateCache);
       const result = {};
       for (const url of urls) {
         const response = await cache.match(url);
@@ -112,7 +119,7 @@ test('v194 controlled cached client upgrades to v195 and serves exact candidate 
         result[url] = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await response.arrayBuffer()))].map(n => n.toString(16).padStart(2, '0')).join('');
       }
       return result;
-    }, newPaths);
+    }, { urls: newPaths, candidateCache });
     const mismatchedHashes = newPaths.filter(url => cacheHashes[url] !== expectedHashes[url]);
     assert.deepEqual(mismatchedHashes.map(url => ({ url, actual: cacheHashes[url], expected: expectedHashes[url] })), [], 'New CacheStorage bytes differ from candidate');
     assert.deepEqual(missingNetwork, [], 'Candidate install reused stale HTTP assets');
@@ -138,7 +145,7 @@ test('v194 controlled cached client upgrades to v195 and serves exact candidate 
     // Detect concurrent source changes rather than calling a stale snapshot current.
     for (const [url, bytes] of candidateBytes) assert.equal(sha(fs.readFileSync(path.join(root, fileFor(url)))), sha(bytes), `Candidate changed during test: ${url}`);
     assert.equal(sha(fs.readFileSync(path.join(root, 'sw.js'))), sha(candidateSW));
-    console.log(JSON.stringify({ baseline: '2a68cf5', browser: browser.version(), origin, oldCache: 'metronominal-v194', newCache: 'metronominal-v195', oldFreshHttpCacheProven: true, controllerEvidence, candidateNetworkAssets: newPaths.length, cacheHashesVerified: Object.keys(cacheHashes).length, offlineHashesVerified: Object.keys(offlineHashes).length, offlineNavigationFromServiceWorker: navigation.fromServiceWorker(), changedOldAssets, motion: { css: offlineHashes['/interaction-motion.css'], js: offlineHashes['/js/interactionMotion.js'] }, swSha256: sha(candidateSW), indexSha256: expectedHashes['/index.html'], sourceSnapshotUnchanged: true, limit: 'Local Chromium controlled probe plus actual offline HTML navigation; not deployed/mobile/CDN/native application behavior certification.' }, null, 2));
+    console.log(JSON.stringify({ baseline: '2a68cf5', browser: browser.version(), origin, oldCache: 'metronominal-v194', newCache: candidateCache, oldFreshHttpCacheProven: true, controllerEvidence, candidateNetworkAssets: newPaths.length, cacheHashesVerified: Object.keys(cacheHashes).length, offlineHashesVerified: Object.keys(offlineHashes).length, offlineNavigationFromServiceWorker: navigation.fromServiceWorker(), changedOldAssets, motion: { css: offlineHashes['/interaction-motion.css'], js: offlineHashes['/js/interactionMotion.js'] }, swSha256: sha(candidateSW), indexSha256: expectedHashes['/index.html'], sourceSnapshotUnchanged: true, limit: 'Local Chromium controlled probe plus actual offline HTML navigation; not deployed/mobile/CDN/native application behavior certification.' }, null, 2));
     await context.close();
   } finally {
     if (browser) await browser.close();
