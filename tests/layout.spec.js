@@ -908,17 +908,15 @@ test.describe('mode controls responsive layout', () => {
       await expect(bar.locator('.beat-square').first()).toHaveCSS('touch-action', 'pan-y pinch-zoom');
     }
     await rest.click();
-    // Explicit opt-out restores legacy paint ownership, including no panning.
-    await track.locator('[data-beat-precision-toggle]').click();
-    expect(await touchAction()).toBe('none');
-    await rest.click();
+    // Precision assistance is always enabled: paint modes reserve horizontal
+    // gestures while preserving native vertical scrolling and pinch zoom.
+    expect(await touchAction()).toBe('pinch-zoom');
     await accent.click();
-    expect(await touchAction()).toBe('none');
-    await accent.click();
+    expect(await touchAction()).toBe('pinch-zoom');
     await slice.click();
-    expect(await touchAction()).toBe('none');
+    expect(await touchAction()).toBe('pinch-zoom');
     await slice.click();
-    expect(await touchAction()).toBe('pan-y');
+    expect(await touchAction()).toBe('pan-y pinch-zoom');
   });
   test('resting a beat clears both its accent and edited sound state', async ({ page }) => {
     await page.goto('/');

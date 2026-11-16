@@ -17,17 +17,6 @@ async function unchanged(page){
  expect(await page.evaluate(()=>precisionMutations)).toBe(0);
  expect(await page.evaluate(()=>h.undo())).toBe(false);
 }
-test('precision assistance toggles acknowledge the local setting without music or history edits',async({page},info)=>{
- await setup(page,info.config.metadata);
- const toggle=page.locator('[data-beat-precision-toggle]').first();
- for(const value of ['false','true']){
-  await page.evaluate(()=>{__motionObserved=[];});
-  if(value==='false')await toggle.click();else await toggle.press('Space');
-  await expect(toggle).toHaveAttribute('aria-pressed',value);
-  await expect.poll(()=>page.evaluate(()=>__motionObserved.filter(k=>k==='toggle'))).toEqual(['toggle']);
- }
- await unchanged(page);
-});
 test('keyboard targeting acknowledges changed beats but not a clamped boundary, without editing',async({page},info)=>{
  await setup(page,info.config.metadata);
  const beats=page.locator('.bar-visual[data-container-index="0"][data-bar-index="0"] .beat-square:not(.removing-beat-animation)');
@@ -49,7 +38,7 @@ test('Escape acknowledges releasing a keyboard target once and preserves existin
  expect(await page.evaluate(()=>__motionObserved)).toEqual([]);
  await page.keyboard.press('Escape');
  await expect(page.locator('.beat-precision-selected')).toHaveCount(0);
- await expect(page.locator('[data-beat-precision-toggle]').first()).toBeFocused();
+ await expect(page.locator('.track.selected .beat-precision-hint')).toBeFocused();
  await expect.poll(()=>page.evaluate(()=>__motionObserved.filter(k=>k==='cancel'))).toEqual(['cancel']);
  await page.evaluate(()=>{__motionObserved=[];});await page.keyboard.press('Escape');
  expect(await page.evaluate(()=>__motionObserved)).toEqual([]);

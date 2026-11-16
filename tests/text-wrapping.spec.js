@@ -172,8 +172,8 @@ for(const {width,height,stress} of modalCases)test(`Precision and sound editors 
     (await import('/js/barDisplayController.js')).default.renderBarsAndControls(-1);
   });
   await page.locator('.beat-edit-btn').first().click();
-  await expect(page.locator('[data-beat-precision-toggle]').first()).toBeVisible();
-  await page.locator('[data-beat-precision-toggle]').first().focus();
+  await expect(page.locator('.track .beat-precision')).toBeVisible();
+  await page.locator('.bar-visual .beat-square').first().focus();
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowLeft');
   const beat=page.locator('.bar-visual .beat-square').nth(19);

@@ -1,10 +1,12 @@
 const { test, expect } = require('@playwright/test');
+const publicMelodyFixture = require('./publicMelodyFixture.cjs');
 const errors = new WeakMap();
 test.beforeEach(({ page }) => { const messages = []; errors.set(page, messages); page.on('pageerror', error => messages.push(error.message)); });
 test.afterEach(({ page }) => expect(errors.get(page)).toEqual([]));
 
 async function ready(page, legacy = false) {
   await page.route('**/js/webrtc.js', route => route.fulfill({ contentType: 'text/javascript', body: `
+    ${publicMelodyFixture()}
     export function getSyncDiagnostics(){return {role:window.testRole || 'offline'}}
     export function sendState(){}
     ${legacy ? '' : `export function getRehearsalRoomState(){return window.testRoom || {supported:true,cue:null,participants:[],requests:[]}}

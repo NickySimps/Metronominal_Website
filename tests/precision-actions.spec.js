@@ -174,14 +174,11 @@ test('normal short tap and slow pre-hold release select the correct bar/beat; de
   expect(await page.evaluate(()=>[a.getSelectedTrackIndex(),a.getSelectedBarIndexInContainer()])).toEqual([0,0]);
   await page.locator('.bar-beat-indicator').first().click();await expect(page.locator('.subdivision-options-container.visible')).toHaveCount(1);
 });
-test('explicit Precision off retains intentional legacy rest drag painting through shared actions',async({page})=>{
-  await setup(page,'rest');await page.locator('[data-beat-precision-toggle]').first().click();
-  // Clicking the opt-out scrolls its toolbar into view; restore the source row
-  // before exercising the legacy elementFromPoint-based paint handler.
+test('precision remains always-on and rest painting applies through shared actions',async({page})=>{
+  await setup(page,'rest');
+  await expect(page.locator('[data-beat-precision-toggle]')).toHaveCount(0);
   await page.locator('.beat-square[data-beat-index="20"]').first().scrollIntoViewIfNeeded();
   expect(await page.locator('.beat-square[data-beat-index="20"]').first().evaluate(b=>{const r=b.getBoundingClientRect();return document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('.beat-square')===b;})).toBe(true);
-  // One delivery task represents an intentional fast legacy stroke; cross-process
-  // locator round trips must not expire the unchanged 350ms long-press timer.
   await sweep(page,[['pointerdown',19,1000],['pointermove',20,1020],['pointerup',20,1040]]);
   expect(await page.evaluate(()=>a.getTracks()[0].barSettings[0].rests)).toEqual([19,20]);
   expect(await page.evaluate(()=>opens)).toEqual([]);

@@ -38,8 +38,6 @@ test.describe('track slice and action controls', () => {
   test('Slice mode paints across beats during a real drag', async ({ page }) => {
     const bar = page.locator('.bar-visual').first();
     await page.locator('.slice-btn').click();
-    // Immediate multi-beat painting is the explicit legacy opt-out gesture.
-    await page.locator('[data-beat-precision-toggle]').first().click();
     const boxes = await bar.locator('.beat-square').evaluateAll(elements => elements.map(element => {
       const rect = element.getBoundingClientRect();
       return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };

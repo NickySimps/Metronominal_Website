@@ -1428,7 +1428,7 @@ export async function sendState(statePromise) {
 export function sendSongChangeCommand(change) {
   if (change !== null && (!change || typeof change !== 'object' || Array.isArray(change)
     || Object.keys(change).some(key => !['version','song','sectionIndex','startBar','effectiveAt'].includes(key))
-    || change.version !== 1 || !Number.isInteger(change.sectionIndex) || change.sectionIndex < 0 || change.sectionIndex > 31
+    || change.version !== 1 || (change.sectionIndex !== null && (!Number.isInteger(change.sectionIndex) || change.sectionIndex < 0 || change.sectionIndex > 31))
     || !Number.isInteger(change.startBar) || change.startBar < 0 || change.startBar > 4095 || !Number.isFinite(change.effectiveAt))) return false;
   if(!joined || !window.isHost || !hasTimeSync || !supportsRoomCapability('song-boundary-v1'))return false;
   if (change && (!acceptMelody({...AppState.getMusicalSnapshot(),song:change.song}) || !acceptLogicalBeats({...AppState.getMusicalSnapshot(),song:change.song}))) return false;

@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const publicMelodyFixture = require('./publicMelodyFixture.cjs');
 const KEY = 'metronominal.rehearsal.v1';
 const BACKUP = `${KEY}.backup`;
 for (const failingKey of [KEY, BACKUP]) test(`failed ${failingKey} write preserves primary and in-memory data`, async ({page}) => {
@@ -147,7 +148,7 @@ test('cached backup remains previewable when storage reads become unavailable',a
 });
 
 async function ready(page, original) {
-  await page.route('**/js/webrtc.js', route => route.fulfill({contentType:'text/javascript',body:`export function getSyncDiagnostics(){return {role:window.testRole || 'offline'}} export function sendState(){} `}));
+  await page.route('**/js/webrtc.js', route => route.fulfill({contentType:'text/javascript',body:`${publicMelodyFixture()}\nexport function getSyncDiagnostics(){return {role:window.testRole || 'offline'}} export function sendState(){}`}));
   await page.route('**/js/metronomeEngine.js', route => route.fulfill({contentType:'text/javascript',body:'export default {};'}));
   await page.route('**/library-test.html', route => route.fulfill({contentType:'text/html',body:'<!doctype html><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="rehearsal-library.css"><main id="root"></main>'}));
   await page.goto('/library-test.html');
