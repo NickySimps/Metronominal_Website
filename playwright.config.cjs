@@ -40,5 +40,7 @@ module.exports = defineConfig({
   metadata: {
     signalServerAvailable,
     signalServerPath,
+    // Optional isolated endpoint for suites using the shared signal fixture.
+    testSignalURL: process.env.E2E_SIGNAL_URL || null,
   },
 });

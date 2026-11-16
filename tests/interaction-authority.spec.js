@@ -1,4 +1,5 @@
-const { test, expect } = require('@playwright/test');
+const { test } = require('./isolatedSignalFixture.cjs');
+const { expect } = require('@playwright/test');
 
 async function ready(page) {
   await page.goto('./');

@@ -1,4 +1,5 @@
-const { test, expect } = require('@playwright/test');
+const { test } = require('./isolatedSignalFixture.cjs');
+const { expect } = require('@playwright/test');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
