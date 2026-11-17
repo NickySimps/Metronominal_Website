@@ -6,7 +6,7 @@ import RecordingVisualizer from './recordingVisualizer.js';
 import Monitoring from './monitoring.js';
 import { VoiceCaptureSession } from './voiceCaptureSession.js';
 import { createVoiceNoteDisplay } from './voiceNoteDisplay.js';
-import { mapVoiceTake } from './voiceTakeMapping.js';
+import { fitVoiceTakeToBars } from './voiceTakeMapping.js';
 import { createVoiceTakeEditor } from './voiceTakeEditor.js';
 import { validateMelody } from './melodySchema.js';
 import { prepareEngineMelodyInstrument } from './melodyScheduler.js';
@@ -48,7 +48,7 @@ function openVoiceEditor(session, result) {
     if (!DOM.voiceTakeEditorContainer) return;
     try {
         assertVoiceDestination(session);
-        const mapped = mapVoiceTake(structuredClone(result.notes), {
+        const mapped = fitVoiceTakeToBars(structuredClone(result.notes), {
             recordedBpm: session.recordedBpm, captureOrigin: session.captureOrigin,
             startBar: 0, barSettings: session.barSettings, transportState: 'stopped',
             origin: 'first-note', boundaryPolicy: 'reject', quantization: { mode: 'off' }
@@ -80,22 +80,23 @@ function openVoiceEditor(session, result) {
         select.addEventListener('change', voiceDestinationChange);
         voiceDestinationChange();
         const review = voiceReview = { editor: null, destinations };
+        const draftBars = mapped.barSettings;
         review.editor = createVoiceTakeEditor(DOM.voiceTakeEditorContainer, {
-            melody: mapped.melody, barSettings: session.barSettings,
+            melody: mapped.melody, barSettings: draftBars,
             onApply: candidate => {
                 if (voiceReview !== review) throw new Error('Voice draft expired. Capture again.');
                 assertVoiceDestination(session);
-                let melody = validateMelody(candidate, session.barSettings); // Detached and schema-validated before mutation.
+                let melody = validateMelody(candidate, draftBars); // Detached and schema-validated before mutation.
                 const destination = select.value;
                 if (destination === 'new-track') {
-                    AppState.addMelodyTrack({ melody, barSettings: session.barSettings });
+                    AppState.addMelodyTrack({ melody, barSettings: draftBars });
                 } else {
                     const target = destinations.get(destination);
                     const liveTrack = target && AppState.getTracks()[target.index];
                     if (!target || liveTrack !== target.track || JSON.stringify(liveTrack.barSettings) !== target.bars
                         || JSON.stringify(liveTrack.mainBeatSound) !== target.sound)
                         throw new Error('Voice Apply refused: the selected destination changed. Reopen the draft and try again.');
-                    if (!sameTimingGrid(session.barSettings, liveTrack.barSettings))
+                    if (!sameTimingGrid(draftBars, liveTrack.barSettings))
                         throw new Error('Voice Apply refused: destination bars must match the captured bar timing. Choose a compatible track or use a new track.');
                     const sound = liveTrack.mainBeatSound;
                     if (!pitchedSynthNames.has(sound?.sound)) {
@@ -128,7 +129,8 @@ function openVoiceEditor(session, result) {
                 DOM.recordingDisplayModal.style.display = 'none';
             }
         });
-        DOM.voiceRecordingStatus.textContent += ` Preview uses first detected note at bar 1, captured ${session.recordedBpm} BPM, no quantization. Choose a compatible track or create a new pitched melody track.`;
+        const addedBars = draftBars.length - session.barSettings.length;
+        DOM.voiceRecordingStatus.textContent += ` Preview uses the first detected note at bar 1, captured ${session.recordedBpm} BPM, no quantization. ${addedBars ? `The new track will add ${addedBars} bar${addedBars === 1 ? '' : 's'} to fit the take; existing tracks are unchanged. ` : ''}Choose a matching track or create a new pitched melody track.${mapped.warnings.some(w => w.code === 'BAR_SPLIT_RETRIGGERS') ? ' Notes crossing bars are split and retrigger at the boundary.' : ''}`;
     } catch (error) {
         DOM.voiceRecordingStatus.textContent += ` ${error.message} Nothing was applied.`;
     }
@@ -151,6 +153,7 @@ function syncModeControls() {
     if (DOM.recordingMode) DOM.recordingMode.value = recordingMode;
     menuElement('recordingModeSampleBtn', 'recording-mode-sample-btn')?.setAttribute('aria-pressed', String(recordingMode === 'sample'));
     menuElement('recordingModeVoiceBtn', 'recording-mode-voice-btn')?.setAttribute('aria-pressed', String(recordingMode === 'voice'));
+    if (DOM.voiceClickControls) DOM.voiceClickControls.hidden = recordingMode !== 'voice';
 }
 function showStartButton(visible) {
     const start = startButton();
@@ -257,8 +260,63 @@ function recordingTarget(session) {
     return (index >= 0 && document.querySelectorAll('.track-record-btn')[index]) || DOM.recordingStopBtn;
 }
 
+function startVoiceClick(session, context) {
+    const beatSeconds = 60 / session.recordedBpm;
+    const sources = new Map();
+    let nextBeat = context.currentTime + 0.04;
+    let stopped = false, interval = null;
+    const click = session.click = { bpm: session.recordedBpm, stop() {
+        if (stopped) return;
+        stopped = true;
+        if (interval !== null) clearInterval(interval);
+        for (const [source, gain] of sources) {
+            try { source.stop(); } catch (_) {}
+            try { source.disconnect(); } catch (_) {}
+            try { gain.disconnect(); } catch (_) {}
+        }
+        sources.clear();
+    } };
+    const schedule = () => {
+        if (stopped || session.cancelled || AudioController.recordingSession !== session) return;
+        if (nextBeat < context.currentTime - 0.02) nextBeat = context.currentTime + 0.01;
+        const horizon = context.currentTime + 0.12;
+        while (nextBeat <= horizon) {
+            const oscillator = context.createOscillator();
+            const gain = context.createGain();
+            sources.set(oscillator, gain);
+            oscillator.frequency.setValueAtTime(1000, nextBeat);
+            gain.gain.setValueAtTime(0.0001, nextBeat);
+            gain.gain.exponentialRampToValueAtTime(0.16, nextBeat + 0.002);
+            gain.gain.exponentialRampToValueAtTime(0.0001, nextBeat + 0.025);
+            oscillator.connect(gain);
+            gain.connect(context.destination);
+            oscillator.addEventListener('ended', () => {
+                sources.delete(oscillator);
+                try { oscillator.disconnect(); } catch (_) {}
+                try { gain.disconnect(); } catch (_) {}
+            }, { once: true });
+            oscillator.start(nextBeat);
+            oscillator.stop(nextBeat + 0.03);
+            nextBeat += beatSeconds;
+        }
+    };
+    try {
+        schedule();
+        interval = setInterval(() => {
+            try { schedule(); } catch (_) {
+                click.stop();
+                if (AudioController.recordingSession === session) {
+                    session.cancel();
+                    showIdleMessage('The BPM click could not play. Check audio output, then try recording again.');
+                }
+            }
+        }, 25);
+    } catch (error) { click.stop(); throw error; }
+}
+
 function cleanupRecordingSession(session) {
     if (!session) return;
+    try { session.click?.stop(); } catch (_) {} // Microphone cleanup must still run.
     session.stream?.getTracks().forEach(track => track.stop());
     session.source?.disconnect();
     session.analyser?.disconnect();
@@ -361,6 +419,15 @@ const AudioController = {
         });
         menuElement('recordingModeSampleBtn', 'recording-mode-sample-btn')?.addEventListener('click', () => AudioController.setRecordingMode('sample'));
         menuElement('recordingModeVoiceBtn', 'recording-mode-voice-btn')?.addEventListener('click', () => AudioController.setRecordingMode('voice'));
+        DOM.voiceClickEnabled?.addEventListener('change', () => {
+            const session = AudioController.recordingSession;
+            if (!session || session.mode !== 'voice' || session.stopping || session.cancelled) return;
+            session.clickEnabled = DOM.voiceClickEnabled.checked;
+            if (!session.voice || session.voice.state !== 'capturing') return;
+            if (!session.clickEnabled) { session.click?.stop(); session.click = null; return; }
+            try { startVoiceClick(session, AppState.getAudioContext()); }
+            catch (_) { session.cancel(); showIdleMessage('The BPM click could not play. Check audio output, then try recording again.'); }
+        });
         // Cached pre-menu HTML exposes a <select>; keep it as a mode input only.
         if (DOM.recordingMode instanceof HTMLSelectElement)
             DOM.recordingMode.addEventListener('change', () => AudioController.setRecordingMode(DOM.recordingMode.value));
@@ -375,6 +442,7 @@ const AudioController = {
         if (AudioController.recordingSession) return;
         menuTrack = AppState.getTracks()[trackIndex] ?? null;
         recordingMode = 'sample';
+        if (DOM.voiceClickEnabled) DOM.voiceClickEnabled.checked = false;
         renderIdleMenu();
     },
 
@@ -413,6 +481,7 @@ const AudioController = {
         session.authorityGeneration = recordingAuthorityGeneration;
         if (session.mode === 'voice') {
             session.recordedBpm = AppState.getTempo();
+            session.clickEnabled = Boolean(DOM.voiceClickEnabled?.checked);
             session.barSettings = structuredClone(session.track?.barSettings || []);
             session.barFingerprint = JSON.stringify(session.barSettings);
         }
@@ -480,6 +549,15 @@ const AudioController = {
                     onComplete: result => completeVoiceRecording(session, result, current)
                 });
                 session.voice.start();
+                if (session.clickEnabled) {
+                    try { startVoiceClick(session, audioContext); }
+                    catch (_) {
+                        emitInteractionMotion(recordingTarget(session), 'refuse');
+                        session.cancel();
+                        showIdleMessage('The BPM click could not play. Check audio output, then try recording again.');
+                        return;
+                    }
+                }
                 AppState.setRecording(true);
                 TrackController.renderTracks();
                 startRecordingTimer();

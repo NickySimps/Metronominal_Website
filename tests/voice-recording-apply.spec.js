@@ -308,6 +308,37 @@ async function preview(page) {
   await expect(page.getByRole('region', { name: 'Note timeline, scroll horizontally for beats' })).toBeVisible();
   await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('metronominalState'))?.isRecording)).toBe(false);
 }
+test('long voice take fits a new track at captured tempo without modifying existing music', async ({ page }) => {
+  await ready(page, true);
+  await page.evaluate(() => {
+    a.setTempo(300);
+    a.updateTrack(0, { barSettings: [{ beats: 4, subdivision: 1, rests: [] }] });
+    window.beforeFit = a.getMusicalSnapshot();
+  });
+  const baselineCount = await page.evaluate(() => beforeFit.Tracks.length);
+  await page.evaluate(() => audio.setRecordingMode('voice'));
+  await page.locator('#rec').click();
+  await expect(page.locator('.voice-note-display__glyph')).toHaveText('A4');
+  await page.waitForTimeout(1500);
+  await page.locator('#recording-stop-btn').click();
+  await expect(page.getByRole('region', { name: 'Note timeline, scroll horizontally for beats' })).toBeVisible();
+  await expect(page.locator('#voice-recording-status')).toContainText('existing tracks are unchanged');
+  await expect(page.locator('#voice-recording-status')).toContainText('split and retrigger');
+  expect(await page.evaluate(() => JSON.stringify(a.getMusicalSnapshot()) === JSON.stringify(beforeFit))).toBe(true);
+  await expect(page.getByLabel('Destination', { exact: true })).toHaveValue('new-track');
+  await page.getByRole('button', { name: 'Apply draft', exact: true }).click();
+  const result = await page.evaluate(() => ({ tempo:a.getTempo(), source:a.getTracks()[0].barSettings,
+    newBars:a.getTracks().at(-1).barSettings, notes:a.getTracks().at(-1).melody.bars.flat(), captured:results[0].notes[0].duration }));
+  expect(result.tempo).toBe(300);
+  expect(result.source).toEqual([{ beats:4, subdivision:1, rests:[] }]);
+  expect(result.newBars.length).toBeGreaterThan(1);
+  expect(result.notes.length).toBeGreaterThan(1);
+  expect(result.notes.every(note => note.midi === 69)).toBe(true);
+  expect(result.notes.reduce((sum, note) => sum + note.durationTicks, 0)).toBe(Math.round(result.captured * 300 * 960 / 60));
+  await page.getByRole('button', { name:'Undo', exact:true }).click();
+  await expect.poll(() => page.evaluate(() => a.getTracks().length)).toBe(baselineCount);
+  expect(await page.evaluate(() => JSON.stringify(a.getMusicalSnapshot()) === JSON.stringify(beforeFit))).toBe(true);
+});
 for (const width of [320, 390, 1280]) for (const source of [false, true]) {
   test(`${width}px ${source ? 'native generated source' : 'generated microphone'} edits detached preview and applies a pitched track`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 }); await ready(page, source); await preview(page);

@@ -52,6 +52,27 @@ function array(value, limit, code) {
 }
 const finite = (value, min, max) => Number.isFinite(value) && !Object.is(value, -0) && value >= min && value <= max;
 
+/** Extend a detached draft grid, never the source track, until the take fits.
+ * New bars repeat the final bar's meter/subdivision with no rhythm edits.
+ * Reuse the strict mapper so rounded endpoints, splitting and limits remain
+ * identical to ordinary mapping; never clip or change the recorded tempo.
+ */
+export function fitVoiceTakeToBars(notes, options) {
+  const barSettings = structuredClone(options.barSettings);
+  for (;;) {
+    try {
+      return { ...mapVoiceTake(notes, { ...options, barSettings, boundaryPolicy: 'reject' }), barSettings };
+    } catch (error) {
+      if (error?.code !== 'OUT_OF_RANGE') throw error;
+      if (barSettings.length >= MELODY_LIMITS.maxBars) {
+        fail('TAKE_TOO_LONG', `Take exceeds the ${MELODY_LIMITS.maxBars}-bar limit at the recorded BPM`);
+      }
+      const last = barSettings.at(-1);
+      barSettings.push({ beats: last.beats, subdivision: last.subdivision, rests: [] });
+    }
+  }
+}
+
 export function mapVoiceTake(notes, options) {
   record(options, ['recordedBpm', 'captureOrigin', 'startBar', 'barSettings', 'transportState',
     'origin', 'latencySeconds', 'velocity', 'quantization', 'boundaryPolicy', 'idFactory'],

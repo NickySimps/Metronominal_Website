@@ -3587,9 +3587,11 @@ body[data-sync-quality="syncing"] #sync-quality { color: var(--Alt1); }
   color: inherit;
 }
 .recording-mode-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+#voice-click-controls:not([hidden]) { display: flex; align-items: center; gap: 0.6rem; min-height: 44px; cursor: pointer; }
+#voice-click-enabled { width: 20px; height: 20px; flex: 0 0 auto; }
 .recording-mode-buttons button { flex: 1 1 9rem; }
 #recording-mode-help { margin-top: 10px !important; font-size: .9rem; line-height: 1.5; }
-#recording-display-modal :is(select, input:not([type="hidden"])) {
+#recording-display-modal :is(select, input:not([type="hidden"]):not([type="checkbox"])) {
   width: 100%;
   padding: 10px;
   background: var(--Background);

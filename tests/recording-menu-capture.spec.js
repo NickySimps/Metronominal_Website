@@ -90,6 +90,192 @@ async function startVoice(page) {
   await expect(page.locator('.voice-note-display__glyph')).toHaveText('A4');
 }
 
+test('voice BPM click schedules native ticks and responds immediately to live toggle and Stop', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => {
+    const context = a.getAudioContext(), create = context.createOscillator.bind(context);
+    window.clickStarts = []; window.clickStops = []; window.clickOscillators = []; window.clickEnded = [];
+    context.createOscillator = () => {
+      const oscillator = create(), start = oscillator.start.bind(oscillator), stop = oscillator.stop.bind(oscillator);
+      clickOscillators.push(oscillator);
+      oscillator.addEventListener('ended', () => clickEnded.push(oscillator), { once:true });
+      oscillator.start = time => {
+        clickStarts.push(time);
+        const result = start(time);
+        if (window.disarmOnNextClick) {
+          window.disarmOnNextClick = false;
+          queueMicrotask(() => { const input = document.querySelector('#voice-click-enabled'); input.checked = false; input.dispatchEvent(new Event('change', { bubbles:true })); });
+        }
+        return result;
+      };
+      oscillator.stop = time => { clickStops.push({ node:oscillator, at:context.currentTime, requested:time ?? null }); return time === undefined ? stop() : stop(time); };
+      return oscillator;
+    };
+  });
+  await page.locator('#rec').click();
+  await page.locator('#recording-mode-voice-btn').click();
+  const click = page.locator('#voice-click-enabled');
+  await expect(click).not.toBeChecked();
+  await expect(page.locator('#voice-click-controls')).toContainText('headphones recommended');
+  expect(await page.locator('#voice-click-controls').evaluate(el => el.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
+  await click.check();
+  await page.locator('#recording-start-btn').click();
+  await expect(page.locator('.voice-note-display__glyph')).toHaveText('A4');
+  await expect.poll(() => page.evaluate(() => clickStarts.length)).toBeGreaterThanOrEqual(2);
+  const scheduleEvidence = await page.evaluate(() => ({delta: clickStarts[1] - clickStarts[0], streams:streams.length, playing:a.isPlaying()}));
+  expect(scheduleEvidence).toMatchObject({streams:1, playing:false});
+  expect(scheduleEvidence.delta).toBeCloseTo(0.5, 8);
+  expect(await page.evaluate(() => {
+    const oscillator = clickOscillators.at(-1), edge = edges.find(e => e.from === oscillator);
+    return Boolean(edge && edges.some(e => e.from === edge.to && e.to === a.getAudioContext().destination)
+      && !edges.some(e => (e.from === oscillator || e.from === edge.to) && e.to instanceof MediaStreamAudioDestinationNode));
+  })).toBe(true);
+  await click.uncheck();
+  const stopped = await page.evaluate(() => ({ count:clickStarts.length, clickOwned: Boolean(audio.recordingSession?.click), enabled: audio.recordingSession?.clickEnabled }));
+  expect(stopped).toMatchObject({ clickOwned:false, enabled:false });
+  await page.waitForTimeout(700);
+  expect(await page.evaluate(() => clickStarts.length)).toBe(stopped.count);
+  await click.check();
+  await expect.poll(() => page.evaluate(() => clickStarts.length)).toBeGreaterThan(stopped.count);
+  await page.evaluate(() => { window.disarmOnNextClick = true; });
+  await expect(click).not.toBeChecked({ timeout:2000 });
+  const cancellation = await page.evaluate(() => {
+    const node=clickOscillators.at(-1), start=clickStarts.at(-1), stop=clickStops.findLast(s => s.node === node && s.requested === null);
+    const gain=edges.find(e => e.from === node)?.to;
+    return { headroom:stop ? start-stop.at : null, connected:edges.some(e => e.active && (e.from === node || e.from === gain)) };
+  });
+  expect(cancellation.headroom).toBeGreaterThan(0);
+  expect(cancellation.connected).toBe(false);
+  await expect.poll(() => page.evaluate(() => clickEnded.includes(clickOscillators.at(-1)))).toBe(true);
+  await click.check();
+  await page.locator('#recording-stop-btn').click();
+  await released(page);
+  const afterStop = await page.evaluate(() => clickStarts.length);
+  await page.waitForTimeout(700);
+  expect(await page.evaluate(() => clickStarts.length)).toBe(afterStop);
+});
+
+for (const boundary of ['discard', 'escape', 'mode', 'pagehide', 'roomauthoritychange', 'syncrolechange', 'source-ended', 'interrupt']) {
+  test(`voice BPM click stops with ${boundary}`, async ({ page }) => {
+    await ready(page);
+    await page.evaluate(() => {
+      const context = a.getAudioContext(), create = context.createOscillator.bind(context);
+      window.clickStarts = [];
+      context.createOscillator = () => { const osc=create(), start=osc.start.bind(osc); osc.start=time=>{clickStarts.push(time);return start(time)}; return osc; };
+    });
+    await page.locator('#rec').click();
+    await page.locator('#recording-mode-voice-btn').click();
+    await page.locator('#voice-click-enabled').check();
+    await page.locator('#recording-start-btn').click();
+    await expect.poll(() => page.evaluate(() => audio.recordingSession?.voice?.state)).toBe('capturing');
+    await expect.poll(() => page.evaluate(() => clickStarts.length)).toBeGreaterThan(0);
+    const result = await page.evaluate(async boundary => {
+      const owned = audio.recordingSession;
+      if (boundary === 'discard') document.querySelector('#recording-cancel-btn').click();
+      else if (boundary === 'escape') document.dispatchEvent(new KeyboardEvent('keydown', { key:'Escape', bubbles:true }));
+      else if (boundary === 'mode') document.querySelector('#recording-mode-sample-btn').click();
+      else if (boundary === 'pagehide') window.dispatchEvent(new Event('pagehide'));
+      else if (boundary === 'source-ended') owned.stream.getAudioTracks()[0].dispatchEvent(new Event('ended'));
+      else if (boundary === 'interrupt') {
+        const context = a.getAudioContext();
+        const changed = new Promise(resolve => context.addEventListener('statechange', resolve, { once:true }));
+        await context.suspend(); await changed;
+      }
+      else document.dispatchEvent(new Event(boundary));
+      return { session:audio.recordingSession, ended:owned.stream.getTracks().every(t => t.readyState === 'ended'), state:owned.voice.state, count:clickStarts.length };
+    }, boundary);
+    expect(result).toMatchObject({ session:null, ended:true, state:'cancelled' });
+    await page.waitForTimeout(700);
+    expect(await page.evaluate(() => clickStarts.length)).toBe(result.count);
+    await released(page);
+  });
+}
+
+test('voice BPM click enabled during pending permission uses the BPM captured at Start', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => {
+    const context = a.getAudioContext(), create = context.createOscillator.bind(context);
+    window.clickStarts = [];
+    context.createOscillator = () => { const osc=create(), start=osc.start.bind(osc); osc.start=time=>{clickStarts.push(time);return start(time)}; return osc; };
+    const acquire = navigator.mediaDevices.getUserMedia;
+    navigator.mediaDevices.getUserMedia = async constraints => {
+      const stream = await acquire(constraints);
+      await new Promise(resolve => { window.releaseClickAcquire = resolve; });
+      return stream;
+    };
+  });
+  await page.locator('#rec').click();
+  await page.locator('#recording-mode-voice-btn').click();
+  await page.locator('#recording-start-btn').click();
+  await expect.poll(() => page.evaluate(() => typeof window.releaseClickAcquire)).toBe('function');
+  await page.locator('#voice-click-enabled').check();
+  await page.evaluate(() => { a.setTempo(180); releaseClickAcquire(); });
+  await expect(page.locator('.voice-note-display__glyph')).toHaveText('A4');
+  await expect.poll(() => page.evaluate(() => clickStarts.length)).toBeGreaterThanOrEqual(2);
+  const evidence = await page.evaluate(() => ({ captured:audio.recordingSession.recordedBpm, actual:a.getTempo(), delta:clickStarts[1]-clickStarts[0], streams:streams.length, playing:a.isPlaying() }));
+  expect(evidence).toMatchObject({ captured:120, actual:180, streams:1, playing:false });
+  expect(evidence.delta).toBeCloseTo(.5, 8);
+  await page.locator('#recording-stop-btn').click();
+  await released(page);
+});
+
+for (const brokenNode of ['oscillator', 'gain']) {
+  test(`voice BPM click ${brokenNode} disconnect failure cannot strand the microphone`, async ({ page }) => {
+    const pageErrors = []; page.on('pageerror', error => pageErrors.push(error.message));
+    await ready(page);
+    await page.evaluate(brokenNode => {
+      const context = a.getAudioContext(), createOsc = context.createOscillator.bind(context), createGain = context.createGain.bind(context);
+      context.createOscillator = () => {
+        const osc=createOsc(), start=osc.start.bind(osc);
+        if (brokenNode === 'oscillator') osc.disconnect = () => { throw new Error('injected oscillator disconnect failure'); };
+        osc.start=time=>{ const result=start(time); queueMicrotask(()=>document.querySelector('#recording-cancel-btn').click()); return result; };
+        return osc;
+      };
+      if (brokenNode === 'gain') context.createGain = () => {
+        const gain=createGain(); gain.disconnect = () => { throw new Error('injected gain disconnect failure'); }; return gain;
+      };
+    }, brokenNode);
+    await page.locator('#rec').click();
+    await page.locator('#recording-mode-voice-btn').click();
+    await page.locator('#voice-click-enabled').check();
+    await page.locator('#recording-start-btn').click();
+    await expect.poll(() => page.evaluate(() => streams.length)).toBe(1);
+    await released(page);
+    expect(pageErrors).toEqual([]);
+  });
+}
+
+test('voice BPM click does not start when microphone permission is denied', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => {
+    const context = a.getAudioContext(), create = context.createOscillator.bind(context);
+    window.clickStarts = [];
+    context.createOscillator = () => { const osc=create(), start=osc.start.bind(osc); osc.start=time=>{clickStarts.push(time);return start(time)}; return osc; };
+    navigator.mediaDevices.getUserMedia = async () => { throw new DOMException('denied', 'NotAllowedError'); };
+  });
+  await page.locator('#rec').click();
+  await page.locator('#recording-mode-voice-btn').click();
+  await page.locator('#voice-click-enabled').check();
+  await page.locator('#recording-start-btn').click();
+  await expect(page.locator('#voice-recording-status')).toContainText('permission was denied');
+  expect(await page.evaluate(() => ({ starts:clickStarts.length, session:audio.recordingSession, playing:a.isPlaying() }))).toEqual({ starts:0, session:null, playing:false });
+});
+
+test('voice BPM click startup failure cancels capture and releases microphone', async ({ page }) => {
+  await ready(page);
+  await page.evaluate(() => {
+    const context = a.getAudioContext();
+    context.createOscillator = () => { throw new Error('synthetic click failure'); };
+  });
+  await page.locator('#rec').click();
+  await page.locator('#recording-mode-voice-btn').click();
+  await page.locator('#voice-click-enabled').check();
+  await page.locator('#recording-start-btn').click();
+  await expect(page.locator('#voice-recording-status')).toContainText('BPM click could not play');
+  await released(page);
+  expect(await page.evaluate(() => ({ streams:streams.length, ended:streams.every(s => s.getTracks().every(t => t.readyState === 'ended')) }))).toEqual({ streams:1, ended:true });
+});
+
 test('track Rec opens an idle sample menu without requesting the microphone; Escape closes', async ({ page }) => {
   await ready(page);
   await page.locator('#rec').click();
@@ -298,6 +484,17 @@ test('320px menu fits without horizontal overflow in both idle modes', async ({ 
     await page.locator(`#recording-mode-${mode}-btn`).click();
     await expectIdle(page, mode, 0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (mode === 'voice') {
+      const bounds = await page.locator('#voice-click-controls').evaluate(label => {
+        const field = label.querySelector('input'), l=label.getBoundingClientRect(), f=field.getBoundingClientRect();
+        const range=document.createRange(); range.selectNodeContents(label.lastChild); const text=range.getBoundingClientRect();
+        return { width:f.width, labelHeight:l.height, inputRight:f.right, textLeft:text.left, textRight:text.right, viewport:innerWidth };
+      });
+      expect(bounds.width).toBeLessThanOrEqual(44);
+      expect(bounds.labelHeight).toBeGreaterThanOrEqual(44);
+      expect(bounds.inputRight).toBeLessThanOrEqual(bounds.textLeft);
+      expect(bounds.textRight).toBeLessThanOrEqual(bounds.viewport);
+    }
   }
 });
 

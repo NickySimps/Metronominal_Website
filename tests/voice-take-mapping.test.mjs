@@ -6,13 +6,38 @@ const schemaSource = await readFile(new URL('../js/melodySchema.js', import.meta
 const schemaUrl = `data:text/javascript;base64,${Buffer.from(schemaSource).toString('base64')}`;
 const source = await readFile(new URL('../js/voiceTakeMapping.js', import.meta.url), 'utf8');
 const moduleSource = source.replace("'./melodySchema.js'", JSON.stringify(schemaUrl));
-const { mapVoiceTake } = await import(`data:text/javascript;base64,${Buffer.from(moduleSource).toString('base64')}`);
+const { mapVoiceTake, fitVoiceTakeToBars } = await import(`data:text/javascript;base64,${Buffer.from(moduleSource).toString('base64')}`);
 const { validateMelody } = await import(schemaUrl);
 const meter = (...beats) => beats.map(beats => ({ beats, subdivision: 7 }));
 const note = (startTime = 10.5, endTime = 11, midi = 60) => ({ midi, startTime, endTime, duration: endTime - startTime });
 const options = (extra = {}) => ({ recordedBpm: 120, captureOrigin: 10, startBar: 0,
   barSettings: meter(4, 3), transportState: 'stopped', idFactory: ({ noteIndex, segmentIndex }) => `n${noteIndex}_${segmentIndex}`, ...extra });
 const map = (notes = [note()], extra = {}) => mapVoiceTake(notes, options(extra));
+
+test('automatic fit extends a detached final-meter grid without changing the captured tempo or source', () => {
+  const original = [{ beats: 3, subdivision: 1, rests: [0] }, { beats: 4, subdivision: 2, rests: [] }];
+  const before = structuredClone(original);
+  const result = fitVoiceTakeToBars([note(1, 4.6)], options({ recordedBpm: 300, captureOrigin: 0, origin: 'first-note', barSettings: original }));
+  assert.deepEqual(original, before);
+  assert.equal(result.timing.recordedBpm, 300);
+  assert.deepEqual(result.barSettings.slice(0, 2), before);
+  assert.equal(result.barSettings.length, 5);
+  assert.deepEqual(result.barSettings.slice(2), Array.from({ length: 3 }, () => ({ beats: 4, subdivision: 2, rests: [] })));
+  assert.equal(result.melody.bars.flat().reduce((sum, item) => sum + item.durationTicks, 0), 18 * 960);
+  assert.ok(result.warnings.some(w => w.code === 'BAR_SPLIT_RETRIGGERS'));
+});
+
+test('automatic fit keeps an exact final boundary without adding a bar', () => {
+  const result = fitVoiceTakeToBars([note(0, .8)], options({ recordedBpm: 300, captureOrigin: 0, origin: 'first-note', barSettings: meter(4) }));
+  assert.equal(result.barSettings.length, 1);
+  assert.equal(result.melody.bars[0][0].durationTicks, 3840);
+});
+
+test('automatic fit refuses over-limit takes without clipping or mutating bars', () => {
+  const original = meter(4), before = structuredClone(original);
+  assert.throws(() => fitVoiceTakeToBars([note(0, 52)], options({ recordedBpm: 300, captureOrigin: 0, origin: 'first-note', barSettings: original })), e => e.code === 'TAKE_TOO_LONG');
+  assert.deepEqual(original, before);
+});
 
 test('fractional BPM and long silence never accumulate beat-by-beat drift', () => {
   const recordedBpm = 123.45;
