@@ -10,6 +10,7 @@ import { fitVoiceTakeToBars } from './voiceTakeMapping.js';
 import { createVoiceTakeEditor } from './voiceTakeEditor.js';
 import { validateMelody } from './melodySchema.js';
 import { prepareEngineMelodyInstrument } from './melodyScheduler.js';
+import { isSynchronizationJoined } from './webrtc.js';
 
 let voiceReview = null;
 let voiceDestinationChange = null;
@@ -33,7 +34,8 @@ function discardVoiceReview() {
     if (DOM.voiceTakeSampleRoot) DOM.voiceTakeSampleRoot.value = '';
 }
 function assertVoiceDestination(session) {
-    if (session.authorityGeneration !== recordingAuthorityGeneration || session.authority !== window.isHost || window.isHost === false)
+    if (session.authorityGeneration !== recordingAuthorityGeneration || session.authority !== window.isHost
+        || (isSynchronizationJoined() && window.isHost !== true))
         throw new Error('Voice Apply refused: host authority changed. Discard and capture again.');
     if (AppState.isPlaying()) throw new Error('Stop playback before applying voice notes.');
     if (!session.track || !AppState.getTracks().includes(session.track) || JSON.stringify(session.track.barSettings) !== session.barFingerprint)
